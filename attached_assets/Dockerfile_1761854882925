@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+WORKDIR /opt/octobot
+RUN apt-get update && apt-get install -y git python3-pip && rm -rf /var/lib/apt/lists/*
+# Clone OctoBot source if not present
+RUN git clone https://github.com/Drakkar-Software/OctoBot.git /opt/octobot || true
+RUN python3 -m pip install --no-cache-dir -r /opt/octobot/requirements.txt || true
+COPY adapter_octobot.py /opt/octobot/adapter_octobot.py
+EXPOSE 9003
+CMD ["python3","/opt/octobot/adapter_octobot.py"]

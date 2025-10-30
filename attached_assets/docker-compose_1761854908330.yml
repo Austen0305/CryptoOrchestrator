@@ -1,0 +1,50 @@
+version: '3.8'
+services:
+  orchestrator:
+    build: ./orchestrator
+    image: crypto-orchestrator:latest
+    command: uvicorn orchestrator:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    depends_on:
+      - hummingbot_adapter
+      - gekko_adapter
+      - octobot_adapter
+
+  hummingbot_adapter:
+    build:
+      context: ./adapters/hummingbot
+      dockerfile: Dockerfile
+    image: hummingbot-adapter:latest
+    ports:
+      - "9001:9001"
+    environment:
+      - ADAPTER_PORT=9001
+      - HB_API_KEY
+      - HB_SECRET_KEY
+    volumes:
+      - ./adapters/hummingbot/data:/opt/hummingbot/data
+
+  gekko_adapter:
+    build:
+      context: ./adapters/gekko
+      dockerfile: Dockerfile
+    image: gekko-adapter:latest
+    ports:
+      - "9002:9002"
+    environment:
+      - ADAPTER_PORT=9002
+    volumes:
+      - ./adapters/gekko/data:/opt/gekko/data
+
+  octobot_adapter:
+    build:
+      context: ./adapters/octobot
+      dockerfile: Dockerfile
+    image: octobot-adapter:latest
+    ports:
+      - "9003:9003"
+    environment:
+      - ADAPTER_PORT=9003
+    volumes:
+      - ./adapters/octobot/user:/octobot/user

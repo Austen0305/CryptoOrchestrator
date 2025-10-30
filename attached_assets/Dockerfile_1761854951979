@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+WORKDIR /opt/hummingbot
+# Install dependencies for building/emulating Hummingbot
+RUN apt-get update && apt-get install -y git curl build-essential && rm -rf /var/lib/apt/lists/*
+# Use official Hummingbot Docker image as recommended, but we provide CLI wrapper for headless mode
+# We will clone the deploy repo at build time or runtime if needed.
+COPY adapter_hummingbot.py /opt/hummingbot/adapter_hummingbot.py
+RUN pip install --no-cache-dir fastapi uvicorn pyyaml
+EXPOSE 9001
+CMD ["python","adapter_hummingbot.py"]
