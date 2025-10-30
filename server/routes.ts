@@ -263,38 +263,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/download-project", async (req, res) => {
-    try {
-      const { exec } = await import("child_process");
-      const { promisify } = await import("util");
-      const execAsync = promisify(exec);
-
-      // Create the zip file
-      await execAsync("bash create-download.sh");
-
-      // Find the created zip file
-      const fs = await import("fs");
-      const files = fs.readdirSync(".");
-      const zipFile = files.find(f => f.startsWith("cryptoml-trading-platform_") && f.endsWith(".zip"));
-
-      if (!zipFile) {
-        return res.status(500).json({ error: "Failed to create download package" });
-      }
-
-      // Send the file
-      res.download(zipFile, zipFile, (err) => {
-        if (err) {
-          console.error("Error downloading file:", err);
-        }
-        // Clean up the zip file after download
-        fs.unlinkSync(zipFile);
-      });
-    } catch (error) {
-      console.error("Error creating download:", error);
-      res.status(500).json({ error: "Failed to create download package" });
-    }
-  });
-
   app.post("/api/fees/calculate", async (req, res) => {
     try {
       const { amount, price, side, isMaker, volumeUSD } = req.body;
