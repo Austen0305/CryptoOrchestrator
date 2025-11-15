@@ -91,6 +91,12 @@
   - TailwindCSS styling
   - Responsive mobile-first design
   - Dark/Light theme support
+- **React Native Mobile App** 📱
+  - iOS & Android support
+  - Biometric authentication (Face ID, Touch ID, Fingerprint)
+  - Real-time portfolio tracking
+  - WebSocket integration for live updates
+  - Native performance and offline capabilities
 - **Real-time Updates** via WebSocket
 - **Interactive Charts** with TradingView-style interface
 - **Bot Management** - Create, configure, start/stop bots
@@ -199,6 +205,43 @@ npm run build:electron
 # Or create distributable packages
 npm run electron:dist
 ```
+
+## 📱 Mobile Application
+
+The mobile app provides full trading capabilities on iOS and Android devices.
+
+### Features
+- 🔐 Biometric authentication
+- 📊 Real-time portfolio tracking
+- 📈 Live market data and charts
+- 🔔 Push notifications for trades and alerts
+- ⚡ WebSocket integration
+- 🌙 Dark theme optimized for OLED
+
+### Quick Start
+
+```bash
+cd mobile
+
+# Install dependencies (already done if you ran npm install in root)
+npm install
+
+# For iOS (macOS only)
+npm run ios
+
+# For Android
+npm run android
+
+# For detailed setup instructions
+See mobile/QUICKSTART.md and mobile/README.md
+```
+
+### Mobile Setup Requirements
+- iOS: macOS with Xcode 14+, CocoaPods
+- Android: Android Studio, JDK 17, Android SDK
+- Physical device or emulator/simulator
+
+**Note:** Native iOS/Android projects need initialization. See `mobile/QUICKSTART.md` for step-by-step instructions.
 
 ### Using Python Integrations
 

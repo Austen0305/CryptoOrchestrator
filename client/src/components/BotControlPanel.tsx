@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Play, Pause, Settings, TrendingUp, Loader2 } from "lucide-react";
+import { Settings, TrendingUp, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import { useStartBot, useStopBot } from "@/hooks/useApi";
 import { useIntegrationsStatus, useStartIntegrations, useStopIntegrations } from "@/hooks/useApi";
 import { toast } from "@/hooks/use-toast";
 import type { BotConfig } from "../../../shared/schema";
+import { BotIntelligence } from "./BotIntelligence";
 
 interface BotControlPanelProps {
   bots: BotConfig[];
@@ -19,6 +20,7 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
   const startBotMutation = useStartBot();
   const stopBotMutation = useStopBot();
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
+  const [expandedBots, setExpandedBots] = useState<Set<string>>(new Set());
   const integrationsStatus = useIntegrationsStatus();
   const startIntegrationsMut = useStartIntegrations();
   const stopIntegrationsMut = useStopIntegrations();
@@ -57,6 +59,18 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
     }
   };
 
+  const toggleIntelligence = (botId: string) => {
+    setExpandedBots(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(botId)) {
+        newSet.delete(botId);
+      } else {
+        newSet.add(botId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
@@ -77,6 +91,7 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
         const isRunning = bot.status === "running";
         const isProfit = bot.profitLoss >= 0;
         const isPending = pendingActions.has(bot.id);
+  const isExpanded = expandedBots.has(bot.id);
 
         return (
           <Card key={bot.id} data-testid={`card-bot-${bot.id}`}>
@@ -139,6 +154,15 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => toggleIntelligence(bot.id)}
+                    data-testid={`button-intelligence-${bot.id}`}
+                  >
+                    {isExpanded ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
+                    AI Intelligence
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     data-testid={`button-settings-${bot.id}`}
                   >
                     <Settings className="h-4 w-4 mr-1" />
@@ -151,6 +175,12 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
                   >
                     <TrendingUp className="h-4 w-4 mr-1" />
                     Performance
+
+              {isExpanded && (
+                <div className="pt-4 border-t">
+                  <BotIntelligence botId={bot.id} />
+                </div>
+              )}
                   </Button>
                 </div>
               </div>

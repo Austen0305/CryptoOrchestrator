@@ -7,5 +7,6 @@
     "Codegeex.RepoIndex": true,
     "easycode.codeLens": true,
     "easycode.skipDiff": true,
-    "easycode.useActiveViewContext": true
+    "easycode.useActiveViewContext": true,
+    "chat.agent.maxRequests": 150
 }

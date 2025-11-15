@@ -1,6 +1,14 @@
 {
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "include": ["client/src/**/*", "shared/**/*"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "server/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**"
+  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
@@ -15,7 +23,7 @@
     "moduleResolution": "bundler",
     "baseUrl": ".",
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "vite/client", "jest"],
+  "types": ["node", "jest", "react", "react-dom"],
     "downlevelIteration": true,
     "target": "es2022",
     "paths": {

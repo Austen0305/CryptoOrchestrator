@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { User, LoginRequest, RegisterRequest } from '../../../shared/schema';
+import type { User, RegisterRequest } from '../../../shared/schema';
 
 const API_BASE =
   (typeof window !== 'undefined' && (window as any).__API_BASE__) ||

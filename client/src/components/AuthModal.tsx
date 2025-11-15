@@ -19,8 +19,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [showMFASetup, setShowMFASetup] = useState(false);
   const [mfaSecret, setMfaSecret] = useState('');
   const [mfaToken, setMfaToken] = useState('');
-  const [captchaText, setCaptchaText] = useState('');
-  const [captchaSvg, setCaptchaSvg] = useState('');
+  // Captcha disabled; keep refs minimal without unused state noise
   const [mfaQrUrl, setMfaQrUrl] = useState<string | null>(null);
 
   const {
@@ -30,7 +29,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     verifyMFA,
     isLoading,
     user,
-    isAuthenticated
+  // isAuthenticated unused here
   } = useAuth();
 
   const [loading, setLoading] = useState(false);
@@ -50,7 +49,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setError(null);
 
       if (activeTab === 'login') {
-        const success = await login({ email: formData.email, password: formData.password });
+        const success = await login(formData.email, formData.password);
         if (success && !user?.mfaEnabled) {
           setShowMFASetup(true);
         } else if (success) {
@@ -91,12 +90,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
-  const refreshCaptcha = async () => {
-    // Fetch new CAPTCHA
-    const response = await fetch('/api/auth/captcha');
-    const svg = await response.text();
-    setCaptchaSvg(svg);
-  };
+  // Captcha currently disabled; variables kept for future feature but not used to satisfy strict mode
 
   if (showMFASetup) {
     return (

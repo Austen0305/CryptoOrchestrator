@@ -2,7 +2,8 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    // Clone so callers can still read the body later
+    const text = (await res.clone().text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
 }
@@ -17,18 +18,40 @@ export async function apiRequest(
 
   console.log(`[API Request] ${method} ${fullUrl}`, data);
 
+  // Attach Authorization header if token exists (proper fix: use login flow)
+  const headers: Record<string, string> = {};
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (data) headers['Content-Type'] = 'application/json';
+
   const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
   console.log(`[API Response] ${method} ${fullUrl} - Status: ${res.status}`, res.headers.get('content-type'));
 
+  // Centralized 401 handling and error log without consuming original body
   if (!res.ok) {
-    const errorText = await res.text();
+    const errorText = await res.clone().text();
     console.error(`[API Error] ${method} ${fullUrl} - ${res.status}: ${errorText}`);
+
+    if (res.status === 401) {
+      try {
+        const obj = JSON.parse(errorText);
+        const detail = (obj && (obj.detail || obj.message)) || String(errorText);
+        if (/token/i.test(detail)) {
+          // Clear invalid token and notify app
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('auth_user');
+          window.dispatchEvent(new CustomEvent('auth:expired'));
+        }
+      } catch {
+        // ignore JSON parse failure
+      }
+    }
   }
 
   await throwIfResNotOk(res);

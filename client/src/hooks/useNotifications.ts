@@ -1,17 +1,18 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { Notification } from '../../../shared/schema';
+import { useScenarioStore } from '@/hooks/useScenarioStore';
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { toast } = useToast();
-  const { getAuthHeaders, isAuthenticated, user } = useAuth();
-  const { isConnected, sendMessage } = useWebSocket();
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const { getAuthHeaders, isAuthenticated } = useAuth();
+  const { isConnected } = useWebSocket();
+  // reconnectTimeoutRef removed (not used); any future reconnect logic can add it back with cleanup
 
   const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -169,17 +170,8 @@ export const useNotifications = () => {
     }
   }, [getAuthHeaders, toast]);
 
-  // WebSocket connection for real-time notifications
-  useEffect(() => {
-    if (isAuthenticated && user?.token && isConnected) {
-      // Send authentication message for notifications
-      sendMessage({
-        type: 'auth',
-        token: user.token,
-        subscribe: ['notifications']
-      });
-    }
-  }, [isAuthenticated, user, isConnected, sendMessage]);
+  // WebSocket subscription pattern updated: notifications served on dedicated /ws/notifications endpoint.
+  // We reuse the main market-data socket only for generic events; dedicated endpoint preferred for volume.
 
   // Handle WebSocket messages for notifications
   useEffect(() => {
@@ -194,6 +186,24 @@ export const useNotifications = () => {
           case 'notification':
             setNotifications(prev => [data.data, ...prev]);
             setUnreadCount(prev => prev + 1);
+            break;
+          case 'risk_scenario':
+            // Scenario broadcast from backend: data.data holds scenario result
+            if (data.data?.data) {
+              const scenario = data.data.data;
+              // Update scenario store (maintain history)
+              try {
+                const store = useScenarioStore.getState();
+                store.add?.(scenario);
+              } catch (e) {
+                console.warn('Scenario store update failed', e);
+              }
+            }
+            // Also surface as notification if present
+            if (data.data) {
+              setNotifications(prev => [data.data, ...prev]);
+              setUnreadCount(prev => prev + 1);
+            }
             break;
           case 'notification_read':
             setNotifications(prev =>
@@ -223,49 +233,49 @@ export const useNotifications = () => {
       }
     };
 
-    if (isConnected) {
-      // Add event listener for WebSocket messages
-      const ws = (window as any).ws || (window as any).WebSocket;
-      if (ws) {
-        ws.addEventListener('message', handleMessage);
-      }
-
-      return () => {
-        if (ws) {
-          ws.removeEventListener('message', handleMessage);
-        }
-      };
-    }
+    if (!isConnected) return undefined;
+    // Dedicated notifications websocket
+    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    if (!token || !isAuthenticated) return undefined;
+    const wsBase = (typeof window !== 'undefined' && (window as any).__WS_BASE__)
+      || (import.meta as any)?.env?.VITE_WS_BASE_URL
+      || (() => {
+        const api = (typeof window !== 'undefined' && (window as any).__API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+        if (api.startsWith('http')) return api.replace(/^http/, 'ws');
+        return 'ws://localhost:8000';
+      })();
+    const ws = new WebSocket(`${wsBase}/ws/notifications`);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'auth', token }));
+    };
+    ws.addEventListener('message', handleMessage);
+    return () => ws.close();
   }, [isConnected]);
 
   // Fallback to polling when WebSocket is not available
   useEffect(() => {
-    if (!isConnected && isAuthenticated) {
-      fetchNotifications();
-
-      const pollInterval = setInterval(() => {
-        fetchNotifications();
-      }, 30000); // Poll every 30 seconds
-
-      return () => clearInterval(pollInterval);
-    }
+    if (isConnected || !isAuthenticated) return undefined;
+    fetchNotifications();
+    const pollInterval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(pollInterval);
   }, [isAuthenticated, isConnected, fetchNotifications]);
 
   // Fetch notifications on mount and when authentication changes
   useEffect(() => {
-    if (isAuthenticated && !isConnected) {
-      fetchNotifications();
-    } else if (!isAuthenticated) {
+    if (!isAuthenticated) {
       setNotifications([]);
       setUnreadCount(0);
+      return undefined;
     }
+    if (!isConnected) fetchNotifications();
+    return undefined;
   }, [isAuthenticated, isConnected, fetchNotifications]);
 
   // Update unread count when notifications change (for non-WebSocket mode)
   useEffect(() => {
-    if (!isConnected) {
-      setUnreadCount(notifications.filter(n => !n.read).length);
-    }
+    if (isConnected) return undefined;
+    setUnreadCount(notifications.filter(n => !n.read).length);
+    return undefined;
   }, [notifications, isConnected]);
 
   return {

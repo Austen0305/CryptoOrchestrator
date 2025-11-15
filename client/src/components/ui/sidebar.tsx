@@ -3,6 +3,72 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
+import { Menu } from "lucide-react"
+import { Button } from "./button"
+import { Slot } from "@radix-ui/react-slot"
+
+// Sidebar Context
+interface SidebarContextValue {
+  open: boolean
+  setOpen: (open: boolean) => void
+  toggleSidebar: () => void
+}
+
+const SidebarContext = React.createContext<SidebarContextValue | undefined>(undefined)
+
+function useSidebar() {
+  const context = React.useContext(SidebarContext)
+  if (!context) {
+    throw new Error("useSidebar must be used within a SidebarProvider")
+  }
+  return context
+}
+
+// Sidebar Provider
+const SidebarProvider = ({
+  children,
+  defaultOpen = true,
+  className,
+}: {
+  children: React.ReactNode
+  defaultOpen?: boolean
+  className?: string
+}) => {
+  const [open, setOpen] = React.useState(defaultOpen)
+  
+  const toggleSidebar = React.useCallback(() => {
+    setOpen(prev => !prev)
+  }, [])
+
+  return (
+    <SidebarContext.Provider value={{ open, setOpen, toggleSidebar }}>
+      <div className={className}>{children}</div>
+    </SidebarContext.Provider>
+  )
+}
+
+// Sidebar Trigger Button
+const SidebarTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<typeof Button>
+>(({ className, ...props }, ref) => {
+  const { toggleSidebar } = useSidebar()
+  
+  return (
+    <Button
+      ref={ref}
+      variant="ghost"
+      size="icon"
+      onClick={toggleSidebar}
+      className={cn("h-8 w-8", className)}
+      {...props}
+    >
+      <Menu className="h-4 w-4" />
+      <span className="sr-only">Toggle sidebar</span>
+    </Button>
+  )
+})
+SidebarTrigger.displayName = "SidebarTrigger"
 
 const sidebarVariants = cva(
   "group flex flex-col overflow-hidden border-r bg-background text-sidebar-foreground",
@@ -113,8 +179,7 @@ const SidebarGroupLabel = React.forwardRef<
     asChild?: boolean
   }
 >(({ className, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? React.Fragment : "div"
-
+  const Comp: any = asChild ? Slot : "div"
   return (
     <Comp
       ref={ref}
@@ -135,8 +200,7 @@ const SidebarGroupAction = React.forwardRef<
     asChild?: boolean
   }
 >(({ className, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? React.Slot : "button"
-
+  const Comp: any = asChild ? Slot : "button"
   return (
     <Comp
       ref={ref}
@@ -227,7 +291,7 @@ const SidebarMenuButton = React.forwardRef<
     },
     ref
   ) => {
-    const Comp = asChild ? React.Slot : "button"
+  const Comp: any = asChild ? Slot : "button"
 
     return (
       <Comp
@@ -250,7 +314,7 @@ const SidebarMenuAction = React.forwardRef<
     showOnHover?: boolean
   }
 >(({ className, asChild = false, showOnHover = false, ...props }, ref) => {
-  const Comp = asChild ? React.Slot : "button"
+  const Comp: any = asChild ? Slot : "button"
 
   return (
     <Comp
@@ -308,7 +372,7 @@ const SidebarMenuSkeleton = React.forwardRef<
     {...props}
   >
     {showIcon && (
-      <React.SVGProps<SVGSVGElement> className="flex h-4 w-4 rounded-sm bg-sidebar-border shrink-0" />
+      <div className="flex h-4 w-4 rounded-sm bg-sidebar-border shrink-0" />
     )}
     <div className="flex h-4 flex-1 max-w-[--skeleton-width] rounded-sm bg-sidebar-border" />
   </div>
@@ -346,7 +410,7 @@ const SidebarMenuSubButton = React.forwardRef<
     isActive?: boolean
   }
 >(({ asChild = false, size = "md", isActive, className, ...props }, ref) => {
-  const Comp = asChild ? React.Slot : "a"
+  const Comp: any = asChild ? Slot : "a"
 
   return (
     <Comp
@@ -386,7 +450,10 @@ export {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarProvider,
   SidebarSeparator,
+  SidebarTrigger,
   sidebarMenuButtonVariants,
   sidebarVariants,
+  useSidebar,
 }

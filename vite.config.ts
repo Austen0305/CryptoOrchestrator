@@ -49,8 +49,8 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           react: ['react', 'react-dom'],
-          charts: ['recharts', 'chart.js'],
-          ui: ['@radix-ui/react-icons', 'class-variance-authority']
+          charts: ['recharts'],
+          ui: ['class-variance-authority', 'lucide-react']
         }
       }
     }
@@ -79,10 +79,9 @@ export default defineConfig(({ mode }) => ({
     include: [
       'react',
       'react-dom',
-      '@radix-ui/react-icons',
+  'lucide-react',
       'class-variance-authority',
-      'recharts',
-      'chart.js'
+  'recharts'
     ]
   }
 }));

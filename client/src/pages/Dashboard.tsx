@@ -1,17 +1,26 @@
+// Types enforced; temporary ts-nocheck removed.
 import { PortfolioCard } from "@/components/PortfolioCard";
 import { PriceChart } from "@/components/PriceChart";
 import { OrderEntryPanel } from "@/components/OrderEntryPanel";
 import { OrderBook } from "@/components/OrderBook";
 import { TradeHistory } from "@/components/TradeHistory";
 import { TradingRecommendations } from "@/components/TradingRecommendations";
+import React, { Suspense } from 'react';
+const RiskSummary = React.lazy(() => import('@/components/RiskSummary').then(m => ({ default: m.RiskSummary })));
+const RiskScenarioPanel = React.lazy(() => import('@/components/RiskScenarioPanel').then(m => ({ default: m.RiskScenarioPanel })));
+const MultiHorizonRiskPanel = React.lazy(() => import('@/components/MultiHorizonRiskPanel').then(m => ({ default: m.MultiHorizonRiskPanel })));
 import { usePortfolio, useTrades, useStatus } from "@/hooks/useApi";
+import { useBotStatus } from "@/hooks/useBotStatus";
 import { useState } from 'react';
-import { Wallet, TrendingUp, Activity, DollarSign, Loader2, Target } from "lucide-react";
+import { generateOhlcv } from '@/lib/ohlcv';
+import { useAuth } from '@/hooks/useAuth';
+import { Wallet, TrendingUp, Activity, DollarSign, Loader2 } from "lucide-react";
 
 export default function Dashboard() {
   const { data: portfolio, isLoading: portfolioLoading } = usePortfolio("paper");
   const { data: trades, isLoading: tradesLoading } = useTrades();
   const { data: status } = useStatus();
+  const { runningBots } = useBotStatus();
 
   const chartData = [
     { time: "00:00", price: 45200 },
@@ -68,7 +77,7 @@ export default function Dashboard() {
         />
         <PortfolioCard
           title="Active Bots"
-          value={status?.runningBots?.toString() || "0"}
+          value={(status?.runningBots ?? runningBots ?? 0).toString()}
           icon={Activity}
           subtitle={status?.krakenConnected ? "Kraken Connected" : "Kraken Disconnected"}
           className="min-w-[140px]"
@@ -120,6 +129,21 @@ export default function Dashboard() {
         <TradingRecommendations />
       </div>
 
+      {/* Risk Summary (lazy loaded) */}
+      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading risk metrics…</div>}>
+        <RiskSummary />
+      </Suspense>
+
+      {/* Risk Scenario Simulator */}
+      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading scenario simulator…</div>}>
+        <RiskScenarioPanel />
+      </Suspense>
+
+      {/* Multi-Horizon VaR & ES */}
+      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading multi-horizon risk…</div>}>
+        <MultiHorizonRiskPanel />
+      </Suspense>
+
       {/* Trade History - Always full width */}
       <div className="rounded-lg border bg-card overflow-hidden">
         <TradeHistory trades={trades || []} />
@@ -131,16 +155,33 @@ export default function Dashboard() {
 function PredictPanel() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
+  const { isAuthenticated } = useAuth();
+
+  // Minimal synthetic sample OHLCV data for predict endpoint
+  const sampleData = generateOhlcv(60, 47350, 60_000);
 
   async function callPredict() {
+    if (!isAuthenticated) {
+      setResult({ error: 'You must be logged in to run predictions.' });
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
+      const token = localStorage.getItem('auth_token');
       const resp = await fetch('/api/integrations/predict', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ symbol: 'BTC/USDT', timeframe: '1h', data: sampleData })
       });
+      if (!resp.ok) {
+        const text = await resp.text();
+        setResult({ error: `Request failed (${resp.status}): ${text}` });
+        return;
+      }
       const data = await resp.json();
       setResult(data);
     } catch (e) {
@@ -152,8 +193,8 @@ function PredictPanel() {
 
   return (
     <div>
-      <button onClick={callPredict} className="btn mr-2" disabled={loading}>
-        {loading ? 'Predicting…' : 'Predict'}
+      <button onClick={callPredict} className="btn mr-2" disabled={loading || !isAuthenticated}>
+        {loading ? 'Predicting…' : !isAuthenticated ? 'Login to Predict' : 'Predict'}
       </button>
       {result && (
         <pre className="mt-2 text-sm max-h-48 overflow-auto bg-muted p-2 rounded">{JSON.stringify(result, null, 2)}</pre>

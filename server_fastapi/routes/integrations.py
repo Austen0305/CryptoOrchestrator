@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Dict, Any, List, Optional
 import logging
 
@@ -50,7 +50,70 @@ class IntegrationStatusResponse(BaseModel):
     status: Dict[str, Any]
     details: Optional[Dict[str, Any]] = None
 
+class IntegrationStatusDetail(BaseModel):
+    name: str
+    running: bool
+    pid: Optional[int] = None
+    enabled: bool = True
+    error: Optional[str] = None
+
+class IntegrationsOverviewResponse(BaseModel):
+    status: str
+    running: bool
+    integrations: Dict[str, IntegrationStatusDetail]
+    adapters: Dict[str, IntegrationStatusDetail] | None = None
+    started: bool | None = None
+
 router = APIRouter()
+
+# Overview status endpoint (public, no auth required)
+@router.get("/status", response_model=IntegrationsOverviewResponse)
+async def get_integrations_overview(
+    integration_svc=Depends(get_integration_service),
+    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator)
+) -> IntegrationsOverviewResponse:
+    """Get overview status of all integrations and trading adapters"""
+    try:
+        statuses: Dict[str, IntegrationStatusDetail] = {}
+        any_running = False
+
+        # Check integration service processes
+        for name in integration_svc.integrations.keys():
+            proc = integration_svc.processes.get(name)
+            running = proc is not None and proc.poll() is None
+            any_running = any_running or running
+            
+            statuses[name] = IntegrationStatusDetail(
+                name=name,
+                running=running,
+                pid=proc.pid if running else None,
+                enabled=integration_svc.integrations[name].enabled
+            )
+
+        # Collect adapter statuses separately for response shape expected by tests
+        adapters: Dict[str, IntegrationStatusDetail] = {}
+        for adapter_name in ['freqtrade', 'jesse']:
+            detail = IntegrationStatusDetail(
+                name=adapter_name,
+                running=orchestrator.started,
+                enabled=True
+            )
+            adapters[adapter_name] = detail
+            if orchestrator.started:
+                any_running = True
+            # Keep adapters also inside integrations for backwards compatibility
+            statuses[adapter_name] = detail
+
+        return IntegrationsOverviewResponse(
+            status="ok",
+            running=any_running,
+            integrations=statuses,
+            adapters=adapters,
+            started=orchestrator.started
+        )
+    except Exception as e:
+        logger.error(f"Error getting integrations overview: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Integration management endpoints
 @router.get("/integrations", response_model=List[IntegrationListResponse])
@@ -175,25 +238,24 @@ async def restart_integration(
 class PredictRequest(BaseModel):
     symbol: str = Field(..., description="Trading symbol (e.g., 'BTC/USDT')")
     timeframe: str = Field("1h", description="Timeframe for analysis")
-    data: List[Dict[str, Any]] = Field(..., description="OHLCV market data", min_items=1)
-
-    class Config:
-        schema_extra = {
-            "example": {
-                "symbol": "BTC/USDT",
-                "timeframe": "1h",
-                "data": [
-                    {
-                        "timestamp": "2023-01-01T00:00:00Z",
-                        "open": 16500.0,
-                        "high": 16600.0,
-                        "low": 16400.0,
-                        "close": 16550.0,
-                        "volume": 100.0
-                    }
-                ]
-            }
+    data: List[Dict[str, Any]] = Field(..., description="OHLCV market data", min_length=1)
+    
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "symbol": "BTC/USDT",
+            "timeframe": "1h",
+            "data": [
+                {
+                    "timestamp": "2023-01-01T00:00:00Z",
+                    "open": 16500.0,
+                    "high": 16600.0,
+                    "low": 16400.0,
+                    "close": 16550.0,
+                    "volume": 100.0
+                }
+            ]
         }
+    })
 
 class BacktestRequest(BaseModel):
     symbol: str = Field(..., description="Trading symbol")
@@ -202,16 +264,15 @@ class BacktestRequest(BaseModel):
     initial_balance: float = Field(10000.0, description="Initial balance", gt=0)
     strategy_params: Dict[str, Any] = Field(default_factory=dict, description="Strategy parameters")
 
-    class Config:
-        schema_extra = {
-            "example": {
-                "symbol": "BTC/USDT",
-                "start_date": "2023-01-01",
-                "end_date": "2023-12-31",
-                "initial_balance": 10000.0,
-                "strategy_params": {"rsi_period": 14}
-            }
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "symbol": "BTC/USDT",
+            "start_date": "2023-01-01",
+            "end_date": "2023-12-31",
+            "initial_balance": 10000.0,
+            "strategy_params": {"rsi_period": 14}
         }
+    })
 
 @router.post("/predict")
 async def predict(
@@ -339,7 +400,7 @@ async def get_status(
 ) -> Dict[str, Any]:
     """Get status of all trading framework adapters"""
     try:
-        ping_result = orchestrator.ping_all()
+        ping_result = await orchestrator.ping_all()
         # Get integration statuses
         integration_statuses = {}
         for name in integration_svc.integrations.keys():
@@ -371,7 +432,7 @@ async def get_adapter_health(
     """Get health status of a specific adapter"""
     try:
         # Check orchestrator health
-        ping_result = orchestrator.ping_all()
+        ping_result = await orchestrator.ping_all()
         orchestrator_status = None
         if name == "freqtrade":
             orchestrator_status = getattr(ping_result, "freqtrade", None)

@@ -1,10 +1,13 @@
+// Types enforced; temporary ts-nocheck removed.
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Bell, Settings, User, LogIn, LogOut } from "lucide-react";
+import { Settings, LogIn, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { AuthModal } from "./AuthModal";
 import { NotificationCenter } from "./NotificationCenter";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface TradingHeaderProps {
   balance: number;
@@ -13,6 +16,26 @@ interface TradingHeaderProps {
 
 export function TradingHeader({ balance, connected }: TradingHeaderProps) {
   const { isAuthenticated, user, logout } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { toast } = useToast();
+
+  // Open auth modal automatically on auth:expired events
+  useEffect(() => {
+    const handler = () => {
+      // Clear any stale modal state then reopen
+      setShowAuthModal(true);
+      try {
+        toast({ title: 'Session expired', description: 'Please log in again to continue.', variant: 'destructive' });
+      } catch {}
+    };
+    window.addEventListener('auth:expired', handler);
+    return () => window.removeEventListener('auth:expired', handler);
+  }, []);
+
+  // If user becomes authenticated while modal is open, close it
+  useEffect(() => {
+    if (isAuthenticated && showAuthModal) setShowAuthModal(false);
+  }, [isAuthenticated, showAuthModal]);
 
   return (
     <header className="h-16 border-b bg-card flex items-center justify-between px-6">
@@ -52,8 +75,14 @@ export function TradingHeader({ balance, connected }: TradingHeaderProps) {
           </div>
         ) : (
           <>
-            <AuthModal isOpen={true} onClose={() => {}} />
-            <Button variant="ghost" size="icon" data-testid="button-login">
+            <AuthModal isOpen={!isAuthenticated && showAuthModal} onClose={() => setShowAuthModal(false)} />
+            <Button
+              variant="ghost"
+              size="icon"
+              data-testid="button-login"
+              onClick={() => setShowAuthModal(true)}
+              aria-label="Login"
+            >
               <LogIn className="h-5 w-5" />
             </Button>
           </>

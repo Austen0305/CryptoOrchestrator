@@ -6,11 +6,11 @@ import logging
 import asyncio
 from datetime import datetime
 
-from ..services.enhanced_ml_engine import EnhancedMLEngine, MLPrediction
-from ..services.ensemble_engine import EnsembleEngine, EnsemblePrediction
-from ..services.neural_network_engine import NeuralNetworkEngine, NeuralNetPrediction
-from ..services.advanced_risk_manager import AdvancedRiskManager, RiskProfile
-from ..services.trading_orchestrator import TradingOrchestrator
+from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
+from ..services.trading.bot_service import (
+    get_bot_service as get_bot_service_impl,
+    get_bot_trading_service as get_bot_trading_service_impl
+)
 from .auth import get_current_user, storage
 import jwt
 import os
@@ -38,20 +38,11 @@ def validate_jwt_and_get_user(credentials: HTTPAuthorizationCredentials = Depend
         raise HTTPException(status_code=401, detail="Invalid token")
 
 # Dependency injection for services
-def get_ml_engine() -> EnhancedMLEngine:
-    return EnhancedMLEngine()
+def get_bot_service():
+    return get_bot_service_impl()
 
-def get_ensemble_engine() -> EnsembleEngine:
-    return EnsembleEngine()
-
-def get_neural_network_engine() -> NeuralNetworkEngine:
-    return NeuralNetworkEngine()
-
-def get_risk_manager() -> AdvancedRiskManager:
-    return AdvancedRiskManager()
-
-def get_trading_orchestrator() -> TradingOrchestrator:
-    return TradingOrchestrator()
+def get_bot_trading_service():
+    return get_bot_trading_service_impl()
 
 router = APIRouter()
 
@@ -75,7 +66,7 @@ class CreateBotRequest(BaseModel):
 
     @staticmethod
     def validate_strategy(strategy: str):
-        valid_strategies = ['ml_enhanced', 'ensemble', 'neural_network', 'simple_ma', 'rsi']
+        valid_strategies = ['ml_enhanced', 'ensemble', 'neural_network', 'simple_ma', 'rsi', 'smart_adaptive']
         if strategy not in valid_strategies:
             raise ValueError(f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}")
 
@@ -173,27 +164,35 @@ class MockBotStorage:
             return True
         return False
 
-bot_storage = MockBotStorage()
-
 @router.get("/")
 async def get_bots(current_user: dict = Depends(validate_jwt_and_get_user)) -> List[BotConfig]:
     """Get all trading bots for the authenticated user"""
     try:
-        return bot_storage.get_user_bots(current_user['id'])
+        bot_service = get_bot_service()
+        bot_configs = await bot_service.list_user_bots(current_user['id'])
+        # bot_configs are BotConfiguration objects from service - convert to BotConfig response
+        result = []
+        for bot_conf in bot_configs:
+            # BotConfiguration has: id, strategy, parameters, active
+            # BotConfig needs: id, user_id, name, symbol, strategy, is_active, config, created_at, updated_at
+            # We need to fetch full bot data to get all fields
+            bot_data = await bot_service.get_bot_config(bot_conf.id, current_user['id'])
+            if bot_data:
+                result.append(BotConfig(**bot_data))
+        return result
     except Exception as e:
-        logger.error(f"Error fetching bots for user {current_user['id']}: {e}")
+        logger.error(f"Error fetching bots for user {current_user['id']}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch bots")
 
 @router.get("/{bot_id}")
 async def get_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotConfig:
     """Get a specific bot by ID"""
     try:
-        bot = bot_storage.get_bot(bot_id)
+        bot_service = get_bot_service()
+        bot = await bot_service.get_bot_config(bot_id, current_user['id'])
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
-        return bot
+        return BotConfig(**bot)
     except HTTPException:
         raise
     except Exception as e:
@@ -207,11 +206,35 @@ async def create_bot(request: CreateBotRequest, current_user: dict = Depends(val
         # Validate strategy
         CreateBotRequest.validate_strategy(request.strategy)
 
-        bot = bot_storage.create_bot(request.dict(), current_user['id'])
-        logger.info(f"Created new bot: {bot.id} for user {current_user['id']}")
-        return bot
+        # Validate configuration
+        bot_service = get_bot_service()
+        is_valid = await bot_service.validate_bot_config(request.strategy, request.config)
+        logger.info(f"Bot config validation result: {is_valid} for strategy {request.strategy} with config {request.config}")
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Invalid bot configuration")
+
+        bot_id = await bot_service.create_bot(
+            current_user['id'],
+            request.name,
+            request.symbol,
+            request.strategy,
+            request.config
+        )
+
+        if not bot_id:
+            raise HTTPException(status_code=500, detail="Failed to create bot")
+
+        # Get the created bot
+        bot_data = await bot_service.get_bot_config(bot_id, current_user['id'])
+        if not bot_data:
+            raise HTTPException(status_code=500, detail="Failed to retrieve created bot")
+
+        logger.info(f"Created new bot: {bot_id} for user {current_user['id']}")
+        return BotConfig(**bot_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error creating bot for user {current_user['id']}: {e}")
         raise HTTPException(status_code=500, detail="Failed to create bot")
@@ -220,23 +243,32 @@ async def create_bot(request: CreateBotRequest, current_user: dict = Depends(val
 async def update_bot(bot_id: str, request: UpdateBotRequest, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotConfig:
     """Update an existing bot"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
-        if not bot:
+        bot_service = get_bot_service()
+
+        # Check if bot exists
+        existing_bot = await bot_service.get_bot_config(bot_id, current_user['id'])
+        if not existing_bot:
             raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
 
         # Validate strategy if being updated
         if request.strategy:
             CreateBotRequest.validate_strategy(request.strategy)
 
-        updates = {k: v for k, v in request.dict().items() if v is not None}
-        bot = bot_storage.update_bot(bot_id, updates)
-        if not bot:
-            raise HTTPException(status_code=404, detail="Bot not found")
+        # Prepare updates
+        updates = {k: v for k, v in request.model_dump().items() if v is not None}
+
+        # Update bot
+        success = await bot_service.update_bot(bot_id, current_user['id'], updates)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to update bot")
+
+        # Get updated bot
+        updated_bot = await bot_service.get_bot_config(bot_id, current_user['id'])
+        if not updated_bot:
+            raise HTTPException(status_code=500, detail="Failed to retrieve updated bot")
+
         logger.info(f"Updated bot: {bot_id}")
-        return bot
+        return BotConfig(**updated_bot)
     except HTTPException:
         raise
     except Exception as e:
@@ -247,15 +279,17 @@ async def update_bot(bot_id: str, request: UpdateBotRequest, current_user: dict 
 async def delete_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)):
     """Delete a bot"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
-        if not bot:
-            raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
+        bot_service = get_bot_service()
 
-        if not bot_storage.delete_bot(bot_id):
+        # Check if bot exists
+        existing_bot = await bot_service.get_bot_config(bot_id, current_user['id'])
+        if not existing_bot:
             raise HTTPException(status_code=404, detail="Bot not found")
+
+        success = await bot_service.delete_bot(bot_id, current_user['id'])
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete bot")
+
         logger.info(f"Deleted bot: {bot_id}")
         return {"message": "Bot deleted successfully"}
     except HTTPException:
@@ -266,23 +300,35 @@ async def delete_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_
 
 @router.post("/{bot_id}/start")
 async def start_bot(bot_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(validate_jwt_and_get_user)):
-    """Start a trading bot"""
+    """Start a trading bot with safety checks"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
-        if not bot:
-            raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
+        bot_service = get_bot_service()
+        trading_service = get_bot_trading_service()
 
-        if bot.is_active:
+        # Validate start conditions
+        validation = await bot_service.validate_bot_start_conditions(bot_id, current_user['id'])
+        if not validation["can_start"]:
+            blockers = ", ".join(validation.get("blockers", []))
+            raise HTTPException(status_code=403, detail=f"Cannot start bot: {blockers}")
+
+        if validation.get("warnings"):
+            logger.warning(f"Starting bot {bot_id} despite warnings: {validation['warnings']}")
+
+        # Check if bot is already active
+        bot_status = await bot_service.get_bot_status(bot_id, current_user['id'])
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        if bot_status.get('is_active'):
             raise HTTPException(status_code=400, detail="Bot is already active")
 
-        # Update bot status
-        bot_storage.update_bot(bot_id, {'is_active': True})
+        # Start the bot
+        success = await bot_service.start_bot(bot_id, current_user['id'])
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to start bot")
 
-        # Start bot in background
-        background_tasks.add_task(run_bot_loop, bot_id)
+        # Start bot trading loop in background
+        background_tasks.add_task(trading_service.run_bot_loop, bot_id, current_user['id'])
 
         logger.info(f"Started bot: {bot_id}")
         return {"message": f"Bot {bot_id} started successfully"}
@@ -296,18 +342,19 @@ async def start_bot(bot_id: str, background_tasks: BackgroundTasks, current_user
 async def stop_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)):
     """Stop a trading bot"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
-        if not bot:
-            raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
+        bot_service = get_bot_service()
 
-        if not bot.is_active:
+        # Check if bot exists
+        bot_status = await bot_service.get_bot_status(bot_id, current_user['id'])
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        if not bot_status.get('is_active'):
             raise HTTPException(status_code=400, detail="Bot is not active")
 
-        # Update bot status
-        bot_storage.update_bot(bot_id, {'is_active': False})
+        success = await bot_service.stop_bot(bot_id, current_user['id'])
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to stop bot")
 
         logger.info(f"Stopped bot: {bot_id}")
         return {"message": f"Bot {bot_id} stopped successfully"}
@@ -321,27 +368,19 @@ async def stop_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_ge
 async def get_bot_model(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> Dict[str, Any]:
     """Get bot's ML model status"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
+        bot_service = get_bot_service()
+        bot = await bot_service.get_bot_config(bot_id, current_user['id'])
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
+
+        strategy = bot.get('strategy', 'simple_ma')
 
         # Get appropriate ML engine based on strategy
-        ml_engine = None
-        if bot.strategy == 'ml_enhanced':
-            ml_engine = get_ml_engine()
-        elif bot.strategy == 'ensemble':
-            ml_engine = get_ensemble_engine()
-        elif bot.strategy == 'neural_network':
-            ml_engine = get_neural_network_engine()
-
-        if ml_engine:
-            # In real implementation, get actual model status
+        if strategy in ['ml_enhanced', 'ensemble', 'neural_network']:
+            # In real implementation, get actual model status from ML engines
             return {
                 "bot_id": bot_id,
-                "strategy": bot.strategy,
+                "strategy": strategy,
                 "model_trained": True,
                 "last_trained": datetime.now().isoformat(),
                 "accuracy": 0.65,
@@ -352,7 +391,7 @@ async def get_bot_model(bot_id: str, current_user: dict = Depends(validate_jwt_a
         else:
             return {
                 "bot_id": bot_id,
-                "strategy": bot.strategy,
+                "strategy": strategy,
                 "model_trained": False,
                 "message": "No ML model required for this strategy"
             }
@@ -366,14 +405,13 @@ async def get_bot_model(bot_id: str, current_user: dict = Depends(validate_jwt_a
 async def get_bot_performance(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotPerformance:
     """Get bot performance metrics"""
     try:
-        # Check if bot exists and belongs to user
-        bot = bot_storage.get_bot(bot_id)
+        bot_service = get_bot_service()
+        bot = await bot_service.get_bot_config(bot_id, current_user['id'])
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
-        if bot.user_id != current_user['id']:
-            raise HTTPException(status_code=403, detail="Access denied")
 
-        # Mock performance data - in real implementation, get from trading orchestrator
+        # In a real implementation, get actual performance data from repository
+        # For now, return mock data
         return BotPerformance(
             total_trades=45,
             winning_trades=28,
@@ -390,95 +428,191 @@ async def get_bot_performance(bot_id: str, current_user: dict = Depends(validate
         logger.error(f"Error getting performance for bot {bot_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get performance data")
 
-async def run_bot_loop(bot_id: str):
-    """Background task to run bot trading loop"""
+# Note: Bot loop and trading cycle functions moved to BotTradingService
+# They are now called via background_tasks.add_task(trading_service.run_bot_loop, bot_id, user_id)
+
+
+@router.get("/safety/status")
+async def get_safety_status(current_user: dict = Depends(validate_jwt_and_get_user)):
+    """Get current safety status"""
     try:
-        logger.info(f"Starting trading loop for bot {bot_id}")
-
-        while True:
-            # Check if bot is still active
-            bot = bot_storage.get_bot(bot_id)
-            if not bot or not bot.is_active:
-                logger.info(f"Bot {bot_id} is no longer active, stopping loop")
-                break
-
-            try:
-                # Mock trading logic
-                await perform_trading_cycle(bot)
-            except Exception as e:
-                logger.error(f"Error in trading cycle for bot {bot_id}: {e}")
-
-            # Wait before next cycle (e.g., 5 minutes)
-            await asyncio.sleep(300)
-
+        bot_service = get_bot_service()
+        status = await bot_service.get_system_safety_status()
+        return status
     except Exception as e:
-        logger.error(f"Critical error in bot loop {bot_id}: {e}")
-        # Ensure bot is marked as inactive on error
-        try:
-            bot_storage.update_bot(bot_id, {'is_active': False})
-        except:
-            pass
+        logger.error(f"Error getting safety status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get safety status")
 
-async def perform_trading_cycle(bot: BotConfig):
-    """Perform one trading cycle for the bot"""
+@router.post("/safety/emergency-stop")
+async def emergency_stop(current_user: dict = Depends(validate_jwt_and_get_user)):
+    """Trigger emergency stop for all trading activities"""
     try:
-        # Mock market data
-        market_data = [
-            {
-                "timestamp": int(datetime.now().timestamp() * 1000),
-                "open": 50000,
-                "high": 50200,
-                "low": 49900,
-                "close": 50100,
-                "volume": 1.5
-            }
-        ]
+        # Check if user has admin privileges (simplified check)
+        if current_user.get('role') != 'admin':
+            raise HTTPException(status_code=403, detail="Admin privileges required for emergency stop")
 
-        # Get appropriate ML service based on bot strategy
-        prediction = None
-        if bot.strategy == 'ml_enhanced':
-            ml_engine = get_ml_engine()
-            prediction = await ml_engine.predict(market_data)
-        elif bot.strategy == 'ensemble':
-            ensemble_engine = get_ensemble_engine()
-            prediction = await ensemble_engine.predict(market_data)
-        elif bot.strategy == 'neural_network':
-            neural_engine = get_neural_network_engine()
-            prediction = await neural_engine.predict(market_data)
-        else:
-            # Simple strategy - mock implementation
-            prediction = MLPrediction(action='hold', confidence=0.5, reasoning='Simple strategy')
+        bot_service = get_bot_service()
+        stopped_count = await bot_service.emergency_stop_all_user_bots(current_user['id'], "admin_emergency")
 
-        # Get risk profile
-        risk_manager = get_risk_manager()
-        risk_profile = await risk_manager.calculate_optimal_risk_profile(
-            current_price=50100.0,
-            volatility=0.02,
-            market_conditions={'regime': 'normal', 'trend': {'strength': 0.6}}
-        )
+        logger.critical(f"Emergency stop activated by user {current_user['id']}: stopped {stopped_count} bots")
+        return {"message": "Emergency stop activated", "status": "all_trading_halted", "bots_stopped": stopped_count}
 
-        # Trading decision logic
-        confidence_threshold = bot.config.get('ml_config', {}).get('confidence_threshold', 0.6)
-        if prediction and prediction.action in ['buy', 'sell'] and prediction.confidence > confidence_threshold:
-            logger.info(f"Bot {bot.id} ({bot.strategy}) would execute {prediction.action} trade with confidence {prediction.confidence}")
-
-            # In a real implementation, this would execute the trade via trading orchestrator
-            # For now, we'll just log the action
-            trade_details = {
-                "bot_id": bot.id,
-                "symbol": bot.symbol,
-                "action": prediction.action,
-                "confidence": prediction.confidence,
-                "price": market_data[-1]['close'],
-                "timestamp": datetime.now().isoformat(),
-                "strategy": bot.strategy
-            }
-            logger.info(f"Trade details: {trade_details}")
-
-        # Record prediction result for accuracy tracking
-        if hasattr(prediction, 'action') and bot.strategy in ['ml_enhanced', 'ensemble', 'neural_network']:
-            # In real implementation, this would track actual vs predicted performance
-            pass
-
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error in trading cycle for bot {bot.id}: {e}")
+        logger.error(f"Error activating emergency stop: {e}")
+        raise HTTPException(status_code=500, detail="Failed to activate emergency stop")
+
+
+# Smart Intelligence Endpoints
+
+@router.get('/bots/{bot_id}/analysis')
+async def get_bot_analysis(
+    bot_id: str,
+    current_user: dict = Depends(get_current_user),
+    bot_trading_service = Depends(get_bot_trading_service)
+):
+    """Get real-time smart analysis for a bot"""
+    try:
+        from ..services.trading.smart_bot_engine import SmartBotEngine
+        
+        # Get bot configuration
+        bot_service = get_bot_service()
+        bot_status = await bot_service.get_bot_status(bot_id, current_user['id'])
+        
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        # Prepare market data (in production, fetch from exchange)
+        market_data = await bot_trading_service._get_market_data(bot_status)
+        smart_data = bot_trading_service._prepare_smart_market_data(market_data, bot_status)
+        
+        # Get smart analysis
+        smart_engine = SmartBotEngine()
+        signal = await smart_engine.analyze_market(smart_data)
+        
+        return {
+            'bot_id': bot_id,
+            'symbol': bot_status.get('symbol', 'Unknown'),
+            'analysis': {
+                'action': signal.action,
+                'confidence': signal.confidence,
+                'strength': signal.strength,
+                'risk_score': signal.risk_score,
+                'reasoning': signal.reasoning,
+                'timestamp': signal.timestamp.isoformat()
+            },
+            'market_condition': smart_engine._detect_market_regime(smart_data['candles'])
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting bot analysis: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get analysis: {str(e)}")
+
+
+@router.get('/bots/{bot_id}/risk-metrics')
+async def get_bot_risk_metrics(
+    bot_id: str,
+    current_user: dict = Depends(get_current_user),
+    bot_trading_service = Depends(get_bot_trading_service)
+):
+    """Get comprehensive risk assessment for a bot"""
+    try:
+        from ..services.trading.smart_bot_engine import SmartBotEngine
+        
+        bot_service = get_bot_service()
+        bot_status = await bot_service.get_bot_status(bot_id, current_user['id'])
+        
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        # Get market data and analysis
+        market_data = await bot_trading_service._get_market_data(bot_status)
+        smart_data = bot_trading_service._prepare_smart_market_data(market_data, bot_status)
+        
+        smart_engine = SmartBotEngine()
+        signal = await smart_engine.analyze_market(smart_data)
+        
+        # Calculate risk metrics
+        closes = [c['close'] for c in smart_data['candles']]
+        risk_score = signal.risk_score
+        
+        # Additional risk calculations
+        import numpy as np
+        returns = np.diff(closes) / closes[:-1]
+        volatility = np.std(returns) * np.sqrt(252)  # Annualized
+        sharpe = (np.mean(returns) * 252) / (volatility + 1e-6)
+        max_dd = np.min(np.minimum.accumulate(closes) / closes - 1)
+        
+        return {
+            'bot_id': bot_id,
+            'symbol': bot_status.get('symbol', 'Unknown'),
+            'risk_metrics': {
+                'overall_risk_score': risk_score,
+                'volatility': float(volatility),
+                'sharpe_ratio': float(sharpe),
+                'max_drawdown': float(max_dd),
+                'current_confidence': signal.confidence,
+                'market_regime': smart_engine._detect_market_regime(smart_data['candles']),
+                'timestamp': datetime.now().isoformat()
+            },
+            'recommendations': {
+                'suggested_position_size': 'conservative' if risk_score > 0.7 else 'moderate' if risk_score > 0.4 else 'normal',
+                'stop_loss_adjustment': 'tight' if risk_score > 0.7 else 'normal',
+                'warnings': [
+                    'High volatility detected' if volatility > 0.5 else None,
+                    'Significant drawdown present' if max_dd < -0.15 else None,
+                    'Low confidence signals' if signal.confidence < 0.5 else None
+                ]
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting risk metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get risk metrics: {str(e)}")
+
+
+@router.post('/bots/{bot_id}/optimize')
+async def optimize_bot_parameters(
+    bot_id: str,
+    current_user: dict = Depends(get_current_user),
+    bot_trading_service = Depends(get_bot_trading_service)
+):
+    """Optimize bot parameters based on current market conditions"""
+    try:
+        from ..services.trading.smart_bot_engine import SmartBotEngine
+        
+        bot_service = get_bot_service()
+        bot_status = await bot_service.get_bot_status(bot_id, current_user['id'])
+        
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        # Get market data
+        market_data = await bot_trading_service._get_market_data(bot_status)
+        smart_data = bot_trading_service._prepare_smart_market_data(market_data, bot_status)
+        
+        # Get adaptive parameters
+        smart_engine = SmartBotEngine()
+        adaptive_params = await smart_engine.get_adaptive_parameters(smart_data)
+        
+        logger.info(f"Optimized parameters for bot {bot_id}: {adaptive_params}")
+        
+        return {
+            'bot_id': bot_id,
+            'symbol': bot_status.get('symbol', 'Unknown'),
+            'optimized_parameters': adaptive_params,
+            'timestamp': datetime.now().isoformat()
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error optimizing bot: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to optimize: {str(e)}")
+# Removed duplicate code that was moved to BotTradingService
+

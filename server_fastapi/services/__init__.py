@@ -1,8 +1,10 @@
 # Services package
 
-from .enhanced_ml_engine import EnhancedMLEngine, enhanced_ml_engine, TechnicalIndicators, MLPrediction, MarketData
-from .ensemble_engine import EnsembleEngine, ensemble_engine, EnsemblePrediction
-from .neural_network_engine import NeuralNetworkEngine, neural_network_engine, NeuralNetPrediction
+# Import ML services from ml subpackage
+from .ml.enhanced_ml_engine import EnhancedMLEngine, enhanced_ml_engine, TechnicalIndicators, MLPrediction, MarketData
+from .ml.ensemble_engine import EnsembleEngine, ensemble_engine, EnsemblePrediction
+from .ml.neural_network_engine import NeuralNetworkEngine, neural_network_engine, NeuralNetworkConfig
+
 from .integration_service import IntegrationService, integration_service
 
 __all__ = [
@@ -16,7 +18,7 @@ __all__ = [
     'EnsemblePrediction',
     'NeuralNetworkEngine',
     'neural_network_engine',
-    'NeuralNetPrediction',
+    'NeuralNetworkConfig',
     'IntegrationService',
     'integration_service',
 ]

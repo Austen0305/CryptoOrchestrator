@@ -263,7 +263,12 @@ export class RiskManagementEngine {
   }
 
   private calculateCurrentPositionSize(portfolio: Portfolio): number {
-    const totalValue = Object.values(portfolio.positions).reduce((sum, pos) => sum + pos.totalValue, 0);
+      const totalValue = Object.values(portfolio.positions).reduce((sum, pos) => {
+        if (typeof sum === 'number' && typeof pos.totalValue === 'number') {
+          return sum + pos.totalValue;
+        }
+        return sum;
+      }, 0);
     return portfolio.totalBalance > 0 ? totalValue / portfolio.totalBalance : 0;
   }
 

@@ -69,3 +69,23 @@ export interface UpdatePreferencesData {
   uiSettings?: Partial<UserPreferences['uiSettings']>;
   tradingSettings?: Partial<UserPreferences['tradingSettings']>;
 }
+
+// Trading Bot Types
+export interface TradingBot {
+  id: number;
+  name: string;
+  strategy: string;
+  status: 'active' | 'stopped' | 'paused' | 'error';
+  pair: string;
+  balance: number;
+  profit: number;
+  trades: number;
+  created_at: string;
+  updated_at: string;
+  config?: {
+    stopLoss?: number;
+    takeProfit?: number;
+    maxPosition?: number;
+    [key: string]: any;
+  };
+}

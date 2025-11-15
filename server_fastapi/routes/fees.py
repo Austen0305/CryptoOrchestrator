@@ -5,6 +5,7 @@ from typing import Optional
 import logging
 import jwt
 import os
+from ..services.exchange_service import default_exchange
 
 logger = logging.getLogger(__name__)
 
@@ -43,22 +44,23 @@ class FeeInfo(BaseModel):
     volumeUSD: float
     nextTierVolume: Optional[float] = None
 
-# Mock fee data
-mock_fee_info = {
-    "makerFee": 0.0016,  # 0.16%
-    "takerFee": 0.0026,  # 0.26%
-    "volumeUSD": 100000.0,
-    "nextTierVolume": 500000.0
-}
-
 @router.get("/", response_model=FeeInfo)
 async def get_fees(volumeUSD: Optional[float] = None, current_user: dict = Depends(get_current_user)):
-    """Get current fee information"""
+    """Get current fee information from exchange"""
     try:
-        fee_info = mock_fee_info.copy()
-        if volumeUSD is not None:
-            # In a real implementation, calculate tiered fees based on volume
-            fee_info["volumeUSD"] = volumeUSD
+        # Use real volume if provided, otherwise use mock volume for tier calculation
+        volume = volumeUSD or 100000.0
+
+        # Get fees from exchange service
+        fees = default_exchange.get_fees(volume)
+
+        fee_info = {
+            "makerFee": fees.maker,
+            "takerFee": fees.taker,
+            "volumeUSD": volume,
+            "nextTierVolume": 500000.0 if volume < 500000 else None  # Simplified tier logic
+        }
+
         return fee_info
     except Exception as e:
         logger.error(f"Failed to get fees: {e}")
@@ -66,14 +68,27 @@ async def get_fees(volumeUSD: Optional[float] = None, current_user: dict = Depen
 
 @router.post("/calculate", response_model=FeeResponse)
 async def calculate_fees(request: FeeCalculationRequest, current_user: dict = Depends(get_current_user)):
-    """Calculate trading fees for a specific trade"""
+    """Calculate trading fees for a specific trade using exchange service"""
     try:
-        # Mock fee calculation
-        fee_percentage = mock_fee_info["makerFee"] if request.isMaker else mock_fee_info["takerFee"]
-        fee_amount = request.amount * request.price * fee_percentage
+        # Get current trading volume for fee tier calculation (mock for now)
+        volume_usd = 100000.0  # In production, get from user trading history
+
+        # Calculate fee using exchange service
+        fee_amount = default_exchange.calculate_fee(
+            amount=request.amount,
+            price=request.price,
+            is_maker=request.isMaker if request.isMaker is not None else False,
+            volume_usd=volume_usd
+        )
 
         total_amount = request.amount * request.price
-        net_amount = total_amount - fee_amount if request.side == "sell" else total_amount + fee_amount
+        fee_percentage = fee_amount / total_amount
+
+        # Calculate net amount based on side
+        if request.side == "buy":
+            net_amount = total_amount + fee_amount
+        else:  # sell
+            net_amount = total_amount - fee_amount
 
         return {
             "feeAmount": fee_amount,

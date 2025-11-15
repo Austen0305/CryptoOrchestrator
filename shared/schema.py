@@ -1,4 +1,8 @@
-from pydantic import BaseModel, EmailStr
+try:
+    from pydantic import BaseModel, EmailStr
+except Exception:
+    from pydantic import BaseModel
+    EmailStr = str  # Fallback when email-validator extra isn't installed
 from typing import Optional, Dict, Any, List
 from enum import Enum
 

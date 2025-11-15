@@ -1,8 +1,11 @@
 import asyncio
 import pytest
 
-# Import the manager from the adapter
 from .. import freqtrade_adapter as fa
+
+pytestmark = []
+if not getattr(fa, 'freqtrade_available', False):
+    pytestmark.append(pytest.mark.skip(reason="freqtrade library not installed; adapter tests skipped"))
 
 
 @pytest.mark.asyncio

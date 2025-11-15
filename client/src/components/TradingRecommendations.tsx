@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,16 +43,21 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
   const [recommendations, setRecommendations] = useState<TradingRecommendations | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    fetchRecommendations();
-  }, []);
+    if (isAuthenticated) {
+      fetchRecommendations();
+    } else {
+      setRecommendations(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
 
   const fetchRecommendations = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/recommendations');
-      if (!response.ok) throw new Error('Failed to fetch recommendations');
+      const response = await apiRequest('GET', '/api/recommendations');
       const data = await response.json();
       setRecommendations(data);
     } catch (err) {

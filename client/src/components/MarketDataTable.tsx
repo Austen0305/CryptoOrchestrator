@@ -2,8 +2,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Star, Search, TrendingUp, TrendingDown } from "lucide-react";
+import { Star, Search, TrendingUp, TrendingDown, Download } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { exportToCSV, exportWithNotification } from "@/lib/export";
 
 interface Market {
   pair: string;
@@ -21,6 +23,7 @@ interface MarketDataTableProps {
 export function MarketDataTable({ markets }: MarketDataTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   const toggleFavorite = (pair: string) => {
     const newFavorites = new Set(favorites);
@@ -37,12 +40,23 @@ export function MarketDataTable({ markets }: MarketDataTableProps) {
     m.pair.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleExportCSV = () => {
+    const rows = filteredMarkets.map((m) => ({
+      Pair: m.pair,
+      Price: m.price,
+      Change24h: m.change24h,
+      Volume24h: m.volume24h,
+    }));
+    exportWithNotification(() => exportToCSV(rows, { filename: `markets-${Date.now()}.csv` }), toast, 'Markets exported to CSV');
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
           <CardTitle>Markets</CardTitle>
-          <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search markets..."
@@ -51,6 +65,10 @@ export function MarketDataTable({ markets }: MarketDataTableProps) {
               className="pl-9"
               data-testid="input-search-markets"
             />
+            </div>
+            <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-markets-csv">
+              <Download className="h-4 w-4 mr-1" /> CSV
+            </Button>
           </div>
         </div>
       </CardHeader>

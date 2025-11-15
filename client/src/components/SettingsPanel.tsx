@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { UserPreferences } from '@shared/types';
 import { usePreferences } from '../hooks/usePreferences';
 import { useTheme } from './ThemeProvider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -26,7 +27,7 @@ export function SettingsPanel() {
     }
   };
 
-  const handleNotificationChange = async (type: keyof typeof preferences.notifications, enabled: boolean) => {
+  const handleNotificationChange = async (type: keyof UserPreferences['notifications'], enabled: boolean) => {
     if (!preferences) return;
 
     try {

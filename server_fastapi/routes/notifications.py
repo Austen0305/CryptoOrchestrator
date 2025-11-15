@@ -36,7 +36,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-@router.get("/notifications", response_model=Dict[str, Any])
+@router.get("/", response_model=Dict[str, Any])
 async def get_notifications(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -70,7 +70,7 @@ async def get_notifications(
         logger.error(f"Error getting notifications: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve notifications")
 
-@router.post("/notifications", response_model=Dict[str, Any])
+@router.post("/", response_model=Dict[str, Any])
 async def create_notification(
     notification_data: Dict[str, Any],
     current_user: dict = Depends(get_current_user)
@@ -107,7 +107,7 @@ async def create_notification(
         logger.error(f"Error creating notification: {e}")
         raise HTTPException(status_code=500, detail="Failed to create notification")
 
-@router.patch("/notifications/{notification_id}/read")
+@router.patch("/{notification_id}/read")
 async def mark_notification_read(
     notification_id: int,
     current_user: dict = Depends(get_current_user)
@@ -125,7 +125,7 @@ async def mark_notification_read(
         logger.error(f"Error marking notification as read: {e}")
         raise HTTPException(status_code=500, detail="Failed to mark notification as read")
 
-@router.patch("/notifications/read-all")
+@router.patch("/read-all")
 async def mark_all_notifications_read(
     category: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
@@ -145,7 +145,7 @@ async def mark_all_notifications_read(
         logger.error(f"Error marking all notifications as read: {e}")
         raise HTTPException(status_code=500, detail="Failed to mark notifications as read")
 
-@router.delete("/notifications/{notification_id}")
+@router.delete("/{notification_id}")
 async def delete_notification(
     notification_id: int,
     current_user: dict = Depends(get_current_user)
@@ -163,7 +163,7 @@ async def delete_notification(
         logger.error(f"Error deleting notification: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete notification")
 
-@router.get("/notifications/stats", response_model=Dict[str, Any])
+@router.get("/stats", response_model=Dict[str, Any])
 async def get_notification_stats(current_user: dict = Depends(get_current_user)):
     """Get notification statistics for the user"""
     try:
@@ -176,7 +176,7 @@ async def get_notification_stats(current_user: dict = Depends(get_current_user))
         logger.error(f"Error getting notification stats: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve notification statistics")
 
-@router.get("/notifications/unread-count")
+@router.get("/unread-count")
 async def get_unread_count(
     category: Optional[str] = None,
     priority: Optional[List[str]] = Query(None),
@@ -203,7 +203,7 @@ async def get_unread_count(
         logger.error(f"Error getting unread count: {e}")
         raise HTTPException(status_code=500, detail="Failed to get unread count")
 
-@router.post("/notifications/broadcast")
+@router.post("/broadcast")
 async def broadcast_notification(
     broadcast_data: Dict[str, Any],
     current_user: dict = Depends(get_current_user)

@@ -106,10 +106,11 @@ export class NeuralNetworkEngine {
       labels.push(label);
     }
 
-    return {
+    // Use tf.tidy for automatic memory management
+    return tf.tidy(() => ({
       inputs: tf.tensor2d(inputs),
       labels: tf.tensor2d(labels),
-    };
+    }));
   }
 
   private extractFeatures(marketData: MarketData[], index: number): number[] {
@@ -145,24 +146,26 @@ export class NeuralNetworkEngine {
     this.model = this.createModel();
     const { inputs, labels } = this.preprocessData(marketData);
 
-    await this.model.fit(inputs, labels, {
-      epochs: this.config.epochs,
-      batchSize: this.config.batchSize,
-      validationSplit: 0.2,
-      callbacks: {
-        onEpochEnd: (epoch, logs) => {
-          if (epoch % 10 === 0) {
-            console.log(`Epoch ${epoch}: loss = ${logs?.loss.toFixed(4)}, accuracy = ${logs?.acc.toFixed(4)}`);
-          }
+    try {
+      await this.model.fit(inputs, labels, {
+        epochs: this.config.epochs,
+        batchSize: this.config.batchSize,
+        validationSplit: 0.2,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            if (epoch % 10 === 0) {
+              console.log(`Epoch ${epoch}: loss = ${logs?.loss.toFixed(4)}, accuracy = ${logs?.acc.toFixed(4)}`);
+            }
+          },
         },
-      },
-    });
+      });
 
-    this.isTrained = true;
-
-    // Clean up tensors
-    inputs.dispose();
-    labels.dispose();
+      this.isTrained = true;
+    } finally {
+      // Clean up tensors
+      inputs.dispose();
+      labels.dispose();
+    }
   }
 
   predict(marketData: MarketData[]): { action: 'buy' | 'sell' | 'hold'; confidence: number } {
@@ -171,22 +174,21 @@ export class NeuralNetworkEngine {
     }
 
     const features = this.extractFeatures(marketData, marketData.length - 1);
-    const input = tf.tensor2d([features]);
+    
+    // Use tf.tidy for automatic memory management
+    return tf.tidy(() => {
+      const input = tf.tensor2d([features]);
+      const prediction = this.model!.predict(input) as tf.Tensor;
+      const probabilities = prediction.dataSync();
 
-    const prediction = this.model.predict(input) as tf.Tensor;
-    const probabilities = prediction.dataSync();
+      const actions = ['buy', 'sell', 'hold'] as const;
+      const maxIndex = Array.from(probabilities).indexOf(Math.max(...Array.from(probabilities)));
 
-    // Clean up
-    input.dispose();
-    prediction.dispose();
-
-    const actions = ['buy', 'sell', 'hold'] as const;
-    const maxIndex = Array.from(probabilities).indexOf(Math.max(...Array.from(probabilities)));
-
-    return {
-      action: actions[maxIndex],
-      confidence: probabilities[maxIndex],
-    };
+      return {
+        action: actions[maxIndex],
+        confidence: probabilities[maxIndex],
+      };
+    });
   }
 
   async saveModel(botId: string): Promise<void> {

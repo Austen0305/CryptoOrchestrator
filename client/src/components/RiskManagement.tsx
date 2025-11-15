@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, TrendingUp, TrendingDown, BarChart3, Shield, AlertTriangle, Activity } from "lucide-react";
+import { AlertCircle, Shield, AlertTriangle, Activity } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface RiskMetrics {
@@ -142,11 +142,7 @@ export function RiskManagement() {
     }
   };
 
-  const getRiskLevelColor = (risk: number) => {
-    if (risk < 30) return 'text-green-600';
-    if (risk < 60) return 'text-yellow-600';
-    return 'text-red-600';
-  };
+  // helper kept internal; color logic inline where used
 
   const getRiskLevelBgColor = (risk: number) => {
     if (risk < 30) return 'bg-green-100';

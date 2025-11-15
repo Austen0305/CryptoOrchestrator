@@ -92,7 +92,7 @@ export const NotificationCenter = () => {
                       }`}
                     >
                       <div className="text-lg">
-                        {getNotificationIcon(notification.category || notification.type)}
+                        {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -105,14 +105,14 @@ export const NotificationCenter = () => {
                             </p>
                             <div className="flex items-center gap-2 mt-1">
                               <p className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(notification.createdAt || notification.timestamp), { addSuffix: true })}
+                                {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                               </p>
-                              {notification.priority === 'high' && (
+                              {notification.data?.priority === 'high' && (
                                 <Badge variant="destructive" className="text-xs px-1 py-0">
                                   HIGH
                                 </Badge>
                               )}
-                              {notification.priority === 'urgent' && (
+                              {notification.data?.priority === 'urgent' && (
                                 <Badge variant="destructive" className="text-xs px-1 py-0">
                                   URGENT
                                 </Badge>

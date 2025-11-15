@@ -10,6 +10,14 @@ import uuid
 
 logger = logging.getLogger(__name__)
 
+# Import circuit breaker for resilience
+try:
+    from ..middleware.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
+    circuit_breaker_available = True
+except ImportError:
+    circuit_breaker_available = False
+    logger.warning("Circuit breaker not available")
+
 class IntegrationConfig(BaseModel):
     name: str
     enabled: bool = True
@@ -39,6 +47,23 @@ class IntegrationService:
         self.integrations: Dict[str, IntegrationConfig] = {}
         self.processes: Dict[str, subprocess.Popen] = {}
         self.base_path = Path(__file__).parent.parent.parent / "server" / "integrations"
+        
+        # Initialize circuit breakers for each integration
+        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        if circuit_breaker_available:
+            self.circuit_breakers = {
+                "freqtrade": CircuitBreaker(
+                    name="freqtrade_integration",
+                    failure_threshold=5,
+                    timeout=60
+                ),
+                "jesse": CircuitBreaker(
+                    name="jesse_integration",
+                    failure_threshold=5,
+                    timeout=60
+                )
+            }
+        
         self._initialize_integrations()
 
     def _initialize_integrations(self):
@@ -195,9 +220,29 @@ class IntegrationService:
         return await self._call_adapter_method(name, method, payload)
 
     async def _call_adapter_method(self, name: str, method: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Internal method to communicate with adapter via stdin/stdout"""
+        """Internal method to communicate with adapter via stdin/stdout with circuit breaker protection"""
         if name not in self.processes:
             raise RuntimeError(f"Integration {name} is not running")
+        
+        # Wrap call with circuit breaker if available
+        if circuit_breaker_available and name in self.circuit_breakers:
+            breaker = self.circuit_breakers[name]
+            
+            @breaker.call
+            async def protected_call():
+                return await self._execute_adapter_call(name, method, payload)
+            
+            try:
+                return await protected_call()
+            except CircuitBreakerOpenError:
+                logger.error(f"Circuit breaker open for {name}, integration unavailable")
+                raise RuntimeError(f"Integration {name} circuit breaker is open")
+        else:
+            # No circuit breaker, call directly
+            return await self._execute_adapter_call(name, method, payload)
+    
+    async def _execute_adapter_call(self, name: str, method: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the actual adapter call"""
 
         process = self.processes[name]
         if process.poll() is not None:
@@ -249,6 +294,25 @@ class IntegrationService:
                 await self.stop_integration(name)
             except Exception as e:
                 logger.warning(f"Error stopping {name} during cleanup: {e}")
+    
+    def get_circuit_breaker_stats(self) -> Dict[str, Any]:
+        """Get statistics for all circuit breakers"""
+        if not circuit_breaker_available:
+            return {"status": "unavailable", "message": "Circuit breakers not enabled"}
+        
+        stats = {}
+        for name, breaker in self.circuit_breakers.items():
+            stats[name] = breaker.get_stats()
+        
+        return stats
+    
+    def reset_circuit_breaker(self, name: str) -> Dict[str, Any]:
+        """Manually reset a circuit breaker"""
+        if not circuit_breaker_available or name not in self.circuit_breakers:
+            return {"status": "error", "message": f"Circuit breaker {name} not found"}
+        
+        self.circuit_breakers[name].reset()
+        return {"status": "success", "message": f"Circuit breaker {name} reset"}
 
 # Global instance
 integration_service = IntegrationService()

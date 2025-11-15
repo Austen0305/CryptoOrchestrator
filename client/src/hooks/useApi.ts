@@ -1,13 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { botApi, tradeApi, portfolioApi, marketApi, feeApi, statusApi, integrationsApi } from "@/lib/api";
-import type { InsertBotConfig, BotConfig } from "../../../shared/schema";
+import { botApi, tradeApi, portfolioApi, marketApi, feeApi, statusApi, integrationsApi, runRiskScenario } from "@/lib/api";
+import type { BotConfig } from "../../../shared/schema";
+import { useAuth } from "@/hooks/useAuth";
 
 // Bot hooks
 export const useBots = () => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["bots"],
     queryFn: botApi.getBots,
-    refetchInterval: 5000, // Refetch every 5 seconds
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false,
   });
 };
 
@@ -90,10 +93,12 @@ export const useBotPerformance = (id: string) => {
 
 // Trade hooks
 export const useTrades = (botId?: string, mode?: "paper" | "live") => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["trades", botId, mode],
     queryFn: () => tradeApi.getTrades(botId, mode),
-    refetchInterval: 2000, // Refetch every 2 seconds for live updates
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 5000 : false, // reduce polling and only when authenticated
   });
 };
 
@@ -110,10 +115,12 @@ export const useCreateTrade = () => {
 
 // Portfolio hooks
 export const usePortfolio = (mode: "paper" | "live" = "paper") => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["portfolio", mode],
     queryFn: () => portfolioApi.getPortfolio(mode),
-    refetchInterval: 3000, // Refetch every 3 seconds
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false, // poll slower and only when authenticated
   });
 };
 
@@ -159,10 +166,11 @@ export const useCalculateFees = () => {
 
 // Status hooks
 export const useStatus = () => {
+  // status can remain public; do not gate but slow polling
   return useQuery({
     queryKey: ["status"],
     queryFn: statusApi.getStatus,
-    refetchInterval: 5000, // Refetch every 5 seconds
+    refetchInterval: 15000,
   });
 };
 
@@ -188,5 +196,12 @@ export const useStopIntegrations = () => {
   return useMutation({
     mutationFn: () => integrationsApi.stopAll(),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] }),
+  });
+};
+
+// Risk Scenario hook (POST /api/risk-scenarios/simulate)
+export const useRunRiskScenario = () => {
+  return useMutation({
+    mutationFn: runRiskScenario,
   });
 };

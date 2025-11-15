@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "CryptoOrchestrator",
+    "slug": "crypto-orchestrator",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#111827"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cryptoorchestrator.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Use Face ID to unlock CryptoOrchestrator and authenticate transactions"
+      }
+    },
+    "android": {
+      "package": "com.cryptoorchestrator.mobile",
+      "permissions": [
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
+      ]
+    }
+  }
+}

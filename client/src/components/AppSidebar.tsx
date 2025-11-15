@@ -6,6 +6,7 @@ import {
   BarChart3,
   Settings,
   CircleDollarSign,
+  Shield,
 } from "lucide-react";
 import {
   Sidebar,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Link, useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
-import { useActiveBots } from "@/hooks/useBots";
+import { useBots } from "@/hooks/useBots";
 
 const menuItems = [
   {
@@ -38,9 +39,10 @@ const menuItems = [
     url: "/bots",
     icon: Bot,
     badge: () => {
-      const { activeCount } = useActiveBots();
+      const { bots } = useBots();
+      const activeCount = bots.filter(b => b.status === 'active').length;
       return activeCount > 0 ? (
-        <Badge variant="success" className="ml-2">
+        <Badge variant="default" className="ml-2 bg-green-500">
           {activeCount}
         </Badge>
       ) : null;
@@ -50,6 +52,11 @@ const menuItems = [
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Risk Management",
+    url: "/risk",
+    icon: Shield,
   },
   {
     title: "History",
@@ -127,7 +134,7 @@ export function AppSidebar() {
           <span className="w-2 h-2 rounded-full bg-green-500" />
           <span>Connected to Kraken</span>
         </div>
-        <div className="mt-1">v{import.meta.env.VITE_APP_VERSION}</div>
+        <div className="mt-1">v{import.meta.env?.VITE_APP_VERSION || '1.0.0'}</div>
       </div>
     </Sidebar>
   );

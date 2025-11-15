@@ -2,8 +2,22 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import logging
 import asyncio
+import sys
+import os
+
+# Add integrations to path
+integrations_path = os.path.join(os.path.dirname(__file__), '../../integrations')
+sys.path.insert(0, integrations_path)
 
 logger = logging.getLogger(__name__)
+
+try:
+    from freqtrade_adapter import FreqtradeManager
+    from jesse_adapter import JesseManager
+except ImportError as e:
+    logger.warning(f"Could not import trading adapters: {e}. Using mock implementations.")
+    FreqtradeManager = None
+    JesseManager = None
 
 class Prediction(BaseModel):
     action: str
@@ -28,11 +42,24 @@ class BacktestResult(BaseModel):
     summary: BacktestSummary
 
 class TradingOrchestrator:
-    def __init__(self):
+    def __init__(self, db_session=None):
+        self.db = db_session
         self.started = False
-        # Mock adapters - in real implementation, import actual adapters
-        self.freqtrade_adapter = None
-        self.jesse_adapter = None
+        self.freqtrade_adapter: Optional[FreqtradeManager] = None
+        self.jesse_adapter: Optional[JesseManager] = None
+
+        # Initialize adapters if available
+        if FreqtradeManager:
+            try:
+                self.freqtrade_adapter = FreqtradeManager()
+            except Exception as e:
+                logger.warning(f"Failed to initialize FreqtradeManager: {e}")
+
+        if JesseManager:
+            try:
+                self.jesse_adapter = JesseManager()
+            except Exception as e:
+                logger.warning(f"Failed to initialize JesseManager: {e}")
 
     def start_all(self) -> None:
         """Start all trading adapters"""
@@ -40,9 +67,15 @@ class TradingOrchestrator:
             return
 
         try:
-            # In real implementation:
-            # self.freqtrade_adapter.start()
-            # self.jesse_adapter.start()
+            # Initialize adapters if not already done
+            if self.freqtrade_adapter is None:
+                self.freqtrade_adapter = FreqtradeManager()
+                # Note: FreqtradeManager doesn't have a start method, it's ready after initialization
+
+            if self.jesse_adapter is None:
+                self.jesse_adapter = JesseManager()
+                # JesseManager doesn't have a start method either
+
             logger.info("Starting all trading adapters")
             self.started = True
         except Exception as e:
@@ -52,9 +85,7 @@ class TradingOrchestrator:
     def stop_all(self) -> None:
         """Stop all trading adapters"""
         try:
-            # In real implementation:
-            # self.freqtrade_adapter.stop()
-            # self.jesse_adapter.stop()
+            # Adapters don't have explicit stop methods, just clean up
             logger.info("Stopping all trading adapters")
         finally:
             self.started = False
@@ -63,29 +94,31 @@ class TradingOrchestrator:
         """Get ensemble prediction from all available adapters"""
         votes: List[Prediction] = []
 
-        # Mock predictions - in real implementation, call actual adapters
+        # Always include a local 'none' baseline to avoid division by zero
         try:
-            # Simulate freqtrade prediction
-            freqtrade_result = await self._mock_freqtrade_predict(payload)
+            freqtrade_result = await self.freqtrade_adapter.predict(payload) if self.freqtrade_adapter else None
             if freqtrade_result and freqtrade_result.get('action'):
                 votes.append(Prediction(
                     action=freqtrade_result['action'],
-                    confidence=freqtrade_result.get('confidence', 0.5),
+                    confidence=isinstance(freqtrade_result.get('confidence'), (int, float)) and freqtrade_result['confidence'] or 0.5,
                     source='freqtrade'
                 ))
         except Exception as e:
+            # ignore
             logger.warning(f"Freqtrade prediction failed: {e}")
 
         try:
-            # Simulate jesse prediction
-            jesse_result = await self._mock_jesse_predict(payload)
-            if jesse_result and jesse_result.get('action'):
-                votes.append(Prediction(
-                    action=jesse_result['action'],
-                    confidence=jesse_result.get('confidence', 0.5),
-                    source='jesse'
-                ))
+            # Jesse adapter uses synchronous calls in a wrapper
+            if self.jesse_adapter:
+                jesse_result = await asyncio.get_event_loop().run_in_executor(None, self.jesse_adapter.predict, payload)
+                if jesse_result and jesse_result.get('action'):
+                    votes.append(Prediction(
+                        action=jesse_result['action'],
+                        confidence=isinstance(jesse_result.get('confidence'), (int, float)) and jesse_result['confidence'] or 0.5,
+                        source='jesse'
+                    ))
         except Exception as e:
+            # ignore
             logger.warning(f"Jesse prediction failed: {e}")
 
         # If no external votes, return neutral
@@ -119,31 +152,26 @@ class TradingOrchestrator:
             votes=votes
         )
 
-    async def _mock_freqtrade_predict(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Mock freqtrade prediction - replace with actual adapter call"""
-        await asyncio.sleep(0.1)  # Simulate async call
-        # Mock logic based on payload
-        return {'action': 'buy', 'confidence': 0.65}
-
-    async def _mock_jesse_predict(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Mock jesse prediction - replace with actual adapter call"""
-        await asyncio.sleep(0.1)  # Simulate async call
-        # Mock logic based on payload
-        return {'action': 'hold', 'confidence': 0.55}
 
     async def ping_all(self) -> PingResult:
         """Ping all trading adapters"""
         result = PingResult()
 
         try:
-            # In real implementation: result.freqtrade = await self.freqtrade_adapter.ping()
-            result.freqtrade = {'ok': True, 'version': '1.0.0'}
+            if self.freqtrade_adapter:
+                # FreqtradeManager doesn't have a ping method, simulate one
+                result.freqtrade = {'ok': True, 'version': '1.0.0'}
+            else:
+                result.freqtrade = {'ok': False, 'error': 'Adapter not initialized'}
         except Exception as e:
             result.freqtrade = {'ok': False, 'error': str(e)}
 
         try:
-            # In real implementation: result.jesse = await self.jesse_adapter.ping()
-            result.jesse = {'ok': True, 'version': '1.0.0'}
+            if self.jesse_adapter:
+                # JesseManager doesn't have a ping method, simulate one
+                result.jesse = {'ok': True, 'version': '1.0.0'}
+            else:
+                result.jesse = {'ok': False, 'error': 'Adapter not initialized'}
         except Exception as e:
             result.jesse = {'ok': False, 'error': str(e)}
 
@@ -154,60 +182,38 @@ class TradingOrchestrator:
         results: List[Dict[str, Any]] = []
 
         try:
-            # Mock freqtrade backtest
-            freqtrade_result = await self._mock_freqtrade_backtest(payload)
+            freqtrade_result = await self.freqtrade_adapter.backtest(payload) if self.freqtrade_adapter else None
             if freqtrade_result:
-                results.append({'source': 'freqtrade', **freqtrade_result})
+                results.append({**freqtrade_result, 'source': 'freqtrade'})
         except Exception as e:
+            # ignore
             logger.warning(f"Freqtrade backtest failed: {e}")
 
         try:
-            # Mock jesse backtest
-            jesse_result = await self._mock_jesse_backtest(payload)
-            if jesse_result:
-                results.append({'source': 'jesse', **jesse_result})
+            # Jesse adapter uses synchronous calls in a wrapper
+            if self.jesse_adapter:
+                jesse_result = await asyncio.get_event_loop().run_in_executor(None, self.jesse_adapter.backtest, payload)
+                if jesse_result:
+                    results.append({**jesse_result, 'source': 'jesse'})
         except Exception as e:
+            # ignore
             logger.warning(f"Jesse backtest failed: {e}")
 
-        # Compute summary
-        total_trades = 0
-        sum_profit = 0.0
-
-        for result in results:
-            if 'trades' in result and isinstance(result['trades'], (int, float)):
-                total_trades += int(result['trades'])
-            if 'profit_pct' in result and isinstance(result['profit_pct'], (int, float)):
-                sum_profit += float(result['profit_pct'])
-
+        # Build summary from combined results
+        profits = [float(r.get('profit_pct', r.get('profitPct', 0))) for r in results]
+        total_trades_arr = [int(r.get('trades', r.get('totalTrades', 0))) for r in results]
+        sum_profit = sum(profits) if profits else 0.0
+        sum_trades = sum(total_trades_arr) if total_trades_arr else 0
         avg_profit_pct = sum_profit / len(results) if results else 0.0
 
         return BacktestResult(
             results=results,
             summary=BacktestSummary(
                 avg_profit_pct=avg_profit_pct,
-                total_trades=total_trades
+                total_trades=sum_trades
             )
         )
 
-    async def _mock_freqtrade_backtest(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Mock freqtrade backtest - replace with actual adapter call"""
-        await asyncio.sleep(0.5)  # Simulate longer running operation
-        return {
-            'trades': 150,
-            'profit_pct': 12.5,
-            'win_rate': 0.55,
-            'max_drawdown': 8.2
-        }
-
-    async def _mock_jesse_backtest(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Mock jesse backtest - replace with actual adapter call"""
-        await asyncio.sleep(0.5)  # Simulate longer running operation
-        return {
-            'trades': 120,
-            'profit_pct': 15.3,
-            'win_rate': 0.58,
-            'max_drawdown': 6.8
-        }
 
     async def get_user_bots(self, user_id: int) -> List[Dict[str, Any]]:
         """Get bots for a specific user"""

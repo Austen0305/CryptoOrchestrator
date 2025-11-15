@@ -5,6 +5,10 @@ from typing import List, Optional
 import logging
 import jwt
 import os
+from datetime import datetime
+from ..services.exchange_service import default_exchange
+from ..services.trading_orchestrator import trading_orchestrator
+from ..services.trading.safe_trading_system import SafeTradingSystem
 
 logger = logging.getLogger(__name__)
 
@@ -43,73 +47,160 @@ class TradeResponse(BaseModel):
     status: str
     pnl: Optional[float] = None
 
-# Mock data for demonstration
-mock_trades = [
-    {
-        "id": "trade_1",
-        "botId": "bot_1",
-        "pair": "BTC/USD",
-        "side": "buy",
-        "amount": 0.01,
-        "price": 45000.0,
-        "timestamp": "2024-01-01T10:00:00Z",
-        "status": "completed",
-        "pnl": 100.0
-    },
-    {
-        "id": "trade_2",
-        "botId": "bot_2",
-        "pair": "ETH/USD",
-        "side": "sell",
-        "amount": 0.5,
-        "price": 3000.0,
-        "timestamp": "2024-01-01T11:00:00Z",
-        "status": "completed",
-        "pnl": -50.0
-    }
-]
+# In-memory trade storage (in production, use database)
+trades_store = {}
+
+# Initialize safe trading system
+safe_trading_system = SafeTradingSystem()
 
 @router.get("/", response_model=List[TradeResponse])
 async def get_trades(
     botId: Optional[str] = Query(None),
-    mode: Optional[str] = Query(None, regex="^(paper|live)$"),
+    mode: Optional[str] = Query(None, pattern="^(paper|live)$"),
     current_user: dict = Depends(get_current_user)
 ):
     """Get trades with optional filtering by bot ID and mode"""
     try:
-        trades = mock_trades
+        user_id = current_user.get("user_id", 1)  # Default to user 1 for now
 
+        # Get all trades for this user
+        user_trades = [trade for trade in trades_store.values() if trade.get("user_id") == user_id]
+
+        # Filter by bot ID if provided
         if botId:
-            trades = [t for t in trades if t["botId"] == botId]
+            user_trades = [t for t in user_trades if t.get("botId") == botId]
 
+        # Filter by mode if provided
         if mode:
-            # In a real implementation, filter by trading mode
-            pass
+            user_trades = [t for t in user_trades if t.get("mode") == mode]
 
-        return trades
+        # Convert to response format
+        response_trades = []
+        for trade in user_trades:
+            response_trades.append(TradeResponse(
+                id=trade["id"],
+                botId=trade.get("botId"),
+                pair=trade["pair"],
+                side=trade["side"],
+                amount=trade["amount"],
+                price=trade["price"],
+                timestamp=trade["timestamp"],
+                status=trade["status"],
+                pnl=trade.get("pnl")
+            ))
+
+        return response_trades
     except Exception as e:
         logger.error(f"Failed to get trades: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve trades")
 
 @router.post("/", response_model=TradeResponse)
 async def create_trade(trade: TradeCreate, current_user: dict = Depends(get_current_user)):
-    """Create a new trade"""
+    """Create a new trade and execute it through the trading orchestrator with safety validation"""
     try:
-        # Mock trade creation
+        user_id = current_user.get("user_id", 1)
+
+        # Prepare trade details for validation
+        trade_details = {
+            "symbol": trade.pair,
+            "action": trade.side,
+            "quantity": trade.amount,
+            "price": trade.price,
+            "bot_id": trade.botId,
+            "user_id": user_id,
+            "mode": trade.mode
+        }
+
+        # Validate trade with safe trading system
+        validation_result = await safe_trading_system.validate_trade(trade_details)
+
+        if not validation_result["valid"]:
+            logger.warning(f"Trade validation failed: {validation_result['errors']}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Trade validation failed: {'; '.join(validation_result['errors'])}"
+            )
+
+        # Log warnings if any
+        if validation_result["warnings"]:
+            logger.warning(f"Trade warnings: {'; '.join(validation_result['warnings'])}")
+
+        # Generate trade ID
+        trade_id = f"trade_{len(trades_store) + 1}"
+
+        # Create trade record
         new_trade = {
-            "id": f"trade_{len(mock_trades) + 1}",
+            "id": trade_id,
+            "user_id": user_id,
             "botId": trade.botId,
             "pair": trade.pair,
             "side": trade.side,
             "amount": trade.amount,
             "price": trade.price,
-            "timestamp": "2024-01-01T12:00:00Z",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
             "status": "pending",
-            "pnl": None
+            "pnl": None,
+            "mode": trade.mode,
+            "validation_result": validation_result
         }
 
-        mock_trades.append(new_trade)
-        return new_trade
+        # Store the trade
+        trades_store[trade_id] = new_trade
+
+        # Execute the trade if it's live mode
+        if trade.mode == "live":
+            try:
+                # Use exchange service to place the order
+                order_result = await default_exchange.place_order(
+                    pair=trade.pair,
+                    side=trade.side,
+                    order_type="limit",  # or "market" based on price
+                    amount=trade.amount,
+                    price=trade.price if trade.price else None
+                )
+
+                # Update trade status based on order result
+                new_trade["status"] = order_result.get("status", "completed")
+                new_trade["exchange_order_id"] = order_result.get("id")
+
+                # Record trade result in safe trading system for risk monitoring
+                pnl = 0.0  # In live trading, this would be calculated from actual execution
+                await safe_trading_system.record_trade_result(trade_details, pnl)
+
+                logger.info(f"Live trade executed: {new_trade}")
+
+            except Exception as e:
+                logger.error(f"Failed to execute live trade: {e}")
+                new_trade["status"] = "failed"
+                new_trade["error"] = str(e)
+        else:
+            # Paper trade - mark as completed immediately
+            new_trade["status"] = "completed"
+
+            # Calculate mock P&L for paper trades
+            pnl = 0.0
+            if trade.side == "sell":
+                # Mock profit/loss calculation
+                pnl = trade.amount * (trade.price - 45000)  # Mock entry price
+                new_trade["pnl"] = pnl
+
+            # Record paper trade result in safe trading system
+            await safe_trading_system.record_trade_result(trade_details, pnl)
+
+        return TradeResponse(
+            id=new_trade["id"],
+            botId=new_trade.get("botId"),
+            pair=new_trade["pair"],
+            side=new_trade["side"],
+            amount=new_trade["amount"],
+            price=new_trade["price"],
+            timestamp=new_trade["timestamp"],
+            status=new_trade["status"],
+            pnl=new_trade.get("pnl")
+        )
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to create trade: {e}")
         raise HTTPException(status_code=500, detail="Failed to create trade")

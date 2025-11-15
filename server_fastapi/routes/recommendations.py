@@ -51,7 +51,7 @@ class TradingRecommendations(BaseModel):
     marketSentiment: str
     lastUpdated: int
 
-@router.get("/recommendations", response_model=TradingRecommendations)
+@router.get("/", response_model=TradingRecommendations)
 async def get_trading_recommendations(current_user: dict = Depends(get_current_user)):
     """Get AI-powered trading pair recommendations and optimal risk settings"""
     try:

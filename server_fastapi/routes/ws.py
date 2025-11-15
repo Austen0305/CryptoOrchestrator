@@ -6,10 +6,12 @@ import asyncio
 import jwt
 import os
 import logging
+import time
 from typing import List, Dict, Any, Optional
 from ..services.market_data import MarketDataService
 from ..services.trading_orchestrator import TradingOrchestrator
 from ..services.notification_service import NotificationService
+from ..services.monitoring.performance_monitor import PerformanceMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,7 @@ manager = ConnectionManager()
 market_data_service = MarketDataService()
 trading_orchestrator = TradingOrchestrator()
 notification_service = NotificationService()
+performance_monitor = PerformanceMonitor()
 
 def get_current_user_ws(token: str = None) -> dict:
     """Get current user from JWT token for WebSocket connections"""
@@ -98,6 +101,8 @@ async def websocket_market_data(websocket: WebSocket):
     user = None
 
     try:
+        # Accept connection to allow reading auth message
+        await websocket.accept()
         # Wait for authentication message
         auth_data = await websocket.receive_json()
         if auth_data.get('type') != 'auth':
@@ -131,6 +136,23 @@ async def websocket_market_data(websocket: WebSocket):
                             await websocket.send_json(update)
                         await asyncio.sleep(0.1)  # Small delay to prevent overwhelming
 
+                elif data.get('action') == 'backfill_request':
+                    # Client provides { action: 'backfill_request', since: { 'BTC/USD': 1690000000000 } }
+                    since_map = data.get('since', {})
+                    for sym, since_ts in since_map.items():
+                        try:
+                            candles = await market_data_service.get_backfill(sym, int(since_ts))
+                            if candles:
+                                await websocket.send_json({
+                                    'type': 'backfill',
+                                    'symbol': sym,
+                                    'timeframe': '1m',
+                                    'candles': candles
+                                })
+                        except Exception as be:
+                            logger.error(f"Backfill error for {sym}: {be}")
+                            await websocket.send_json({'type': 'backfill_error', 'symbol': sym, 'error': str(be)})
+
                 elif data.get('action') == 'unsubscribe':
                     logger.info(f"User {user['id']} unsubscribed from market data")
                     break
@@ -158,6 +180,7 @@ async def websocket_bot_status(websocket: WebSocket):
     user = None
 
     try:
+        await websocket.accept()
         # Authentication
         auth_data = await websocket.receive_json()
         if auth_data.get('type') != 'auth':
@@ -226,16 +249,31 @@ async def websocket_notifications(websocket: WebSocket):
     user = None
 
     async def notification_listener(notification: dict):
-        """Callback for new notifications"""
+        """Callback for new notifications.
+
+        Enhancement: If the notification wraps a risk scenario (notification['data']['type'] == 'risk_scenario'),
+        emit a dedicated 'risk_scenario' event for clients that subscribe specifically to scenario updates.
+        This keeps backward compatibility (standard 'notification' still sent) while enabling targeted handling.
+        """
         try:
+            # Always send the generic notification event
             await websocket.send_json({
                 'type': 'notification',
                 'data': notification
             })
+
+            # Conditional second event for risk scenario broadcasts
+            inner = notification.get('data') or {}
+            if inner.get('type') == 'risk_scenario':
+                await websocket.send_json({
+                    'type': 'risk_scenario',
+                    'data': notification  # mirror structure expected by frontend hook
+                })
         except Exception as e:
-            logger.error(f"Failed to send notification to WebSocket: {e}")
+            logger.error(f"Failed to send notification/risk_scenario to WebSocket: {e}")
 
     try:
+        await websocket.accept()
         # Authentication
         auth_data = await websocket.receive_json()
         if auth_data.get('type') != 'auth':
@@ -350,5 +388,120 @@ async def websocket_notifications(websocket: WebSocket):
         # Remove listener when connection closes
         if user:
             await notification_service.remove_listener(user['id'], notification_listener)
+        if websocket:
+            manager.disconnect(websocket)
+
+@router.websocket("/ws/performance-metrics")
+async def websocket_performance_metrics(websocket: WebSocket):
+    """WebSocket endpoint for real-time performance metrics"""
+    token = None
+    user = None
+
+    try:
+        await websocket.accept()
+        # Authentication
+        auth_data = await websocket.receive_json()
+        if auth_data.get('type') != 'auth':
+            await websocket.send_json({'error': 'Authentication required'})
+            await websocket.close()
+            return
+
+        token = auth_data.get('token')
+        user = get_current_user_ws(token)
+        await manager.connect(websocket, user['id'])
+
+        await websocket.send_json({
+            'type': 'auth_success',
+            'message': 'Authenticated successfully'
+        })
+
+        logger.info(f"User {user['id']} connected to performance metrics")
+
+        # Send initial performance metrics
+        trading_metrics = performance_monitor.get_trading_metrics()
+        system_metrics = await performance_monitor.collect_system_metrics()
+
+        await websocket.send_json({
+            'type': 'initial_metrics',
+            'trading': trading_metrics.dict(),
+            'system': system_metrics.dict()
+        })
+
+        while True:
+            try:
+                data = await websocket.receive_json()
+
+                if data.get('action') == 'ping':
+                    await websocket.send_json({'type': 'pong'})
+
+                elif data.get('action') == 'get_trading_metrics':
+                    trading_metrics = performance_monitor.get_trading_metrics()
+                    await websocket.send_json({
+                        'type': 'trading_metrics_update',
+                        'data': trading_metrics.dict()
+                    })
+
+                elif data.get('action') == 'get_system_metrics':
+                    system_metrics = await performance_monitor.collect_system_metrics()
+                    await websocket.send_json({
+                        'type': 'system_metrics_update',
+                        'data': system_metrics.dict()
+                    })
+
+                elif data.get('action') == 'get_metrics_history':
+                    hours = data.get('hours', 24)
+                    history = await performance_monitor.get_metrics_history(hours)
+                    await websocket.send_json({
+                        'type': 'metrics_history',
+                        'data': [m.dict() for m in history]
+                    })
+
+                elif data.get('action') == 'get_system_health':
+                    health = await performance_monitor.get_system_health()
+                    await websocket.send_json({
+                        'type': 'system_health',
+                        'data': health
+                    })
+
+                elif data.get('action') == 'start_streaming':
+                    # Start periodic streaming
+                    interval = data.get('interval', 30)  # Default 30 seconds
+                    logger.info(f"Starting metrics streaming for user {user['id']} with {interval}s interval")
+
+                    while True:
+                        try:
+                            trading_metrics = performance_monitor.get_trading_metrics()
+                            system_metrics = await performance_monitor.collect_system_metrics()
+
+                            await websocket.send_json({
+                                'type': 'metrics_stream',
+                                'trading': trading_metrics.dict(),
+                                'system': system_metrics.dict(),
+                                'timestamp': int(time.time())
+                            })
+
+                            await asyncio.sleep(interval)
+                        except asyncio.CancelledError:
+                            break
+                        except Exception as e:
+                            logger.error(f"Error streaming metrics: {e}")
+                            await asyncio.sleep(interval)
+
+                elif data.get('action') == 'stop_streaming':
+                    logger.info(f"Stopping metrics streaming for user {user['id']}")
+                    break
+
+            except json.JSONDecodeError:
+                await websocket.send_json({'error': 'Invalid JSON format'})
+
+    except WebSocketDisconnect:
+        logger.info("Performance metrics WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"Error in performance metrics WebSocket: {e}")
+        try:
+            await websocket.send_json({'error': str(e)})
+        except:
+            pass
+    finally:
         if websocket:
             manager.disconnect(websocket)

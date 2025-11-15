@@ -127,23 +127,29 @@ class AdvancedRiskManager:
 
     def calculate_kelly_fraction(self) -> float:
         """Calculate Kelly fraction based on trading performance"""
-        # Mock performance metrics - in real implementation, get from performance monitor
-        win_rate = 0.55  # 55% win rate
-        average_win = 0.02  # 2% average win
-        average_loss = 0.015  # 1.5% average loss
+        if len(self.recent_trades) < 10:
+            return 0.1  # Default conservative value
 
-        if average_loss == 0 or not win_rate:
-            return 0.0
+        wins = [t for t in self.recent_trades if t.pnl and t.pnl > 0]
+        losses = [t for t in self.recent_trades if t.pnl and t.pnl <= 0]
 
-        probability = win_rate
-        odds = average_win / average_loss
+        if not losses:
+            return 0.1  # Avoid division by zero
 
-        kelly_fraction = (probability * (odds + 1) - 1) / odds
+        win_rate = len(wins) / len(self.recent_trades)
+        avg_win = sum(t.pnl for t in wins) / len(wins) if wins else 0
+        avg_loss = abs(sum(t.pnl for t in losses) / len(losses)) if losses else 0
 
-        # Limit kelly fraction to reasonable bounds
-        kelly_fraction = max(0.0, min(kelly_fraction, 0.5))
+        if avg_loss == 0:
+            return 0.1  # Avoid division by zero
 
-        return kelly_fraction
+        payoff_ratio = avg_win / avg_loss
+
+        # Standard Kelly formula: f* = p - (1 - p)/b
+        kelly_fraction = win_rate - (1 - win_rate) / payoff_ratio
+
+        # Limit to reasonable bounds
+        return max(0.0, min(kelly_fraction, 0.5))
 
     def calculate_dynamic_stop_loss(self, volatility: float, market_conditions: Dict[str, Any]) -> float:
         """Calculate dynamic stop loss based on volatility and market conditions"""
@@ -213,6 +219,7 @@ class AdvancedRiskManager:
                 kelly_fraction=self.calculate_kelly_fraction()
             )
 
+            # Emit risk metrics updated event (in FastAPI, this would be through dependency injection or signals)
             logger.info('Risk metrics updated', extra={
                 'current_risk': self.risk_metrics.current_risk,
                 'historical_volatility': self.risk_metrics.historical_volatility,
@@ -226,51 +233,67 @@ class AdvancedRiskManager:
     def calculate_current_risk(self) -> float:
         """Calculate current risk exposure"""
         if not self.recent_trades:
-            return 0.0
+            return 0.5  # Default medium risk
 
-        # Simple risk calculation based on recent trades
-        total_exposure = sum(abs(trade.amount * trade.price) for trade in self.recent_trades[-10:])
-        return min(total_exposure / 10000, 1.0)  # Normalize to 0-1 scale
+        # Calculate win rate and profit factor
+        winning_trades = [t for t in self.recent_trades if t.pnl and t.pnl > 0]
+        win_rate = len(winning_trades) / len(self.recent_trades)
+        total_profit = sum(t.pnl for t in winning_trades) if winning_trades else 0
+        total_loss = sum(abs(t.pnl) for t in self.recent_trades if t.pnl and t.pnl <= 0)
+
+        profit_factor = total_profit / total_loss if total_loss > 0 else float('inf')
+
+        # Count positions per symbol
+        position_counts: Dict[str, int] = {}
+        for trade in self.recent_trades:
+            position_counts[trade.symbol] = position_counts.get(trade.symbol, 0) + 1
+
+        concentration_risk = sum((count / len(self.recent_trades)) ** 2 for count in position_counts.values())
+
+        # Combine factors into risk score (0-1)
+        risk_score = (
+            0.4 * (1 - win_rate) +
+            0.3 * (1 - min(1, profit_factor / 5)) +
+            0.3 * concentration_risk
+        )
+
+        return min(1.0, max(0.0, risk_score))
 
     def calculate_expected_drawdown(self) -> float:
         """Calculate expected maximum drawdown"""
-        if len(self.recent_trades) < 10:
-            return 0.05  # Default 5%
+        if len(self.historical_data) < 30:
+            return 0.2  # Default
 
-        # Calculate drawdown from recent trades
-        cumulative_pnl = 0.0
-        peak = 0.0
-        max_drawdown = 0.0
+        # Calculate rolling volatility from price data
+        returns = []
+        for i in range(1, len(self.historical_data)):
+            ret = np.log(self.historical_data[i].close / self.historical_data[i - 1].close)
+            returns.append(ret)
 
-        for trade in self.recent_trades[-50:]:  # Last 50 trades
-            if trade.pnl is not None:
-                cumulative_pnl += trade.pnl
-                peak = max(peak, cumulative_pnl)
-                drawdown = peak - cumulative_pnl
-                max_drawdown = max(max_drawdown, drawdown)
+        volatility = np.std(returns) if returns else 0.02
+        expected_drawdown = volatility * 2.5  # 2.5 sigma event
 
-        return max_drawdown if self.recent_trades else 0.05
+        return min(0.5, max(0.05, expected_drawdown))
 
     def calculate_optimal_leverage(self) -> float:
-        """Calculate optimal leverage based on risk metrics"""
-        base_leverage = 1.0
+        """Calculate optimal leverage based on Kelly criterion"""
+        if self.risk_metrics.kelly_fraction <= 0:
+            return 1.0
 
-        # Reduce leverage in high volatility
-        if self.risk_metrics.historical_volatility > 0.03:
-            base_leverage *= 0.8
+        max_leverage = 10.0
+        safety_margin = 0.7  # Conservative factor
+        volatility_factor = min(1.0, 0.2 / self.risk_metrics.historical_volatility) if self.risk_metrics.historical_volatility > 0 else 1.0
 
-        # Reduce leverage if recent drawdown is high
-        if self.risk_metrics.expected_drawdown > 0.1:
-            base_leverage *= 0.9
-
-        return max(base_leverage, 0.5)
+        return min(max_leverage, max(1.0, self.risk_metrics.kelly_fraction * safety_margin * volatility_factor))
 
     def update_risk_metrics(self, market_conditions: Dict[str, Any]):
         """Update risk metrics based on market conditions"""
+        # Update risk metrics based on market conditions
         volatility = market_conditions.get('volatility', 0.02)
         regime = market_conditions.get('regime', 'normal')
 
         if volatility > 0.3 or regime == 'volatile':
+            # In FastAPI, this would emit an event or notification
             logger.warning('High risk alert triggered', extra={
                 'volatility': volatility,
                 'regime': regime
@@ -278,6 +301,7 @@ class AdvancedRiskManager:
 
     def adjust_risk_parameters(self, performance_metrics: Dict[str, Any]):
         """Adjust risk parameters based on performance"""
+        # Adjust risk parameters based on performance
         consecutive_losses = performance_metrics.get('consecutive_losses', 0)
 
         if consecutive_losses > 3:

@@ -27,6 +27,7 @@ const botSchema = z.object({
 type BotFormData = z.infer<typeof botSchema>;
 
 const strategies = [
+  { value: "smart_adaptive", label: "Smart Adaptive (AI v2.0)" },
   { value: "q-learning", label: "Q-Learning (ML)" },
   { value: "mean-reversion", label: "Mean Reversion" },
   { value: "trend-following", label: "Trend Following" },

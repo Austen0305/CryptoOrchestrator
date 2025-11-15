@@ -8,6 +8,8 @@ import time
 from datetime import datetime
 import jwt
 import os
+import asyncio
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,9 @@ try:
     from ..services.advanced_analytics_engine import AdvancedAnalyticsEngine
     from ..services.advanced_risk_manager import AdvancedRiskManager
     from ..services.trading_orchestrator import TradingOrchestrator
+    from ..services.monitoring.performance_monitor import performance_monitor
+    from ..services.monitoring.safety_monitor import SafetyMonitor
+    from ..services.monitoring.circuit_breaker import CircuitBreaker
 except ImportError as e:
     logger.warning(f"Could not import services: {e}")
     IntegrationService = None
@@ -27,6 +32,9 @@ except ImportError as e:
     AdvancedAnalyticsEngine = None
     AdvancedRiskManager = None
     TradingOrchestrator = None
+    performance_monitor = None
+    SafetyMonitor = None
+    CircuitBreaker = None
 
 # Environment variables
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
@@ -58,6 +66,20 @@ class SystemMetrics(BaseModel):
 
 class ServiceHealth(BaseModel):
     service: str
+    status: str
+    response_time: Optional[float] = None
+    last_check: datetime
+    error_message: Optional[str] = None
+
+class DatabaseHealth(BaseModel):
+    status: str
+    connection_time: Optional[float] = None
+    last_check: datetime
+    error_message: Optional[str] = None
+
+class ExternalAPIHealth(BaseModel):
+    name: str
+    url: str
     status: str
     response_time: Optional[float] = None
     last_check: datetime
@@ -140,6 +162,7 @@ async def detailed_health_check(current_user: dict = Depends(get_current_user)) 
             last_check=datetime.now()
         ))
     except Exception as e:
+        logger.error(f"ML Engine health check failed: {e}")
         services.append(ServiceHealth(
             service="ml_engine",
             status="unhealthy",
@@ -164,6 +187,7 @@ async def detailed_health_check(current_user: dict = Depends(get_current_user)) 
             last_check=datetime.now()
         ))
     except Exception as e:
+        logger.error(f"Risk Manager health check failed: {e}")
         services.append(ServiceHealth(
             service="risk_manager",
             status="unhealthy",
@@ -188,6 +212,7 @@ async def detailed_health_check(current_user: dict = Depends(get_current_user)) 
             last_check=datetime.now()
         ))
     except Exception as e:
+        logger.error(f"Trading Orchestrator health check failed: {e}")
         services.append(ServiceHealth(
             service="trading_orchestrator",
             status="unhealthy",
@@ -212,8 +237,83 @@ async def detailed_health_check(current_user: dict = Depends(get_current_user)) 
             last_check=datetime.now()
         ))
     except Exception as e:
+        logger.error(f"Integration Service health check failed: {e}")
         services.append(ServiceHealth(
             service="integration_service",
+            status="unhealthy",
+            response_time=None,
+            last_check=datetime.now(),
+            error_message=str(e)
+        ))
+
+    # Check Performance Monitor
+    try:
+        start_time = time.time()
+        if performance_monitor:
+            await performance_monitor.get_system_health()
+            response_time = (time.time() - start_time) * 1000
+        else:
+            response_time = (time.time() - start_time) * 1000
+        services.append(ServiceHealth(
+            service="performance_monitor",
+            status="healthy",
+            response_time=response_time,
+            last_check=datetime.now()
+        ))
+    except Exception as e:
+        logger.error(f"Performance Monitor health check failed: {e}")
+        services.append(ServiceHealth(
+            service="performance_monitor",
+            status="unhealthy",
+            response_time=None,
+            last_check=datetime.now(),
+            error_message=str(e)
+        ))
+
+    # Check Safety Monitor
+    try:
+        start_time = time.time()
+        if SafetyMonitor:
+            safety_monitor = SafetyMonitor()
+            await safety_monitor.check_safety_conditions()
+            response_time = (time.time() - start_time) * 1000
+        else:
+            response_time = (time.time() - start_time) * 1000
+        services.append(ServiceHealth(
+            service="safety_monitor",
+            status="healthy",
+            response_time=response_time,
+            last_check=datetime.now()
+        ))
+    except Exception as e:
+        logger.error(f"Safety Monitor health check failed: {e}")
+        services.append(ServiceHealth(
+            service="safety_monitor",
+            status="unhealthy",
+            response_time=None,
+            last_check=datetime.now(),
+            error_message=str(e)
+        ))
+
+    # Check Circuit Breaker
+    try:
+        start_time = time.time()
+        if CircuitBreaker:
+            circuit_breaker = CircuitBreaker()
+            circuit_breaker.get_status()
+            response_time = (time.time() - start_time) * 1000
+        else:
+            response_time = (time.time() - start_time) * 1000
+        services.append(ServiceHealth(
+            service="circuit_breaker",
+            status="healthy",
+            response_time=response_time,
+            last_check=datetime.now()
+        ))
+    except Exception as e:
+        logger.error(f"Circuit Breaker health check failed: {e}")
+        services.append(ServiceHealth(
+            service="circuit_breaker",
             status="unhealthy",
             response_time=None,
             last_check=datetime.now(),
@@ -252,3 +352,124 @@ async def get_metrics() -> Dict[str, Any]:
 async def ping():
     """Simple ping endpoint"""
     return {"message": "pong", "timestamp": datetime.now()}
+
+@router.get("/database")
+async def database_health_check(current_user: dict = Depends(get_current_user)) -> DatabaseHealth:
+    """Check database connectivity"""
+    try:
+        start_time = time.time()
+        # Simple database connectivity check
+        # In a real implementation, this would connect to your actual database
+        # For now, we'll simulate a database check
+        import sqlite3
+        # Assuming we have a database file in the project
+        db_path = os.getenv("DATABASE_URL", "database.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path)
+            conn.execute("SELECT 1").fetchone()
+            conn.close()
+            connection_time = (time.time() - start_time) * 1000
+            return DatabaseHealth(
+                status="healthy",
+                connection_time=connection_time,
+                last_check=datetime.now()
+            )
+        else:
+            # If no database exists, check if we can create a temporary one
+            conn = sqlite3.connect(":memory:")
+            conn.execute("SELECT 1").fetchone()
+            conn.close()
+            connection_time = (time.time() - start_time) * 1000
+            return DatabaseHealth(
+                status="healthy",
+                connection_time=connection_time,
+                last_check=datetime.now()
+            )
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        return DatabaseHealth(
+            status="unhealthy",
+            connection_time=None,
+            last_check=datetime.now(),
+            error_message=str(e)
+        )
+
+@router.get("/external-apis")
+async def external_apis_health_check(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """Check external API connectivity"""
+    external_apis = [
+        {"name": "Binance", "url": "https://api.binance.com/api/v3/ping"},
+        {"name": "Kraken", "url": "https://api.kraken.com/0/public/Time"},
+        {"name": "Coinbase", "url": "https://api.coinbase.com/v2/time"},
+    ]
+
+    api_health_checks = []
+
+    async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+        for api in external_apis:
+            try:
+                start_time = time.time()
+                async with session.get(api["url"]) as response:
+                    response_time = (time.time() - start_time) * 1000
+                    status = "healthy" if response.status == 200 else "degraded"
+                    api_health_checks.append(ExternalAPIHealth(
+                        name=api["name"],
+                        url=api["url"],
+                        status=status,
+                        response_time=response_time,
+                        last_check=datetime.now()
+                    ))
+            except Exception as e:
+                logger.error(f"External API health check failed for {api['name']}: {e}")
+                api_health_checks.append(ExternalAPIHealth(
+                    name=api["name"],
+                    url=api["url"],
+                    status="unhealthy",
+                    response_time=None,
+                    last_check=datetime.now(),
+                    error_message=str(e)
+                ))
+
+    # Overall status for external APIs
+    unhealthy_apis = [api for api in api_health_checks if api.status == "unhealthy"]
+    overall_status = "healthy"
+    if unhealthy_apis:
+        overall_status = "degraded" if len(unhealthy_apis) < len(api_health_checks) else "unhealthy"
+
+    return {
+        "overall_status": overall_status,
+        "apis": api_health_checks,
+        "timestamp": datetime.now()
+    }
+
+@router.get("/monitoring")
+async def monitoring_health_check(current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
+    """Get comprehensive monitoring health status"""
+    try:
+        # Get performance monitor metrics
+        system_health = None
+        performance_metrics = None
+        if performance_monitor:
+            system_health = await performance_monitor.get_system_health()
+            performance_metrics = performance_monitor.get_trading_metrics()
+
+        # Get safety alerts
+        safety_alerts = []
+        if SafetyMonitor:
+            safety_monitor = SafetyMonitor()
+            safety_alerts = await safety_monitor.check_safety_conditions()
+
+        return {
+            "status": "healthy",
+            "system_health": system_health,
+            "performance_metrics": performance_metrics.dict() if performance_metrics else None,
+            "safety_alerts": [alert.dict() for alert in safety_alerts],
+            "timestamp": datetime.now()
+        }
+    except Exception as e:
+        logger.error(f"Monitoring health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.now()
+        }

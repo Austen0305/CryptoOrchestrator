@@ -138,6 +138,10 @@
   /* Fallback for older browsers */
   --destructive-border: hsl(var(--destructive));
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+
+  /* Sidebar sizing variables */
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3rem;
 }
 
 .dark {
@@ -281,6 +285,11 @@
  * need to be distinguished from eachother visually.
  */
 @layer utilities {
+  /* Utility class to scope sidebar CSS vars if needed */
+  .sidebar-vars {
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {

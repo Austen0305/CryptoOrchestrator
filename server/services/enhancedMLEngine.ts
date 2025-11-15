@@ -428,26 +428,25 @@ export class EnhancedMLEngine {
         throw new Error('Insufficient data for training');
       }
 
-      const inputTensor = tf.tensor2d(inputs);
-      const labelTensor = tf.tensor2d(labels);
+      // Use tf.tidy for automatic memory management
+      const history = await tf.tidy(() => {
+        const inputTensor = tf.tensor2d(inputs);
+        const labelTensor = tf.tensor2d(labels);
 
-      const history = await this.model!.fit(inputTensor, labelTensor, {
-        epochs,
-        batchSize: 32,
-        validationSplit: 0.2,
-        shuffle: true,
-        callbacks: {
-          onEpochEnd: (epoch, logs) => {
-            if (epoch % 10 === 0) {
-              logger.info(`Training epoch ${epoch}`, logs);
-            }
+        return this.model!.fit(inputTensor, labelTensor, {
+          epochs,
+          batchSize: 32,
+          validationSplit: 0.2,
+          shuffle: true,
+          callbacks: {
+            onEpochEnd: (epoch, logs) => {
+              if (epoch % 10 === 0) {
+                logger.info(`Training epoch ${epoch}`, logs);
+              }
+            },
           },
-        },
+        });
       });
-
-      // Cleanup tensors
-      inputTensor.dispose();
-      labelTensor.dispose();
 
       logger.info('ML model training completed', {
         finalAccuracy: history.history.acc?.[history.history.acc.length - 1],
@@ -479,13 +478,13 @@ export class EnhancedMLEngine {
         features.push(...periodFeatures);
       }
 
-      const inputTensor = tf.tensor2d([features]);
-      const prediction = this.model.predict(inputTensor) as tf.Tensor;
-      const predictionArray = await prediction.data();
-
-      // Cleanup
-      inputTensor.dispose();
-      prediction.dispose();
+      // Use tf.tidy for automatic memory management
+      const predictionArray = await tf.tidy(() => {
+        const inputTensor = tf.tensor2d([features]);
+        const prediction = this.model!.predict(inputTensor) as tf.Tensor;
+        // Use dataSync() inside tidy for automatic cleanup
+        return prediction.dataSync();
+      });
 
       // Convert to action
       const buyProb = predictionArray[0];
