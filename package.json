@@ -4,6 +4,10 @@
   "main": "electron/index.js",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Austen0305/Crypto-Orchestrator.git"
+  },
   "scripts": {
     "dev": "vite",
     "dev:web": "vite",

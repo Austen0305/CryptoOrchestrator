@@ -127,8 +127,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/CryptoOrchestrator.git
-cd CryptoOrchestrator
+git clone https://github.com/Austen0305/Crypto-Orchestrator.git
+cd Crypto-Orchestrator
 
 # Install Node.js dependencies
 npm install --legacy-peer-deps
@@ -503,7 +503,7 @@ The developers are not responsible for any financial losses incurred through the
 - 📧 Email: [support@cryptoorchestrator.com](mailto:support@cryptoorchestrator.com)
 - 💬 Discord: [Join our community](https://discord.gg/cryptoorchestrator)
 - 📖 Documentation: [docs.cryptoorchestrator.com](https://docs.cryptoorchestrator.com)
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/CryptoOrchestrator/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/Austen0305/Crypto-Orchestrator/issues)
 
 ## 🗺️ Roadmap
 
