@@ -35,6 +35,7 @@ interface TradeEntry {
 
 export function TradingJournal() {
   const { data: trades, isLoading } = useTrades();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [filterStrategy, setFilterStrategy] = useState<string>("all");
@@ -110,9 +111,13 @@ export function TradingJournal() {
 
   const strategies = Array.from(new Set(mockTrades.map(t => t.strategy)));
 
-  const handleExportPDF = () => {
-    // In production, this would generate and download a PDF
-    alert("PDF export functionality will be implemented with PDF generation library");
+  const handleExportPDF = async () => {
+    const { exportTradesToPDF, exportWithNotification } = await import('@/lib/export');
+    exportWithNotification(
+      () => exportTradesToPDF(filteredTrades, { filename: `trading-journal-${Date.now()}.pdf` }),
+      toast,
+      'Trading journal exported to PDF'
+    );
   };
 
   return (

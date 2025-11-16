@@ -1,4 +1,5 @@
-import { app, BrowserWindow, Menu, Tray, ipcMain, dialog, shell, autoUpdater, Notification } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, dialog, shell, Notification } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { performance } from 'perf_hooks';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -277,27 +278,129 @@ function startFastAPIHealthChecks() {
   }, 30000); // Check every 30 seconds
 }
 
-// Add auto-updater
+// Enhanced auto-updater with electron-updater
 function setupAutoUpdater() {
+  // Only enable auto-updater in production builds
+  if (isDev) {
+    console.log('[AutoUpdater] Disabled in development mode');
+    return;
+  }
+
+  // Configure auto-updater
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.checkForUpdatesAndNotify();
 
-  autoUpdater.on('update-available', () => {
-    mainWindow?.webContents.send('update-available');
+  // Update available event
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdater] Update available:', info.version);
+    mainWindow?.webContents.send('update-available', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+
+    // Show notification to user
+    if (notificationsEnabled && Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Update Available',
+        body: `Version ${info.version} is available. Downloading...`,
+        icon: path.join(__dirname, '../client/public/favicon.png')
+      });
+      notification.show();
+    }
   });
 
-  autoUpdater.on('update-downloaded', () => {
-    mainWindow?.webContents.send('update-downloaded');
+  // Update downloaded event
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdater] Update downloaded:', info.version);
+    mainWindow?.webContents.send('update-downloaded', {
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    });
+
+    // Show notification with option to restart
+    if (notificationsEnabled && Notification.isSupported()) {
+      const notification = new Notification({
+        title: 'Update Downloaded',
+        body: 'Update ready. Restart the app to install.',
+        icon: path.join(__dirname, '../client/public/favicon.png')
+      });
+      notification.show();
+      notification.on('click', () => {
+        // Show dialog asking user to restart
+        dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Update Ready',
+          message: `Version ${info.version} is ready to install.`,
+          detail: 'Would you like to restart now?',
+          buttons: ['Restart Now', 'Later'],
+          defaultId: 0
+        }).then((result) => {
+          if (result.response === 0) {
+            autoUpdater.quitAndInstall(false, true);
+          }
+        });
+      });
+    }
   });
 
+  // Download progress event
+  autoUpdater.on('download-progress', (progressObj) => {
+    const percent = Math.round(progressObj.percent);
+    console.log(`[AutoUpdater] Download progress: ${percent}%`);
+    mainWindow?.webContents.send('update-progress', {
+      percent: percent,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    });
+  });
+
+  // Update not available event
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdater] Update not available. Running latest version:', info.version);
+    mainWindow?.webContents.send('update-not-available', {
+      version: info.version
+    });
+  });
+
+  // Error event
   autoUpdater.on('error', (error) => {
-    mainWindow?.webContents.send('update-error', error.message);
+    console.error('[AutoUpdater] Error:', error);
+    mainWindow?.webContents.send('update-error', {
+      message: error.message,
+      stack: error.stack
+    });
+
+    // Only show error notification for non-network errors
+    if (error.code !== 'ENOENT' && error.code !== 'ECONNREFUSED') {
+      if (notificationsEnabled && Notification.isSupported()) {
+        const errorNotification = new Notification({
+          title: 'Update Error',
+          body: 'Failed to check for updates. Please try again later.',
+          icon: path.join(__dirname, '../client/public/favicon.png')
+        });
+        errorNotification.show();
+      }
+    }
   });
 
-  // Check for updates every hour
+  // Check for updates on startup (after a delay)
+  setTimeout(() => {
+    console.log('[AutoUpdater] Checking for updates...');
+    autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+      console.error('[AutoUpdater] Failed to check for updates:', error);
+    });
+  }, 5000); // Wait 5 seconds after app start
+
+  // Check for updates periodically (every 4 hours)
   setInterval(() => {
-    autoUpdater.checkForUpdates();
-  }, 3600000);
+    console.log('[AutoUpdater] Periodic update check...');
+    autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+      console.error('[AutoUpdater] Failed to check for updates:', error);
+    });
+  }, 4 * 60 * 60 * 1000); // 4 hours
 }
 
 // App event handlers

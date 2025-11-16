@@ -30,11 +30,26 @@ prometheus-client==0.19.0
 httpx==0.25.2
 email-validator==2.2.0
 
+# Payment processing
+stripe==7.8.0
+
 # Redis for caching
 aioredis==2.0.1
 
 # Enhanced logging
 structlog==24.1.0
+
+# ML V2 - AutoML and Reinforcement Learning
+scikit-optimize==0.9.0  # Bayesian optimization
+optuna==3.4.0  # Hyperparameter optimization framework
+stable-baselines3==2.2.0  # Reinforcement learning (PPO, DQN)
+gymnasium==0.29.1  # RL environment
+transformers==4.35.2  # For sentiment analysis
+torch==2.1.2  # PyTorch for RL and transformers
+
+# Sentiment Analysis
+vaderSentiment==3.3.2  # VADER sentiment analyzer
+textblob==0.17.1  # Text processing and sentiment
 
 # Notes:
 # - Removed 'technicalindicators==3.1.0' as it is a JavaScript-only package and not available on PyPI.

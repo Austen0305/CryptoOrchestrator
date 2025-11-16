@@ -433,7 +433,7 @@ _safe_include("server_fastapi.routes.portfolio", "router", "/api/portfolio", ["P
 _safe_include("server_fastapi.routes.preferences", "router", "/api/preferences", ["Preferences"])
 _safe_include("server_fastapi.routes.notifications", "router", "/api/notifications", ["Notifications"])
 _safe_include("server_fastapi.routes.backtesting", "router", "/api/backtesting", ["Backtesting"])
-_safe_include("server_fastapi.routes.risk_management", "router", "/api/risk-management", ["Risk"])
+_safe_include("server_fastapi.routes.risk_management", "router", "", ["Risk Management"])
 _safe_include("server_fastapi.routes.risk_scenarios", "router", "/api/risk-scenarios", ["Risk Scenarios"])
 
 # Integrations with fallback stub
@@ -464,11 +464,20 @@ _safe_include("server_fastapi.routes.circuit_breaker_metrics", "router", "", ["C
 _safe_include("server_fastapi.routes.ai_analysis", "router", "", ["AI Analysis"])
 _safe_include("server_fastapi.routes.cache_management", "router", "", ["Cache Management"])
 _safe_include("server_fastapi.routes.metrics_monitoring", "router", "", ["Metrics & Monitoring"])
+_safe_include("server_fastapi.routes.metrics", "router", "", ["Prometheus Metrics"])
 _safe_include("server_fastapi.routes.portfolio_rebalance", "router", "", ["Portfolio Rebalancing"])
 _safe_include("server_fastapi.routes.backtesting_enhanced", "router", "", ["Enhanced Backtesting"])
 _safe_include("server_fastapi.routes.marketplace", "router", "", ["API Marketplace"])
 _safe_include("server_fastapi.routes.arbitrage", "router", "", ["Multi-Exchange Arbitrage"])
 _safe_include("server_fastapi.routes.performance", "router", "/api/performance", ["Performance"])
+_safe_include("server_fastapi.routes.strategies", "router", "", ["Strategies"])
+_safe_include("server_fastapi.routes.payments", "router", "", ["Payments"])
+_safe_include("server_fastapi.routes.licensing", "router", "", ["Licensing"])
+_safe_include("server_fastapi.routes.demo_mode", "router", "", ["Demo Mode"])
+_safe_include("server_fastapi.routes.ml_v2", "router", "", ["ML V2"])
+_safe_include("server_fastapi.routes.exchanges", "router", "", ["Exchanges"])
+_safe_include("server_fastapi.routes.ai_copilot", "router", "", ["AI Copilot"])
+_safe_include("server_fastapi.routes.automation", "router", "", ["Automation"])
 
 try:
     from server_fastapi.routes.health_advanced import router as health_advanced_router

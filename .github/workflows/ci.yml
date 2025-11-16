@@ -46,10 +46,13 @@ jobs:
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
+      if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
       with:
         file: ./coverage.xml
         flags: backend
         fail_ci_if_error: false
+        # CODECOV_TOKEN secret must be configured in repository settings (optional)
         token: ${{ secrets.CODECOV_TOKEN }}
 
   test-frontend:
@@ -72,7 +75,7 @@ jobs:
       run: npm run check
     
     - name: Lint TypeScript
-      run: npx eslint "client/**/*.{ts,tsx}" "server/**/*.ts" --ext .ts,.tsx --max-warnings 0 || echo "Linting warnings found"
+      run: npx eslint "client/**/*.{ts,tsx}" --ext .ts,.tsx --max-warnings 0 || echo "Linting warnings found"
     
     - name: Build frontend
       run: npm run build
@@ -144,6 +147,8 @@ jobs:
       uses: snyk/actions/python@master
       continue-on-error: true
       env:
+        # SNYK_TOKEN secret must be configured in repository settings (optional)
+        # If not configured, this step will fail but continue-on-error prevents workflow failure
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       with:
         args: --severity-threshold=high
@@ -180,7 +185,7 @@ jobs:
     
     - name: Run TypeScript linter
       run: |
-        npx eslint "client/**/*.{ts,tsx}" "server/**/*.ts" --ext .ts,.tsx --max-warnings 50 || echo "ESLint warnings found"
+        npx eslint "client/**/*.{ts,tsx}" --ext .ts,.tsx --max-warnings 50 || echo "ESLint warnings found"
 
   build:
     name: Build All Packages

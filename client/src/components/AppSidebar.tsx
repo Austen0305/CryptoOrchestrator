@@ -7,6 +7,7 @@ import {
   Settings,
   CircleDollarSign,
   Shield,
+  Code,
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,9 +50,19 @@ const menuItems = [
     },
   },
   {
+    title: "Strategies",
+    url: "/strategies",
+    icon: Code,
+  },
+  {
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Licensing",
+    url: "/licensing",
+    icon: CircleDollarSign,
   },
   {
     title: "Risk Management",

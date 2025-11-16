@@ -12,6 +12,7 @@ import { ProfitCalendar } from "@/components/ProfitCalendar";
 import { PriceAlerts } from "@/components/PriceAlerts";
 import { SentimentAnalysis } from "@/components/SentimentAnalysis";
 import { ArbitrageDashboard } from "@/components/ArbitrageDashboard";
+import { ExchangeStatusIndicator } from "@/components/ExchangeStatusIndicator";
 import React, { Suspense } from 'react';
 const RiskSummary = React.lazy(() => import('@/components/RiskSummary').then(m => ({ default: m.RiskSummary })));
 const RiskScenarioPanel = React.lazy(() => import('@/components/RiskScenarioPanel').then(m => ({ default: m.RiskScenarioPanel })));

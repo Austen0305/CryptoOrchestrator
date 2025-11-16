@@ -11,11 +11,9 @@
   "scripts": {
     "dev": "vite",
     "dev:web": "vite",
-    "dev:node": "cross-env NODE_ENV=development tsx server/index.ts",
     "dev:fastapi": "python -m uvicorn server_fastapi.main:app --reload --host 0.0.0.0 --port 8000",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build",
     "build:electron": "vite build && electron-builder",
-    "start": "cross-env NODE_ENV=production node dist/index.js",
     "electron": "cross-env NODE_ENV=development electron .",
     "electron:pack": "electron-builder --dir",
     "electron:dist": "electron-builder",
@@ -149,7 +147,10 @@
     "ws": "^8.18.0",
     "zod": "^4.1.12",
     "zod-validation-error": "^3.4.0",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.8",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.3",
+    "electron-updater": "^6.1.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

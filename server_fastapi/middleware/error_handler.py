@@ -196,8 +196,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler for unexpected exceptions"""
+    # Import here to avoid circular dependency
+    from .log_sanitizer import LogSanitizer
+    
+    # Sanitize error message to prevent sensitive data leakage
+    sanitized_error_msg = LogSanitizer.sanitize_error_message(exc)
+    
     logger.error(
-        f"Unhandled exception: {exc}",
+        f"Unhandled exception: {sanitized_error_msg}",
         exc_info=True,
         extra={
             "path": request.url.path,

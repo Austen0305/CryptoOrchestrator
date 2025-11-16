@@ -61,6 +61,7 @@ pip-delete-this-directory.txt
 *.db
 *.sqlite
 *.sqlite3
+!*.db.example
 
 # Alembic
 alembic/versions/*.pyc
@@ -74,3 +75,28 @@ playwright/.auth/
 # Vitest
 .vercel
 .turbo
+
+# IDE
+.vscode/settings.json
+.idea/workspace.xml
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+
+# Build artifacts (keep structure, ignore contents)
+dist/
+dist-electron/
+build/
+*.local

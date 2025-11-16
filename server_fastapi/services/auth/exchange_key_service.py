@@ -65,7 +65,8 @@ class ExchangeKeyService:
         try:
             return self.cipher.decrypt(ciphertext.encode()).decode()
         except Exception as e:
-            logger.error(f"Failed to decrypt API key: {e}")
+            # Don't log the actual error message which might contain sensitive data
+            logger.error("Failed to decrypt API key: decryption error")
             raise ValueError("Failed to decrypt API key")
 
     async def create_api_key(

@@ -2,6 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
+// Create api object for useAnalytics hooks
+const api = {
+  get: async (url: string) => {
+    return await apiRequest("GET", url);
+  },
+};
+
 // Analytics hooks for comprehensive trading analytics
 
 export const useAnalyticsSummary = () => {

@@ -26,6 +26,8 @@ const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
 const Bots = React.lazy(() => import("@/pages/Bots"));
 const Markets = React.lazy(() => import("@/pages/Markets"));
 const Analytics = React.lazy(() => import("@/pages/Analytics"));
+const Strategies = React.lazy(() => import("@/pages/Strategies"));
+const Licensing = React.lazy(() => import("@/pages/Licensing"));
 const RiskManagement = React.lazy(() => import("@/pages/RiskManagement"));
 const Settings = React.lazy(() => import("@/pages/Settings"));
 const NotFound = React.lazy(() => import("@/pages/not-found"));
@@ -53,6 +55,8 @@ function Router() {
         <Route path="/bots" component={Bots} />
         <Route path="/markets" component={Markets} />
         <Route path="/analytics" component={Analytics} />
+        <Route path="/strategies" component={Strategies} />
+        <Route path="/licensing" component={Licensing} />
         <Route path="/risk" component={RiskManagement} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

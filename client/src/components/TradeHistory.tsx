@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { exportToCSV, exportToJSON, formatTradesForExport, exportWithNotification } from "@/lib/export";
+import { exportToCSV, exportToJSON, exportTradesToPDF, formatTradesForExport, exportWithNotification } from "@/lib/export";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
@@ -69,6 +69,10 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
     exportWithNotification(() => exportToJSON(filteredTrades, { filename: `trades-${Date.now()}.json` }), toast, 'Trades exported to JSON');
   };
 
+  const handleExportPDF = () => {
+    exportWithNotification(() => exportTradesToPDF(filteredTrades, { filename: `trades-${Date.now()}.pdf` }), toast, 'Trades exported to PDF');
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -80,6 +84,9 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportJSON} data-testid="button-export-trades-json">
               <Download className="h-4 w-4 mr-1" /> JSON
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="button-export-trades-pdf">
+              <Download className="h-4 w-4 mr-1" /> PDF
             </Button>
           </div>
         </div>
