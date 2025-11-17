@@ -3,9 +3,14 @@ Trade Model - Trade execution history
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import Optional, TYPE_CHECKING
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base, TimestampMixin
+
+if TYPE_CHECKING:
+    from .user import User
+    from .bot import Bot
 
 
 class Trade(Base, TimestampMixin):
@@ -14,8 +19,12 @@ class Trade(Base, TimestampMixin):
     __tablename__ = "trades"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    bot_id: Mapped[int] = mapped_column(Integer, nullable=True, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), index=True, nullable=False)
+    bot_id: Mapped[Optional[str]] = mapped_column(String(50), ForeignKey("bots.id"), nullable=True, index=True)
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User")
+    bot: Mapped[Optional["Bot"]] = relationship("Bot")
     exchange: Mapped[str] = mapped_column(String, nullable=False)
     symbol: Mapped[str] = mapped_column(String, nullable=False, index=True)
     side: Mapped[str] = mapped_column(String, nullable=False)  # 'buy' or 'sell'

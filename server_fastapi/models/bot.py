@@ -3,10 +3,13 @@ Bot database model.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from typing import Optional, Dict, Any, TYPE_CHECKING
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import BaseModel
+
+if TYPE_CHECKING:
+    from .user import User
 
 
 class Bot(BaseModel):
@@ -16,8 +19,11 @@ class Bot(BaseModel):
     __tablename__ = "bots"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # Relationship
+    user: Mapped["User"] = relationship("User", back_populates="bots")
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     strategy: Mapped[str] = mapped_column(String(50), nullable=False)
     parameters: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON string

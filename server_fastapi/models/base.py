@@ -6,7 +6,11 @@ from datetime import datetime
 from typing import Optional, List, TYPE_CHECKING
 from sqlalchemy import Column, Integer, DateTime, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from ..database import Base
+from sqlalchemy.orm import DeclarativeBase
+
+# Define Base here to avoid circular imports
+class Base(DeclarativeBase):
+    pass
 
 if TYPE_CHECKING:
     from .exchange_api_key import ExchangeAPIKey

@@ -1,239 +1,247 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import type { User, RegisterRequest } from '../../../shared/schema';
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 
-const API_BASE =
-  (typeof window !== 'undefined' && (window as any).__API_BASE__) ||
-  (import.meta as any)?.env?.VITE_API_BASE_URL ||
-  '';
-
-interface MFASetupResponse {
-  secret: string;
-  otpauthUrl: string;
+interface User {
+  id: number;
+  email: string;
+  username: string;
+  role: string;
+  is_active: boolean;
+  is_email_verified: boolean;
+  first_name?: string;
+  last_name?: string;
 }
 
-interface AuthState {
+interface AuthContextType {
   user: User | null;
-  token: string | null;
   isLoading: boolean;
-  isAuthenticated: boolean;
+  error: string | null;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
+  register: (email: string, username: string, password: string, firstName?: string, lastName?: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<boolean>;
+  resetPassword: (token: string, newPassword: string) => Promise<boolean>;
+  refreshToken: () => Promise<boolean>;
 }
 
-export const useAuth = () => {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    token: null,
-    isLoading: true,
-    isAuthenticated: false,
-  });
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-  const { toast } = useToast();
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Initialize auth state from localStorage
   useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const userStr = localStorage.getItem('auth_user');
-
-    if (token && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setAuthState({
-          user,
-          token,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } catch (error) {
-        // Invalid stored data, clear it
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_user');
-        setAuthState(prev => ({ ...prev, isLoading: false }));
-      }
+    // Check for stored token and validate it
+    const token = localStorage.getItem("token");
+    if (token) {
+      validateToken();
     } else {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
+      setIsLoading(false);
     }
   }, []);
 
-  const login = useCallback(async (emailOrUsername: string, password: string): Promise<boolean> => {
+  const validateToken = async () => {
     try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-
-      console.log('[Auth] Attempting login with:', emailOrUsername);
-      const response = await fetch(`${API_BASE}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: emailOrUsername, password }),
-      });
-      console.log('[Auth] Login response status:', response.status);
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      const { user, token } = data.data;
-
-      // Store in localStorage
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_user', JSON.stringify(user));
-
-      setAuthState({
-        user,
-        token,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-
-      toast({
-        title: 'Login successful',
-        description: `Welcome back, ${user.name}!`,
-      });
-
-      return true;
-    } catch (error) {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-
-      toast({
-        title: 'Login failed',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      });
-
-      return false;
+      const response = await apiClient.get("/auth/me");
+      setUser(response.data);
+      setError(null);
+    } catch (err) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      setUser(null);
+    } finally {
+      setIsLoading(false);
     }
-  }, [toast]);
-
-  const register = useCallback(async (userData: RegisterRequest): Promise<boolean> => {
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-
-      const response = await fetch(`${API_BASE}/api/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
-      }
-
-      const { user, token } = data.data;
-
-      // Store in localStorage
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('auth_user', JSON.stringify(user));
-
-      setAuthState({
-        user,
-        token,
-        isLoading: false,
-        isAuthenticated: true,
-      });
-
-      toast({
-        title: 'Registration successful',
-        description: `Welcome, ${user.name}!`,
-      });
-
-      return true;
-    } catch (error) {
-      setAuthState(prev => ({ ...prev, isLoading: false }));
-
-      toast({
-        title: 'Registration failed',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      });
-
-      return false;
-    }
-  }, [toast]);
-
-  const logout = useCallback(() => {
-    // Clear localStorage
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
-
-    setAuthState({
-      user: null,
-      token: null,
-      isLoading: false,
-      isAuthenticated: false,
-    });
-
-    toast({
-      title: 'Logged out',
-      description: 'You have been successfully logged out.',
-    });
-  }, [toast]);
-
-  const getAuthHeaders = useCallback(() => {
-    const headers: Record<string, string> = {};
-    if (!authState.token) return headers;
-    headers['Authorization'] = `Bearer ${authState.token}`;
-    return headers;
-  }, [authState.token]);
-
-  const setupMFA = useCallback(async (): Promise<MFASetupResponse> => {
-    const response = await fetch(`${API_BASE}/api/auth/mfa/setup`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to setup MFA');
-    }
-
-    return data.data ?? data;
-  }, [getAuthHeaders]);
-
-  const verifyMFA = useCallback(async (token: string): Promise<boolean> => {
-    const response = await fetch(`${API_BASE}/api/auth/mfa/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(),
-      },
-      body: JSON.stringify({ token }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to verify MFA');
-    }
-
-    // Update user state to reflect MFA is enabled
-    if (authState.user) {
-      const updatedUser = { ...authState.user, mfaEnabled: true };
-      localStorage.setItem('auth_user', JSON.stringify(updatedUser));
-      setAuthState(prev => ({ ...prev, user: updatedUser }));
-    }
-
-    toast({
-      title: 'MFA enabled',
-      description: 'Two-factor authentication has been successfully enabled.',
-    });
-
-    return true;
-  }, [getAuthHeaders, authState.user, toast]);
-
-  return {
-    ...authState,
-    login,
-    register,
-    logout,
-    getAuthHeaders,
-    setupMFA,
-    verifyMFA,
   };
-};
+
+  const login = async (email: string, password: string, rememberMe = false): Promise<boolean> => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      
+      const response = await apiClient.post("/auth/login", {
+        email,
+        password,
+      });
+
+      const { access_token, refresh_token, user: userData } = response.data;
+
+      // Store tokens
+      if (rememberMe) {
+        localStorage.setItem("token", access_token);
+        localStorage.setItem("refreshToken", refresh_token || "");
+      } else {
+        sessionStorage.setItem("token", access_token);
+        sessionStorage.setItem("refreshToken", refresh_token || "");
+      }
+
+      // Set default token in apiClient
+      const { apiClient } = await import("@/lib/apiClient");
+      apiClient.setAuthToken(access_token);
+
+      setUser(userData);
+      setIsLoading(false);
+      return true;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to login. Please check your credentials.";
+      setError(errorMessage);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const register = async (
+    email: string,
+    username: string,
+    password: string,
+    firstName?: string,
+    lastName?: string
+  ): Promise<boolean> => {
+    try {
+      setError(null);
+      setIsLoading(true);
+
+      const response = await apiClient.post("/auth/register", {
+        email,
+        username,
+        password,
+        first_name: firstName,
+        last_name: lastName,
+      });
+
+      const { access_token, refresh_token, user: userData } = response.data;
+
+      // Store tokens
+      sessionStorage.setItem("token", access_token);
+      sessionStorage.setItem("refreshToken", refresh_token || "");
+
+      // Set default token in apiClient
+      const { apiClient } = await import("@/lib/apiClient");
+      const { apiClient } = await import("@/lib/apiClient");
+      apiClient.setAuthToken(access_token);
+
+      setUser(userData);
+      setIsLoading(false);
+      return true;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to register. Please try again.";
+      setError(errorMessage);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    try {
+      await apiClient.post("/auth/logout");
+    } catch (err) {
+      // Ignore errors on logout
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("refreshToken");
+      const { apiClient } = await import("@/lib/apiClient");
+      apiClient.setAuthToken(null);
+      setUser(null);
+    }
+  };
+
+  const forgotPassword = async (email: string): Promise<boolean> => {
+    try {
+      setError(null);
+      await apiClient.post("/auth/forgot-password", { email });
+      return true;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to send reset email. Please try again.";
+      setError(errorMessage);
+      return false;
+    }
+  };
+
+  const resetPassword = async (token: string, newPassword: string): Promise<boolean> => {
+    try {
+      setError(null);
+      await apiClient.post("/auth/reset-password", {
+        token,
+        new_password: newPassword,
+      });
+      return true;
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.detail ||
+        err.message ||
+        "Failed to reset password. Please try again.";
+      setError(errorMessage);
+      return false;
+    }
+  };
+
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      const refreshTokenValue =
+        localStorage.getItem("refreshToken") ||
+        sessionStorage.getItem("refreshToken");
+
+      if (!refreshTokenValue) {
+        return false;
+      }
+
+      const response = await apiClient.post("/auth/refresh", {
+        refresh_token: refreshTokenValue,
+      });
+
+      const { access_token } = response.data;
+
+      // Update stored token
+      if (localStorage.getItem("refreshToken")) {
+        localStorage.setItem("token", access_token);
+      } else {
+        sessionStorage.setItem("token", access_token);
+      }
+
+      const { apiClient } = await import("@/lib/apiClient");
+      apiClient.setAuthToken(access_token);
+      return true;
+    } catch (err) {
+      // Refresh failed, clear tokens
+      logout();
+      return false;
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        error,
+        login,
+        register,
+        logout,
+        forgotPassword,
+        resetPassword,
+        refreshToken,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}

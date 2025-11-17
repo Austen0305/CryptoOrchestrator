@@ -5,6 +5,9 @@ For long-running tasks like backtesting, data analysis, etc.
 from celery import Celery
 from celery.schedules import crontab
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize Celery
 celery_app = Celery(
@@ -12,6 +15,18 @@ celery_app = Celery(
     broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/1'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/2')
 )
+
+# Import bot worker tasks
+try:
+    from .workers.bot_worker import execute_bot, stop_bot, check_subscriptions
+    celery_app.conf.beat_schedule.update({
+        'check-subscriptions': {
+            'task': 'bot_worker.check_subscriptions',
+            'schedule': 3600.0,  # Every hour
+        },
+    })
+except ImportError:
+    logger.warning("Bot worker tasks not available")
 
 # Configuration
 celery_app.conf.update(

@@ -1,11 +1,13 @@
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import StaticPool, NullPool
 from httpx import AsyncClient
 import sys
 from pathlib import Path
 import os
+import asyncio
+from contextlib import asynccontextmanager
 
 # Ensure project root is on sys.path for "server_fastapi" package resolution
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -19,19 +21,42 @@ except Exception:
 
 # Test database URL - use shared memory SQLite for tests (allows multiple connections)
 # This fixes the issue where tests would fail with "no such table" errors
+# Can also use PostgreSQL for more realistic testing
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared")
+USE_POSTGRES = TEST_DATABASE_URL.startswith("postgresql")
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create event loop for async tests."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
 
 @pytest.fixture(scope="session")
 def test_engine():
-    """Create a test database engine if SQLAlchemy models are available; else return None."""
+    """
+    Create a test database engine with isolated database for tests.
+    Supports both SQLite (in-memory) and PostgreSQL.
+    """
     if Base is None:
         return None
-    engine = create_async_engine(
-        TEST_DATABASE_URL,
-        echo=False,
-        poolclass=StaticPool,  # Use static pool for SQLite
-        connect_args={"check_same_thread": False},  # Needed for SQLite
-    )
+    
+    if USE_POSTGRES:
+        # PostgreSQL: Create isolated test database
+        engine = create_async_engine(
+            TEST_DATABASE_URL,
+            echo=False,
+            poolclass=NullPool,  # No pooling for tests
+        )
+    else:
+        # SQLite: Use shared in-memory database
+        engine = create_async_engine(
+            TEST_DATABASE_URL,
+            echo=False,
+            poolclass=StaticPool,  # Use static pool for SQLite
+            connect_args={"check_same_thread": False},  # Needed for SQLite
+        )
     return engine
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -62,7 +87,10 @@ async def test_db_setup(test_engine):
 
 @pytest_asyncio.fixture
 async def db_session(test_engine, test_db_setup):
-    """Provide a real AsyncSession or a lightweight mock if engine unavailable."""
+    """
+    Provide an isolated database session for each test.
+    Each test gets its own transaction that rolls back automatically.
+    """
     if test_engine is None:
         class DummySession:
             async def execute(self, *a, **k):
@@ -72,11 +100,27 @@ async def db_session(test_engine, test_db_setup):
                 return R()
             async def commit(self): pass
             async def refresh(self, obj): pass
+            async def rollback(self): pass
+            async def close(self): pass
         yield DummySession()
         return
-    async_session = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
+    
+    async_session = async_sessionmaker(
+        bind=test_engine,
+        class_=AsyncSession,
+        expire_on_commit=False
+    )
+    
     async with async_session() as session:
-        yield session
+        # Begin transaction for this test
+        await session.begin()
+        
+        try:
+            yield session
+        finally:
+            # Always rollback to clean up
+            await session.rollback()
+            await session.close()
 
 @pytest.fixture(scope="session")
 def mock_user_repository():

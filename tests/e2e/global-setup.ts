@@ -1,44 +1,84 @@
-import { chromium, FullConfig } from '@playwright/test';
-
 /**
- * Global setup for E2E tests
- * Runs once before all tests
+ * Global E2E Test Setup
+ * Runs before all E2E tests to set up test environment
  */
+
+import { chromium, FullConfig } from '@playwright/test';
+import { spawn } from 'child_process';
+import path from 'path';
+
+let fastapiProcess: any = null;
+let frontendProcess: any = null;
+
 async function globalSetup(config: FullConfig) {
-  const { baseURL } = config.projects[0].use;
-  
-  console.log(`Starting global setup for ${baseURL}`);
-  
-  // Launch browser and create authenticated session if needed
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  
+  console.log('🚀 Starting global E2E test setup...');
+
+  // Start FastAPI backend
+  console.log('📦 Starting FastAPI backend...');
+  const fastapiPath = path.join(process.cwd(), 'server_fastapi');
+  fastapiProcess = spawn('python', ['-m', 'uvicorn', 'main:app', '--port', '8000'], {
+    cwd: fastapiPath,
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      TESTING: 'true',
+      DATABASE_URL: 'sqlite+aiosqlite:///./test_e2e.db',
+    },
+  });
+
+  fastapiProcess.stdout.on('data', (data: Buffer) => {
+    if (data.toString().includes('Application startup complete')) {
+      console.log('✅ FastAPI backend started');
+    }
+  });
+
+  fastapiProcess.stderr.on('data', (data: Buffer) => {
+    console.error(`FastAPI error: ${data}`);
+  });
+
+  // Wait for backend to be ready
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  // Check if backend is responding
   try {
-    // Navigate to app
-    await page.goto(baseURL || 'http://localhost:5173');
-    
-    // Wait for app to load
-    await page.waitForLoadState('networkidle');
-    
-    // Optionally: Login and save auth state
-    // const emailInput = page.locator('input[type="email"]').first();
-    // if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-    //   await emailInput.fill('test@example.com');
-    //   const passwordInput = page.locator('input[type="password"]').first();
-    //   await passwordInput.fill('testpassword123');
-    //   const submitButton = page.locator('button[type="submit"]').first();
-    //   await submitButton.click();
-    //   await page.waitForURL(/\/(dashboard|\/)/);
-    //   await page.context().storageState({ path: 'tests/e2e/.auth/user.json' });
-    // }
-    
-    console.log('Global setup completed');
+    const response = await fetch('http://localhost:8000/health');
+    if (!response.ok) {
+      throw new Error('Backend health check failed');
+    }
+    console.log('✅ Backend health check passed');
   } catch (error) {
-    console.warn('Global setup warning:', error);
-  } finally {
-    await browser.close();
+    console.error('❌ Backend not responding:', error);
+    throw error;
   }
+
+  // Start frontend dev server if not already running
+  const frontendUrl = config.projects[0].use.baseURL || 'http://localhost:5173';
+  try {
+    const response = await fetch(frontendUrl);
+    if (response.ok) {
+      console.log('✅ Frontend already running');
+    }
+  } catch (error) {
+    console.log('📦 Starting frontend dev server...');
+    frontendProcess = spawn('npm', ['run', 'dev'], {
+      stdio: 'pipe',
+      env: {
+        ...process.env,
+        VITE_API_URL: 'http://localhost:8000',
+      },
+    });
+
+    frontendProcess.stdout.on('data', (data: Buffer) => {
+      if (data.toString().includes('Local:')) {
+        console.log('✅ Frontend started');
+      }
+    });
+
+    // Wait for frontend to be ready
+    await new Promise((resolve) => setTimeout(resolve, 10000));
+  }
+
+  console.log('✅ Global E2E test setup complete');
 }
 
 export default globalSetup;
-

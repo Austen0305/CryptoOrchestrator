@@ -22,12 +22,16 @@ import { useTranslation } from "react-i18next";
 import { OfflineBanner } from "@/components/OfflineBanner";
 
 // Lazy load all pages for better performance
+const Login = React.lazy(() => import("@/pages/Login"));
+const Register = React.lazy(() => import("@/pages/Register"));
+const ForgotPassword = React.lazy(() => import("@/pages/ForgotPassword"));
 const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
 const Bots = React.lazy(() => import("@/pages/Bots"));
 const Markets = React.lazy(() => import("@/pages/Markets"));
 const Analytics = React.lazy(() => import("@/pages/Analytics"));
 const Strategies = React.lazy(() => import("@/pages/Strategies"));
 const Licensing = React.lazy(() => import("@/pages/Licensing"));
+const Billing = React.lazy(() => import("@/pages/Billing"));
 const RiskManagement = React.lazy(() => import("@/pages/RiskManagement"));
 const Settings = React.lazy(() => import("@/pages/Settings"));
 const NotFound = React.lazy(() => import("@/pages/not-found"));
@@ -51,12 +55,17 @@ function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
       <Switch>
+        <Route path="/login" component={Login} />
+        <Route path="/register" component={Register} />
+        <Route path="/forgot-password" component={ForgotPassword} />
         <Route path="/" component={Dashboard} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/bots" component={Bots} />
         <Route path="/markets" component={Markets} />
         <Route path="/analytics" component={Analytics} />
         <Route path="/strategies" component={Strategies} />
         <Route path="/licensing" component={Licensing} />
+        <Route path="/billing" component={Billing} />
         <Route path="/risk" component={RiskManagement} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />

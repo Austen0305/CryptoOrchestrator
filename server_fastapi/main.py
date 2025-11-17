@@ -10,6 +10,7 @@ import uvicorn
 import os
 import sys
 import asyncio
+import json
 
 # Import validation middleware
 try:
@@ -22,6 +23,14 @@ try:
     from .middleware.monitoring import MonitoringMiddleware
 except ImportError:
     MonitoringMiddleware = None
+
+# Import Sentry integration for error tracking
+try:
+    from .services.monitoring.sentry_integration import init_sentry
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    init_sentry = None
 
 # Import database connection pool
 try:
@@ -146,6 +155,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to initialize database tables: {e}")
     
+    # Initialize Sentry error tracking
+    if SENTRY_AVAILABLE and init_sentry:
+        try:
+            environment = os.getenv("ENVIRONMENT", "development")
+            if init_sentry(environment=environment):
+                logger.info(f"✅ Sentry error tracking initialized for {environment}")
+            else:
+                logger.info("⚠️  Sentry DSN not provided, error tracking disabled")
+        except Exception as e:
+            logger.warning(f"Sentry initialization failed: {e}")
+    
     # Register health checks
     try:
         from .routes.health_advanced import health_checker
@@ -164,6 +184,16 @@ async def lifespan(app: FastAPI):
         logger.info("✅ Market data streaming service started")
     except Exception as e:
         logger.warning(f"Market data streaming not available: {e}")
+    
+    # Export OpenAPI JSON schema to docs/openapi.json
+    try:
+        os.makedirs("docs", exist_ok=True)
+        openapi_schema = app.openapi()
+        with open("docs/openapi.json", "w", encoding="utf-8") as f:
+            json.dump(openapi_schema, f, indent=2, ensure_ascii=False)
+        logger.info("✅ OpenAPI schema exported to docs/openapi.json")
+    except Exception as e:
+        logger.warning(f"Failed to export OpenAPI schema: {e}")
     
     yield
     
@@ -288,6 +318,14 @@ try:
 except ImportError:
     logger.warning("Request ID middleware not available")
 
+# Add enhanced error handling middleware
+try:
+    from .middleware.error_handling import setup_error_handling
+    setup_error_handling(app)
+    logger.info("Enhanced error handling middleware enabled")
+except ImportError as e:
+    logger.warning(f"Enhanced error handling not available: {e}")
+
 # Enhanced security headers middleware (already added above)
 
 # CORS middleware - optimized for desktop app usage with proper origin validation
@@ -404,6 +442,12 @@ async def health_check():
     
     return health_status
 
+# Simple health check endpoint for load balancers and monitoring
+@app.get("/healthz")
+async def healthz():
+    """Simple health check endpoint returning status: ok"""
+    return {"status": "ok"}
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -423,6 +467,10 @@ def _safe_include(module: str, attr: str, prefix: str, tags: list[str]):
 logger.info("Loading routers with resilient strategy...")
 
 _safe_include("server_fastapi.routes.auth", "router", "/api/auth", ["Authentication"])
+_safe_include("server_fastapi.routes.auth_saas", "router", "/api", ["Authentication"])
+_safe_include("server_fastapi.routes.billing", "router", "/api", ["Billing"])
+_safe_include("server_fastapi.routes.admin", "router", "/api", ["Admin"])
+_safe_include("server_fastapi.routes.exchange_keys_saas", "router", "/api", ["Exchange Keys"])
 _safe_include("server_fastapi.routes.bots", "router", "/api/bots", ["Bots"])
 _safe_include("server_fastapi.routes.bot_learning", "router", "", ["Bot Learning"])
 _safe_include("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"])

@@ -59,8 +59,12 @@ async_session = async_sessionmaker(
 )
 
 # Base class for all database models
-class Base(DeclarativeBase):
-    pass
+# Import from models.base to ensure consistency
+try:
+    from .models.base import Base
+except ImportError:
+    # Fallback if models.base doesn't exist yet
+    Base = DeclarativeBase
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """

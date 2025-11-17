@@ -17,10 +17,19 @@ const defaultConfig: Required<RetryConfig> = {
 };
 
 class ApiClient {
-  private baseURL: string;
+  private   baseURL: string;
+  private authToken: string | null = null;
 
   constructor(baseURL: string = '/api') {
     this.baseURL = baseURL;
+    // Initialize from localStorage if available
+    if (typeof window !== 'undefined') {
+      this.authToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+    }
+  }
+
+  setAuthToken(token: string | null): void {
+    this.authToken = token;
   }
 
   private async delay(ms: number): Promise<void> {
@@ -43,7 +52,7 @@ class ApiClient {
     let lastError: Error | null = null;
 
     // Attach Authorization if token exists
-    const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+    const token = this.authToken || (typeof window !== 'undefined' ? localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token') : null);
 
     for (let attempt = 0; attempt <= config.maxRetries; attempt++) {
       try {

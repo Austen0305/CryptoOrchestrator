@@ -416,16 +416,26 @@ def generate_refresh_token(user: dict) -> str:
     )
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Legacy get_current_user - kept for backward compatibility.
+    Routes should use server_fastapi.dependencies.auth.get_current_user instead.
+    """
+    # Import centralized version
     try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        user = storage.getUserById(payload['id'])
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        from server_fastapi.dependencies.auth import get_current_user as _get_current_user
+        return _get_current_user(credentials)
+    except ImportError:
+        # Fallback to legacy implementation
+        try:
+            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
+            user = storage.getUserById(payload['id'])
+            if not user:
+                raise HTTPException(status_code=401, detail="User not found")
+            return user
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
 
 def _generate_6_digit_code() -> str:
     import random
