@@ -286,7 +286,16 @@ prettier --write .       # Format frontend code
 
 ## 🚀 Deployment
 
-### Docker Deployment (Recommended)
+### Free Hosting (Recommended for Getting Started)
+
+**Deploy your app for free on Render, Railway, or Fly.io!**
+
+- 📖 **[Quick Start Guide](QUICK_START_FREE_HOSTING.md)** - Deploy in 10 minutes
+- 📚 **[Complete Free Hosting Guide](FREE_HOSTING_GUIDE.md)** - All free hosting options
+- 📋 **[Free Hosting Summary](FREE_HOSTING_SUMMARY.md)** - Overview and recommendations
+- ✅ **[Pre-Deployment Checklist](PRE_DEPLOYMENT_CHECKLIST.md)** - What to test before deploying
+
+### Docker Deployment (Recommended for Production)
 
 ```bash
 # Build and start all services
@@ -304,6 +313,7 @@ docker-compose down
 For detailed deployment instructions, see [docs/deployment.md](docs/deployment.md).
 
 Key deployment options:
+- **Free Hosting** - Render, Railway, Fly.io (see [FREE_HOSTING_GUIDE.md](FREE_HOSTING_GUIDE.md))
 - **Docker Compose** - One-command deployment
 - **PM2** - Process management for Node.js
 - **Systemd** - Linux service management

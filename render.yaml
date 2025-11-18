@@ -1,0 +1,65 @@
+# Render Blueprint Configuration
+# Deploy all services with a single click
+# https://render.com/docs/blueprint-spec
+
+services:
+  # PostgreSQL Database
+  - type: pspg
+    name: crypto-orchestrator-db
+    databaseName: cryptoorchestrator
+    user: crypto_user
+    plan: free
+    region: oregon  # Change to your preferred region
+
+  # Redis Cache
+  - type: redis
+    name: crypto-orchestrator-redis
+    plan: free
+    region: oregon  # Should match database region
+
+  # FastAPI Backend
+  - type: web
+    name: crypto-orchestrator-backend
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn server_fastapi.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: crypto-orchestrator-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: crypto-orchestrator-redis
+          type: redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: EXCHANGE_KEY_ENCRYPTION_KEY
+        generateValue: true
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: NODE_ENV
+        value: production
+
+  # React Frontend (Static Site)
+  - type: web
+    name: crypto-orchestrator-frontend
+    env: static
+    plan: free
+    region: oregon
+    buildCommand: cd client && npm install --legacy-peer-deps && npm run build
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: crypto-orchestrator-backend
+          type: web
+          property: host
+

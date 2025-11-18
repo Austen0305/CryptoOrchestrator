@@ -353,9 +353,14 @@ def validate_origin(origin: str) -> bool:
 
     return origin in allowed_origins
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Get allowed origins from environment or use defaults
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+if allowed_origins_env:
+    # Parse comma-separated origins from environment
+    cors_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+else:
+    # Default origins including Render domains
+    cors_origins = [
         "http://localhost:3000",  # React dev server
         "http://localhost:5173",  # Vite dev server
         "http://localhost:8000",  # FastAPI server
@@ -368,8 +373,12 @@ app.add_middleware(
         "http://127.0.0.1:8000", # Alternative localhost
         "file://",               # Electron file protocol
         "null",                  # Electron null origin
-    ],
-    allow_origin_regex=r"https://.*\.crypto-orchestrator\.com$",  # Production domains
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",  # Render and production domains
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"],
