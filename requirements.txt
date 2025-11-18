@@ -44,7 +44,7 @@ structlog==24.1.0
 # MCP Integration Dependencies
 boto3==1.34.0  # For AWS Secrets Manager (optional)
 hvac==1.2.1  # For HashiCorp Vault (optional)
-sentry-sdk[fastapi]==2.10.1  # For error tracking
+sentry-sdk[fastapi]>=2.10.0  # For error tracking
 bandit==1.7.6  # For security scanning
 safety==2.3.5  # For dependency vulnerability scanning
 
