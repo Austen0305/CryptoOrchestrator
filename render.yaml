@@ -4,7 +4,7 @@
 
 services:
   # PostgreSQL Database
-  - type: pg
+  - type: postgresql
     name: crypto-orchestrator-db
     databaseName: cryptoorchestrator
     user: crypto_user
