@@ -1,3 +1,11 @@
+# Set environment variables to disable CUDA/GPU before any imports
+# This prevents CUDA initialization errors on systems without GPU
+import os
+os.environ.setdefault('CUDA_VISIBLE_DEVICES', '')
+os.environ.setdefault('TF_CPP_MIN_LOG_LEVEL', '3')  # Suppress TensorFlow warnings
+os.environ.setdefault('TORCH_CUDA_ARCH_LIST', '')
+os.environ.setdefault('NUMBA_DISABLE_JIT', '1')
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -7,7 +15,6 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 import uvicorn
-import os
 import sys
 import asyncio
 import json
