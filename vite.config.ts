@@ -1,8 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { fileURLToPath } from "url";
 import { visualizer } from 'rollup-plugin-visualizer';
 import { VitePWA } from 'vite-plugin-pwa';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => ({
   plugins: [
@@ -14,6 +18,13 @@ export default defineConfig(({ mode }) => ({
     }),
     VitePWA({
       registerType: 'autoUpdate',
+      // Disable service worker in development to prevent caching issues
+      devOptions: {
+        enabled: false,
+        type: 'module',
+      },
+      // Only enable in production
+      injectRegister: mode === 'production' ? 'auto' : null,
       manifest: {
         name: 'CryptoOrchestrator',
         short_name: 'CryptoOrch',
@@ -37,13 +48,13 @@ export default defineConfig(({ mode }) => ({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(import.meta.dirname, "client", "src"),
-      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@": path.resolve(__dirname, "client", "src"),
+      "@shared": path.resolve(__dirname, "shared"),
     },
   },
-  root: path.resolve(import.meta.dirname, "client"),
+  root: path.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(import.meta.dirname, "dist"),
+    outDir: path.resolve(__dirname, "dist"),
     emptyOutDir: true,
     sourcemap: mode === 'production' ? false : true, // Disable sourcemaps in production for smaller bundles
     minify: 'terser',
@@ -97,6 +108,19 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000, // Warn if chunk exceeds 1MB
   },
   server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: false,
+    open: false,
+    // Enable HMR (Hot Module Replacement) for better dev experience
+    hmr: {
+      overlay: true,
+    },
+    // Force reload on file changes
+    watch: {
+      usePolling: false,
+      interval: 100,
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],

@@ -35,11 +35,27 @@ class OrderBook(BaseModel):
     asks: List[List[float]]
 
 class ExchangeService:
-    def __init__(self, name: str, use_mock: Optional[bool] = None):
+    def __init__(self, name: str, use_mock: Optional[bool] = None, api_key: Optional[str] = None, api_secret: Optional[str] = None):
         self.name = name
-        self.use_mock = use_mock if use_mock is not None else os.getenv('USE_MOCK_KRAKEN', 'false').lower() == 'true'
+        # Check production mode - mock data disabled in production
+        from ..config.settings import get_settings
+        settings = get_settings()
+        production_mode = settings.production_mode or settings.is_production
+        
+        # Determine mock mode: explicit override > production check > env var > default False
+        if use_mock is not None:
+            self.use_mock = use_mock
+        elif production_mode:
+            self.use_mock = False  # Force real mode in production
+            logger.info(f"Production mode detected - disabling mock data for {name}")
+        else:
+            # Only allow mock in development if explicitly enabled
+            self.use_mock = os.getenv('ENABLE_MOCK_DATA', 'false').lower() == 'true' or os.getenv(f'USE_MOCK_{name.upper()}', 'false').lower() == 'true'
+        
         self.exchange: Optional[Any] = None
         self.connected: bool = False
+        self.api_key = api_key
+        self.api_secret = api_secret
 
         if not self.use_mock:
             try:
@@ -49,9 +65,16 @@ class ExchangeService:
                     self.exchange = None
                     return
 
+                # Use provided API keys or fall back to environment variables
+                exchange_api_key = api_key or os.getenv(f'{name.upper()}_API_KEY') or os.getenv('KRAKEN_API_KEY')
+                exchange_api_secret = api_secret or os.getenv(f'{name.upper()}_SECRET_KEY') or os.getenv('KRAKEN_SECRET_KEY')
+                
+                if not exchange_api_key or not exchange_api_secret:
+                    logger.warning(f"No API keys provided for {name}. Exchange will be read-only or unavailable.")
+                
                 self.exchange = exchange_class({
-                    'apiKey': os.getenv(f'{name.upper()}_API_KEY') or os.getenv('KRAKEN_API_KEY'),
-                    'secret': os.getenv(f'{name.upper()}_SECRET_KEY') or os.getenv('KRAKEN_SECRET_KEY'),
+                    'apiKey': exchange_api_key or '',
+                    'secret': exchange_api_secret or '',
                     'enableRateLimit': True,
                 })
             except Exception as err:
@@ -82,45 +105,63 @@ class ExchangeService:
         return self.connected
 
     async def get_historical_data(self, symbol: str, timeframe: str = '1h', limit: int = 168) -> List[MarketData]:
+        """Get historical data with circuit breaker protection"""
         if not self.connected:
             await self.connect()
 
         try:
-            if self.use_mock:
-                now = int(datetime.now().timestamp() * 1000)
-                data = []
-                for i in range(min(limit, 24)):
-                    timestamp = now - i * 60 * 60 * 1000
-                    close = 50000 + i if symbol.startswith('BTC') else 3500 + i if symbol.startswith('ETH') else 1 + i
-                    data.append(MarketData(
+            # Import circuit breaker
+            try:
+                from ..middleware.circuit_breaker import exchange_breaker, CircuitBreakerOpenError
+            except ImportError:
+                exchange_breaker = None
+            
+            async def _get_historical_data_internal():
+                if self.use_mock:
+                    now = int(datetime.now().timestamp() * 1000)
+                    data = []
+                    for i in range(min(limit, 24)):
+                        timestamp = now - i * 60 * 60 * 1000
+                        close = 50000 + i if symbol.startswith('BTC') else 3500 + i if symbol.startswith('ETH') else 1 + i
+                        data.append(MarketData(
+                            pair=symbol,
+                            timestamp=timestamp,
+                            open=close - 5,
+                            high=close + 10,
+                            low=close - 10,
+                            close=close,
+                            volume=0.1 * (0.5 + 0.5 * (i % 2))  # Random-like volume
+                        ))
+                    return data
+
+                if not self.exchange or not hasattr(self.exchange, 'fetch_ohlcv'):
+                    logger.error("Exchange client missing or does not support fetch_ohlcv")
+                    return []
+
+                ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, None, limit)
+
+                return [
+                    MarketData(
                         pair=symbol,
                         timestamp=timestamp,
-                        open=close - 5,
-                        high=close + 10,
-                        low=close - 10,
+                        open=open_price,
+                        high=high,
+                        low=low,
                         close=close,
-                        volume=0.1 * (0.5 + 0.5 * (i % 2))  # Random-like volume
-                    ))
-                return data
-
-            if not self.exchange or not hasattr(self.exchange, 'fetch_ohlcv'):
-                logger.error("Exchange client missing or does not support fetch_ohlcv")
-                return []
-
-            ohlcv = await self.exchange.fetch_ohlcv(symbol, timeframe, None, limit)
-
-            return [
-                MarketData(
-                    pair=symbol,
-                    timestamp=timestamp,
-                    open=open_price,
-                    high=high,
-                    low=low,
-                    close=close,
-                    volume=volume
-                )
-                for timestamp, open_price, high, low, close, volume in ohlcv
-            ]
+                        volume=volume
+                    )
+                    for timestamp, open_price, high, low, close, volume in ohlcv
+                ]
+            
+            # Use circuit breaker if available
+            if exchange_breaker:
+                try:
+                    return await exchange_breaker.call(_get_historical_data_internal)
+                except CircuitBreakerOpenError as e:
+                    logger.error(f"Circuit breaker open for {self.name} historical data: {e}")
+                    return []  # Return empty list on circuit breaker open
+            else:
+                return await _get_historical_data_internal()
         except Exception as error:
             logger.error(f"Failed to fetch historical data for {symbol} on {self.name}: {error}")
             return []
@@ -211,70 +252,126 @@ class ExchangeService:
             return None
 
     async def get_order_book(self, pair: str) -> OrderBook:
+        """Get order book with circuit breaker protection"""
         try:
-            if self.use_mock:
+            # Import circuit breaker
+            try:
+                from ..middleware.circuit_breaker import exchange_breaker, CircuitBreakerOpenError
+            except ImportError:
+                exchange_breaker = None
+            
+            async def _get_order_book_internal():
+                if self.use_mock:
+                    return OrderBook(
+                        bids=[[49990.0, 0.5], [49980.0, 1.2], [49950.0, 0.1]],
+                        asks=[[50010.0, 0.4], [50020.0, 2.0], [50050.0, 0.3]]
+                    )
+
+                if not self.exchange or not hasattr(self.exchange, 'fetch_order_book'):
+                    return OrderBook(bids=[], asks=[])
+
+                order_book = await self.exchange.fetch_order_book(pair)
                 return OrderBook(
-                    bids=[[49990.0, 0.5], [49980.0, 1.2], [49950.0, 0.1]],
-                    asks=[[50010.0, 0.4], [50020.0, 2.0], [50050.0, 0.3]]
+                    bids=order_book['bids'][:10],
+                    asks=order_book['asks'][:10]
                 )
-
-            if not self.exchange or not hasattr(self.exchange, 'fetch_order_book'):
-                return OrderBook(bids=[], asks=[])
-
-            order_book = await self.exchange.fetch_order_book(pair)
-            return OrderBook(
-                bids=order_book['bids'][:10],
-                asks=order_book['asks'][:10]
-            )
+            
+            # Use circuit breaker if available
+            if exchange_breaker:
+                try:
+                    return await exchange_breaker.call(_get_order_book_internal)
+                except CircuitBreakerOpenError as e:
+                    logger.error(f"Circuit breaker open for {self.name} order book: {e}")
+                    return OrderBook(bids=[], asks=[])  # Return empty order book
+            else:
+                return await _get_order_book_internal()
         except Exception as error:
             logger.error(f"Error fetching order book for {pair} on {self.name}: {error}")
             return OrderBook(bids=[], asks=[])
 
     async def place_order(self, pair: str, side: str, order_type: str, amount: float, price: Optional[float] = None) -> Dict[str, Any]:
+        """Place order with circuit breaker protection"""
         try:
-            if self.use_mock:
-                return {
-                    'id': f'mock-{int(datetime.now().timestamp() * 1000)}',
-                    'pair': pair,
-                    'side': side,
-                    'type': order_type,
-                    'amount': amount,
-                    'price': price,
-                    'status': 'closed',
-                    'timestamp': int(datetime.now().timestamp() * 1000)
-                }
+            # Import circuit breaker
+            try:
+                from ..middleware.circuit_breaker import exchange_breaker, CircuitBreakerOpenError
+            except ImportError:
+                # Fallback if circuit breaker not available
+                exchange_breaker = None
+            
+            async def _place_order_internal():
+                if self.use_mock:
+                    return {
+                        'id': f'mock-{int(datetime.now().timestamp() * 1000)}',
+                        'pair': pair,
+                        'side': side,
+                        'type': order_type,
+                        'amount': amount,
+                        'price': price,
+                        'status': 'closed',
+                        'timestamp': int(datetime.now().timestamp() * 1000)
+                    }
 
-            if not self.exchange:
-                raise ValueError('Exchange client not initialized')
+                if not self.exchange:
+                    raise ValueError('Exchange client not initialized')
 
-            if order_type == 'market':
-                if side == 'buy':
-                    order = await self.exchange.create_market_buy_order(pair, amount)
+                if order_type == 'market':
+                    if side == 'buy':
+                        order = await self.exchange.create_market_buy_order(pair, amount)
+                    else:
+                        order = await self.exchange.create_market_sell_order(pair, amount)
+                elif order_type == 'limit' and price is not None:
+                    if side == 'buy':
+                        order = await self.exchange.create_limit_buy_order(pair, amount, price)
+                    else:
+                        order = await self.exchange.create_limit_sell_order(pair, amount, price)
                 else:
-                    order = await self.exchange.create_market_sell_order(pair, amount)
-            elif order_type == 'limit' and price is not None:
-                if side == 'buy':
-                    order = await self.exchange.create_limit_buy_order(pair, amount, price)
-                else:
-                    order = await self.exchange.create_limit_sell_order(pair, amount, price)
+                    raise ValueError('Invalid order type or missing price for limit order')
+
+                return order
+            
+            # Use circuit breaker if available
+            if exchange_breaker:
+                try:
+                    return await exchange_breaker.call(_place_order_internal)
+                except CircuitBreakerOpenError as e:
+                    logger.error(f"Circuit breaker open for {self.name}: {e}")
+                    raise RuntimeError(f"Exchange {self.name} is temporarily unavailable. Please try again later.")
             else:
-                raise ValueError('Invalid order type or missing price for limit order')
-
-            return order
+                return await _place_order_internal()
+                
         except Exception as error:
             logger.error(f"Error placing order on {self.name}: {error}")
             raise error
 
     async def get_balance(self) -> Dict[str, float]:
+        """Get balance with circuit breaker protection"""
         try:
-            if self.use_mock:
-                return {'USD': 100000.0, 'BTC': 1.2, 'ETH': 10.0}
+            # Import circuit breaker
+            try:
+                from ..middleware.circuit_breaker import exchange_breaker, CircuitBreakerOpenError
+            except ImportError:
+                exchange_breaker = None
+            
+            async def _get_balance_internal():
+                if self.use_mock:
+                    return {'USD': 100000.0, 'BTC': 1.2, 'ETH': 10.0}
 
-            if not self.exchange or not hasattr(self.exchange, 'fetch_balance'):
-                return {}
+                if not self.exchange or not hasattr(self.exchange, 'fetch_balance'):
+                    return {}
 
-            balance = await self.exchange.fetch_balance()
-            return balance.get('total', {})
+                balance = await self.exchange.fetch_balance()
+                return balance.get('total', {})
+            
+            # Use circuit breaker if available
+            if exchange_breaker:
+                try:
+                    return await exchange_breaker.call(_get_balance_internal)
+                except CircuitBreakerOpenError as e:
+                    logger.error(f"Circuit breaker open for {self.name} balance: {e}")
+                    return {}  # Return empty balance on circuit breaker open
+            else:
+                return await _get_balance_internal()
         except Exception as error:
             logger.error(f"Error fetching balance from {self.name}: {error}")
             return {}

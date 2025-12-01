@@ -8,8 +8,7 @@ export const useArbitrageStatus = () => {
   return useQuery({
     queryKey: ["arbitrage", "status"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/arbitrage/status");
-      return response.json();
+      return await apiRequest("/api/arbitrage/status", { method: "GET" });
     },
     refetchInterval: 10000, // 10 seconds
   });
@@ -20,10 +19,8 @@ export const useArbitrageOpportunities = () => {
   return useQuery({
     queryKey: ["arbitrage", "opportunities"],
     queryFn: async () => {
-      const response = await api.get("/arbitrage/opportunities");
-      return response;
+      return await apiRequest("/api/arbitrage/opportunities", { method: "GET" });
     },
-    enabled: isAuthenticated,
     refetchInterval: isAuthenticated ? 5000 : false, // 5 seconds
   });
 };
@@ -33,10 +30,8 @@ export const useArbitrageStats = () => {
   return useQuery({
     queryKey: ["arbitrage", "stats"],
     queryFn: async () => {
-      const response = await api.get("/arbitrage/stats");
-      return response;
+      return await apiRequest("/api/arbitrage/stats", { method: "GET" });
     },
-    enabled: isAuthenticated,
     refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds
   });
 };
@@ -46,10 +41,8 @@ export const useArbitrageHistory = () => {
   return useQuery({
     queryKey: ["arbitrage", "history"],
     queryFn: async () => {
-      const response = await api.get("/arbitrage/history");
-      return response;
+      return await apiRequest("/api/arbitrage/history", { method: "GET" });
     },
-    enabled: isAuthenticated,
   });
 };
 
@@ -59,13 +52,11 @@ export const useStartArbitrage = () => {
   
   return useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/arbitrage/start", {});
-      return response.json();
+      return await apiRequest("/api/arbitrage/start", { method: "POST", body: {} });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arbitrage", "status"] });
     },
-    enabled: isAuthenticated,
   });
 };
 
@@ -75,13 +66,11 @@ export const useStopArbitrage = () => {
   
   return useMutation({
     mutationFn: async () => {
-      const response = await api.post("/arbitrage/stop", {});
-      return response;
+      return await apiRequest("/api/arbitrage/stop", { method: "POST", body: {} });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arbitrage", "status"] });
     },
-    enabled: isAuthenticated,
   });
 };
 
@@ -91,15 +80,13 @@ export const useExecuteArbitrage = () => {
   
   return useMutation({
     mutationFn: async (opportunityId: string) => {
-      const response = await api.post(`/arbitrage/execute/${opportunityId}`, {});
-      return response;
+      return await apiRequest(`/api/arbitrage/execute/${opportunityId}`, { method: "POST", body: {} });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["arbitrage", "opportunities"] });
       queryClient.invalidateQueries({ queryKey: ["arbitrage", "history"] });
       queryClient.invalidateQueries({ queryKey: ["arbitrage", "stats"] });
     },
-    enabled: isAuthenticated,
   });
 };
 

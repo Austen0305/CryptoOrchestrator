@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,33 +6,35 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Star, StarOff, Search, TrendingUp, TrendingDown, Plus, X } from "lucide-react";
 import { useWatchlist, useMarkets, useAddToWatchlist, useRemoveFromWatchlist, useSearchTradingPairs } from "@/hooks/useMarkets";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage, formatNumber, formatLargeNumber } from "@/lib/formatters";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import type { TradingPair } from "@shared/schema";
 
 export function Watchlist() {
   const { isAuthenticated } = useAuth();
-  const { data: watchlist, isLoading: watchlistLoading } = useWatchlist();
+  const { data: watchlist, isLoading: watchlistLoading, error: watchlistError, refetch: refetchWatchlist } = useWatchlist();
   const { data: markets } = useMarkets();
   const [searchQuery, setSearchQuery] = useState("");
-  const { data: searchResults } = useSearchTradingPairs(searchQuery);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce search input
+  const { data: searchResults, error: searchError } = useSearchTradingPairs(debouncedSearchQuery);
   const addToWatchlist = useAddToWatchlist();
   const removeFromWatchlist = useRemoveFromWatchlist();
 
-  // Mock data - in production, this would come from the API
-  const mockWatchlist = [
-    { symbol: "BTC/USD", price: 47350, change24h: 4.76, volume24h: 2400000000, favorite: true },
-    { symbol: "ETH/USD", price: 2920, change24h: 2.1, volume24h: 1200000000, favorite: true },
-    { symbol: "SOL/USD", price: 142, change24h: -0.5, volume24h: 450000000, favorite: true },
-    { symbol: "ADA/USD", price: 0.58, change24h: 3.21, volume24h: 320000000, favorite: false },
-  ];
-
-  const watchlistData = watchlist || mockWatchlist;
-  const filteredWatchlist = searchQuery
-    ? watchlistData.filter((item: any) =>
-        item.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : watchlistData;
+  // Use real API data with fallback to empty array
+  const watchlistData: TradingPair[] = watchlist || [];
+  const filteredWatchlist = useMemo(() => 
+    debouncedSearchQuery
+      ? watchlistData.filter((item) =>
+          item.symbol.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+        )
+      : watchlistData,
+    [watchlistData, debouncedSearchQuery]
+  );
 
   const handleToggleFavorite = async (symbol: string, isFavorite: boolean) => {
     if (isFavorite) {
@@ -86,15 +88,20 @@ export function Watchlist() {
 
         {/* Watchlist Table */}
         {watchlistLoading ? (
-          <div className="text-center py-8 text-muted-foreground">
-            Loading watchlist...
-          </div>
+          <LoadingSkeleton count={5} className="h-12 w-full" />
+        ) : watchlistError ? (
+          <ErrorRetry
+            title="Failed to load watchlist"
+            message={watchlistError instanceof Error ? watchlistError.message : "Unable to fetch your watchlist. Please try again."}
+            onRetry={() => refetchWatchlist()}
+            error={watchlistError as Error}
+          />
         ) : filteredWatchlist.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Star className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No pairs in your watchlist yet</p>
-            <p className="text-sm">Add trading pairs to track them here</p>
-          </div>
+          <EmptyState
+            icon={Star}
+            title="No pairs in your watchlist"
+            description={searchQuery ? "No pairs match your search. Try a different query." : "Add trading pairs to track them here"}
+          />
         ) : (
           <div className="rounded-md border">
             <Table>
@@ -108,10 +115,10 @@ export function Watchlist() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredWatchlist.map((item: any) => (
+                {filteredWatchlist.map((item) => (
                   <TableRow key={item.symbol}>
                     <TableCell className="font-medium">{item.symbol}</TableCell>
-                    <TableCell>{formatCurrency(item.price)}</TableCell>
+                    <TableCell>{formatCurrency(item.currentPrice)}</TableCell>
                     <TableCell>
                       <div className={cn(
                         "flex items-center gap-1 font-medium",
@@ -133,13 +140,9 @@ export function Watchlist() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleToggleFavorite(item.symbol, item.favorite)}
+                          onClick={() => handleToggleFavorite(item.symbol, true)}
                         >
-                          {item.favorite ? (
-                            <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
-                          ) : (
-                            <StarOff className="h-4 w-4" />
-                          )}
+                          <Star className="h-4 w-4 fill-yellow-500 text-yellow-500" />
                         </Button>
                         <Button variant="ghost" size="sm">
                           <X className="h-4 w-4" />
@@ -158,7 +161,7 @@ export function Watchlist() {
           <div className="rounded-md border bg-muted/50 p-4">
             <div className="font-medium mb-2">Search Results</div>
             <div className="space-y-2">
-              {searchResults.slice(0, 5).map((item: any) => (
+              {searchResults.slice(0, 5).map((item: TradingPair) => (
                 <div
                   key={item.symbol}
                   className="flex items-center justify-between p-2 rounded-md border hover:bg-background cursor-pointer"
@@ -170,7 +173,7 @@ export function Watchlist() {
                   <div>
                     <div className="font-medium">{item.symbol}</div>
                     <div className="text-sm text-muted-foreground">
-                      {item.exchange || "Multiple exchanges"}
+                      {item.baseAsset}/{item.quoteAsset}
                     </div>
                   </div>
                   <Button variant="outline" size="sm">

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2 } from "lucide-react";
+import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
 
 export default function Register() {
@@ -22,6 +23,8 @@ export default function Register() {
     acceptTerms: false,
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -126,16 +129,20 @@ export default function Register() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="johndoe"
-                value={formData.username}
-                onChange={(e) => handleChange("username", e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="username"
-              />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="johndoe"
+                  value={formData.username}
+                  onChange={(e) => {
+                    handleChange("username", e.target.value);
+                    // Force React to recognize the change
+                    e.target.dispatchEvent(new Event('input', { bubbles: true }));
+                  }}
+                  required
+                  disabled={isLoading}
+                  autoComplete="username"
+                />
               {validationErrors.username && (
                 <p className="text-sm text-destructive">{validationErrors.username}</p>
               )}
@@ -158,32 +165,67 @@ export default function Register() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={(e) => handleChange("password", e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={formData.password}
+                  onChange={(e) => handleChange("password", e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {formData.password && (
+                <PasswordStrengthIndicator password={formData.password} />
+              )}
               {validationErrors.password && (
                 <p className="text-sm text-destructive">{validationErrors.password}</p>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                required
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {validationErrors.confirmPassword && (
                 <p className="text-sm text-destructive">{validationErrors.confirmPassword}</p>
               )}
@@ -217,7 +259,7 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !formData.email || !formData.password || !formData.username}
+              disabled={isLoading || !formData.email || !formData.password || !formData.username || !formData.acceptTerms}
             >
               {isLoading ? (
                 <>

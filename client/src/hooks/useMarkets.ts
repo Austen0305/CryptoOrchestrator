@@ -9,8 +9,7 @@ export const useWatchlist = () => {
   return useQuery({
     queryKey: ["markets", "watchlist"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/markets/watchlist");
-      return response.json();
+      return await apiRequest("/api/markets/watchlist", { method: "GET" });
     },
     enabled: isAuthenticated,
   });
@@ -21,8 +20,7 @@ export const useFavorites = () => {
   return useQuery({
     queryKey: ["markets", "favorites"],
     queryFn: async () => {
-      const response = await api.get("/markets/favorites");
-      return response;
+      return await apiRequest("/api/markets/favorites", { method: "GET" });
     },
     enabled: isAuthenticated,
   });
@@ -34,8 +32,7 @@ export const useAdvancedMarketAnalysis = (pair: string, indicators: string[] = [
     queryKey: ["markets", "advanced", pair, indicators],
     queryFn: async () => {
       const indicatorsQuery = indicators.join(",");
-      const response = await api.get(`/markets/advanced/${pair}/analysis?indicators=${indicatorsQuery}`);
-      return response;
+      return await apiRequest(`/api/markets/advanced/${pair}/analysis?indicators=${indicatorsQuery}`, { method: "GET" });
     },
     enabled: isAuthenticated && !!pair,
     refetchInterval: isAuthenticated ? 60000 : false, // 1 minute
@@ -46,8 +43,7 @@ export const useMarketDetails = (pair: string) => {
   return useQuery({
     queryKey: ["markets", "details", pair],
     queryFn: async () => {
-      const response = await api.get(`/markets/${pair}/details`);
-      return response;
+      return await apiRequest(`/api/markets/${pair}/details`, { method: "GET" });
     },
     enabled: !!pair,
   });
@@ -57,8 +53,7 @@ export const useMarketTickers = () => {
   return useQuery({
     queryKey: ["markets", "tickers"],
     queryFn: async () => {
-      const response = await api.get("/markets/tickers");
-      return response;
+      return await apiRequest("/api/markets/tickers", { method: "GET" });
     },
     refetchInterval: 10000, // 10 seconds
   });
@@ -68,8 +63,7 @@ export const useMarketSummary = () => {
   return useQuery({
     queryKey: ["markets", "summary"],
     queryFn: async () => {
-      const response = await api.get("/markets/summary");
-      return response;
+      return await apiRequest("/api/markets/summary", { method: "GET" });
     },
     refetchInterval: 30000, // 30 seconds
   });
@@ -79,8 +73,7 @@ export const useSearchTradingPairs = (query: string) => {
   return useQuery({
     queryKey: ["markets", "search", query],
     queryFn: async () => {
-      const response = await api.get(`/markets/trading-pairs/search?q=${encodeURIComponent(query)}`);
-      return response;
+      return await apiRequest(`/api/markets/trading-pairs/search?q=${encodeURIComponent(query)}`, { method: "GET" });
     },
     enabled: !!query && query.length >= 2,
   });

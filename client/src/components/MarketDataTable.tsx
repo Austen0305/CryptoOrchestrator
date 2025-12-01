@@ -1,11 +1,15 @@
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Star, Search, TrendingUp, TrendingDown, Download } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { exportToCSV, exportWithNotification } from "@/lib/export";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface Market {
   pair: string;
@@ -21,27 +25,43 @@ interface MarketDataTableProps {
   onPairSelect?: (pair: string) => void;
 }
 
-export function MarketDataTable({ markets, onPairSelect }: MarketDataTableProps) {
+export const MarketDataTable = React.memo(function MarketDataTable({ markets, onPairSelect }: MarketDataTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
-  const toggleFavorite = (pair: string) => {
-    const newFavorites = new Set(favorites);
-    if (newFavorites.has(pair)) {
-      newFavorites.delete(pair);
-    } else {
-      newFavorites.add(pair);
-    }
-    setFavorites(newFavorites);
-    console.log(`Toggled favorite for ${pair}`);
-  };
+  const toggleFavorite = useCallback((pair: string) => {
+    setFavorites((prevFavorites) => {
+      const newFavorites = new Set(prevFavorites);
+      if (newFavorites.has(pair)) {
+        newFavorites.delete(pair);
+      } else {
+        newFavorites.add(pair);
+      }
+      return newFavorites;
+    });
+  }, []);
 
-  const filteredMarkets = markets.filter((m) =>
-    m.pair.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredMarkets = useMemo(() => 
+    markets.filter((m) =>
+      m.pair.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    ),
+    [markets, debouncedSearchQuery]
   );
 
-  const handleExportCSV = () => {
+  // Pagination
+  const pagination = usePagination({
+    initialPage: 1,
+    initialPageSize: 20,
+    totalItems: filteredMarkets.length,
+  });
+
+  const paginatedMarkets = useMemo(() => {
+    return filteredMarkets.slice(pagination.startIndex, pagination.endIndex);
+  }, [filteredMarkets, pagination.startIndex, pagination.endIndex]);
+
+  const handleExportCSV = useCallback(() => {
     const rows = filteredMarkets.map((m) => ({
       Pair: m.pair,
       Price: m.price,
@@ -49,7 +69,7 @@ export function MarketDataTable({ markets, onPairSelect }: MarketDataTableProps)
       Volume24h: m.volume24h,
     }));
     exportWithNotification(() => exportToCSV(rows, { filename: `markets-${Date.now()}.csv` }), toast, 'Markets exported to CSV');
-  };
+  }, [filteredMarkets, toast]);
 
   return (
     <Card>
@@ -86,7 +106,7 @@ export function MarketDataTable({ markets, onPairSelect }: MarketDataTableProps)
               </tr>
             </thead>
             <tbody>
-              {filteredMarkets.map((market) => {
+              {paginatedMarkets.map((market) => {
                 const isPositive = market.change24h >= 0;
                 return (
                   <tr
@@ -149,7 +169,22 @@ export function MarketDataTable({ markets, onPairSelect }: MarketDataTableProps)
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination */}
+        {filteredMarkets.length > pagination.pageSize && (
+          <div className="mt-4 pt-4 border-t">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              pageSizeOptions={[10, 20, 50, 100]}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-}
+});

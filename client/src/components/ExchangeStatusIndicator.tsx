@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, Wifi, WifiOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
+import { EmptyState } from '@/components/EmptyState';
 
 interface ExchangeStatusData {
   exchange: string;
@@ -27,7 +30,7 @@ interface ExchangeStatusResponse {
 }
 
 export function ExchangeStatusIndicator() {
-  const { data, isLoading, refetch, isRefetching } = useQuery<ExchangeStatusResponse>({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<ExchangeStatusResponse>({
     queryKey: ['exchange-status'],
     queryFn: async () => {
       return await apiRequest<ExchangeStatusResponse>('/api/exchange-status', {
@@ -35,6 +38,7 @@ export function ExchangeStatusIndicator() {
       });
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2,
   });
 
   const handleRefresh = () => {
@@ -43,18 +47,37 @@ export function ExchangeStatusIndicator() {
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-card-border shadow-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wifi className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-bold">
+            <Wifi className="h-5 w-5 text-primary" />
             Exchange Status
           </CardTitle>
           <CardDescription>Checking exchange connectivity...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4 text-muted-foreground">
-            Loading...
-          </div>
+          <LoadingSkeleton count={3} className="h-16 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-card-border shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg font-bold">
+            <Wifi className="h-5 w-5 text-primary" />
+            Exchange Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load exchange status"
+            message={error instanceof Error ? error.message : "Unable to fetch exchange status. Please try again."}
+            onRetry={handleRefresh}
+            error={error as Error}
+          />
         </CardContent>
       </Card>
     );
@@ -62,34 +85,35 @@ export function ExchangeStatusIndicator() {
 
   if (!data || data.total_exchanges === 0) {
     return (
-      <Card>
+      <Card className="border-card-border shadow-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wifi className="h-5 w-5" />
+          <CardTitle className="flex items-center gap-2 text-lg font-bold">
+            <Wifi className="h-5 w-5 text-primary" />
             Exchange Status
           </CardTitle>
           <CardDescription>No exchanges configured</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-4 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>Add exchange API keys in Settings to enable real money trading</p>
-          </div>
+          <EmptyState
+            icon={AlertCircle}
+            title="No exchanges configured"
+            description="Add exchange API keys in Settings to enable real money trading"
+          />
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="border-card-border shadow-md">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Wifi className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg font-bold">
+              <Wifi className="h-5 w-5 text-primary" />
               Exchange Status
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm">
               {data.connected_exchanges} of {data.total_exchanges} exchanges connected
             </CardDescription>
           </div>
@@ -98,6 +122,7 @@ export function ExchangeStatusIndicator() {
             size="sm"
             onClick={handleRefresh}
             disabled={isRefetching}
+            className="rounded-md"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefetching ? 'animate-spin' : ''}`} />
             Refresh
@@ -109,7 +134,7 @@ export function ExchangeStatusIndicator() {
           {data.exchanges.map((status) => (
             <div
               key={status.exchange}
-              className="flex items-center justify-between p-3 rounded-lg border bg-card"
+              className="flex items-center justify-between p-3 md:p-4 rounded-lg border border-border/50 bg-card hover:bg-accent/30 transition-all duration-200"
             >
               <div className="flex items-center gap-3">
                 <div className="flex-shrink-0">

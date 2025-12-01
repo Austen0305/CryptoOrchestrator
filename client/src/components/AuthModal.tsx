@@ -29,6 +29,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     verifyMFA,
     isLoading,
     user,
+    error: authError,
   // isAuthenticated unused here
   } = useAuth();
 
@@ -56,10 +57,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           onClose();
         }
       } else {
-        const success = await register({ email: formData.email, password: formData.password, name: formData.name });
-        if (success && !user?.mfaEnabled) {
-          setShowMFASetup(true);
-        } else if (success) {
+        // Extract username from email (default) or use name if provided
+        const trimmedName = formData.name?.trim() || '';
+        const username = trimmedName 
+          ? trimmedName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') || formData.email.split('@')[0]
+          : formData.email.split('@')[0];
+        
+        // Split name into first and last name if provided
+        const nameParts = trimmedName ? trimmedName.split(/\s+/) : [];
+        const firstName = nameParts.length > 0 ? nameParts[0] : undefined;
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
+        
+        const success = await register(
+          formData.email,
+          username,
+          formData.password,
+          firstName,
+          lastName
+        );
+        
+        // Wait a moment for authError to update if registration failed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (!success) {
+          // Registration failed - display error from useAuth hook if available
+          const errorMsg = authError || 'Unable to create your account. Please try again.';
+          setError(errorMsg);
+        } else {
+          // Registration successful - close modal and let user proceed
+          // MFA setup can be done later from settings
           onClose();
         }
       }
@@ -281,9 +307,9 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           </TabsContent>
         </Tabs>
 
-        {error && (
+        {(error || authError) && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>{error || authError}</AlertDescription>
           </Alert>
         )}
       </DialogContent>

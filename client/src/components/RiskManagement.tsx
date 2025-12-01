@@ -1,4 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, Shield, AlertTriangle, Activity } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
+import { useToast } from "@/hooks/use-toast";
 
 // Helper to get Tailwind text color class for risk
 function getRiskLevelTextColor(risk: number) {
@@ -13,12 +25,6 @@ function getSharpeTextColor(sharpe: number) {
   if (sharpe > 0) return "text-blue-600";
   return "text-red-600";
 }
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, Shield, AlertTriangle, Activity } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface RiskMetrics {
   portfolioRisk: number;
@@ -54,92 +60,98 @@ interface RiskLimits {
 }
 
 export function RiskManagement() {
-  const [riskMetrics, setRiskMetrics] = useState<RiskMetrics | null>(null);
-  const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
-  const [riskLimits, setRiskLimits] = useState<RiskLimits | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  useEffect(() => {
-    fetchRiskData();
-  }, []);
+  // Fetch risk metrics
+  const { data: riskMetrics, isLoading: metricsLoading, error: metricsError, refetch: refetchMetrics } = useQuery<RiskMetrics>({
+    queryKey: ['risk-metrics'],
+    queryFn: async () => {
+      return await apiRequest<RiskMetrics>('/api/risk-management/metrics', { method: 'GET' });
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2,
+  });
 
-  const fetchRiskData = async () => {
-    try {
-      setLoading(true);
+  // Fetch risk alerts
+  const { data: riskAlerts, isLoading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useQuery<RiskAlert[]>({
+    queryKey: ['risk-alerts'],
+    queryFn: async () => {
+      return await apiRequest<RiskAlert[]>('/api/risk-management/alerts', { method: 'GET' });
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+    retry: 2,
+  });
 
-      // Fetch risk metrics
-      const metricsResponse = await fetch('/api/risk-management/metrics');
-      if (!metricsResponse.ok) throw new Error('Failed to fetch risk metrics');
-      const metrics = await metricsResponse.json();
-      setRiskMetrics(metrics);
+  // Fetch risk limits
+  const { data: riskLimits, isLoading: limitsLoading, error: limitsError, refetch: refetchLimits } = useQuery<RiskLimits>({
+    queryKey: ['risk-limits'],
+    queryFn: async () => {
+      return await apiRequest<RiskLimits>('/api/risk-management/limits', { method: 'GET' });
+    },
+    retry: 2,
+  });
 
-      // Fetch risk alerts
-      const alertsResponse = await fetch('/api/risk-management/alerts');
-      if (!alertsResponse.ok) throw new Error('Failed to fetch risk alerts');
-      const alerts = await alertsResponse.json();
-      setRiskAlerts(alerts);
+  const isLoading = metricsLoading || alertsLoading || limitsLoading;
+  const error = metricsError || alertsError || limitsError;
 
-      // Fetch risk limits
-      const limitsResponse = await fetch('/api/risk-management/limits');
-      if (!limitsResponse.ok) throw new Error('Failed to fetch risk limits');
-      const limits = await limitsResponse.json();
-      setRiskLimits(limits);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
+  const acknowledgeAlertMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      return await apiRequest(`/api/risk-management/alerts/${alertId}/acknowledge`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['risk-alerts'] });
+      toast({
+        title: "Alert Acknowledged",
+        description: "The risk alert has been acknowledged.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to acknowledge alert.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateRiskLimitsMutation = useMutation({
+    mutationFn: async (limits: Partial<RiskLimits>) => {
+      return await apiRequest<RiskLimits>('/api/risk-management/limits', {
+        method: 'POST',
+        body: limits,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['risk-limits'] });
+      toast({
+        title: "Risk Limits Updated",
+        description: "Your risk limits have been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update risk limits.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const acknowledgeAlert = (alertId: string) => {
+    acknowledgeAlertMutation.mutate(alertId);
   };
 
-  const acknowledgeAlert = async (alertId: string) => {
-    try {
-      const response = await fetch(`/api/risk-management/alerts/${alertId}/acknowledge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to acknowledge alert');
-
-      // Update the alert in the local state
-      setRiskAlerts(prev => 
-        prev.map(alert => 
-          alert.id === alertId ? { ...alert, acknowledged: true } : alert
-        )
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    }
+  const updateRiskLimits = (limits: Partial<RiskLimits>) => {
+    updateRiskLimitsMutation.mutate(limits);
   };
 
-  const updateRiskLimits = async (limits: Partial<RiskLimits>) => {
-    try {
-      const response = await fetch('/api/risk-management/limits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(limits),
-      });
-
-      if (!response.ok) throw new Error('Failed to update risk limits');
-
-      setRiskLimits(prev => {
-        const base = prev ?? {
-          maxPositionSize: 0,
-          maxDailyLoss: 0,
-          maxPortfolioRisk: 0,
-          maxLeverage: 0,
-          maxCorrelation: 0,
-          minDiversification: 0,
-        };
-        return { ...base, ...limits };
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    }
+  const handleRetry = () => {
+    refetchMetrics();
+    refetchAlerts();
+    refetchLimits();
   };
 
   // helper kept internal; color logic inline where used
@@ -160,7 +172,7 @@ export function RiskManagement() {
 
   const formatPercentage = (value: number) => `${(value * 100).toFixed(2)}%`;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
@@ -171,11 +183,7 @@ export function RiskManagement() {
           <CardDescription>Loading risk metrics...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
+          <LoadingSkeleton count={5} className="h-16 w-full" />
         </CardContent>
       </Card>
     );
@@ -186,23 +194,41 @@ export function RiskManagement() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-500" />
+            <Shield className="w-5 h-5" />
             Risk Management
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load risk data: {error}
-            </AlertDescription>
-          </Alert>
+          <ErrorRetry
+            title="Failed to load risk data"
+            message={error instanceof Error ? error.message : "Unable to fetch risk management data. Please try again."}
+            onRetry={handleRetry}
+            error={error as Error}
+          />
         </CardContent>
       </Card>
     );
   }
 
-  if (!riskMetrics || !riskLimits) return null;
+  if (!riskMetrics || !riskLimits) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Risk Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Shield}
+            title="No risk data available"
+            description="Risk metrics and limits are not available at the moment."
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

@@ -10,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db_context
 from ...repositories.bot_repository import BotRepository
+from ..portfolio_reconciliation import reconcile_user_portfolio
+from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +26,28 @@ class BotConfiguration(BaseModel):
 class BotCreationService:
     """Service for bot creation, updates, and basic management operations"""
 
-    def __init__(self):
+    def __init__(self, session: Optional[AsyncSession] = None):
         self.repository = BotRepository()
+        self._session = session
+
+    @asynccontextmanager
+    async def _get_session(self):
+        if self._session is not None:
+            yield self._session
+        else:
+            async with get_db_context() as session:
+                yield session
 
     async def create_bot(self, user_id: int, name: str, symbol: str, strategy: str, parameters: Dict[str, Any]) -> Optional[str]:
         """Create a new bot"""
         try:
             bot_id = f"bot-{user_id}-{hash(f'{user_id}-{name}-{datetime.now().isoformat()}') % 1000000}"
 
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 bot = await self.repository.create_bot(session, bot_id, user_id, name, symbol, strategy, parameters)
                 if bot:
                     logger.info(f"Created bot {bot_id} for user {user_id}")
+                    await self._trigger_reconciliation(user_id, session)
                     return bot_id
                 else:
                     logger.error(f"Failed to create bot for user {user_id}")
@@ -48,7 +60,7 @@ class BotCreationService:
     async def update_bot(self, bot_id: str, user_id: int, updates: Dict[str, Any]) -> bool:
         """Update an existing bot"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 # First check if bot exists and belongs to user
                 existing_bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not existing_bot:
@@ -83,7 +95,7 @@ class BotCreationService:
     async def delete_bot(self, bot_id: str, user_id: int) -> bool:
         """Delete a bot"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 # First check if bot exists and belongs to user
                 existing_bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not existing_bot:
@@ -93,6 +105,7 @@ class BotCreationService:
                 success = await self.repository.delete_bot(session, bot_id, user_id)
                 if success:
                     logger.info(f"Deleted bot {bot_id} for user {user_id}")
+                    await self._trigger_reconciliation(user_id, session)
                     return True
                 else:
                     logger.error(f"Failed to delete bot {bot_id}")
@@ -102,10 +115,11 @@ class BotCreationService:
             logger.error(f"Error deleting bot {bot_id}: {str(e)}")
             raise
 
+    @cache_query_result(ttl=60, key_prefix="bot_config", include_user=True, include_params=True) if CACHE_AVAILABLE else lambda f: f
     async def get_bot_config(self, bot_id: str, user_id: int) -> Optional[Dict[str, Any]]:
-        """Get bot configuration"""
+        """Get bot configuration (cached for 1 minute)"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not bot:
                     return None
@@ -115,10 +129,11 @@ class BotCreationService:
             logger.error(f"Error getting bot config for {bot_id}: {str(e)}")
             raise
 
+    @cache_query_result(ttl=120, key_prefix="bot_list", include_user=True) if CACHE_AVAILABLE else lambda f: f
     async def list_user_bots(self, user_id: int) -> List[BotConfiguration]:
-        """List all bots for a user"""
+        """List all bots for a user (cached for 2 minutes)"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 bots = await self.repository.get_user_bots(session, user_id)
 
                 result = []
@@ -174,6 +189,15 @@ class BotCreationService:
                     return False
 
             return True
+
+    async def _trigger_reconciliation(self, user_id: int, session: AsyncSession) -> None:
+        try:
+            await reconcile_user_portfolio(str(user_id), session)
+        except Exception as exc:
+            logger.warning(
+                f"Portfolio reconciliation after bot change failed for user {user_id}: {exc}",
+                exc_info=True,
+            )
 
         except Exception as e:
             logger.error(f"Error validating bot config: {str(e)}")

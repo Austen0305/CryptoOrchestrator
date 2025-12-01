@@ -1,84 +1,126 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { Theme, UserPreferences, UpdatePreferencesData } from '../../../shared/types';
 import { apiRequest } from '../lib/queryClient';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import logger from '../lib/logger';
 
-// Types imported from shared/types.ts
-
+/**
+ * Hook for managing user preferences using React Query
+ * Provides preferences query and mutations for updates
+ */
 export function usePreferences() {
-  const { user } = useAuth();
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
-  // Load preferences
-  const loadPreferences = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+  // Fetch preferences using React Query
+  const {
+    data: preferences = null,
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useQuery<UserPreferences | null>({
+    queryKey: ['preferences'],
+    queryFn: async () => {
+      try {
+        const data = await apiRequest<UserPreferences>('/api/preferences', { method: 'GET' });
+        return data;
+      } catch (err) {
+        // Log error but don't expose to user - let React Query handle it
+        throw err;
+      }
+    },
+    enabled: isAuthenticated && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutes - preferences don't change often
+    retry: 2,
+  });
 
-    try {
-      setLoading(true);
-      const response = await apiRequest('GET', '/api/preferences');
-      const data = await response.json();
-      setPreferences(data);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load preferences:', err);
-      setError('Failed to load preferences');
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
-
-  // Update preferences
-  const updatePreferences = useCallback(async (updates: UpdatePreferencesData) => {
-    try {
-      const response = await apiRequest('PUT', '/api/preferences', updates);
-      const data = await response.json();
-      setPreferences(data);
-      setError(null);
+  // Update preferences mutation
+  const updatePreferencesMutation = useMutation({
+    mutationFn: async (updates: UpdatePreferencesData) => {
+      const data = await apiRequest<UserPreferences>('/api/preferences', {
+        method: 'PUT',
+        body: updates,
+      });
       return data;
-    } catch (err) {
-      console.error('Failed to update preferences:', err);
-      setError('Failed to update preferences');
-      throw err;
-    }
-  }, []);
+    },
+    onSuccess: (data) => {
+      // Update cache with new preferences
+      queryClient.setQueryData(['preferences'], data);
+    },
+    onError: (error) => {
+      // Error handled by React Query - user will see error state
+      logger.error('Failed to update preferences', { error });
+    },
+  });
 
-  // Update theme specifically
-  const updateTheme = useCallback(async (theme: Theme) => {
-    try {
-      await apiRequest('PATCH', '/api/preferences/theme', { theme });
-      setPreferences(prev => prev ? { ...prev, theme } : null);
-      setError(null);
-    } catch (err) {
-      console.error('Failed to update theme:', err);
-      setError('Failed to update theme');
-      throw err;
-    }
-  }, []);
+  // Update theme mutation
+  const updateThemeMutation = useMutation({
+    mutationFn: async (theme: Theme) => {
+      await apiRequest('/api/preferences/theme', {
+        method: 'PATCH',
+        body: { theme },
+      });
+      return theme;
+    },
+    onSuccess: (theme) => {
+      // Optimistically update theme in cache
+      queryClient.setQueryData<UserPreferences | null>(['preferences'], (old) => {
+        if (!old) return null;
+        return { ...old, theme };
+      });
+    },
+    onError: (error) => {
+      logger.error('Failed to update theme', { error });
+    },
+  });
 
-  // Reset preferences to defaults
-  const resetPreferences = useCallback(async () => {
-    try {
-      const response = await apiRequest('POST', '/api/preferences/reset');
-      const data = await response.json();
-      setPreferences(data.preferences);
-      setError(null);
+  // Reset preferences mutation
+  const resetPreferencesMutation = useMutation({
+    mutationFn: async () => {
+      const data = await apiRequest<{ preferences: UserPreferences }>('/api/preferences/reset', {
+        method: 'POST',
+      });
       return data.preferences;
-    } catch (err) {
-      console.error('Failed to reset preferences:', err);
-      setError('Failed to reset preferences');
-      throw err;
-    }
-  }, []);
+    },
+    onSuccess: (data) => {
+      // Update cache with reset preferences
+      queryClient.setQueryData(['preferences'], data);
+    },
+    onError: (error) => {
+      logger.error('Failed to reset preferences', { error });
+    },
+  });
 
-  // Load preferences on mount and when user changes
-  useEffect(() => {
-    loadPreferences();
-  }, [loadPreferences]);
+  // Wrapper functions for backward compatibility
+  const updatePreferences = useCallback(
+    async (updates: UpdatePreferencesData) => {
+      return await updatePreferencesMutation.mutateAsync(updates);
+    },
+    [updatePreferencesMutation]
+  );
+
+  const updateTheme = useCallback(
+    async (theme: Theme) => {
+      return await updateThemeMutation.mutateAsync(theme);
+    },
+    [updateThemeMutation]
+  );
+
+  const resetPreferences = useCallback(async () => {
+    return await resetPreferencesMutation.mutateAsync();
+  }, [resetPreferencesMutation]);
+
+  const reloadPreferences = useCallback(async () => {
+    await refetch();
+  }, [refetch]);
+
+  // Convert error to string format for backward compatibility
+  const error = queryError
+    ? queryError instanceof Error
+      ? queryError.message
+      : 'Failed to load preferences'
+    : null;
 
   return {
     preferences,
@@ -87,6 +129,7 @@ export function usePreferences() {
     updatePreferences,
     updateTheme,
     resetPreferences,
-    reloadPreferences: loadPreferences,
+    reloadPreferences,
+    refetch, // Also expose refetch for convenience
   };
 }

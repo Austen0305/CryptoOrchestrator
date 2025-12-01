@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon, Plus, Search, Download, Filter, FileText, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 import { useTrades } from "@/hooks/useApi";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { useDebounce } from "@/hooks/useDebounce";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import type { Trade } from "@shared/schema";
 
 interface TradeEntry {
   id: string;
@@ -34,82 +42,77 @@ interface TradeEntry {
 }
 
 export function TradingJournal() {
-  const { data: trades, isLoading } = useTrades();
+  const { data: trades, isLoading, error, refetch } = useTrades();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [filterStrategy, setFilterStrategy] = useState<string>("all");
   const [filterSide, setFilterSide] = useState<string>("all");
   const [selectedTrade, setSelectedTrade] = useState<TradeEntry | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Mock trades data - in production, this would come from the API
-  const mockTrades: TradeEntry[] = [
-    {
-      id: "1",
-      date: new Date(2025, 10, 13, 10, 30),
-      symbol: "BTC/USD",
-      side: "buy",
-      entryPrice: 45000,
-      exitPrice: 47350,
-      quantity: 0.1,
-      fees: 4.5,
-      pnl: 235,
-      pnlPercent: 5.22,
-      strategy: "ML Enhanced",
-      notes: "Entered on RSI oversold signal. Strong momentum confirmation.",
-      tags: ["momentum", "oversold"]
-    },
-    {
-      id: "2",
-      date: new Date(2025, 10, 12, 14, 20),
-      symbol: "ETH/USD",
-      side: "buy",
-      entryPrice: 2850,
-      exitPrice: 2920,
-      quantity: 1.5,
-      fees: 4.28,
-      pnl: 105,
-      pnlPercent: 2.46,
-      strategy: "Simple MA",
-      notes: "Golden cross on 4h timeframe",
-      tags: ["trend", "ma-cross"]
-    },
-    {
-      id: "3",
-      date: new Date(2025, 10, 11, 9, 15),
-      symbol: "BTC/USD",
-      side: "sell",
-      entryPrice: 47200,
-      exitPrice: 46800,
-      quantity: 0.05,
-      fees: 2.35,
-      pnl: -20,
-      pnlPercent: -0.85,
-      strategy: "ML Enhanced",
-      notes: "Stop loss triggered. Unexpected volatility.",
-      tags: ["stop-loss", "volatility"]
-    }
-  ];
+  // Transform API trades to TradeEntry format
+  // Trade type from API may have additional fields, so we use a union type for flexibility
+  const transformedTrades: TradeEntry[] = (trades || []).map((trade: Trade & {
+    tradeId?: string;
+    date?: number | string;
+    symbol?: string;
+    exitPrice?: number;
+    entryPrice?: number;
+    profitLoss?: number;
+    profitLossPercent?: number;
+    strategy?: string;
+    notes?: string;
+    comment?: string;
+    tags?: string[];
+  }) => ({
+    id: trade.id || trade.tradeId || String(Math.random()),
+    date: new Date(trade.timestamp || trade.date || Date.now()),
+    symbol: trade.pair || trade.symbol || "N/A",
+    side: trade.side || "buy",
+    entryPrice: trade.price || trade.entryPrice || 0,
+    exitPrice: trade.exitPrice,
+    quantity: trade.amount || trade.quantity || 0,
+    fees: trade.fee || 0,
+    pnl: trade.pnl || trade.profitLoss,
+    pnlPercent: trade.pnlPercent || trade.profitLossPercent,
+    strategy: trade.strategy || trade.botId || "Manual",
+    notes: trade.notes || trade.comment || "",
+    tags: trade.tags || [],
+  }));
 
-  const filteredTrades = mockTrades.filter(trade => {
-    const matchesSearch = trade.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.notes.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trade.strategy.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStrategy = filterStrategy === "all" || trade.strategy === filterStrategy;
-    const matchesSide = filterSide === "all" || trade.side === filterSide;
-    const matchesDate = !selectedDate || format(trade.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
+  const filteredTrades = useMemo(() => {
+    return transformedTrades.filter(trade => {
+      const matchesSearch = trade.symbol.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        trade.notes.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        trade.strategy.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+      
+      const matchesStrategy = filterStrategy === "all" || trade.strategy === filterStrategy;
+      const matchesSide = filterSide === "all" || trade.side === filterSide;
+      const matchesDate = !selectedDate || format(trade.date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd");
 
-    return matchesSearch && matchesStrategy && matchesSide && matchesDate;
+      return matchesSearch && matchesStrategy && matchesSide && matchesDate;
+    });
+  }, [transformedTrades, debouncedSearchTerm, filterStrategy, filterSide, selectedDate]);
+
+  const { page, pageSize, totalPages, totalItems, goToPage, setPageSize } = usePagination({
+    totalItems: filteredTrades.length,
+    initialPageSize: 10,
   });
 
-  const totalPnL = filteredTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0);
+  const paginatedTrades = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return filteredTrades.slice(start, end);
+  }, [filteredTrades, page, pageSize]);
+
+  const totalPnL = useMemo(() => filteredTrades.reduce((sum, trade) => sum + (trade.pnl || 0), 0), [filteredTrades]);
   const totalTrades = filteredTrades.length;
-  const winningTrades = filteredTrades.filter(t => (t.pnl || 0) > 0).length;
+  const winningTrades = useMemo(() => filteredTrades.filter(t => (t.pnl || 0) > 0).length, [filteredTrades]);
   const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
 
-  const strategies = Array.from(new Set(mockTrades.map(t => t.strategy)));
+  const strategies = Array.from(new Set(transformedTrades.map(t => t.strategy)));
 
   const handleExportPDF = async () => {
     const { exportTradesToPDF, exportWithNotification } = await import('@/lib/export');
@@ -189,6 +192,11 @@ export function TradingJournal() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
                 />
+                {debouncedSearchTerm !== searchTerm && (
+                  <div className="absolute right-2 top-2.5 text-xs text-muted-foreground">
+                    Searching...
+                  </div>
+                )}
               </div>
               <Select value={filterStrategy} onValueChange={setFilterStrategy}>
                 <SelectTrigger className="w-[150px]">
@@ -278,18 +286,37 @@ export function TradingJournal() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        Loading trades...
+                      <TableCell colSpan={9} className="text-center py-8">
+                        <LoadingSkeleton count={5} className="h-12 w-full" />
+                      </TableCell>
+                    </TableRow>
+                  ) : error ? (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8">
+                        <ErrorRetry
+                          title="Failed to load trades"
+                          message="Unable to fetch your trading journal. Please try again."
+                          onRetry={() => refetch()}
+                          error={error as Error}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : filteredTrades.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                        No trades found. Start trading to see your journal entries.
+                      <TableCell colSpan={9} className="text-center py-8">
+                        <EmptyState
+                          icon={FileText}
+                          title="No trades found"
+                          description={
+                            searchTerm || filterStrategy !== "all" || filterSide !== "all" || selectedDate
+                              ? "Try adjusting your filters to see more trades."
+                              : "Start trading to see your journal entries."
+                          }
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredTrades.map((trade) => (
+                    paginatedTrades.map((trade) => (
                       <TableRow key={trade.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
                         setSelectedTrade(trade);
                         setIsDialogOpen(true);
@@ -327,6 +354,17 @@ export function TradingJournal() {
                 </TableBody>
               </Table>
             </div>
+            {totalItems > pageSize && (
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                onPageChange={goToPage}
+                onPageSizeChange={setPageSize}
+                className="mt-4"
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="stats" className="space-y-4">

@@ -31,7 +31,7 @@ from ..services.automation.portfolio_optimizer import (
     OptimizationGoal,
     OptimizationRecommendation
 )
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

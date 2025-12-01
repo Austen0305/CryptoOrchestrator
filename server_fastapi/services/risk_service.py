@@ -54,9 +54,19 @@ class RiskLimits(BaseModel):
 class RiskService:
     """Enhanced risk management service with database persistence."""
 
+    FIELD_TO_LIMIT_TYPE = {
+        "maxPositionSize": "max_position_size",
+        "maxDailyLoss": "max_daily_loss",
+        "maxPortfolioRisk": "max_portfolio_risk",
+        "maxLeverage": "max_leverage",
+        "maxCorrelation": "max_correlation",
+        "minDiversification": "min_diversification",
+    }
+    LIMIT_TYPE_TO_FIELD = {value: key for key, value in FIELD_TO_LIMIT_TYPE.items()}
+
     def __init__(self, db_session: Optional[AsyncSession] = None, ttl_seconds: int = 10):
         self.db = db_session
-        self._limits: RiskLimits = RiskLimits()
+        self._default_limits: RiskLimits = RiskLimits()
         self._alerts: Dict[str, RiskAlert] = {}
         self._metrics_cache: Optional[RiskMetrics] = None
         self._metrics_cached_at: float = 0.0
@@ -184,13 +194,60 @@ class RiskService:
         return result.scalars().all()
 
     async def get_limits(self) -> RiskLimits:
-        return self._limits
+        return self._default_limits
 
     async def update_limits(self, updates: Dict) -> RiskLimits:
-        # basic validation is enforced by Pydantic on construction
+        # Maintain default limits reference
         async with self._lock:
-            self._limits = self._limits.model_copy(update=updates)
-            return self._limits
+            self._default_limits = self._default_limits.model_copy(update=updates)
+            return self._default_limits
+
+    def _serialize_db_alert(self, alert_model) -> RiskAlert:
+        timestamp = (
+            int(alert_model.created_at.timestamp() * 1000)
+            if getattr(alert_model, "created_at", None)
+            else int(time.time() * 1000)
+        )
+        return RiskAlert(
+            id=str(alert_model.id),
+            type=alert_model.alert_type,
+            message=alert_model.message,
+            threshold=alert_model.threshold_value or 0.0,
+            currentValue=alert_model.current_value or 0.0,
+            timestamp=timestamp,
+            acknowledged=bool(alert_model.acknowledged),
+        )
+
+    async def get_user_alerts(self, user_id: str, unresolved_only: bool = False) -> List[RiskAlert]:
+        if not self.db:
+            return list(self._alerts.values())
+        alerts = await self.get_user_alerts_db(user_id, unresolved_only=unresolved_only)
+        return [self._serialize_db_alert(alert) for alert in alerts]
+
+    async def get_user_limits(self, user_id: str) -> RiskLimits:
+        base = self._default_limits.model_dump()
+        if not self.db:
+            return RiskLimits(**base)
+        db_limits = await self.get_user_limits_db(user_id)
+        for limit in db_limits:
+            field = self.LIMIT_TYPE_TO_FIELD.get(limit.limit_type)
+            if field:
+                base[field] = limit.value
+        return RiskLimits(**base)
+
+    async def update_user_limits(self, user_id: str, updates: Dict[str, float]) -> RiskLimits:
+        if not updates:
+            return await self.get_user_limits(user_id)
+
+        if self.db:
+            for field, value in updates.items():
+                limit_type = self.FIELD_TO_LIMIT_TYPE.get(field)
+                if limit_type:
+                    await self.set_risk_limit_db(user_id, limit_type, value)
+        else:
+            await self.update_limits(updates)
+
+        return await self.get_user_limits(user_id)
 
     async def acknowledge_alert(self, alert_id: str) -> RiskAlert:
         async with self._lock:
@@ -234,12 +291,3 @@ class RiskService:
         return metrics
 
 
-# Singleton accessor matching project pattern
-_risk_service_instance: Optional[RiskService] = None
-
-
-def get_risk_service() -> RiskService:
-    global _risk_service_instance
-    if _risk_service_instance is None:
-        _risk_service_instance = RiskService()
-    return _risk_service_instance

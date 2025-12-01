@@ -11,7 +11,7 @@ import logging
 import os
 
 from ..services.auth.exchange_key_service import exchange_key_service
-from ..services.auth.auth_service import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

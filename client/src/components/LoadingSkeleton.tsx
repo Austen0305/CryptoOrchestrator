@@ -16,7 +16,7 @@ export function LoadingSkeleton({
   variant = 'default',
   count = 1 
 }: LoadingSkeletonProps) {
-  const baseClasses = "animate-pulse bg-muted rounded";
+  const baseClasses = "animate-pulse bg-muted rounded loading-shimmer relative overflow-hidden";
 
   const variants = {
     default: "h-4 w-full",
@@ -46,7 +46,9 @@ export function LoadingSkeleton({
       className={cn(baseClasses, variants[variant], className)}
       aria-label="Loading"
       role="status"
-    />
+    >
+      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    </div>
   );
 }
 

@@ -24,27 +24,76 @@ if DATABASE_URL.endswith(":memory:"):
     driver_prefix = DATABASE_URL.split(":///")[0]
     DATABASE_URL = f"{driver_prefix}:///file:pytest_shared?mode=memory&cache=shared"
 
-# Engine creation (support SQLite + Postgres conventions similar to database.py)
-if DATABASE_URL.startswith("sqlite+"):
-    engine = create_async_engine(
-        DATABASE_URL,
-        echo=False,
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-        future=True,
-    )
-else:
-    engine = create_async_engine(
-        DATABASE_URL,
-        echo=False,
-        pool_size=10,
-        max_overflow=20,
-        pool_timeout=30,
-        pool_recycle=3600,
-        future=True,
-    )
+# Lazy engine creation - only create when actually needed
+# This prevents blocking router loading if database driver is misconfigured
+_engine = None
+_async_session_factory = None
 
-async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+def _get_engine():
+    """Lazy engine creation - only creates engine when first needed"""
+    global _engine
+    if _engine is None:
+        try:
+            if DATABASE_URL.startswith("sqlite+"):
+                _engine = create_async_engine(
+                    DATABASE_URL,
+                    echo=False,
+                    poolclass=StaticPool,
+                    connect_args={"check_same_thread": False},
+                    future=True,
+                )
+            else:
+                _engine = create_async_engine(
+                    DATABASE_URL,
+                    echo=False,
+                    pool_size=10,
+                    max_overflow=20,
+                    pool_timeout=30,
+                    pool_recycle=3600,
+                    future=True,
+                )
+        except Exception as e:
+            logger.error(f"Failed to create database engine: {e}")
+            raise
+    return _engine
+
+def _get_async_session():
+    """Lazy session factory creation"""
+    global _async_session_factory
+    if _async_session_factory is None:
+        engine = _get_engine()
+        _async_session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    return _async_session_factory
+
+# Create engine and session lazily - wrap in try/except to allow module to load even if database fails
+try:
+    # Try to create engine immediately for backward compatibility
+    # But catch errors so module can still be imported
+    if DATABASE_URL.startswith("sqlite+"):
+        engine = create_async_engine(
+            DATABASE_URL,
+            echo=False,
+            poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+            future=True,
+        )
+    else:
+        engine = create_async_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_size=10,
+            max_overflow=20,
+            pool_timeout=30,
+            pool_recycle=3600,
+            future=True,
+        )
+    async_session = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+except Exception as e:
+    # If engine creation fails, set to None and use lazy creation
+    logger.warning(f"Database engine creation failed at module load: {e}. Will use lazy initialization.")
+    engine = None
+    async_session = None
+
 Base = declarative_base()
 
 # Canonical module aliasing (so test dynamic import and package import share objects)
@@ -53,7 +102,8 @@ if __name__ != "server_fastapi.database":
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency yielding an AsyncSession with proper cleanup."""
-    async with async_session() as session:
+    session_factory = _get_async_session() if async_session is None else async_session
+    async with session_factory() as session:
         yield session
 
 @asynccontextmanager
@@ -66,7 +116,8 @@ async def get_db_context():
         async with get_db_context() as session:
             # use session
     """
-    async with async_session() as session:
+    session_factory = _get_async_session() if async_session is None else async_session
+    async with session_factory() as session:
         yield session
 
 async def init_database():
@@ -76,12 +127,14 @@ async def init_database():
         from server_fastapi import models  # noqa: F401
     except Exception as e:
         logger.warning(f"Model import failed during init_database (package): {e}")
-    async with engine.begin() as conn:
+    db_engine = _get_engine() if engine is None else engine
+    async with db_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
 async def close_database():
     """Dispose engine connections."""
-    await engine.dispose()
+    db_engine = _get_engine() if engine is None else engine
+    await db_engine.dispose()
 
 __all__ = [
     "DATABASE_URL",

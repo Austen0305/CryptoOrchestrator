@@ -6,6 +6,7 @@ import logging
 import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...services.ml.enhanced_ml_engine import EnhancedMLEngine, MLPrediction
 from ...services.ml.ensemble_engine import EnsembleEngine, EnsemblePrediction
@@ -22,9 +23,9 @@ logger = logging.getLogger(__name__)
 class BotTradingService:
     """Service for executing trading cycles and managing bot trading logic"""
 
-    def __init__(self):
-        self.control_service = BotControlService()
-        self.monitoring_service = BotMonitoringService()
+    def __init__(self, session: Optional[AsyncSession] = None):
+        self.control_service = BotControlService(session=session)
+        self.monitoring_service = BotMonitoringService(session=session)
 
         # Initialize ML engines
         self.ml_engines = {
@@ -74,6 +75,10 @@ class BotTradingService:
 
             # Prepare trade details
             trade_details = self._prepare_trade_details(bot_config, signal, market_data, risk_profile)
+            
+            # Add trading mode to trade details
+            trade_details['mode'] = bot_config.get('mode', 'paper')
+            trade_details['exchange'] = bot_config.get('exchange', 'binance')
 
             # Validate trade with safety system
             from ..trading.safe_trading_system import SafeTradingSystem
@@ -152,18 +157,85 @@ class BotTradingService:
                 logger.error(f"Error stopping bot {bot_id} after critical error: {stop_error}")
 
     async def _get_market_data(self, bot_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get market data for trading decisions (mock implementation)"""
-        # In a real implementation, this would fetch from exchange APIs
-        return [
-            {
-                "timestamp": int(datetime.now().timestamp() * 1000),
-                "open": 50000,
-                "high": 50200,
-                "low": 49900,
-                "close": 50100,
-                "volume": 1.5
-            }
-        ]
+        """Get real market data from exchange APIs"""
+        try:
+            # Get exchange name from bot config
+            exchange_name = bot_config.get('exchange', 'binance')
+            symbol = bot_config.get('tradingPair') or bot_config.get('symbol', 'BTC/USDT')
+            timeframe = bot_config.get('timeframe', '1h')
+            limit = bot_config.get('candle_limit', 100)
+            
+            # Import exchange service and key service
+            from ..exchange_service import ExchangeService
+            from ..auth.exchange_key_service import exchange_key_service
+            
+            # Get user's API keys for this exchange
+            user_id_str = str(bot_config.get('user_id', ''))
+            api_key_data = await exchange_key_service.get_api_key(
+                user_id_str, exchange_name, include_secrets=True
+            )
+            
+            if not api_key_data or not api_key_data.get('is_validated', False):
+                logger.warning(f"No validated API keys for {exchange_name}, cannot fetch real market data")
+                raise ValueError(f"No validated API keys for {exchange_name}")
+            
+            # Create exchange service with user's API keys
+            exchange_service = ExchangeService(
+                name=exchange_name,
+                use_mock=False,  # Force real mode
+                api_key=api_key_data.get('api_key'),
+                api_secret=api_key_data.get('api_secret')
+            )
+            
+            # Connect to exchange
+            await exchange_service.connect()
+            if not exchange_service.is_connected():
+                raise ConnectionError(f"Failed to connect to {exchange_name}")
+            
+            # Fetch real OHLCV data
+            ohlcv_data = await exchange_service.get_ohlcv(symbol, timeframe, limit)
+            
+            if not ohlcv_data:
+                logger.warning(f"No market data returned for {symbol} on {exchange_name}")
+                raise ValueError(f"No market data available for {symbol}")
+            
+            # Convert to expected format
+            market_data = []
+            for candle in ohlcv_data:
+                if len(candle) >= 6:  # [timestamp, open, high, low, close, volume]
+                    market_data.append({
+                        "timestamp": int(candle[0]),
+                        "open": float(candle[1]),
+                        "high": float(candle[2]),
+                        "low": float(candle[3]),
+                        "close": float(candle[4]),
+                        "volume": float(candle[5])
+                    })
+            
+            if not market_data:
+                raise ValueError(f"Failed to parse market data for {symbol}")
+            
+            logger.info(f"Fetched {len(market_data)} candles for {symbol} from {exchange_name}")
+            return market_data
+            
+        except Exception as e:
+            logger.error(f"Error fetching market data: {e}", exc_info=True)
+            # In production, we should not fall back to mock data
+            from ..config.settings import get_settings
+            settings = get_settings()
+            if settings.production_mode or settings.is_production:
+                raise  # Re-raise in production - no mock fallback
+            else:
+                # Only allow mock fallback in development
+                logger.warning("Falling back to mock data in development mode")
+                return [{
+                    "timestamp": int(datetime.now().timestamp() * 1000),
+                    "open": 50000,
+                    "high": 50200,
+                    "low": 49900,
+                    "close": 50100,
+                    "volume": 1.5
+                }]
 
     async def _get_trading_signal(self, strategy: str, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Get trading signal based on strategy"""
@@ -322,15 +394,92 @@ class BotTradingService:
         }
 
     async def _execute_trade(self, trade_details: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute trade (mock implementation)"""
-        # In a real implementation, this would interface with exchange APIs
-        logger.info(f"Mock executing trade: {trade_details}")
-
-        # Simulate trade execution
-        return {
-            "success": True,
-            "order_id": f"order-{trade_details['bot_id']}-{int(datetime.now().timestamp())}",
-            "executed_price": trade_details['price'],
-            "executed_quantity": trade_details['quantity'],
-            "pnl": 0.0  # Mock P&L
-        }
+        """Execute real trade via RealMoneyTradingService"""
+        try:
+            from ..trading.real_money_service import real_money_trading_service
+            from ..auth.exchange_key_service import exchange_key_service
+            
+            user_id = trade_details.get('user_id')
+            symbol = trade_details.get('symbol', 'BTC/USDT')
+            action = trade_details.get('action', 'buy')
+            quantity = trade_details.get('quantity', 0.0)
+            price = trade_details.get('price')
+            bot_id = trade_details.get('bot_id')
+            
+            # Determine exchange from bot config or default
+            exchange = trade_details.get('exchange', 'binance')
+            
+            # Check if this is paper trading mode
+            trading_mode = trade_details.get('mode', 'paper')
+            if trading_mode == 'paper':
+                # Use paper trading service instead
+                from ..backtesting.paper_trading_service import PaperTradingService
+                paper_service = PaperTradingService()
+                paper_trade = await paper_service.execute_paper_trade(
+                    user_id=str(user_id),
+                    symbol=symbol,
+                    side=action,
+                    quantity=quantity,
+                    price=price or 0.0
+                )
+                return {
+                    "success": True,
+                    "order_id": paper_trade.id,
+                    "executed_price": paper_trade.price,
+                    "executed_quantity": paper_trade.quantity,
+                    "pnl": paper_trade.pnl or 0.0,
+                    "mode": "paper"
+                }
+            
+            # Real money trading - validate API keys first
+            user_id_str = str(user_id)
+            api_key_data = await exchange_key_service.get_api_key(
+                user_id_str, exchange, include_secrets=False  # Just check existence
+            )
+            
+            if not api_key_data or not api_key_data.get('is_validated', False):
+                raise ValueError(f"No validated API keys for {exchange}. Cannot execute real money trade.")
+            
+            # Execute real money trade
+            order_type = trade_details.get('order_type', 'market')
+            result = await real_money_trading_service.execute_real_money_trade(
+                user_id=user_id_str,
+                exchange=exchange,
+                pair=symbol,
+                side=action,
+                order_type=order_type,
+                amount=quantity,
+                price=price,
+                bot_id=bot_id
+            )
+            
+            logger.info(f"Real money trade executed: {result.get('order_id')} for bot {bot_id}")
+            
+            return {
+                "success": result.get('success', True),
+                "order_id": result.get('order_id'),
+                "executed_price": result.get('price', price),
+                "executed_quantity": quantity,
+                "pnl": 0.0,  # P&L calculated when position is closed
+                "mode": "real",
+                "status": result.get('status')
+            }
+            
+        except Exception as e:
+            logger.error(f"Error executing trade: {e}", exc_info=True)
+            # In production, don't fall back to mock
+            from ..config.settings import get_settings
+            settings = get_settings()
+            if settings.production_mode or settings.is_production:
+                raise  # Re-raise in production
+            else:
+                # Development fallback only
+                logger.warning("Trade execution failed, returning mock result in development")
+                return {
+                    "success": False,
+                    "order_id": None,
+                    "executed_price": trade_details.get('price'),
+                    "executed_quantity": 0.0,
+                    "pnl": 0.0,
+                    "error": str(e)
+                }

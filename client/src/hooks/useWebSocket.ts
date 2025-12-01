@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import logger from "@/lib/logger";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SubscriptionState {
   symbols: Set<string>;
@@ -14,13 +16,14 @@ interface IncomingMarketUpdate {
   change24h?: number;
   volume24h?: number;
   ts?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
   const subscription = useRef<SubscriptionState>({ symbols: new Set(["BTC/USD"]) });
 
   // Local cache of latest market data to reduce renders; components can pull via queryClient or custom selector later
@@ -28,6 +31,16 @@ export const useWebSocket = () => {
   const candlesRef = useRef<Record<string, Array<[number, number, number, number, number, number]>>>({});
 
   useEffect(() => {
+    // Only connect if authenticated
+    if (!isAuthenticated) {
+      // Close any existing connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsConnected(false);
+      return;
+    }
     // Visibility-aware throttle state
     let lastInvalidate = 0;
     const VISIBLE_INTERVAL = 250; // ms
@@ -42,12 +55,27 @@ export const useWebSocket = () => {
     };
 
     const connectWebSocket = () => {
+      // Type-safe access to window/import.meta properties
+      interface WindowWithGlobals extends Window {
+        __WS_BASE__?: string;
+        __API_BASE__?: string;
+      }
+      interface ImportMetaWithEnv extends ImportMeta {
+        env?: {
+          VITE_WS_BASE_URL?: string;
+          VITE_API_BASE_URL?: string;
+        };
+      }
+
+      const windowWithGlobals = typeof window !== 'undefined' ? window as WindowWithGlobals : null;
+      const importMetaWithEnv = import.meta as ImportMetaWithEnv;
+
       const wsBase =
-        (typeof window !== 'undefined' && (window as any).__WS_BASE__) ||
-        (import.meta as any)?.env?.VITE_WS_BASE_URL ||
+        windowWithGlobals?.__WS_BASE__ ||
+        importMetaWithEnv?.env?.VITE_WS_BASE_URL ||
         // derive from API_BASE if present
         (() => {
-          const api = (typeof window !== 'undefined' && (window as any).__API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_BASE_URL || '';
           if (api.startsWith('http')) {
             return api.replace(/^http/, 'ws');
           }
@@ -57,10 +85,10 @@ export const useWebSocket = () => {
   const ws = new WebSocket(`${wsBase}/ws/market-data`);
 
       ws.onopen = () => {
-        console.log("WebSocket connected (pending auth)");
+        logger.debug("WebSocket connected (pending auth)");
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
         if (!token) {
-          console.warn('No token present for WebSocket; closing to prevent 500 loop');
+          logger.warn('No token present for WebSocket; closing to prevent 500 loop');
           ws.close();
           return;
         }
@@ -70,20 +98,20 @@ export const useWebSocket = () => {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log("WebSocket message:", data);
+          logger.debug("WebSocket message received", { type: data.type });
 
           if (data.type === 'auth_success') {
-            console.log('WebSocket authenticated');
+            logger.info('WebSocket authenticated');
             setIsConnected(true);
             return; // Don't process further for auth confirmation
           }
           if (data.error === 'Authentication required') {
-            console.warn('WebSocket auth failed, closing connection');
+            logger.warn('WebSocket auth failed, closing connection');
             ws.close();
             return;
           }
           if (data.error) {
-            console.warn('WebSocket error payload received:', data.error);
+            logger.warn('WebSocket error payload received', { error: data.error });
           }
 
           // Handle different message types
@@ -121,10 +149,10 @@ export const useWebSocket = () => {
               queryClient.invalidateQueries({ queryKey: ["status"] });
               break;
             default:
-              console.log("Unknown WebSocket message type:", data.type);
+              logger.debug("Unknown WebSocket message type", { type: data.type });
           }
         } catch (error) {
-          console.error("Error parsing WebSocket message:", error);
+          logger.error("Error parsing WebSocket message", error);
         }
       };
 
@@ -132,15 +160,15 @@ export const useWebSocket = () => {
         setIsConnected(false);
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
         if (token) {
-          console.log("WebSocket disconnected; scheduling reconnect in 7s");
+          logger.info("WebSocket disconnected; scheduling reconnect in 7s");
           setTimeout(connectWebSocket, 7000);
         } else {
-          console.log("WebSocket disconnected; no token so not reconnecting");
+          logger.debug("WebSocket disconnected; no token so not reconnecting");
         }
       };
 
       ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+        logger.error("WebSocket error", error);
       };
 
       wsRef.current = ws;
@@ -153,9 +181,9 @@ export const useWebSocket = () => {
         wsRef.current.close();
       }
     };
-  }, [queryClient]);
+  }, [queryClient, isAuthenticated]);
 
-  const sendMessage = useCallback((message: any) => {
+  const sendMessage = useCallback((message: Record<string, unknown>) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
     }

@@ -1,0 +1,758 @@
+---
+alwaysApply: true
+---
+# CryptoOrchestrator - Backend Development Rules
+
+You are an expert backend software engineer specializing in this production-ready cryptocurrency trading automation platform. Follow these rules when working on backend code.
+
+
+## 🏗️ Backend Stack & Architecture
+
+### Core Technologies
+- **Framework**: FastAPI 0.104+ with async/await patterns
+- **Language**: Python 3.8+ with type hints (mypy strict mode)
+- **Database**: 
+  - PostgreSQL (production) via asyncpg
+  - SQLite (development) via aiosqlite
+- **ORM**: SQLAlchemy 2.0+ (async) with Alembic migrations
+- **Cache**: Redis (optional, always check availability)
+- **Background Jobs**: Celery 5.3+ with Redis broker
+- **Authentication**: JWT tokens with bcrypt password hashing
+- **API Documentation**: OpenAPI/Swagger (auto-generated)
+- **Validation**: Pydantic v2 models
+
+### Directory Structure
+```
+server_fastapi/
+├── routes/              # API endpoints (thin controllers)
+│   ├── bots.py         # Bot endpoints
+│   ├── trades.py       # Trade endpoints
+│   └── ...
+├── services/            # Business logic (stateless preferred)
+│   ├── bot_service.py
+│   ├── trading_service.py
+│   └── ...
+├── models/              # SQLAlchemy ORM models
+│   ├── bot.py
+│   ├── trade.py
+│   └── ...
+├── repositories/        # Data access layer
+│   ├── bot_repository.py
+│   └── ...
+├── middleware/          # Request/response middleware
+│   ├── auth.py
+│   ├── error_handler.py
+│   └── ...
+├── dependencies/        # FastAPI dependencies
+│   ├── auth.py         # Authentication dependencies
+│   └── ...
+├── config/              # Configuration
+│   └── settings.py     # Pydantic settings
+├── tests/               # Pytest tests
+└── main.py             # App factory & middleware setup
+```
+
+---
+
+## 🔌 API Design Patterns
+
+### Route Structure
+```python
+# ✅ Good: Mounted under /api/<domain>, organized by OpenAPI tags
+from fastapi import APIRouter
+from typing import Annotated
+from fastapi import Depends
+
+router = APIRouter()
+
+@router.get('/bots', tags=['Bots'])
+async def get_bots(
+    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
+    service: Annotated[BotService, Depends(get_bot_service)],
+):
+    return await service.get_bots(user_id=current_user['id'])
+
+# In main.py:
+app.include_router(router, prefix='/api/bots', tags=['Bots'])
+```
+
+### Request/Response Models
+```python
+# ✅ Good: Pydantic models with examples and validation
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class CreateBotRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    strategy: str = Field(..., pattern='^(momentum|mean_reversion)$')
+    initial_balance: float = Field(..., gt=0)
+    
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "My Trading Bot",
+                "strategy": "momentum",
+                "initial_balance": 1000.0
+            }
+        }
+    }
+
+class BotResponse(BaseModel):
+    id: str
+    name: str
+    strategy: str
+    status: str
+    created_at: datetime
+    
+    model_config = {"from_attributes": True}  # SQLAlchemy model conversion
+```
+
+### Dependency Injection Pattern
+```python
+# ✅ Use Depends() for services and resources
+from fastapi import Depends
+from typing import Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
+
+async def get_db_session() -> AsyncSession:
+    """Database session dependency with cleanup."""
+    async with AsyncSession(engine) as session:
+        try:
+            yield session
+        except HTTPException:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+@router.post('/bots', response_model=BotResponse)
+async def create_bot(
+    request: CreateBotRequest,
+    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
+    service: Annotated[BotService, Depends(get_bot_service)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    return await service.create_bot(
+        request, 
+        user_id=current_user['id'], 
+        db=db
+    )
+```
+
+### Error Handling
+```python
+# ✅ Use HTTPException for expected errors
+from fastapi import HTTPException
+import logging
+
+logger = logging.getLogger(__name__)
+
+@router.post('/bots')
+async def create_bot(...):
+    try:
+        return await service.create_bot(request, user_id, db)
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except BotNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(
+            f"Failed to create bot: {e}", 
+            exc_info=True, 
+            extra={"user_id": user_id, "bot_name": request.name}
+        )
+        raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+### Logging Standards
+```python
+# ✅ Always use module logger, include context
+import logging
+
+logger = logging.getLogger(__name__)  # Never configure logging in modules
+
+logger.info("Bot created", extra={"bot_id": bot_id, "user_id": user_id})
+logger.error("Failed to create bot", exc_info=True, extra={"user_id": user_id})
+logger.warning("Rate limit approaching", extra={"user_id": user_id, "requests": count})
+
+# ❌ Never log sensitive data (API keys, passwords, tokens)
+# Use LogSanitizer middleware for automatic sanitization
+```
+
+---
+
+## 🗄️ Database Patterns
+
+### SQLAlchemy Async Models
+```python
+# ✅ Async SQLAlchemy model with proper typing
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from datetime import datetime
+from uuid import uuid4
+
+class Base(DeclarativeBase):
+    pass
+
+class Bot(Base):
+    __tablename__ = "bots"
+    
+    id: Mapped[str] = mapped_column(primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str]
+    strategy: Mapped[str]
+    user_id: Mapped[str]
+    status: Mapped[str] = mapped_column(default="stopped")
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+```
+
+### Repository Pattern
+```python
+# ✅ Repository handles data access, service handles business logic
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+class BotRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+    
+    async def get_bots_by_user(self, user_id: str) -> list[Bot]:
+        result = await self.db.execute(
+            select(Bot).where(Bot.user_id == user_id)
+        )
+        return list(result.scalars().all())
+    
+    async def create_bot(self, bot: Bot) -> Bot:
+        self.db.add(bot)
+        await self.db.commit()
+        await self.db.refresh(bot)
+        return bot
+```
+
+### Service Pattern
+```python
+# ✅ Service handles business logic, uses repository for data access
+from typing import Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
+
+class BotService:
+    def __init__(self, db: AsyncSession):
+        self.repository = BotRepository(db)
+    
+    async def create_bot(
+        self, 
+        request: CreateBotRequest, 
+        user_id: str
+    ) -> Bot:
+        # Business logic: validate, transform, create
+        bot = Bot(
+            name=request.name,
+            strategy=request.strategy,
+            user_id=user_id,
+            status="stopped"
+        )
+        return await self.repository.create_bot(bot)
+```
+
+---
+
+## 🔒 Security Patterns
+
+### Authentication & Authorization
+```python
+# ✅ JWT validation dependency
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import jwt
+
+security = HTTPBearer()
+
+async def validate_jwt_and_get_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return {"id": user_id, "email": payload.get("email")}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# ✅ Check ownership before operations
+@router.delete('/bots/{bot_id}')
+async def delete_bot(
+    bot_id: str,
+    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
+    service: Annotated[BotService, Depends(get_bot_service)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    bot = await service.get_bot(bot_id, db)
+    if bot.user_id != current_user['id']:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    return await service.delete_bot(bot_id, db)
+```
+
+### Input Validation
+```python
+# ✅ Pydantic validation (automatic via FastAPI)
+class CreateBotRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    strategy: str = Field(..., pattern='^(momentum|mean_reversion)$')
+    
+# ✅ Sanitize inputs before logging
+from bleach import clean
+
+logger.info(f"Bot created: {clean(request.name)}")  # Sanitize user input
+```
+
+### Secrets Management
+```python
+# ✅ Use pydantic-settings for environment variables
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    database_url: str
+    secret_key: str
+    redis_url: Optional[str] = None
+    
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+settings = Settings()
+
+# ✅ Never log secrets
+# ❌ logger.info(f"API key: {api_key}")  # NEVER DO THIS
+```
+
+---
+
+## 🧪 Testing Patterns
+
+### Route Tests (pytest + httpx)
+```python
+# ✅ Test routes with test client and fixtures
+import pytest
+from httpx import AsyncClient
+from fastapi.testclient import TestClient
+
+@pytest.mark.asyncio
+async def test_create_bot_success(client: AsyncClient, test_user: dict):
+    response = await client.post(
+        "/api/bots",
+        json={"name": "Test Bot", "strategy": "momentum", "initial_balance": 1000.0},
+        headers={"Authorization": f"Bearer {test_user['token']}"}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["name"] == "Test Bot"
+    assert data["strategy"] == "momentum"
+
+@pytest.mark.asyncio
+async def test_create_bot_validation_error(client: AsyncClient, test_user: dict):
+    response = await client.post(
+        "/api/bots",
+        json={},  # Missing required fields
+        headers={"Authorization": f"Bearer {test_user['token']}"}
+    )
+    assert response.status_code == 422  # Validation error
+```
+
+### Service Tests
+```python
+# ✅ Test business logic in isolation
+@pytest.mark.asyncio
+async def test_create_bot_service(test_db: AsyncSession):
+    service = BotService(test_db)
+    request = CreateBotRequest(
+        name="Test Bot",
+        strategy="momentum",
+        initial_balance=1000.0
+    )
+    bot = await service.create_bot(request, user_id="test-user-id")
+    assert bot.name == "Test Bot"
+    assert bot.status == "stopped"
+```
+
+### Test Fixtures
+```python
+# ✅ Use pytest fixtures for test setup
+import pytest
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+@pytest.fixture
+async def test_db():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as session:
+        yield session
+    await engine.dispose()
+
+@pytest.fixture
+def test_user():
+    return {
+        "id": "test-user-id",
+        "email": "test@example.com",
+        "token": "test-jwt-token"
+    }
+```
+
+---
+
+## ⚡ Performance Optimization
+
+### Async/Await
+```python
+# ✅ Use async for I/O operations
+async def get_bot(bot_id: str, db: AsyncSession) -> Bot:
+    result = await db.execute(select(Bot).where(Bot.id == bot_id))
+    return result.scalar_one_or_none()
+
+# ❌ Don't block event loop
+# result = db.execute(select(Bot).where(Bot.id == bot_id))  # Synchronous
+```
+
+### Database Connection Pooling
+```python
+# ✅ Use connection pooling (SQLAlchemy handles this)
+from sqlalchemy.ext.asyncio import create_async_engine
+
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=10,
+    pool_pre_ping=True,  # Verify connections before using
+)
+```
+
+### Caching with Redis
+```python
+# ✅ Check Redis availability before using
+from typing import Optional
+import redis.asyncio as redis
+
+redis_client: Optional[redis.Redis] = None
+
+async def get_cache(key: str) -> Optional[str]:
+    if redis_client:
+        try:
+            return await redis_client.get(key)
+        except Exception as e:
+            logger.warning(f"Redis error: {e}", exc_info=True)
+    return None
+```
+
+### Rate Limiting
+```python
+# ✅ Use SlowAPI for rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
+
+@router.post('/bots')
+@limiter.limit("10/minute")
+async def create_bot(...):
+    ...
+```
+
+---
+
+## 🔄 Trading-Specific Patterns
+
+### Exchange Integration (ccxt)
+```python
+# ✅ Use ccxt library, handle errors gracefully
+import ccxt.async_support as ccxt
+
+class ExchangeService:
+    async def get_balance(self, exchange_id: str, api_key: str, api_secret: str):
+        exchange = getattr(ccxt, exchange_id)({
+            'apiKey': api_key,
+            'secret': api_secret,
+            'enableRateLimit': True,
+        })
+        try:
+            balance = await exchange.fetch_balance()
+            return balance
+        except ccxt.BaseError as e:
+            logger.error(f"Exchange error: {e}", exc_info=True)
+            raise HTTPException(status_code=503, detail=f"Exchange error: {str(e)}")
+        finally:
+            await exchange.close()
+```
+
+### Trading Mode Normalization
+```python
+# ✅ Normalize "live" to "real" for backend compatibility
+def normalize_trading_mode(mode: str) -> str:
+    """Normalize trading mode: 'live' -> 'real'."""
+    return "real" if mode == "live" else mode
+
+@router.get('/portfolio')
+async def get_portfolio(
+    mode: str = Query(..., pattern='^(paper|real|live)$'),
+    ...
+):
+    normalized_mode = normalize_trading_mode(mode)
+    return await service.get_portfolio(mode=normalized_mode, ...)
+```
+
+### Risk Management
+```python
+# ✅ Validate risk limits before trades
+class RiskService:
+    async def validate_trade(
+        self, 
+        user_id: str, 
+        trade_amount: float,
+        db: AsyncSession
+    ) -> bool:
+        risk_limits = await self.get_risk_limits(user_id, db)
+        current_exposure = await self.get_current_exposure(user_id, db)
+        
+        if current_exposure + trade_amount > risk_limits.max_exposure:
+            raise HTTPException(
+                status_code=400, 
+                detail="Trade exceeds risk limits"
+            )
+        return True
+```
+
+---
+
+## 📝 Code Quality Standards
+
+### Python Code Style
+- **Formatter**: Black (88 char line length)
+- **Linter**: Flake8 (follow `setup.cfg` rules)
+- **Type checking**: MyPy (strict mode enabled)
+- **Imports**: isort with black profile
+- **Docstrings**: Google style for complex functions
+
+### Type Hints
+```python
+# ✅ Always use type hints
+from typing import Annotated, Optional, List
+
+async def get_bots(
+    user_id: str,
+    db: AsyncSession,
+    limit: Optional[int] = None
+) -> List[Bot]:
+    ...
+
+# ✅ Use Annotated for dependencies
+from fastapi import Depends
+
+async def create_bot(
+    request: CreateBotRequest,
+    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> BotResponse:
+    ...
+```
+
+### Database Migrations (Alembic)
+```bash
+# Create migration
+alembic revision --autogenerate -m "Add bot status column"
+
+# Apply migration
+alembic upgrade head
+
+# Rollback migration
+alembic downgrade -1
+```
+
+---
+
+## 🔧 MCP Integration for Backend
+
+### Available MCP Tools
+- **Context7**: Get latest FastAPI, Python, SQLAlchemy, Pydantic documentation
+- **StackOverflow**: Search for Python/FastAPI patterns and solutions
+- **Brave Search**: Find best practices and security recommendations
+- **Postgres/Enhanced-Postgres/SQLite**: Database operations and queries
+- **Memory/Memory-Bank**: Store backend patterns and solutions
+- **Filesystem**: Advanced file operations for services and routes
+- **Git**: Version control for backend code
+- **GitHub**: GitHub integration for issues, PRs, and repository management
+- **Docker**: Container operations and Dockerfile management
+- **Sentry**: Error tracking and monitoring integration
+- **ArXiv**: Research papers for ML/advanced trading algorithms
+- **AllThingsDev**: API marketplace for integrations
+- **Sequential Thinking**: Complex problem-solving for backend architecture
+- **Render**: Deploy backend services to Render
+
+### When to Use MCPs
+
+**Context7 (Documentation):**
+- "Get latest FastAPI async dependency injection patterns"
+- "Find SQLAlchemy 2.0 async query patterns"
+- "Get Pydantic v2 validation examples"
+- "FastAPI WebSocket patterns"
+- "Alembic migration best practices"
+- "Celery async task patterns"
+
+**StackOverflow (Patterns & Solutions):**
+- Search for Python/FastAPI error messages
+- Find common patterns and solutions
+- Check for known issues with libraries
+- Troubleshoot async/await problems
+- Debug SQLAlchemy query issues
+
+**Brave Search (Best Practices):**
+- "FastAPI async best practices 2024"
+- "Cryptocurrency exchange API security practices"
+- "SQLAlchemy async connection pooling"
+- "Python type hints advanced patterns"
+- "API rate limiting strategies"
+- "Database migration safety practices"
+
+**Postgres/Enhanced-Postgres/SQLite (Database):**
+- Run SQL queries for debugging
+- Inspect database schema
+- Check data integrity
+- Test migrations before applying
+- Analyze query performance
+- Manage database connections
+
+**Memory/Memory-Bank (Knowledge Storage):**
+- Store custom service patterns
+- Save complex query solutions
+- Remember architecture decisions
+- Document backend solutions
+- Track security patterns
+
+**Filesystem:**
+- Bulk file operations
+- Service/repository scaffolding
+- File structure management
+- Search across codebase
+
+**Git/GitHub:**
+- Create branches for backend features
+- Review PRs and issues
+- Commit backend changes
+- Collaborate on backend code
+- Track changes in migrations
+
+**Docker:**
+- Build and test containers
+- Manage docker-compose files
+- Debug container issues
+- Optimize Dockerfile
+
+**Sentry:**
+- Configure error tracking
+- Set up monitoring
+- Analyze error patterns
+- Debug production issues
+
+**ArXiv (Research):**
+- Find ML trading algorithms
+- Research market prediction models
+- Explore sentiment analysis techniques
+- Study risk management papers
+
+**AllThingsDev:**
+- Browse API marketplace
+- Find integration APIs
+- Compare API offerings
+- Get API documentation
+
+### Example Usage
+```python
+# Use Context7 to get latest FastAPI patterns
+# Use StackOverflow to search for "FastAPI async dependency injection"
+# Use Brave Search for "crypto trading platform security best practices"
+# Use Postgres MCP to inspect database schema
+# Use Memory-Bank to store a custom repository pattern
+# Use ArXiv to research "cryptocurrency market prediction ML"
+# Use Sentry MCP to configure error tracking
+```
+
+---
+
+## 🤖 Backend-Specific Agent Behavior
+
+### Codebase Search Patterns
+- **Before creating routes**: Search for similar endpoints to match patterns
+- **Before creating services**: Check existing service patterns and dependencies
+- **Before database changes**: Search for existing models and migrations
+- **Before adding dependencies**: Check if similar functionality exists
+- **Query examples**:
+  - "How are database sessions managed in routes?"
+  - "Where are exchange API calls made?"
+  - "How is authentication implemented in routes?"
+  - "What error handling patterns are used?"
+
+### Backend Code Generation
+- **Always include**: Type hints, error handling, logging, tests
+- **Route pattern**: Request model → Service call → Response model → Error handling
+- **Service pattern**: Validate → Transform → Repository call → Return
+- **Repository pattern**: Async query → Result mapping → Return typed result
+- **Test pattern**: Success case + validation error + permission error + edge cases
+
+### Backend-Specific Checks
+Before submitting backend code, verify:
+- ✅ All async functions use `async def` and `await` properly
+- ✅ Database sessions use `yield` for proper cleanup
+- ✅ All inputs validated with Pydantic models
+- ✅ Errors logged with context (user_id, bot_id, etc.)
+- ✅ No sensitive data in logs (use LogSanitizer)
+- ✅ Redis availability checked before cache operations
+- ✅ Trading modes normalized ("live" → "real")
+- ✅ Type hints on all functions (mypy strict mode)
+- ✅ Tests cover success and error paths
+- ✅ Database queries use indexes (check for N+1 queries)
+
+### Backend Debugging Strategy
+1. **Check logs**: `logs/fastapi.log` for error details
+2. **Test endpoints**: Use FastAPI docs at `http://localhost:8000/docs`
+3. **Database queries**: Use Postgres/SQLite MCP to inspect schema and test queries
+4. **Async issues**: Check for missing `await` or blocking operations
+5. **Dependency issues**: Verify dependency injection setup in `main.py`
+6. **Migration issues**: Check Alembic migration history and test migrations
+
+---
+
+## 🚨 Critical Backend Rules
+
+1. **Always use async/await** for I/O operations (database, HTTP, Redis)
+2. **Use dependency injection** - don't instantiate services directly, use `Depends()`
+3. **Validate all inputs** with Pydantic models
+4. **Handle errors gracefully** - use HTTPException, log with context
+5. **Never log sensitive data** - use LogSanitizer middleware
+6. **Check Redis availability** before using cache features
+7. **Normalize trading modes** - "live" → "real" for backend
+8. **Use yield in dependencies** for resources requiring cleanup (DB sessions)
+9. **Test routes and services** - aim for 80%+ coverage
+10. **Use type hints** - enable mypy strict mode
+11. **Search codebase first** - find existing patterns before creating new code
+12. **Check for N+1 queries** - use eager loading or batch queries
+13. **Validate permissions** - always check user ownership before operations
+14. **Use connection pooling** - don't create new connections per request
+15. **Handle exchange errors** - implement retries and circuit breakers
+
+---
+
+## 📚 Reference Files
+
+- **Project Rules**: `.cursor/rules/cursorprojectrules.mdc`
+- **Main App**: `server_fastapi/main.py`
+- **Settings**: `server_fastapi/config/settings.py`
+- **Requirements**: `requirements.txt`
+- **Test Config**: `pytest.ini`
+
+---
+
+**Remember**: Backend code should be:
+- **Async** (async/await for I/O)
+- **Type-safe** (type hints, mypy strict)
+- **Secure** (validate inputs, sanitize logs, check permissions)
+- **Tested** (unit + integration tests)
+- **Performant** (connection pooling, caching, rate limiting)

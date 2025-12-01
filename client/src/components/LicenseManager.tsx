@@ -11,14 +11,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLicenseTypes, useValidateLicense, useActivateLicense, useMachineId, LicenseStatus } from "@/hooks/useLicensing";
 import { Loader2, Key, CheckCircle2, XCircle, Copy, Check } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 export function LicenseManager() {
   const [licenseKey, setLicenseKey] = useState("");
   const [validatedLicense, setValidatedLicense] = useState<LicenseStatus | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const { data: licenseTypes, isLoading: typesLoading } = useLicenseTypes();
-  const { data: machineId } = useMachineId();
+  const { data: licenseTypes, isLoading: typesLoading, error: typesError, refetch: refetchTypes } = useLicenseTypes();
+  const { data: machineId, isLoading: machineIdLoading, error: machineIdError } = useMachineId();
   const validateLicense = useValidateLicense();
   const activateLicense = useActivateLicense();
 
@@ -288,13 +291,17 @@ export function LicenseManager() {
         <TabsContent value="types" className="space-y-4">
           {typesLoading ? (
             <Card>
-              <CardContent className="py-12">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              <CardHeader>
+                <CardTitle>License Types</CardTitle>
+                <CardDescription>Loading license types...</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <LoadingSkeleton count={4} className="h-48 w-full mb-4" />
               </CardContent>
             </Card>
-          ) : (
+          ) : licenseTypes?.license_types && Object.keys(licenseTypes.license_types).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {licenseTypes?.license_types && Object.entries(licenseTypes.license_types).map(([type, config]) => (
+              {Object.entries(licenseTypes.license_types).map(([type, config]) => (
                 <Card key={type}>
                   <CardHeader>
                     <CardTitle className="capitalize">{type}</CardTitle>
@@ -326,6 +333,19 @@ export function LicenseManager() {
                 </Card>
               ))}
             </div>
+          ) : typesError ? (
+            <ErrorRetry
+              title="Failed to load license types"
+              message={typesError instanceof Error ? typesError.message : "An unexpected error occurred."}
+              onRetry={() => refetchTypes()}
+              error={typesError as Error}
+            />
+          ) : (
+            <EmptyState
+              icon={Key}
+              title="No license types available"
+              description="License types are currently unavailable. Please check back later."
+            />
           )}
         </TabsContent>
       </Tabs>

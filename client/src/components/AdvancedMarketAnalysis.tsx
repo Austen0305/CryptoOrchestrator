@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,62 +36,25 @@ import { useAdvancedMarketAnalysis } from "@/hooks/useMarkets";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface AdvancedMarketAnalysisProps {
   pair: string;
 }
 
-export function AdvancedMarketAnalysis({ pair }: AdvancedMarketAnalysisProps) {
+export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis({ pair }: AdvancedMarketAnalysisProps) {
   const { isAuthenticated } = useAuth();
   const [indicators, setIndicators] = useState<string[]>(["rsi", "macd", "bollinger"]);
   const [period, setPeriod] = useState<number>(14);
   const { data: analysis, isLoading, refetch, error } = useAdvancedMarketAnalysis(pair, indicators);
 
-  // Mock analysis data - in production, this would come from the API
-  const mockAnalysis = {
-    pair,
-    current_price: 47350,
-    indicators: {
-      rsi: 58.5,
-      macd: {
-        macd: 125.3,
-        signal: 118.2,
-        histogram: 7.1,
-      },
-      bollinger: {
-        upper: 48500,
-        middle: 47350,
-        lower: 46200,
-        width: 2300,
-      },
-      sma_20: 46800,
-      sma_50: 45500,
-      ema_12: 47100,
-      ema_26: 46850,
-    },
-    recommendation: "BUY",
-    confidence: 0.75,
-    signals: {
-      bullish: 5,
-      bearish: 2,
-      neutral: 1,
-    },
-    summary: "Strong bullish momentum with RSI in neutral zone. MACD showing positive crossover. Price above key moving averages.",
-    timestamp: new Date().toISOString(),
-  };
+  // Use real analysis data from API, show loading/error states if not available
+  const analysisData = analysis;
 
-  const analysisData = analysis || mockAnalysis;
-
-  // Generate historical indicator data for charts
-  const historicalData = Array.from({ length: 30 }, (_, i) => ({
-    date: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toLocaleDateString(),
-    price: 47350 + Math.random() * 2000 - 1000,
-    rsi: 50 + Math.random() * 30 - 15,
-    macd: Math.random() * 200 - 100,
-    upper_band: 48500 + Math.random() * 1000 - 500,
-    lower_band: 46200 + Math.random() * 1000 - 500,
-    volume: Math.random() * 1000000 + 500000,
-  }));
+  // Generate historical indicator data from real analysis data
+  const historicalData = analysisData?.historical_data || [];
 
   const getSignalColor = (signal: string) => {
     switch (signal.toLowerCase()) {
@@ -137,18 +100,22 @@ export function AdvancedMarketAnalysis({ pair }: AdvancedMarketAnalysisProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {error && (
-          <div className="rounded-md border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-500">
-            Failed to load analysis. Please try again.
-          </div>
-        )}
-
         {isLoading ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
-            Analyzing market data...
-          </div>
-        ) : analysisData ? (
+          <LoadingSkeleton count={6} className="h-24 w-full" />
+        ) : error ? (
+          <ErrorRetry
+            title="Failed to load market analysis"
+            message={error instanceof Error ? error.message : "Unable to fetch advanced market analysis. Please try again."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        ) : !analysisData ? (
+          <EmptyState
+            icon={Sparkles}
+            title="No analysis available"
+            description={`Advanced market analysis for ${pair} is not available at the moment.`}
+          />
+        ) : (
           <>
             {/* Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -586,5 +553,5 @@ export function AdvancedMarketAnalysis({ pair }: AdvancedMarketAnalysisProps) {
       </CardContent>
     </Card>
   );
-}
+});
 

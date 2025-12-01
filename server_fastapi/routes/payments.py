@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 
 from ..services.payments.stripe_service import stripe_service, SubscriptionTier
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ class PaymentIntentRequest(BaseModel):
     """Payment intent request"""
     amount: int
     currency: str = "usd"
+    payment_method_type: str = "card"  # 'card', 'ach', 'bank_transfer'
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -170,6 +171,7 @@ async def create_payment_intent(
         intent = stripe_service.create_payment_intent(
             amount=request.amount,
             currency=request.currency,
+            payment_method_type=request.payment_method_type,
             metadata={**(request.metadata or {}), 'user_id': str(current_user['id'])}
         )
         
@@ -205,7 +207,56 @@ async def handle_stripe_webhook(
         event_type = event.get('event')
         event_data = event.get('data', {})
         
-        # In production, handle events (update database, send notifications, etc.)
+        # Handle payment events for wallet deposits
+        if event_type == "payment_intent.succeeded" or event_type == "payment.succeeded":
+            payment_intent_id = event_data.get("id") or event_data.get("payment_intent")
+            if payment_intent_id:
+                try:
+                    from ..services.deposit_safety import deposit_safety_service
+                    from sqlalchemy import select
+                    from ..models.wallet import WalletTransaction
+                    from ..database import get_db_context
+                    from decimal import Decimal
+                    
+                    async with get_db_context() as db:
+                        # Find transaction by payment intent ID
+                        stmt = select(WalletTransaction).where(
+                            WalletTransaction.payment_intent_id == payment_intent_id
+                        )
+                        result = await db.execute(stmt)
+                        transaction = result.scalar_one_or_none()
+                        
+                        if transaction:
+                            # Use safe deposit processing to ensure no money is lost
+                            # This verifies payment, prevents duplicates, and ensures atomic operations
+                            amount_decimal = Decimal(str(transaction.amount))
+                            
+                            success, processed_txn_id, error_msg = await deposit_safety_service.process_deposit_safely(
+                                user_id=transaction.user_id,
+                                amount=amount_decimal,
+                                currency=transaction.currency,
+                                payment_intent_id=payment_intent_id,
+                                db=db
+                            )
+                            
+                            if success:
+                                logger.info(
+                                    f"✅ Deposit confirmed safely via webhook: payment_intent {payment_intent_id}, "
+                                    f"transaction {processed_txn_id}"
+                                )
+                            else:
+                                logger.error(
+                                    f"❌ Failed to confirm deposit safely: payment_intent {payment_intent_id}, "
+                                    f"error: {error_msg}"
+                                )
+                        else:
+                            logger.warning(
+                                f"No transaction found for payment_intent {payment_intent_id}. "
+                                f"This may be a new deposit that needs to be created first."
+                            )
+                except Exception as e:
+                    logger.error(f"Error processing payment webhook: {e}", exc_info=True)
+        
         logger.info(f"Processed Stripe webhook: {event_type}")
         
         return {'received': True, 'event': event_type}

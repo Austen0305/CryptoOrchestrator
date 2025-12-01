@@ -210,36 +210,9 @@ class PortfolioReconciliationService:
             
         except Exception as e:
             logger.error(f"Failed to create discrepancy alert: {e}", exc_info=True)
-    
-    async def auto_correct_discrepancies(self, user_id: str, discrepancies: List[Dict]):
-        """
-        Auto-correct portfolio discrepancies (use with caution)
-        
-        Args:
-            user_id: User ID
-            discrepancies: List of discrepancy details
-        """
-        try:
-            from ..models.portfolio import Portfolio
-            
-            stmt = select(Portfolio).where(Portfolio.user_id == user_id)
-            result = await self.db.execute(stmt)
-            portfolio = result.scalar_one()
-            
-            # Update portfolio balances with calculated values
-            for disc in discrepancies:
-                portfolio.balances[disc['symbol']] = disc['calculated']
-            
-            await self.db.commit()
-            await self.db.refresh(portfolio)
-            
-            logger.info(
-                f"Auto-corrected {len(discrepancies)} discrepancies for user {user_id}"
-            )
-            
-            return True
-            
-        except Exception as e:
-            logger.error(f"Auto-correction failed for user {user_id}: {e}", exc_info=True)
-            await self.db.rollback()
-            return False
+
+
+async def reconcile_user_portfolio(user_id: str, session: AsyncSession) -> Dict:
+    """Convenience helper to trigger reconciliation using existing session."""
+    service = PortfolioReconciliationService(db_session=session)
+    return await service.reconcile_portfolio(user_id)

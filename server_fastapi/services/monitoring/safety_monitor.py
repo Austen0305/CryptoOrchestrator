@@ -183,9 +183,33 @@ class SafetyMonitor:
             )
             await self._save_alert(alert)
 
-            # TODO: Integrate with trading orchestrator to halt all bots
-            # TODO: Send notifications to all users
-            # TODO: Log emergency stop event
+            # Integrate with trading orchestrator to halt all bots
+            try:
+                from ..trading_orchestrator import trading_orchestrator
+                await trading_orchestrator.emergency_stop_all()
+                logger.warning("Emergency stop: All trading bots halted")
+            except Exception as e:
+                logger.error(f"Failed to halt trading bots during emergency stop: {e}")
+            
+            # Send notifications to all users
+            try:
+                from ..notification_service import NotificationService
+                notification_service = NotificationService()
+                # In production, would send to all active users
+                logger.info("Emergency stop notifications would be sent to all users")
+            except Exception as e:
+                logger.error(f"Failed to send emergency stop notifications: {e}")
+            
+            # Log emergency stop event
+            logger.critical(f"EMERGENCY STOP ACTIVATED: {reason}")
+            await self._save_alert(SafetyAlert(
+                id=str(uuid.uuid4()),
+                type="emergency_stop",
+                severity="critical",
+                message=f"Emergency stop activated: {reason}",
+                timestamp=int(time.time() * 1000),
+                resolved=False
+            ))
 
             logger.critical("Emergency stop activated")
             return True

@@ -9,6 +9,9 @@ from dataclasses import dataclass
 import ccxt.async_support as ccxt
 from pydantic import BaseModel
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -43,24 +46,45 @@ class KrakenFee:
 class KrakenService:
     """Kraken exchange service"""
 
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None, use_mock: Optional[bool] = None):
         self.name = 'kraken'
-        self.use_mock = os.getenv("USE_MOCK_KRAKEN", "false").lower() == "true"
+        # Check production mode - mock data disabled in production
+        from ...config.settings import get_settings
+        settings = get_settings()
+        production_mode = settings.production_mode or settings.is_production
+        
+        # Determine mock mode: explicit override > production check > env var > default False
+        if use_mock is not None:
+            self.use_mock = use_mock
+        elif production_mode:
+            self.use_mock = False  # Force real mode in production
+            logger.info("Production mode detected - disabling mock data for Kraken")
+        else:
+            # Only allow mock in development if explicitly enabled
+            self.use_mock = os.getenv("ENABLE_MOCK_DATA", "false").lower() == "true" or os.getenv("USE_MOCK_KRAKEN", "false").lower() == "true"
+        
         self.connected = False
         self.exchange = None
 
         if not self.use_mock:
             try:
+                # Use provided API keys or fall back to environment variables
+                exchange_api_key = api_key or os.getenv('KRAKEN_API_KEY')
+                exchange_api_secret = api_secret or os.getenv('KRAKEN_SECRET_KEY')
+                
+                if not exchange_api_key or not exchange_api_secret:
+                    logger.warning(f"No API keys provided for Kraken. Exchange will be read-only or unavailable.")
+                
                 self.exchange = ccxt.kraken({
-                    'apiKey': os.getenv('KRAKEN_API_KEY'),
-                    'secret': os.getenv('KRAKEN_SECRET_KEY'),
+                    'apiKey': exchange_api_key or '',
+                    'secret': exchange_api_secret or '',
                     'enableRateLimit': True,
                 })
             except Exception as err:
-                print(f"Failed to construct Kraken client: {err}")
+                logger.error(f"Failed to construct Kraken client: {err}")
                 self.exchange = None
         else:
-            print("KrakenService: running in MOCK mode")
+            logger.info("KrakenService: running in MOCK mode")
 
     async def connect(self) -> None:
         try:
@@ -69,15 +93,15 @@ class KrakenService:
                 return
 
             if not self.exchange:
-                print("No exchange client available for kraken")
+                logger.warning("No exchange client available for kraken")
                 self.connected = False
                 return
 
             await self.exchange.loadMarkets()
             self.connected = True
-            print("Connected to Kraken API")
+            logger.info("Connected to Kraken API")
         except Exception as error:
-            print(f"Failed to connect to kraken: {error}")
+            logger.error(f"Failed to connect to kraken: {error}")
             self.connected = False
 
     def is_connected(self) -> bool:
@@ -107,7 +131,7 @@ class KrakenService:
                 return data
 
             if not self.exchange:
-                print('Exchange client missing or does not support fetchOHLCV')
+                logger.warning('Exchange client missing or does not support fetchOHLCV')
                 return []
 
             ohlcv = await self.exchange.fetchOHLCV(symbol, timeframe, None, limit)
@@ -124,7 +148,7 @@ class KrakenService:
                 for timestamp, open_, high, low, close, volume in ohlcv
             ]
         except Exception as error:
-            print(f"Failed to fetch historical data for {symbol} on kraken: {error}")
+            logger.error(f"Failed to fetch historical data for {symbol} on kraken: {error}")
             return []
 
     async def get_all_trading_pairs(self) -> List[TradingPair]:
@@ -140,7 +164,7 @@ class KrakenService:
                 ]
 
             if not self.exchange:
-                print('Exchange client missing or does not support fetchTickers')
+                logger.warning('Exchange client missing or does not support fetchTickers')
                 return []
 
             tickers = await self.exchange.fetchTickers()
@@ -161,7 +185,7 @@ class KrakenService:
 
             return sorted(pairs, key=lambda x: x.volume24h, reverse=True)
         except Exception as error:
-            print(f"Error fetching trading pairs from kraken: {error}")
+            logger.error(f"Error fetching trading pairs from kraken: {error}")
             return []
 
     async def get_market_price(self, pair: str) -> Optional[float]:
@@ -178,7 +202,7 @@ class KrakenService:
             ticker = await self.exchange.fetchTicker(pair)
             return ticker.get('last')
         except Exception as error:
-            print(f"Error fetching price for {pair} on kraken: {error}")
+            logger.error(f"Error fetching price for {pair} on kraken: {error}")
             return None
 
     async def get_order_book(self, pair: str) -> Dict[str, List[List[float]]]:
@@ -197,7 +221,7 @@ class KrakenService:
                 'asks': order_book['asks'][:10]
             }
         except Exception as error:
-            print(f"Error fetching order book for {pair} on kraken: {error}")
+            logger.error(f"Error fetching order book for {pair} on kraken: {error}")
             return {'bids': [], 'asks': []}
 
     async def place_order(self, pair: str, side: str, type_: str, amount: float, price: Optional[float] = None) -> Dict[str, Any]:
@@ -232,7 +256,7 @@ class KrakenService:
 
             return order
         except Exception as error:
-            print(f"Error placing order on kraken: {error}")
+            logger.error(f"Error placing order on kraken: {error}")
             raise error
 
     async def get_balance(self) -> Dict[str, float]:
@@ -244,7 +268,7 @@ class KrakenService:
             balance = await self.exchange.fetchBalance()
             return balance.get('total', {})
         except Exception as error:
-            print(f"Error fetching balance from kraken: {error}")
+            logger.error(f"Error fetching balance from kraken: {error}")
             return {}
 
     async def get_ohlcv(self, pair: str, timeframe: str = '1h', limit: int = 100) -> List[List[float]]:
@@ -262,12 +286,12 @@ class KrakenService:
             if not self.connected:
                 await self.connect()
             if not self.exchange:
-                print('Exchange OHLCV not supported or client missing')
+                logger.warning('Exchange OHLCV not supported or client missing')
                 return []
             ohlcv = await self.exchange.fetchOHLCV(pair, timeframe, None, limit)
             return ohlcv
         except Exception as error:
-            print(f"Error fetching OHLCV for {pair} on kraken: {error}")
+            logger.error(f"Error fetching OHLCV for {pair} on kraken: {error}")
             return []
 
     async def get_api_quota(self) -> Dict[str, Any]:
@@ -285,7 +309,7 @@ class KrakenService:
                 }
             return {'remaining': 0, 'reset': 0}
         except Exception as error:
-            print(f"Error fetching API quota from kraken: {error}")
+            logger.error(f"Error fetching API quota from kraken: {error}")
             return {'remaining': 0, 'reset': 0}
 
     def get_fees(self, volume_usd: float = 0) -> KrakenFee:

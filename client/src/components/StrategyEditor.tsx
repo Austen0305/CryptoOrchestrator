@@ -1,7 +1,7 @@
 /**
  * Strategy Editor Component - Visual strategy builder
  */
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateStrategy, useUpdateStrategy, StrategyTemplate, Strategy } from "@/hooks/useStrategies";
 import { Loader2, Save, Play, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { validateStrategyConfig, formatValidationErrors } from "@/lib/validation";
+import { FormFieldError } from "@/components/FormFieldError";
 
 interface StrategyEditorProps {
   template?: StrategyTemplate | null;
@@ -19,7 +21,7 @@ interface StrategyEditorProps {
   onClose?: () => void;
 }
 
-export function StrategyEditor({ template, strategy, onClose }: StrategyEditorProps) {
+export const StrategyEditor = React.memo(function StrategyEditor({ template, strategy, onClose }: StrategyEditorProps) {
   const [name, setName] = useState(strategy?.name || template?.name || "");
   const [description, setDescription] = useState(strategy?.description || template?.description || "");
   const [strategyType, setStrategyType] = useState(
@@ -33,7 +35,37 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
   const createStrategy = useCreateStrategy();
   const updateStrategy = useUpdateStrategy();
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const handleSave = async () => {
+    // Clear previous errors
+    setFormErrors({});
+
+    // Prepare data for validation
+    const strategyData = {
+      name,
+      description,
+      strategy_type: strategyType,
+      category,
+      config,
+    };
+
+    // Validate strategy configuration
+    const { valid, errors: validationErrors } = validateStrategyConfig(strategyData);
+    if (!valid && validationErrors) {
+      const formattedErrors = formatValidationErrors(validationErrors);
+      setFormErrors(formattedErrors);
+      
+      // Show toast with first error
+      const firstError = Object.values(formattedErrors)[0];
+      toast({
+        title: "Validation Error",
+        description: firstError || "Please check your input and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       if (strategy) {
         // Update existing strategy
@@ -66,15 +98,16 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
       }
       onClose?.();
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to ${strategy ? "update" : "create"} strategy.`;
       toast({
         title: "Error",
-        description: `Failed to ${strategy ? "update" : "create"} strategy.`,
+        description: errorMessage,
         variant: "destructive",
       });
     }
   };
 
-  const updateConfigValue = (key: string, value: any) => {
+  const updateConfigValue = (key: string, value: string | number | boolean | Record<string, unknown>) => {
     setConfig((prev) => ({
       ...prev,
       [key]: value,
@@ -107,9 +140,21 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
               <Input
                 id="name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  // Clear error when user starts typing
+                  if (formErrors.name) {
+                    setFormErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.name;
+                      return newErrors;
+                    });
+                  }
+                }}
                 placeholder="e.g., My RSI Strategy"
+                className={formErrors.name ? "border-destructive" : ""}
               />
+              {formErrors.name && <FormFieldError message={formErrors.name} />}
             </div>
 
             <div className="space-y-2">
@@ -117,10 +162,22 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
               <Textarea
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                  // Clear error when user starts typing
+                  if (formErrors.description) {
+                    setFormErrors(prev => {
+                      const newErrors = { ...prev };
+                      delete newErrors.description;
+                      return newErrors;
+                    });
+                  }
+                }}
                 placeholder="Describe your strategy..."
                 rows={3}
+                className={formErrors.description ? "border-destructive" : ""}
               />
+              {formErrors.description && <FormFieldError message={formErrors.description} />}
             </div>
 
             {!template && (
@@ -175,9 +232,22 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
                     id="stopLoss"
                     type="number"
                     value={config.stop_loss_pct || ""}
-                    onChange={(e) => updateConfigValue("stop_loss_pct", parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      updateConfigValue("stop_loss_pct", value);
+                      // Clear error when user starts typing
+                      if (formErrors["config.stop_loss_pct"]) {
+                        setFormErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors["config.stop_loss_pct"];
+                          return newErrors;
+                        });
+                      }
+                    }}
                     placeholder="2.0"
+                    className={formErrors["config.stop_loss_pct"] ? "border-destructive" : ""}
                   />
+                  {formErrors["config.stop_loss_pct"] && <FormFieldError message={formErrors["config.stop_loss_pct"]} />}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="takeProfit">Take Profit (%)</Label>
@@ -185,9 +255,22 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
                     id="takeProfit"
                     type="number"
                     value={config.take_profit_pct || ""}
-                    onChange={(e) => updateConfigValue("take_profit_pct", parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      updateConfigValue("take_profit_pct", value);
+                      // Clear error when user starts typing
+                      if (formErrors["config.take_profit_pct"]) {
+                        setFormErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors["config.take_profit_pct"];
+                          return newErrors;
+                        });
+                      }
+                    }}
                     placeholder="5.0"
+                    className={formErrors["config.take_profit_pct"] ? "border-destructive" : ""}
                   />
+                  {formErrors["config.take_profit_pct"] && <FormFieldError message={formErrors["config.take_profit_pct"]} />}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="positionSize">Position Size (%)</Label>
@@ -195,9 +278,22 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
                     id="positionSize"
                     type="number"
                     value={config.position_size_pct || ""}
-                    onChange={(e) => updateConfigValue("position_size_pct", parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      updateConfigValue("position_size_pct", value);
+                      // Clear error when user starts typing
+                      if (formErrors["config.position_size_pct"]) {
+                        setFormErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors["config.position_size_pct"];
+                          return newErrors;
+                        });
+                      }
+                    }}
                     placeholder="10"
+                    className={formErrors["config.position_size_pct"] ? "border-destructive" : ""}
                   />
+                  {formErrors["config.position_size_pct"] && <FormFieldError message={formErrors["config.position_size_pct"]} />}
                 </div>
               </div>
             </TabsContent>
@@ -293,4 +389,4 @@ export function StrategyEditor({ template, strategy, onClose }: StrategyEditorPr
       </CardContent>
     </Card>
   );
-}
+});

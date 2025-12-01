@@ -3,7 +3,7 @@
  * Allows users to manage their exchange API keys for real money trading
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,10 @@ import { apiRequest } from '@/lib/queryClient';
 import { toast } from '@/components/ui/use-toast';
 import { useTradingMode } from '@/contexts/TradingModeContext';
 import { ExchangeStatusIndicator } from '@/components/ExchangeStatusIndicator';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
+import { EmptyState } from '@/components/EmptyState';
 
 interface ExchangeKey {
   id: string;
@@ -42,8 +46,7 @@ const SUPPORTED_EXCHANGES = [
 
 export default function ExchangeKeys() {
   const { checkRealMoneyRequirements } = useTradingMode();
-  const [apiKeys, setApiKeys] = useState<ExchangeKey[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState<string | null>(null);
   const [selectedExchange, setSelectedExchange] = useState('');
@@ -54,27 +57,100 @@ export default function ExchangeKeys() {
   const [isTestnet, setIsTestnet] = useState(false);
   const [showSecrets, setShowSecrets] = useState<{ [key: string]: boolean }>({});
 
-  useEffect(() => {
-    loadApiKeys();
-  }, []);
-
-  const loadApiKeys = async () => {
-    setIsLoading(true);
-    try {
-      const keys = await apiRequest<ExchangeKey[]>('/api/exchange-keys', {
+  const { data: apiKeys, isLoading, error, refetch } = useQuery<ExchangeKey[]>({
+    queryKey: ['exchange-keys'],
+    queryFn: async () => {
+      return await apiRequest<ExchangeKey[]>('/api/exchange-keys', {
         method: 'GET',
       });
-      setApiKeys(keys);
-    } catch (error: any) {
+    },
+    retry: 2,
+  });
+
+  const addKeyMutation = useMutation({
+    mutationFn: async (data: {
+      exchange: string;
+      api_key: string;
+      api_secret: string;
+      passphrase?: string;
+      label?: string;
+      is_testnet: boolean;
+    }) => {
+      return await apiRequest('/api/exchange-keys', {
+        method: 'POST',
+        body: data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['exchange-keys'] });
       toast({
-        title: 'Failed to Load API Keys',
-        description: error.message || 'Could not load exchange API keys',
+        title: 'API Key Added',
+        description: `API key for ${selectedExchange} has been added successfully`,
+      });
+      setSelectedExchange('');
+      setApiKey('');
+      setApiSecret('');
+      setPassphrase('');
+      setLabel('');
+      setIsTestnet(false);
+      setShowAddDialog(false);
+      checkRealMoneyRequirements();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to Add API Key',
+        description: error.message || 'Could not add exchange API key',
         variant: 'destructive',
       });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+  });
+
+  const validateKeyMutation = useMutation({
+    mutationFn: async (exchange: string) => {
+      return await apiRequest(`/api/exchange-keys/${exchange}/validate`, {
+        method: 'POST',
+      });
+    },
+    onSuccess: (_, exchange) => {
+      queryClient.invalidateQueries({ queryKey: ['exchange-keys'] });
+      toast({
+        title: 'API Key Validated',
+        description: `API key for ${exchange} has been validated successfully`,
+      });
+      checkRealMoneyRequirements();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Validation Failed',
+        description: error.message || 'Could not validate API key',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteKeyMutation = useMutation({
+    mutationFn: async (exchange: string) => {
+      return await apiRequest(`/api/exchange-keys/${exchange}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: (_, exchange) => {
+      queryClient.invalidateQueries({ queryKey: ['exchange-keys'] });
+      toast({
+        title: 'API Key Deleted',
+        description: `API key for ${exchange} has been deleted`,
+      });
+      setShowDeleteDialog(null);
+      checkRealMoneyRequirements();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to Delete API Key',
+        description: error.message || 'Could not delete exchange API key',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const handleAddKey = async () => {
     if (!selectedExchange || !apiKey || !apiSecret) {
@@ -85,106 +161,22 @@ export default function ExchangeKeys() {
       });
       return;
     }
-
-    setIsLoading(true);
-    try {
-      await apiRequest('/api/exchange-keys', {
-        method: 'POST',
-        body: {
-          exchange: selectedExchange,
-          api_key: apiKey,
-          api_secret: apiSecret,
-          passphrase: passphrase || undefined,
-          label: label || undefined,
-          is_testnet: isTestnet,
-        },
-      });
-
-      toast({
-        title: 'API Key Added',
-        description: `API key for ${selectedExchange} has been added successfully`,
-      });
-
-      // Reset form
-      setSelectedExchange('');
-      setApiKey('');
-      setApiSecret('');
-      setPassphrase('');
-      setLabel('');
-      setIsTestnet(false);
-      setShowAddDialog(false);
-
-      // Reload keys
-      await loadApiKeys();
-
-      // Recheck requirements
-      await checkRealMoneyRequirements();
-    } catch (error: any) {
-      toast({
-        title: 'Failed to Add API Key',
-        description: error.message || 'Could not add exchange API key',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    await addKeyMutation.mutateAsync({
+      exchange: selectedExchange,
+      api_key: apiKey,
+      api_secret: apiSecret,
+      passphrase: passphrase || undefined,
+      label: label || undefined,
+      is_testnet: isTestnet,
+    });
   };
 
   const handleValidateKey = async (exchange: string) => {
-    setIsLoading(true);
-    try {
-      await apiRequest(`/api/exchange-keys/${exchange}/validate`, {
-        method: 'POST',
-      });
-
-      toast({
-        title: 'API Key Validated',
-        description: `API key for ${exchange} has been validated successfully`,
-      });
-
-      // Reload keys
-      await loadApiKeys();
-
-      // Recheck requirements
-      await checkRealMoneyRequirements();
-    } catch (error: any) {
-      toast({
-        title: 'Validation Failed',
-        description: error.message || 'Could not validate API key',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    await validateKeyMutation.mutateAsync(exchange);
   };
 
   const handleDeleteKey = async (exchange: string) => {
-    setIsLoading(true);
-    try {
-      await apiRequest(`/api/exchange-keys/${exchange}`, {
-        method: 'DELETE',
-      });
-
-      toast({
-        title: 'API Key Deleted',
-        description: `API key for ${exchange} has been deleted`,
-      });
-
-      // Reload keys
-      await loadApiKeys();
-      setShowDeleteDialog(null);
-
-      // Recheck requirements
-      await checkRealMoneyRequirements();
-    } catch (error: any) {
-      toast({
-        title: 'Failed to Delete API Key',
-        description: error.message || 'Could not delete exchange API key',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
+    await deleteKeyMutation.mutateAsync(exchange);
   };
 
   return (
@@ -213,19 +205,18 @@ export default function ExchangeKeys() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="exchange">Exchange</Label>
-                <select
-                  id="exchange"
-                  value={selectedExchange}
-                  onChange={(e) => setSelectedExchange(e.target.value)}
-                  className="w-full p-2 border rounded-md"
-                >
-                  <option value="">Select Exchange</option>
-                  {SUPPORTED_EXCHANGES.map((exchange) => (
-                    <option key={exchange.name} value={exchange.name}>
-                      {exchange.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={selectedExchange} onValueChange={setSelectedExchange}>
+                  <SelectTrigger id="exchange" aria-label="Select exchange">
+                    <SelectValue placeholder="Select Exchange" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_EXCHANGES.map((exchange) => (
+                      <SelectItem key={exchange.name} value={exchange.name}>
+                        {exchange.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="label">Label (Optional)</Label>
@@ -282,8 +273,8 @@ export default function ExchangeKeys() {
               <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleAddKey} disabled={isLoading}>
-                {isLoading ? 'Adding...' : 'Add API Key'}
+              <Button onClick={handleAddKey} disabled={addKeyMutation.isPending}>
+                {addKeyMutation.isPending ? 'Adding...' : 'Add API Key'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -298,16 +289,27 @@ export default function ExchangeKeys() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoading && apiKeys.length === 0 ? (
-            <div className="text-center py-8">Loading...</div>
-          ) : apiKeys.length === 0 ? (
-            <div className="text-center py-8">
-              <Key className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No API keys configured</p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Add an API key to enable real money trading
-              </p>
-            </div>
+          {isLoading ? (
+            <LoadingSkeleton count={5} className="h-12 w-full mb-2" />
+          ) : error ? (
+            <ErrorRetry
+              title="Failed to load API keys"
+              message={error instanceof Error ? error.message : "An unexpected error occurred."}
+              onRetry={() => refetch()}
+              error={error as Error}
+            />
+          ) : !apiKeys || apiKeys.length === 0 ? (
+            <EmptyState
+              icon={Key}
+              title="No API keys configured"
+              description="Add an API key to enable real money trading on supported exchanges."
+              action={
+                <Button onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add API Key
+                </Button>
+              }
+            />
           ) : (
             <Table>
               <TableHeader>
@@ -358,9 +360,9 @@ export default function ExchangeKeys() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleValidateKey(key.exchange)}
-                            disabled={isLoading}
+                            disabled={validateKeyMutation.isPending}
                           >
-                            Validate
+                            {validateKeyMutation.isPending ? 'Validating...' : 'Validate'}
                           </Button>
                         )}
                         <AlertDialog>
@@ -386,8 +388,9 @@ export default function ExchangeKeys() {
                               <AlertDialogAction
                                 onClick={() => handleDeleteKey(key.exchange)}
                                 className="bg-red-500 hover:bg-red-600"
+                                disabled={deleteKeyMutation.isPending}
                               >
-                                Delete
+                                {deleteKeyMutation.isPending ? 'Deleting...' : 'Delete'}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>

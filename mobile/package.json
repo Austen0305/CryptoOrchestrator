@@ -4,6 +4,11 @@
   "description": "CryptoOrchestrator Mobile App - iOS & Android",
   "main": "index.js",
   "scripts": {
+    "init:native": "node -e \"const {execSync}=require('child_process');const isWin=process.platform==='win32';execSync(isWin?'powershell -ExecutionPolicy Bypass -File scripts/init-native.ps1':'bash scripts/init-native.sh',{stdio:'inherit'})\"",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
+    "build:ios": "expo build:ios",
+    "build:android": "expo build:android",
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",

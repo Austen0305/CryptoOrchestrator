@@ -12,6 +12,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { EmptyState } from "@/components/EmptyState";
 
 const COLORS = [
   "#8884d8", "#82ca9d", "#ffc658", "#ff7c7c", "#8dd1e1",
@@ -27,6 +29,14 @@ interface Asset {
   change24h?: number;
 }
 
+interface BalanceValue {
+  free?: number;
+  used?: number;
+  total?: number;
+  price?: number;
+  [key: string]: unknown; // Allow additional fields from API
+}
+
 export function PortfolioPieChart() {
   const { data: portfolio, isLoading } = usePortfolio("paper");
 
@@ -34,11 +44,14 @@ export function PortfolioPieChart() {
     if (!portfolio || !portfolio.balances) return [];
 
     // Convert portfolio balances to chart data
-    const assets: Asset[] = Object.entries(portfolio.balances || {})
-      .filter(([_, value]: [string, any]) => value && value.free > 0)
-      .map(([symbol, value]: [string, any]) => {
-        const amount = value.free || 0;
-        const price = value.price || 0; // Would need price data
+    const balances = portfolio.balances as Record<string, BalanceValue> | undefined;
+    if (!balances) return [];
+
+    const assets: Asset[] = Object.entries(balances)
+      .filter(([_, value]) => value && typeof value === 'object' && (value.free ?? 0) > 0)
+      .map(([symbol, value]) => {
+        const amount = value.free ?? 0;
+        const price = value.price ?? 0; // Would need price data
         const assetValue = amount * price;
         return {
           symbol,
@@ -68,7 +81,20 @@ export function PortfolioPieChart() {
   const largestAsset = chartData.length > 0 ? chartData[0] : null;
   const top3Assets = chartData.slice(0, 3);
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{
+      payload: {
+        name: string;
+        value: number;
+        percentage: number;
+        amount: number;
+        color?: string;
+      };
+    }>;
+  }
+
+  const CustomTooltip = ({ active, payload }: TooltipProps) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -89,7 +115,16 @@ export function PortfolioPieChart() {
     return null;
   };
 
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percentage }: any) => {
+  interface LabelProps {
+    cx: number;
+    cy: number;
+    midAngle: number;
+    innerRadius: number;
+    outerRadius: number;
+    percentage: number;
+  }
+
+  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percentage }: LabelProps) => {
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -126,8 +161,8 @@ export function PortfolioPieChart() {
           <CardDescription>Loading portfolio data...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-            Loading...
+          <div className="h-[300px] flex items-center justify-center">
+            <LoadingSkeleton variant="circular" className="w-48 h-48" />
           </div>
         </CardContent>
       </Card>
@@ -142,11 +177,11 @@ export function PortfolioPieChart() {
           <CardDescription>Your portfolio allocation breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground gap-2">
-            <AlertCircle className="h-12 w-12" />
-            <p>No assets in portfolio yet</p>
-            <p className="text-sm">Start trading to see your portfolio allocation</p>
-          </div>
+          <EmptyState
+            icon={AlertCircle}
+            title="No assets in portfolio yet"
+            description="Start trading to see your portfolio allocation"
+          />
         </CardContent>
       </Card>
     );
@@ -220,7 +255,7 @@ export function PortfolioPieChart() {
               <Legend
                 verticalAlign="bottom"
                 height={36}
-                formatter={(value, entry: any) => (
+                formatter={(value, entry: { color?: string; payload?: { percentage: number } }) => (
                   <span style={{ color: entry.color }} className="text-sm">
                     {value} ({formatPercentage(entry.payload.percentage)})
                   </span>

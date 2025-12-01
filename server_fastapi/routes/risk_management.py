@@ -7,7 +7,7 @@ import logging
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-from ..services.risk_service import get_risk_service, RiskService, RiskLimits, RiskAlert, RiskMetrics
+from ..services.risk_service import RiskService, RiskLimits, RiskAlert, RiskMetrics
 from ..services.risk.drawdown_kill_switch import (
     drawdown_kill_switch,
     DrawdownKillSwitchConfig,
@@ -16,15 +16,12 @@ from ..services.risk.drawdown_kill_switch import (
 )
 from ..services.risk.var_service import var_service, VaRConfig, VaRResult
 from ..services.risk.monte_carlo_service import monte_carlo_service, MonteCarloConfig, MonteCarloResult
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
+from ..dependencies.risk import get_risk_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/risk", tags=["Risk Management"])
-
-
-def risk_service_dep() -> RiskService:
-    return get_risk_service()
 
 
 class UpdateLimitsRequest(BaseModel):
@@ -50,22 +47,32 @@ class UpdateLimitsRequest(BaseModel):
 
 
 @router.get("/metrics", response_model=RiskMetrics)
-async def get_metrics(svc: RiskService = Depends(risk_service_dep)):
+async def get_metrics(svc: RiskService = Depends(get_risk_service)):
     return await svc.get_metrics()
 
 
 @router.get("/alerts", response_model=list[RiskAlert])
-async def get_alerts(svc: RiskService = Depends(risk_service_dep)):
-    return await svc.get_alerts()
+async def get_alerts(
+    current_user: dict = Depends(get_current_user),
+    svc: RiskService = Depends(get_risk_service),
+):
+    return await svc.get_user_alerts(current_user["id"])
 
 
 @router.get("/limits", response_model=RiskLimits)
-async def get_limits(svc: RiskService = Depends(risk_service_dep)):
-    return await svc.get_limits()
+async def get_limits(
+    current_user: dict = Depends(get_current_user),
+    svc: RiskService = Depends(get_risk_service),
+):
+    return await svc.get_user_limits(current_user["id"])
 
 
 @router.post("/limits", response_model=RiskLimits)
-async def update_limits(payload: UpdateLimitsRequest, svc: RiskService = Depends(risk_service_dep)):
+async def update_limits(
+    payload: UpdateLimitsRequest,
+    current_user: dict = Depends(get_current_user),
+    svc: RiskService = Depends(get_risk_service),
+):
     # Manual validation to enforce reasonable ranges beyond model bounds if needed
     updates: Dict[str, Any] = {}
     for field, value in payload.model_dump(exclude_none=True).items():
@@ -82,19 +89,36 @@ async def update_limits(payload: UpdateLimitsRequest, svc: RiskService = Depends
         if field == "minDiversification" and not (0 <= value <= 1):
             raise HTTPException(status_code=400, detail="minDiversification out of range (0-1)")
         updates[field] = value
-    updated = await svc.update_limits(updates)
+    if not updates:
+        return await svc.get_user_limits(current_user["id"])
+    updated = await svc.update_user_limits(current_user["id"], updates)
     return updated
 
 
 @router.post("/alerts/{alert_id}/acknowledge", response_model=RiskAlert)
 async def acknowledge_alert(
     alert_id: str,
-    svc: RiskService = Depends(risk_service_dep),
+    svc: RiskService = Depends(get_risk_service),
     current_user: dict = Depends(get_current_user)
 ):
     """Acknowledge a risk alert"""
     try:
+        if svc.db:
+            try:
+                numeric_id = int(alert_id)
+            except ValueError as parse_error:
+                raise HTTPException(status_code=400, detail="Invalid alert ID") from parse_error
+            acknowledged = await svc.acknowledge_alert_db(numeric_id)
+            if not acknowledged:
+                raise HTTPException(status_code=404, detail="Alert not found")
+            alerts = await svc.get_user_alerts(current_user["id"])
+            updated_alert = next((a for a in alerts if a.id == str(numeric_id)), None)
+            if not updated_alert:
+                raise HTTPException(status_code=404, detail="Alert not found")
+            return updated_alert
         return await svc.acknowledge_alert(alert_id)
+    except HTTPException:
+        raise
     except KeyError:
         raise HTTPException(status_code=404, detail="Alert not found")
     except Exception as e:

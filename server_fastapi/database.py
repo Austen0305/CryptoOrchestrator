@@ -41,14 +41,22 @@ if DATABASE_URL.startswith("sqlite+"):
         connect_args={"check_same_thread": False},  # Needed for SQLite
     )
 else:
-    # PostgreSQL configuration
+    # PostgreSQL configuration with optimized pooling
+    # Use environment variables for production tuning
+    pool_size = int(os.getenv("DB_POOL_SIZE", "20"))
+    max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "10"))
+    pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+    pool_recycle = int(os.getenv("DB_POOL_RECYCLE", "3600"))  # 1 hour
+    
     engine = create_async_engine(
         DATABASE_URL,
         echo=False,  # Set to True for SQL query logging in development
-    pool_size=10,
-    max_overflow=20,
-    pool_timeout=30,
-    pool_recycle=3600,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
+        pool_timeout=pool_timeout,
+        pool_recycle=pool_recycle,
+        pool_pre_ping=True,  # Verify connections before using (prevents stale connections)
+        future=True,
     )
 
 # Create async session factory

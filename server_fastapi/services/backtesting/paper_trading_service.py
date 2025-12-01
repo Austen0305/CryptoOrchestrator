@@ -159,6 +159,7 @@ class PaperTradingService:
         logger.info(f"Paper trade executed: {trade.id} - {side} {quantity} {symbol} at {price}")
         return trade
 
+    @cache_query_result(ttl=300, key_prefix="paper_portfolio", include_user=True) if CACHE_AVAILABLE else lambda f: f
     async def get_paper_portfolio(self, user_id: str) -> PaperPortfolio:
         """Calculate and return current paper portfolio"""
         with sqlite3.connect(self.db_path) as conn:

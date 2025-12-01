@@ -8,6 +8,43 @@ from .risk_alert import RiskAlert
 from .risk_limit import RiskLimit
 from .portfolio import Portfolio
 from .trade import Trade
+from .follow import Follow, CopiedTrade
+from .order import Order, OrderType, OrderStatus
+from .wallet import Wallet, WalletTransaction, WalletType, TransactionType, TransactionStatus
+from .idempotency import IdempotencyKey
+
+# New competitive bot models
+try:
+    from .grid_bot import GridBot
+except Exception:
+    GridBot = None  # noqa: N816
+
+try:
+    from .dca_bot import DCABot
+except Exception:
+    DCABot = None  # noqa: N816
+
+try:
+    from .infinity_grid import InfinityGrid
+except Exception:
+    InfinityGrid = None  # noqa: N816
+
+try:
+    from .trailing_bot import TrailingBot
+except Exception:
+    TrailingBot = None  # noqa: N816
+
+try:
+    from .futures_position import FuturesPosition
+except Exception:
+    FuturesPosition = None  # noqa: N816
+
+# Optional strategy model import
+try:
+    from .strategy import Strategy, StrategyVersion  # type: ignore
+except Exception:
+    Strategy = None  # noqa: N816
+    StrategyVersion = None  # noqa: N816
 
 # Optional candle model import guarded (created in this patch)
 try:
@@ -33,5 +70,24 @@ __all__ = [
     'Portfolio',
     'Trade',
     'Candle',
-    'ExchangeAPIKey'
+    'ExchangeAPIKey',
+    'Follow',
+    'CopiedTrade',
+    'Order',
+    'OrderType',
+    'OrderStatus',
+    'Wallet',
+    'WalletTransaction',
+    'WalletType',
+    'TransactionType',
+    'TransactionStatus',
+    'IdempotencyKey',
+    'Strategy',
+    'StrategyVersion',
+    # New competitive bot models
+    'GridBot',
+    'DCABot',
+    'InfinityGrid',
+    'TrailingBot',
+    'FuturesPosition'
 ]

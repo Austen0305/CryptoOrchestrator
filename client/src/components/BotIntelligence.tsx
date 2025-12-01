@@ -1,3 +1,4 @@
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ import {
   Zap
 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -69,10 +70,9 @@ interface OptimizedParams {
   adaptive_reasoning: string[];
 }
 
-export function BotIntelligence({ botId }: BotIntelligenceProps) {
+export const BotIntelligence = React.memo(function BotIntelligence({ botId }: BotIntelligenceProps) {
   const [activeTab, setActiveTab] = useState("analysis");
   const { isAuthenticated } = useAuth();
-  const [isOptimizing, setIsOptimizing] = useState(false);
 
   const { data: analysis, isLoading: analysisLoading, refetch: refetchAnalysis, error: analysisError } = useQuery<{
     analysis: MarketAnalysis;
@@ -80,8 +80,7 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
   }>({
     queryKey: ["bots", botId, "analysis"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bots/${botId}/analysis`);
-      return response.json();
+      return await apiRequest(`/api/bots/${botId}/analysis`, { method: "GET" });
     },
     enabled: isAuthenticated && !!botId,
     refetchInterval: 30000, // Refresh every 30 seconds
@@ -98,8 +97,7 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
   }>({
     queryKey: ["bots", botId, "risk-metrics"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bots/${botId}/risk-metrics`);
-      return response.json();
+      return await apiRequest(`/api/bots/${botId}/risk-metrics`, { method: "GET" });
     },
     enabled: isAuthenticated && !!botId,
     refetchInterval: 60000, // Refresh every minute
@@ -110,37 +108,32 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
     optimized_parameters: OptimizedParams;
   }>({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/bots/${botId}/optimize`);
-      return response.json();
-    },
-    onMutate: () => {
-      setIsOptimizing(true);
-    },
-    onSettled: () => {
-      setIsOptimizing(false);
+      return await apiRequest<{ optimized_parameters: OptimizedParams }>(`/api/bots/${botId}/optimize`, {
+        method: "POST",
+      });
     },
   });
 
-  const getActionIcon = (action: string) => {
+  const getActionIcon = useCallback((action: string) => {
     switch (action) {
       case 'buy': return <TrendingUp className="h-5 w-5 text-green-500" />;
       case 'sell': return <TrendingDown className="h-5 w-5 text-red-500" />;
       default: return <Activity className="h-5 w-5 text-yellow-500" />;
     }
-  };
+  }, []);
 
-  const getRiskColor = (risk: number) => {
+  const getRiskColor = useCallback((risk: number) => {
     if (risk < 0.3) return 'text-green-500';
     if (risk < 0.5) return 'text-yellow-500';
     if (risk < 0.7) return 'text-orange-500';
     return 'text-red-500';
-  };
+  }, []);
 
-  const getConfidenceColor = (confidence: number) => {
+  const getConfidenceColor = useCallback((confidence: number) => {
     if (confidence >= 0.75) return 'text-green-500';
     if (confidence >= 0.6) return 'text-yellow-500';
     return 'text-orange-500';
-  };
+  }, []);
 
   return (
     <Card className="w-full">
@@ -179,9 +172,11 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
           {/* Analysis Tab */}
           <TabsContent value="analysis" className="space-y-4 mt-4">
             {analysisError && (
-              <div className="rounded-md border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-500">
-                Failed to load analysis. Please try again.
-              </div>
+              <ErrorRetry
+                error={analysisError}
+                onRetry={() => refetchAnalysis()}
+                title="Failed to load analysis"
+              />
             )}
             {analysisLoading ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -299,9 +294,11 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
           {/* Risk Tab */}
           <TabsContent value="risk" className="space-y-4 mt-4">
             {riskError && (
-              <div className="rounded-md border border-red-500/50 bg-red-500/10 p-4 text-sm text-red-500">
-                Failed to load risk metrics. Please try again.
-              </div>
+              <ErrorRetry
+                error={riskError}
+                onRetry={() => refetchRisk()}
+                title="Failed to load risk metrics"
+              />
             )}
             {riskLoading ? (
               <div className="text-center py-8 text-muted-foreground">
@@ -395,9 +392,9 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
               </p>
               <Button 
                 onClick={() => optimizeMutation.mutate()} 
-                disabled={isOptimizing || optimizeMutation.isPending || !isAuthenticated}
+                disabled={optimizeMutation.isPending || !isAuthenticated}
               >
-                {isOptimizing || optimizeMutation.isPending ? (
+                {optimizeMutation.isPending ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Optimizing...
@@ -472,4 +469,4 @@ export function BotIntelligence({ botId }: BotIntelligenceProps) {
       </CardContent>
     </Card>
   );
-}
+});

@@ -4,11 +4,13 @@ Bot control service for start/stop/status operations
 
 import logging
 from typing import Dict, Optional, Any
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db_context
 from ...repositories.bot_repository import BotRepository
 from .bot_creation_service import BotCreationService
+from ..portfolio_reconciliation import reconcile_user_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -16,16 +18,25 @@ logger = logging.getLogger(__name__)
 class BotControlService:
     """Service for bot control operations (start, stop, status)"""
 
-    def __init__(self):
+    def __init__(self, session: Optional[AsyncSession] = None):
         self.repository = BotRepository()
-        self.creation_service = BotCreationService()
+        self.creation_service = BotCreationService(session=session)
+        self._session = session
+
+    @asynccontextmanager
+    async def _get_session(self):
+        if self._session is not None:
+            yield self._session
+        else:
+            async with get_db_context() as session:
+                yield session
 
     async def start_bot(self, bot_id: str, user_id: int) -> bool:
         """Start a trading bot"""
         try:
             logger.info(f"Starting bot {bot_id} for user {user_id}")
 
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 # Check if bot exists and belongs to user
                 bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not bot:
@@ -40,6 +51,7 @@ class BotControlService:
                 updated_bot = await self.repository.update_bot_status(session, bot_id, user_id, True, 'running')
                 if updated_bot:
                     logger.info(f"Bot {bot_id} started successfully")
+                    await self._trigger_reconciliation(user_id, session)
                     return True
                 else:
                     logger.error(f"Failed to update bot {bot_id} status")
@@ -54,7 +66,7 @@ class BotControlService:
         try:
             logger.info(f"Stopping bot {bot_id} for user {user_id}")
 
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 # Check if bot exists and belongs to user
                 bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not bot:
@@ -69,6 +81,7 @@ class BotControlService:
                 updated_bot = await self.repository.update_bot_status(session, bot_id, user_id, False, 'stopped')
                 if updated_bot:
                     logger.info(f"Bot {bot_id} stopped successfully")
+                    await self._trigger_reconciliation(user_id, session)
                     return True
                 else:
                     logger.error(f"Failed to update bot {bot_id} status")
@@ -81,7 +94,7 @@ class BotControlService:
     async def get_bot_status(self, bot_id: str, user_id: int) -> Optional[Dict[str, Any]]:
         """Get bot status"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 bot = await self.repository.get_by_user_and_id(session, bot_id, user_id)
                 if not bot:
                     return None
@@ -119,10 +132,11 @@ class BotControlService:
     async def update_bot_status(self, bot_id: str, user_id: int, active: bool, status: str) -> bool:
         """Update bot status directly"""
         try:
-            async with get_db_context() as session:
+            async with self._get_session() as session:
                 updated_bot = await self.repository.update_bot_status(session, bot_id, user_id, active, status)
                 if updated_bot:
                     logger.info(f"Updated bot {bot_id} status to {status} (active: {active})")
+                    await self._trigger_reconciliation(user_id, session)
                     return True
                 else:
                     logger.error(f"Failed to update bot {bot_id} status")
@@ -152,3 +166,12 @@ class BotControlService:
         except Exception as e:
             logger.error(f"Error bulk stopping bots for user {user_id}: {str(e)}")
             raise
+
+    async def _trigger_reconciliation(self, user_id: int, session: AsyncSession) -> None:
+        try:
+            await reconcile_user_portfolio(str(user_id), session)
+        except Exception as exc:
+            logger.warning(
+                f"Portfolio reconciliation after bot status change failed for user {user_id}: {exc}",
+                exc_info=True,
+            )

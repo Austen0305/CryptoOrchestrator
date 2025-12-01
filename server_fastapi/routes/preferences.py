@@ -1,7 +1,4 @@
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
-import os
 from datetime import datetime
 from typing import Optional, Dict, Any
 import logging
@@ -12,23 +9,11 @@ from pydantic import BaseModel
 from ..database import get_db_context
 from ..repositories.preferences_repository import preferences_repository
 from ..repositories.user_repository import user_repository
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-security = HTTPBearer()
-
-# Be resilient if JWT_SECRET is not set in local/dev
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        return {"id": int(payload['id']), "email": payload.get('email')}
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 def _default_notifications(enabled: bool) -> Dict[str, bool]:
     return {

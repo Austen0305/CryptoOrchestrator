@@ -4,14 +4,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { usePricing, PricingInfo } from "@/hooks/usePayments";
-import { Loader2, Check, Zap } from "lucide-react";
+import { usePricing } from "@/hooks/usePayments";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { Check, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 
 export function PricingPlans() {
-  const { data: pricing, isLoading } = usePricing();
+  const { data: pricing, isLoading, error, refetch } = usePricing();
   const { isAuthenticated } = useAuth();
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
@@ -35,11 +37,43 @@ export function PricingPlans() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold">Choose Your Plan</h2>
+          <p className="text-muted-foreground mt-2">Loading pricing plans...</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <LoadingSkeleton className="h-6 w-24 mb-2" />
+                <LoadingSkeleton className="h-8 w-32 mb-2" />
+                <LoadingSkeleton className="h-4 w-full" />
+              </CardHeader>
+              <CardContent>
+                <LoadingSkeleton count={5} className="h-4 w-full mb-2" />
+                <LoadingSkeleton className="h-10 w-full mt-4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-3xl font-bold">Choose Your Plan</h2>
+        </div>
+        <ErrorRetry
+          title="Failed to load pricing plans"
+          message={error instanceof Error ? error.message : "An unexpected error occurred."}
+          onRetry={() => refetch()}
+          error={error as Error}
+        />
+      </div>
     );
   }
 

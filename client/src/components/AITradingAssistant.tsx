@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Bot, Send, Loader2, Sparkles, TrendingUp, DollarSign, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/formatters";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -32,9 +35,9 @@ export function AITradingAssistant() {
     }
   ]);
   const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Auto-scroll to bottom when new messages arrive
@@ -42,6 +45,40 @@ export function AITradingAssistant() {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Use React Query mutation for AI assistant API calls
+  const aiAssistantMutation = useMutation({
+    mutationFn: async (message: string) => {
+      return await apiRequest<{ content: string; suggestions?: string[]; tradeAction?: Message["tradeAction"] }>(
+        '/api/ai/assistant',
+        {
+          method: 'POST',
+          body: JSON.stringify({ message }),
+        }
+      );
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get AI response",
+        variant: "destructive",
+      });
+      // Fallback to local response on error
+      const userMessage = input.trim();
+      if (userMessage) {
+        const response = generateAIResponse(userMessage);
+        const assistantMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: response.content,
+          timestamp: new Date(),
+          suggestions: response.suggestions,
+          tradeAction: response.tradeAction,
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+      }
+    },
+  });
 
   const handleSend = async (message?: string) => {
     const userMessage = message || input.trim();
@@ -57,10 +94,22 @@ export function AITradingAssistant() {
 
     setMessages(prev => [...prev, userMsg]);
     setInput("");
-    setIsLoading(true);
 
-    // Simulate AI response (in production, this would call the API)
-    setTimeout(() => {
+    try {
+      // Try to call API first, fallback to local response
+      const response = await aiAssistantMutation.mutateAsync(userMessage);
+      const assistantMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: response.content,
+        timestamp: new Date(),
+        suggestions: response.suggestions,
+        tradeAction: response.tradeAction,
+      };
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch {
+      // Error handling is done in onError callback
+      // Fallback to local response
       const response = generateAIResponse(userMessage);
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -71,8 +120,7 @@ export function AITradingAssistant() {
         tradeAction: response.tradeAction,
       };
       setMessages(prev => [...prev, assistantMsg]);
-      setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const generateAIResponse = (userInput: string): { content: string; suggestions?: string[]; tradeAction?: Message["tradeAction"] } => {
@@ -225,7 +273,7 @@ export function AITradingAssistant() {
                 )}
               </div>
             ))}
-            {isLoading && (
+            {aiAssistantMutation.isPending && (
               <div className="flex gap-3 justify-start">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
                   <Bot className="h-4 w-4 text-white" />
@@ -292,13 +340,13 @@ export function AITradingAssistant() {
             }}
             placeholder="Ask me anything... e.g., 'Buy $500 of BTC when it dips below $45k'"
             className="flex-1"
-            disabled={isLoading}
+            disabled={aiAssistantMutation.isPending}
           />
           <Button
             onClick={() => handleSend()}
-            disabled={isLoading || !input.trim()}
+            disabled={aiAssistantMutation.isPending || !input.trim()}
           >
-            {isLoading ? (
+            {aiAssistantMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Send className="h-4 w-4" />

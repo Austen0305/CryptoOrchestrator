@@ -1,20 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Dict, Any
 import logging
 import time
-import jwt
-import os
 from datetime import datetime
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-security = HTTPBearer()
-
-# Environment variables
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 
 class SystemStatus(BaseModel):
     status: str
@@ -22,15 +16,6 @@ class SystemStatus(BaseModel):
     uptime: float
     version: str
     services: Dict[str, str]
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.get("/")
 async def get_status() -> SystemStatus:

@@ -11,6 +11,27 @@ interface PerformanceMetrics {
   apiLatency: number;
 }
 
+interface BackendMetrics {
+  system?: {
+    cpu_percent?: number;
+    memory_percent?: number;
+    disk_free_gb?: number;
+    network_sent_mb?: number;
+    network_recv_mb?: number;
+  };
+  application?: {
+    uptime_seconds?: number;
+    active_bots?: number;
+    total_requests?: number;
+    active_websocket_connections?: number;
+    average_response_time_ms?: number;
+  };
+  circuit_breakers?: Record<string, unknown>;
+  database?: Record<string, unknown>;
+  timestamp?: string;
+  [key: string]: unknown; // Allow additional fields for flexibility
+}
+
 export function PerformanceMonitor() {
   const [metrics, setMetrics] = useState<PerformanceMetrics>({
     fps: 60,
@@ -20,7 +41,7 @@ export function PerformanceMonitor() {
   });
   const [isVisible, setIsVisible] = useState(false);
   const [wsLatency, setWsLatency] = useState<number | null>(null);
-  const [backendMetrics, setBackendMetrics] = useState<Record<string, any>>({});
+  const [backendMetrics, setBackendMetrics] = useState<BackendMetrics>({});
   const vitals = useWebVitals();
 
   useEffect(() => {
@@ -44,10 +65,25 @@ export function PerformanceMonitor() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     let perfWs: WebSocket | null = null;
     if (token) {
-      const wsBase = (typeof window !== 'undefined' && (window as any).__WS_BASE__)
-        || (import.meta as any)?.env?.VITE_WS_BASE_URL
+      // Type-safe access to window/import.meta properties
+      interface WindowWithGlobals extends Window {
+        __WS_BASE__?: string;
+        __API_BASE__?: string;
+      }
+      interface ImportMetaWithEnv extends ImportMeta {
+        env?: {
+          VITE_WS_BASE_URL?: string;
+          VITE_API_BASE_URL?: string;
+        };
+      }
+
+      const windowWithGlobals = typeof window !== 'undefined' ? window as WindowWithGlobals : null;
+      const importMetaWithEnv = import.meta as ImportMetaWithEnv;
+
+      const wsBase = windowWithGlobals?.__WS_BASE__
+        || importMetaWithEnv?.env?.VITE_WS_BASE_URL
         || (() => {
-          const api = (typeof window !== 'undefined' && (window as any).__API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_BASE_URL || '';
           if (api.startsWith('http')) return api.replace(/^http/, 'ws');
           return 'ws://localhost:8000';
         })();
@@ -106,10 +142,19 @@ export function PerformanceMonitor() {
     
     const fpsAnimation = requestAnimationFrame(countFPS);
 
-    // Memory usage (if available)
+    // Memory usage (if available) - Chrome-specific API
+    interface PerformanceWithMemory extends Performance {
+      memory?: {
+        usedJSHeapSize: number;
+        totalJSHeapSize: number;
+        jsHeapSizeLimit: number;
+      };
+    }
+    const performanceWithMemory = performance as PerformanceWithMemory;
+
     const memoryInterval = setInterval(() => {
-      if ((performance as any).memory) {
-        const memory = (performance as any).memory.usedJSHeapSize / 1048576; // MB
+      if (performanceWithMemory.memory) {
+        const memory = performanceWithMemory.memory.usedJSHeapSize / 1048576; // MB
         setMetrics((prev) => ({ ...prev, memory }));
       }
     }, 1000);

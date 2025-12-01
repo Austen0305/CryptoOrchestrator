@@ -1,12 +1,13 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends, status
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import logging
-from fastapi import Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 from server_fastapi.services.analytics_engine import AnalyticsEngine
 from server_fastapi.services.advanced_analytics_engine import AdvancedAnalyticsEngine
 from server_fastapi.services.monitoring.performance_monitor import PerformanceMonitor
+from server_fastapi.dependencies.auth import get_current_user
+from server_fastapi.database import get_db_session
 from datetime import datetime, timedelta
 try:
     import pandas as pd
@@ -31,20 +32,8 @@ def get_advanced_analytics_engine():
 def get_performance_monitor():
     return PerformanceMonitor()
 
-# JWT authentication dependency - using the same as auth.py for consistency
-import jwt
-import os
-from server_fastapi.routes.auth import get_current_user as auth_get_current_user
-
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(auth_get_current_user)):
-    try:
-        # Since auth.py already handles JWT decoding, we can use it directly
-        return auth_get_current_user.__wrapped__(credentials)
-    except Exception as e:
-        logger.error(f"Authentication error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid authentication")
+# Import centralized auth dependency
+from ..dependencies.auth import get_current_user
 
 router = APIRouter()
 
@@ -156,11 +145,32 @@ class AssetAllocation(BaseModel):
 @router.get("/summary")
 async def get_analytics_summary(
     engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session)
 ) -> AnalyticsSummary:
-    """Get overall analytics summary"""
+    """Get overall analytics summary from database"""
     try:
-        # Use analytics engine to get real data
+        user_id = current_user.get('id') or current_user.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # Get real data from database
+        analytics_result = await engine.analyze({
+            "user_id": user_id,
+            "type": "summary"
+        }, db_session=db_session)
+        
+        summary = analytics_result.get("summary", {})
+        
+        return AnalyticsSummary(
+            total_bots=summary.get("total_bots", 0),
+            active_bots=summary.get("active_bots", 0),
+            total_trades=summary.get("total_trades", 0),
+            total_pnl=summary.get("total_pnl", 0.0),
+            win_rate=summary.get("win_rate", 0.0),
+            best_performing_bot=summary.get("best_performing_bot"),
+            worst_performing_bot=summary.get("worst_performing_bot")
+        )
         user_id = current_user.get('id')
         analytics_result = await engine.analyze({"user_id": user_id, "type": "summary"})
 
@@ -265,63 +275,56 @@ async def get_trade_history(
     symbol: Optional[str] = Query(None, description="Filter by trading symbol"),
     limit: int = Query(50, description="Number of trades to return", ge=1, le=500),
     offset: int = Query(0, description="Number of trades to skip", ge=0),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session)
 ) -> List[TradeRecord]:
-    """Get trade history"""
+    """Get trade history from database"""
     try:
-        user_id = current_user.get('id')
-
-        # In real implementation, this would fetch from database
-        # For now, return mock data with user filtering
-        mock_trades = [
-            TradeRecord(
-                id="trade-1",
-                bot_id="bot-1",
-                symbol="BTC/USD",
-                side="buy",
-                amount=0.1,
-                price=50100.50,
-                timestamp=datetime.now() - timedelta(hours=2),
-                pnl=125.75,
-                status="closed"
-            ),
-            TradeRecord(
-                id="trade-2",
-                bot_id="bot-1",
-                symbol="BTC/USD",
-                side="sell",
-                amount=0.1,
-                price=50325.25,
-                timestamp=datetime.now() - timedelta(hours=1),
-                pnl=None,
-                status="open"
-            ),
-            TradeRecord(
-                id="trade-3",
-                bot_id="bot-2",
-                symbol="ETH/USD",
-                side="buy",
-                amount=1.5,
-                price=3520.75,
-                timestamp=datetime.now() - timedelta(minutes=30),
-                pnl=-45.25,
-                status="closed"
-            )
-        ]
-
-        # Apply filters
-        filtered_trades = mock_trades
+        from sqlalchemy import select
+        from ..models.trade import Trade
+        
+        user_id = current_user.get('id') or current_user.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # Build query
+        query = select(Trade).where(Trade.user_id == user_id)
+            
         if bot_id:
-            filtered_trades = [t for t in filtered_trades if t.bot_id == bot_id]
+            query = query.where(Trade.bot_id == bot_id)
         if symbol:
-            filtered_trades = [t for t in filtered_trades if t.symbol == symbol]
-
+            query = query.where(Trade.symbol == symbol)
+        
+        # Order by executed_at descending (most recent first)
+        query = query.order_by(Trade.executed_at.desc() if hasattr(Trade.executed_at, 'desc') else Trade.timestamp.desc())
+        
         # Apply pagination
-        start_idx = offset
-        end_idx = offset + limit
-        return filtered_trades[start_idx:end_idx]
+        query = query.offset(offset).limit(limit)
+        
+        # Execute query
+        result = await db_session.execute(query)
+        db_trades = list(result.scalars().all())
+        
+        # Convert to TradeRecord
+        trade_records = []
+        for trade in db_trades:
+            trade_records.append(TradeRecord(
+                id=str(trade.id),
+                bot_id=trade.bot_id or "",
+                symbol=trade.symbol,
+                side=trade.side,
+                amount=trade.amount,
+                price=trade.price,
+                timestamp=trade.executed_at if trade.executed_at else trade.timestamp,
+                pnl=trade.pnl,
+                status=trade.status
+            ))
+        
+        return trade_records
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting trade history: {e}")
+        logger.error(f"Error getting trade history: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get trade history")
 
 @router.get("/pnl-chart")
@@ -329,45 +332,56 @@ async def get_pnl_chart(
     bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
     period: str = Query("30d", description="Time period"),
     engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session)
 ) -> List[Dict[str, Any]]:
-    """Get PnL chart data"""
+    """Get PnL chart data from database"""
     try:
-        user_id = current_user.get('id')
-        analytics_result = engine.analyze({
-            "user_id": user_id,
-            "type": "pnl_chart",
-            "bot_id": bot_id,
-            "period": period
-        })
+        user_id = current_user.get('id') or current_user.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
+        
+        # Get database session and analyze
+            analytics_result = await engine.analyze({
+                "user_id": user_id,
+                "type": "pnl_chart",
+                "bot_id": bot_id,
+                "period": period
+            }, db_session=db_session)
+            
+            # Use real data from analytics engine
+            chart_data = analytics_result.get('chart_data', [])
+            
+            # In production, return empty data if no trades found
+            if not chart_data:
+                from ..config.settings import get_settings
+                settings = get_settings()
+                if settings.production_mode or settings.is_production:
+                    return []
+                else:
+                    # Development fallback only
+                    end_date = datetime.now()
+                    if period == "7d":
+                        days = 7
+                    elif period == "30d":
+                        days = 30
+                    elif period == "90d":
+                        days = 90
+                    else:
+                        days = 30
 
-        # Use real data from analytics engine, fallback to mock if not available
-        chart_data = analytics_result.details.get('chart_data', [])
-        if not chart_data:
-            # Fallback mock data
-            end_date = datetime.now()
-            if period == "7d":
-                days = 7
-            elif period == "30d":
-                days = 30
-            elif period == "90d":
-                days = 90
-            else:
-                days = 30
+                chart_data = []
+                cumulative_pnl = 0.0
+                for i in range(days):
+                    date = end_date - timedelta(days=days-i-1)
+                    daily_pnl = (i % 5 - 2) * 50.0  # Mock daily PnL
+                    cumulative_pnl += daily_pnl
 
-            chart_data = []
-            cumulative_pnl = 0.0
-
-            for i in range(days):
-                date = end_date - timedelta(days=days-i-1)
-                daily_pnl = (i % 5 - 2) * 50.0  # Mock daily PnL
-                cumulative_pnl += daily_pnl
-
-                chart_data.append({
-                    "date": date.strftime("%Y-%m-%d"),
-                    "daily_pnl": daily_pnl,
-                    "cumulative_pnl": cumulative_pnl
-                })
+                    chart_data.append({
+                        "date": date.strftime("%Y-%m-%d"),
+                        "daily_pnl": daily_pnl,
+                        "cumulative_pnl": cumulative_pnl
+                    })
 
         return chart_data
     except Exception as e:
@@ -631,7 +645,8 @@ async def get_dashboard_summary(
     engine: AnalyticsEngine = Depends(get_analytics_engine),
     advanced_engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
     monitor: PerformanceMonitor = Depends(get_performance_monitor),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session)
 ) -> DashboardSummary:
     """Get comprehensive dashboard summary with real-time metrics"""
     try:
@@ -641,9 +656,13 @@ async def get_dashboard_summary(
         portfolio_result = await advanced_engine._analyze_portfolio(user_id, '1d')
         portfolio_data = portfolio_result.details if portfolio_result else {}
 
-        # Get performance metrics
-        performance_result = await engine.analyze({"user_id": user_id, "type": "performance", "period": "1d"})
-        performance_data = performance_result.details if performance_result else {}
+        # Get performance metrics from database
+        performance_result = await engine.analyze({
+            "user_id": user_id,
+            "type": "performance",
+            "period": "1d"
+        }, db_session=db_session)
+        performance_data = performance_result.get("details", {}) if performance_result else {}
 
         # Get system health
         system_health = await monitor.get_system_health()

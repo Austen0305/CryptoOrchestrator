@@ -7,16 +7,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/components/ThemeProvider";
-import { Save, Bell, Shield, Palette, Globe, Key, FileText } from "lucide-react";
+import { Save, Bell, Shield, Palette, Globe, Key, FileText, LogOut } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import ExchangeKeys from "./ExchangeKeys";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { Wallet } from "@/components/Wallet";
+import { PaymentMethods } from "@/components/PaymentMethods";
+import { CryptoTransfer } from "@/components/CryptoTransfer";
+import { Staking } from "@/components/Staking";
 
 export default function Settings() {
   const { i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+  const { logout } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
 
@@ -28,15 +34,15 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+    <div className="space-y-6 w-full min-h-0">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
+        <p className="text-muted-foreground text-base">
           Manage your account preferences and application settings
         </p>
       </div>
 
-      <Tabs defaultValue="general" className="space-y-4">
+      <Tabs defaultValue="general" className="space-y-4 min-h-0">
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="trading">Trading</TabsTrigger>
@@ -46,6 +52,10 @@ export default function Settings() {
           </TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="wallet">Wallet</TabsTrigger>
+          <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+          <TabsTrigger value="crypto-transfer">Crypto Transfer</TabsTrigger>
+          <TabsTrigger value="staking">Staking</TabsTrigger>
           <TabsTrigger value="audit-logs">
             <FileText className="h-4 w-4 mr-2" />
             Audit Logs
@@ -53,7 +63,7 @@ export default function Settings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
-          <Card>
+          <Card className="border-blue-500 border rounded-xl bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Palette className="w-5 h-5" />
@@ -94,7 +104,7 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-blue-500 border rounded-xl bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Globe className="w-5 h-5" />
@@ -135,7 +145,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="trading" className="space-y-4">
-          <Card>
+          <Card className="border-blue-500 border rounded-xl bg-card">
             <CardHeader>
               <CardTitle>Trading Preferences</CardTitle>
               <CardDescription>
@@ -190,7 +200,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <Card>
+          <Card className="border-blue-500 border rounded-xl bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="w-5 h-5" />
@@ -255,7 +265,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
-          <Card>
+          <Card className="border-blue-500 border rounded-xl bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="w-5 h-5" />
@@ -297,8 +307,49 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-destructive/50 rounded-xl bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-destructive">
+                <LogOut className="w-5 h-5" />
+                Account Actions
+              </CardTitle>
+              <CardDescription>
+                Sign out of your account
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="destructive"
+                size="lg"
+                onClick={async () => {
+                  await logout();
+                  toast({
+                    title: "Logged Out",
+                    description: "You have been successfully logged out.",
+                  });
+                }}
+                className="w-full gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
+        <TabsContent value="wallet">
+          <Wallet />
+        </TabsContent>
+        <TabsContent value="payment-methods">
+          <PaymentMethods />
+        </TabsContent>
+        <TabsContent value="crypto-transfer">
+          <CryptoTransfer />
+        </TabsContent>
+        <TabsContent value="staking">
+          <Staking />
+        </TabsContent>
         <TabsContent value="audit-logs">
           <AuditLogViewer />
         </TabsContent>

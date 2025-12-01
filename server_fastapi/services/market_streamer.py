@@ -90,67 +90,114 @@ class MarketDataStreamer:
     
     async def _fetch_market_data(self, symbol: str) -> dict:
         """
-        Fetch real-time market data for a symbol
-        
-        In production, this would connect to exchange WebSocket or REST API
-        For now, returns mock data structure
+        Fetch real-time market data for a symbol from exchange APIs
         """
         try:
             # Import exchange service
-            from .exchange.exchange_service import ExchangeService
+            from .exchange_service import ExchangeService
             
-            exchange = ExchangeService()
+            # Use default exchange (can be configured)
+            exchange_name = "binance"  # Default, can be made configurable
+            exchange = ExchangeService(name=exchange_name, use_mock=False)  # Force real mode
             
-            # Fetch ticker data
-            ticker = await exchange.fetch_ticker(symbol)
+            await exchange.connect()
             
-            # Fetch recent trades
-            trades = await exchange.fetch_recent_trades(symbol, limit=10)
+            if not exchange.is_connected():
+                raise ConnectionError(f"Failed to connect to {exchange_name}")
             
-            # Fetch order book summary
-            orderbook = await exchange.fetch_orderbook_summary(symbol)
+            # Fetch real ticker data
+            current_price = await exchange.get_market_price(symbol)
+            if not current_price:
+                raise ValueError(f"Could not fetch price for {symbol}")
+            
+            # Fetch order book for bid/ask
+            order_book = await exchange.get_order_book(symbol)
+            
+            # Get ticker data (if available)
+            ticker_data = {
+                "last": current_price,
+                "bid": order_book.bids[0][0] if order_book.bids else current_price,
+                "ask": order_book.asks[0][0] if order_book.asks else current_price,
+                "volume": 0.0,  # Would need ticker for this
+                "high": current_price * 1.01,  # Estimate
+                "low": current_price * 0.99,  # Estimate
+                "change_24h": 0.0  # Would need historical data
+            }
+            
+            # Format order book
+            orderbook_data = {
+                "bids": order_book.bids[:10] if order_book.bids else [],
+                "asks": order_book.asks[:10] if order_book.asks else []
+            }
+            
+            # Recent trades (simplified - would need exchange-specific implementation)
+            trades_data = []  # Most exchanges require authenticated API for recent trades
             
             return {
                 "symbol": symbol,
-                "ticker": ticker,
-                "trades": trades,
-                "orderbook": orderbook,
+                "ticker": ticker_data,
+                "trades": trades_data,
+                "orderbook": orderbook_data,
                 "timestamp": datetime.now().isoformat()
             }
             
         except Exception as e:
             logger.error(f"Failed to fetch market data for {symbol}: {e}")
             
-            # Return mock data for development
-            import random
-            base_price = 50000 if "BTC" in symbol else 3000
-            
-            return {
-                "symbol": symbol,
-                "ticker": {
-                    "last": base_price + random.uniform(-100, 100),
-                    "bid": base_price - random.uniform(0, 10),
-                    "ask": base_price + random.uniform(0, 10),
-                    "volume": random.uniform(1000, 10000),
-                    "high": base_price + random.uniform(0, 200),
-                    "low": base_price - random.uniform(0, 200),
-                    "change_24h": random.uniform(-5, 5)
-                },
-                "trades": [
-                    {
-                        "price": base_price + random.uniform(-50, 50),
-                        "amount": random.uniform(0.01, 1.0),
-                        "side": random.choice(["buy", "sell"]),
-                        "timestamp": datetime.now().isoformat()
-                    }
-                    for _ in range(5)
-                ],
-                "orderbook": {
-                    "bids": [[base_price - i*10, random.uniform(0.1, 2.0)] for i in range(1, 6)],
-                    "asks": [[base_price + i*10, random.uniform(0.1, 2.0)] for i in range(1, 6)]
-                },
-                "timestamp": datetime.now().isoformat()
-            }
+            # In production, don't return mock data
+            from ..config.settings import get_settings
+            settings = get_settings()
+            if settings.production_mode or settings.is_production:
+                # Return minimal data structure in production
+                return {
+                    "symbol": symbol,
+                    "ticker": {
+                        "last": 0.0,
+                        "bid": 0.0,
+                        "ask": 0.0,
+                        "volume": 0.0,
+                        "high": 0.0,
+                        "low": 0.0,
+                        "change_24h": 0.0
+                    },
+                    "trades": [],
+                    "orderbook": {
+                        "bids": [],
+                        "asks": []
+                    },
+                    "timestamp": datetime.now().isoformat(),
+                    "error": "Failed to fetch market data"
+                }
+            else:
+                # Development fallback only
+                import random
+                base_price = 50000 if "BTC" in symbol else 3000
+                return {
+                    "symbol": symbol,
+                    "ticker": {
+                        "last": base_price + random.uniform(-100, 100),
+                        "bid": base_price - random.uniform(0, 10),
+                        "ask": base_price + random.uniform(0, 10),
+                        "volume": random.uniform(1000, 10000),
+                        "high": base_price + random.uniform(0, 200),
+                        "low": base_price - random.uniform(0, 200),
+                        "change_24h": random.uniform(-5, 5)
+                    },
+                    "trades": [
+                        {
+                            "price": base_price + random.uniform(-50, 50),
+                            "amount": random.uniform(0.01, 1.0),
+                            "side": random.choice(["buy", "sell"]),
+                            "timestamp": datetime.now().isoformat()
+                        }
+                        for _ in range(5)
+                    ],
+                    "orderbook": {
+                        "bids": [[base_price - i*10, random.uniform(0.1, 2.0)] for i in range(1, 6)],
+                        "asks": [[base_price + i*10, random.uniform(0.1, 2.0)] for i in range(1, 6)]
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }
     
     def get_stats(self) -> dict:
         """Get streaming service statistics"""

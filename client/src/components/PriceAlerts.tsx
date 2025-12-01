@@ -11,6 +11,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Bell, Plus, Trash2, Edit, Volume2, TrendingUp, TrendingDown, Activity, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
+import { useToast } from "@/hooks/use-toast";
 
 interface PriceAlert {
   id: string;
@@ -28,65 +34,80 @@ interface PriceAlert {
 }
 
 export function PriceAlerts() {
-  const [alerts, setAlerts] = useState<PriceAlert[]>([
-    {
-      id: "1",
-      symbol: "BTC/USD",
-      condition: "above",
-      targetPrice: 50000,
-      isActive: true,
-      triggered: false,
-      createdAt: new Date(2025, 10, 10),
-      channels: ["push", "email"]
-    },
-    {
-      id: "2",
-      symbol: "ETH/USD",
-      condition: "below",
-      targetPrice: 2800,
-      isActive: true,
-      triggered: false,
-      createdAt: new Date(2025, 10, 11),
-      channels: ["push"]
-    },
-    {
-      id: "3",
-      symbol: "BTC/USD",
-      condition: "change",
-      changePercent: 5,
-      isActive: true,
-      triggered: true,
-      createdAt: new Date(2025, 10, 8),
-      triggeredAt: new Date(2025, 10, 12, 14, 30),
-      channels: ["push", "email", "sms"]
-    },
-    {
-      id: "4",
-      symbol: "ETH/USD",
-      condition: "volume",
-      volumeThreshold: 1000000,
-      isActive: false,
-      triggered: false,
-      createdAt: new Date(2025, 10, 5),
-      channels: ["push"]
-    }
-  ]);
-
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAlert, setEditingAlert] = useState<PriceAlert | null>(null);
+
+  const { data: alertsData, isLoading, error, refetch } = useQuery<PriceAlert[]>({
+    queryKey: ['price-alerts'],
+    queryFn: async () => {
+      try {
+        return await apiRequest<PriceAlert[]>('/api/price-alerts', { method: 'GET' });
+      } catch (err) {
+        // Fallback to empty array if endpoint doesn't exist yet
+        // Price alerts API not available yet, using empty array
+        return [];
+      }
+    },
+    retry: 1,
+    staleTime: 30000, // 30 seconds
+  });
+
+  const alerts = alertsData || [];
+
+  const toggleAlertMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      return await apiRequest(`/api/price-alerts/${id}/toggle`, {
+        method: 'PATCH',
+        body: { isActive },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to toggle alert',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteAlertMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest(`/api/price-alerts/${id}`, { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
+      toast({
+        title: 'Success',
+        description: 'Alert deleted successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete alert',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const activeAlerts = alerts.filter(a => a.isActive && !a.triggered);
   const triggeredAlerts = alerts.filter(a => a.triggered);
   const inactiveAlerts = alerts.filter(a => !a.isActive && !a.triggered);
 
   const toggleAlert = (id: string) => {
-    setAlerts(alerts.map(alert =>
-      alert.id === id ? { ...alert, isActive: !alert.isActive } : alert
-    ));
+    const alert = alerts.find(a => a.id === id);
+    if (alert) {
+      toggleAlertMutation.mutate({ id, isActive: !alert.isActive });
+    }
   };
 
   const deleteAlert = (id: string) => {
-    setAlerts(alerts.filter(alert => alert.id !== id));
+    deleteAlertMutation.mutate(id);
   };
 
   const getConditionLabel = (alert: PriceAlert) => {
@@ -386,13 +407,28 @@ export function PriceAlerts() {
           </div>
         )}
 
-        {alerts.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            <Bell className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p>No alerts set up yet</p>
-            <p className="text-sm">Create your first price alert to stay informed</p>
-          </div>
-        )}
+        {isLoading ? (
+          <LoadingSkeleton count={3} className="h-16 w-full mb-2" />
+        ) : error ? (
+          <ErrorRetry
+            title="Failed to load price alerts"
+            message={error instanceof Error ? error.message : "An unexpected error occurred."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        ) : alerts.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title="No alerts set up yet"
+            description="Create your first price alert to stay informed about market movements."
+            action={
+              <Button onClick={() => setIsDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Alert
+              </Button>
+            }
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -404,7 +440,7 @@ function AlertForm({ alert, onSave, onCancel }: { alert: PriceAlert | null; onSa
   const [targetPrice, setTargetPrice] = useState(alert?.targetPrice?.toString() || "");
   const [changePercent, setChangePercent] = useState(alert?.changePercent?.toString() || "");
   const [volumeThreshold, setVolumeThreshold] = useState(alert?.volumeThreshold?.toString() || "");
-  const [channels, setChannels] = useState<string[]>(alert?.channels || ["push"]);
+  const [channels, setChannels] = useState<PriceAlert["channels"]>(alert?.channels || ["push"]);
   const [sound, setSound] = useState(alert?.sound || false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -416,7 +452,7 @@ function AlertForm({ alert, onSave, onCancel }: { alert: PriceAlert | null; onSa
       targetPrice: targetPrice ? parseFloat(targetPrice) : undefined,
       changePercent: changePercent ? parseFloat(changePercent) : undefined,
       volumeThreshold: volumeThreshold ? parseFloat(volumeThreshold) : undefined,
-      channels: channels as any[],
+      channels: channels as PriceAlert["channels"],
       sound,
       isActive: alert?.isActive ?? true,
       triggered: alert?.triggered ?? false,
@@ -446,7 +482,12 @@ function AlertForm({ alert, onSave, onCancel }: { alert: PriceAlert | null; onSa
       </div>
       <div>
         <Label htmlFor="condition">Condition</Label>
-        <Select value={condition} onValueChange={(value: any) => setCondition(value)}>
+        <Select value={condition} onValueChange={(value) => {
+          const validConditions: Array<"above" | "below" | "change" | "volume"> = ["above", "below", "change", "volume"];
+          if (validConditions.includes(value as typeof condition)) {
+            setCondition(value as typeof condition);
+          }
+        }}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>

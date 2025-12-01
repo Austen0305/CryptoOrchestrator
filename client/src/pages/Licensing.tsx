@@ -8,7 +8,7 @@ import { Key, CreditCard } from "lucide-react";
 
 export default function Licensing() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div>
         <h1 className="text-3xl font-bold">Licensing & Billing</h1>
         <p className="text-muted-foreground mt-1">

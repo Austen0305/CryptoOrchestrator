@@ -1,29 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import logging
-import jwt
-import os
+from sqlalchemy.ext.asyncio import AsyncSession
 from ..services.exchange_service import default_exchange
 from ..services.analytics_engine import analytics_engine
+from ..services.pnl_service import PnLService
+from ..dependencies.auth import get_current_user
+from ..database import get_db_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-security = HTTPBearer()
-
-# Environment variables
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 class Position(BaseModel):
     asset: str
@@ -48,7 +36,11 @@ class Portfolio(BaseModel):
     averageLoss: Optional[float] = None
 
 @router.get("/{mode}")
-async def get_portfolio(mode: str, current_user: dict = Depends(get_current_user)) -> Portfolio:
+async def get_portfolio(
+    mode: str,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session)
+) -> Portfolio:
     """Get portfolio for paper or real trading mode"""
     try:
         # Normalize mode: "live" -> "real"
@@ -167,12 +159,27 @@ async def get_portfolio(mode: str, current_user: dict = Depends(get_current_user
                             total_value = amount * current_price
                             total_balance += total_value
 
-                            # Create position for crypto assets
-                            # Note: Average price and P&L would come from trade history
-                            # For now, use current price as approximation
-                            average_price = current_price  # TODO: Calculate from trade history
-                            profit_loss = 0.0  # TODO: Calculate from trade history
-                            profit_loss_percent = 0.0  # TODO: Calculate from trade history
+                            # Calculate P&L from trade history using PnLService
+                            pnl_service = PnLService(db)
+                            pair_symbol = f"{asset}/USD"  # Use USD as quote for P&L calculation
+                            
+                            try:
+                                position_pnl = await pnl_service.calculate_position_pnl(
+                                    user_id=user_id,
+                                    symbol=pair_symbol,
+                                    current_price=current_price,
+                                    mode="real"
+                                )
+                                
+                                average_price = position_pnl.get("average_price", current_price)
+                                profit_loss = position_pnl.get("pnl", 0.0)
+                                profit_loss_percent = position_pnl.get("pnl_percent", 0.0)
+                            except Exception as e:
+                                logger.warning(f"Failed to calculate P&L for {asset}: {e}")
+                                # Fallback to current price if P&L calculation fails
+                                average_price = current_price
+                                profit_loss = 0.0
+                                profit_loss_percent = 0.0
 
                             positions[asset] = Position(
                                 asset=asset,
@@ -200,9 +207,15 @@ async def get_portfolio(mode: str, current_user: dict = Depends(get_current_user
                     logger.warning(f"Failed to get analytics data: {e}")
                     successful_trades = failed_trades = total_trades = win_rate = average_win = average_loss = 0
 
-                # Calculate 24h P&L (TODO: Calculate from trade history)
-                profit_loss_24h = 0.0  # TODO: Calculate from 24h trade history
-                profit_loss_total = 0.0  # TODO: Calculate from all trade history
+                # Calculate P&L from trade history using PnLService
+                pnl_service = PnLService(db)
+                try:
+                    profit_loss_24h = await pnl_service.calculate_24h_pnl(user_id, "real")
+                    profit_loss_total = await pnl_service.calculate_total_pnl(user_id, "real")
+                except Exception as e:
+                    logger.warning(f"Failed to calculate portfolio P&L: {e}")
+                    profit_loss_24h = 0.0
+                    profit_loss_total = 0.0
 
                 return Portfolio(
                     totalBalance=total_balance,
@@ -246,39 +259,113 @@ async def get_portfolio(mode: str, current_user: dict = Depends(get_current_user
                 )
 
         else:  # paper mode
-            # Mock paper trading portfolio
-            return Portfolio(
-                totalBalance=100000.0,
-                availableBalance=95000.0,
-                positions={
-                    "BTC": Position(
-                        asset="BTC",
-                        amount=1.2,
-                        averagePrice=48000.0,
-                        currentPrice=50000.0,
-                        totalValue=60000.0,
-                        profitLoss=4800.0,
-                        profitLossPercent=8.0
-                    ),
-                    "ETH": Position(
-                        asset="ETH",
-                        amount=10.0,
-                        averagePrice=3200.0,
-                        currentPrice=3500.0,
-                        totalValue=35000.0,
-                        profitLoss=3000.0,
-                        profitLossPercent=9.4
+            # Get paper trading portfolio from database
+            try:
+                from ..services.backtesting.paper_trading_service import PaperTradingService
+                paper_service = PaperTradingService()
+                paper_portfolio = await paper_service.get_paper_portfolio(str(user_id))
+                
+                # Calculate P&L from trade history
+                pnl_service = PnLService(db)
+                profit_loss_24h = await pnl_service.calculate_24h_pnl(user_id, "paper")
+                profit_loss_total = await pnl_service.calculate_total_pnl(user_id, "paper")
+                
+                # Build positions with real P&L calculations
+                positions = {}
+                total_balance = paper_portfolio.total_balance or 100000.0
+                available_balance = paper_portfolio.available_balance or 95000.0
+                
+                # Get current prices for positions
+                for position in paper_portfolio.positions or []:
+                    symbol = position.symbol
+                    amount = position.quantity
+                    
+                    # Get current price
+                    try:
+                        ticker = await default_exchange.get_market_price(f"{symbol}/USD")
+                        current_price = ticker if ticker else 0.0
+                    except:
+                        current_price = 0.0
+                    
+                    # Calculate P&L from trade history
+                    try:
+                        position_pnl = await pnl_service.calculate_position_pnl(
+                            user_id=user_id,
+                            symbol=f"{symbol}/USD",
+                            current_price=current_price,
+                            mode="paper"
+                        )
+                        average_price = position_pnl.get("average_price", current_price)
+                        profit_loss = position_pnl.get("pnl", 0.0)
+                        profit_loss_percent = position_pnl.get("pnl_percent", 0.0)
+                    except Exception as e:
+                        logger.warning(f"Failed to calculate P&L for {symbol}: {e}")
+                        average_price = current_price
+                        profit_loss = 0.0
+                        profit_loss_percent = 0.0
+                    
+                    positions[symbol] = Position(
+                        asset=symbol,
+                        amount=amount,
+                        averagePrice=average_price,
+                        currentPrice=current_price,
+                        totalValue=amount * current_price,
+                        profitLoss=profit_loss,
+                        profitLossPercent=profit_loss_percent
                     )
-                },
-                profitLoss24h=1250.50,
-                profitLossTotal=7800.0,
-                successfulTrades=45,
-                failedTrades=12,
-                totalTrades=57,
-                winRate=0.789,
-                averageWin=215.50,
-                averageLoss=-180.25
-            )
+                
+                # Get analytics data
+                try:
+                    analytics_params = {"user_id": user_id, "type": "summary"}
+                    analytics_result = await analytics_engine.analyze(analytics_params)
+                    successful_trades = analytics_result.get("successfulTrades", 0)
+                    failed_trades = analytics_result.get("failedTrades", 0)
+                    total_trades = successful_trades + failed_trades
+                    win_rate = successful_trades / total_trades if total_trades > 0 else 0.0
+                    average_win = analytics_result.get("averageWin", 0.0)
+                    average_loss = analytics_result.get("averageLoss", 0.0)
+                except Exception as e:
+                    logger.warning(f"Failed to get analytics data: {e}")
+                    successful_trades = failed_trades = total_trades = win_rate = average_win = average_loss = 0
+                
+                return Portfolio(
+                    totalBalance=total_balance,
+                    availableBalance=available_balance,
+                    positions=positions,
+                    profitLoss24h=profit_loss_24h,
+                    profitLossTotal=profit_loss_total,
+                    successfulTrades=successful_trades,
+                    failedTrades=failed_trades,
+                    totalTrades=total_trades,
+                    winRate=win_rate,
+                    averageWin=average_win,
+                    averageLoss=average_loss
+                )
+                
+            except Exception as e:
+                logger.error(f"Failed to get paper portfolio: {e}")
+                # Fallback to minimal portfolio if paper trading service fails
+                pnl_service = PnLService(db)
+                try:
+                    profit_loss_24h = await pnl_service.calculate_24h_pnl(user_id, "paper")
+                    profit_loss_total = await pnl_service.calculate_total_pnl(user_id, "paper")
+                except:
+                    profit_loss_24h = 0.0
+                    profit_loss_total = 0.0
+                
+                return Portfolio(
+                    totalBalance=100000.0,
+                    availableBalance=95000.0,
+                    positions={},
+                    profitLoss24h=profit_loss_24h,
+                    profitLossTotal=profit_loss_total,
+                    successfulTrades=0,
+                    failedTrades=0,
+                    totalTrades=0,
+                    winRate=0.0,
+                    averageWin=0.0,
+                    averageLoss=0.0
+                )
 
     except HTTPException:
         raise

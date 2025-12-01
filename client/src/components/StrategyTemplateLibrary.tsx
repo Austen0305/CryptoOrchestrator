@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStrategyTemplates, StrategyTemplate } from "@/hooks/useStrategies";
-import { Loader2, Brain, TrendingUp, Zap, Sparkles, Code2 } from "lucide-react";
+import { Brain, TrendingUp, Zap, Sparkles, Code2 } from "lucide-react";
 import { useState } from "react";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface StrategyTemplateLibraryProps {
   onSelectTemplate?: (template: StrategyTemplate) => void;
@@ -27,7 +30,7 @@ const categoryColors = {
 };
 
 export function StrategyTemplateLibrary({ onSelectTemplate }: StrategyTemplateLibraryProps) {
-  const { data: allTemplates, isLoading } = useStrategyTemplates();
+  const { data: allTemplates, isLoading, error, refetch } = useStrategyTemplates();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   // Get templates by category
@@ -38,8 +41,47 @@ export function StrategyTemplateLibrary({ onSelectTemplate }: StrategyTemplateLi
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <CardHeader>
+          <CardTitle>Strategy Template Library</CardTitle>
+          <CardDescription>Loading templates...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton count={6} className="h-32 w-full mb-4" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Strategy Template Library</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load templates"
+            message={error instanceof Error ? error.message : "An unexpected error occurred."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!allTemplates || allTemplates.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Strategy Template Library</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Code2}
+            title="No templates available"
+            description="Strategy templates are currently unavailable. Please check back later."
+          />
         </CardContent>
       </Card>
     );

@@ -8,6 +8,9 @@ import {
   CircleDollarSign,
   Shield,
   Code,
+  Wallet,
+  Lock,
+  Grid,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +53,11 @@ const menuItems = [
     },
   },
   {
+    title: "Trading Bots",
+    url: "/trading-bots",
+    icon: Grid,
+  },
+  {
     title: "Strategies",
     url: "/strategies",
     icon: Code,
@@ -79,6 +87,16 @@ const menuItems = [
     url: "/markets",
     icon: CircleDollarSign,
   },
+  {
+    title: "Wallet",
+    url: "/wallet",
+    icon: Wallet,
+  },
+  {
+    title: "Staking",
+    url: "/staking",
+    icon: Lock,
+  },
 ];
 
 const settingsItems = [
@@ -93,25 +111,64 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   return (
-    <Sidebar>
-      <SidebarContent>
-        <div className="p-4 border-b">
-          <h1 className="text-lg font-bold flex items-center gap-2">
-            <span className="bg-primary rounded-full w-2 h-2 animate-pulse" />
-            CryptoOrchestrator
+    <Sidebar 
+      className="border-r-2 border-sidebar-border/60 bg-gradient-to-b from-sidebar via-sidebar/98 to-sidebar backdrop-blur-lg shadow-2xl" 
+      style={{ 
+        borderRightWidth: '4px', 
+        borderRightStyle: 'solid',
+        borderRightColor: 'hsl(var(--sidebar-border) / 0.7)',
+        boxShadow: '8px 0px 16px -6px hsl(220 8% 2% / 0.40)',
+        background: 'linear-gradient(180deg, hsl(var(--sidebar)), hsl(var(--sidebar) / 0.98), hsl(var(--sidebar)))'
+      }}
+    >
+      <SidebarContent className="gap-3">
+        <div 
+          className="p-5 md:p-6 border-b-2 border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 via-sidebar-accent/20 to-transparent"
+          style={{ borderBottomWidth: '2px', borderBottomStyle: 'solid' }}
+        >
+          <h1 className="text-lg md:text-xl font-black flex items-center gap-3">
+            <span 
+              className="status-indicator bg-primary rounded-full w-3 h-3 shadow-xl shadow-primary/60 animate-pulse" 
+              style={{ 
+                width: '12px', 
+                height: '12px',
+                boxShadow: '0 0 12px hsl(217 91% 50% / 0.6), 0 0 24px hsl(217 91% 50% / 0.3)'
+              }}
+            />
+            <span 
+              className="font-extrabold"
+              style={{
+                backgroundImage: 'linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.95), hsl(var(--foreground) / 0.9))',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontWeight: 900,
+                fontSize: '1.25rem',
+                letterSpacing: '-0.01em',
+                textShadow: '0 2px 8px hsl(var(--foreground) / 0.2)'
+              }}
+            >
+              CryptoOrchestrator
+            </span>
           </h1>
         </div>
         
-        <SidebarGroup>
-          <SidebarGroupLabel>Core</SidebarGroupLabel>
+        <SidebarGroup className="px-2">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
+            Core
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`}>
-                      <item.icon className="w-5 h-5" />
-                      <span>{item.title}</span>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location === item.url}
+                    className="rounded-lg transition-all duration-300 hover:bg-sidebar-accent/60 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md border border-transparent hover:border-sidebar-accent/30"
+                  >
+                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`} className="flex items-center gap-3 font-medium">
+                      <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      <span className="font-semibold">{item.title}</span>
                       {item.badge?.()}
                     </Link>
                   </SidebarMenuButton>
@@ -121,16 +178,22 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Configuration</SidebarGroupLabel>
+        <SidebarGroup className="px-2 mt-4">
+          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
+            Configuration
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location === item.url}>
-                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location === item.url}
+                    className="rounded-lg transition-all duration-200 hover:bg-sidebar-accent/50 active:scale-[0.98]"
+                  >
+                    <Link href={item.url} data-testid={`link-${item.title.toLowerCase()}`} className="flex items-center gap-3">
+                      <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      <span className="font-medium">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -140,12 +203,12 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       
-      <div className="p-4 border-t text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-green-500" />
-          <span>Connected to Kraken</span>
+      <div className="p-4 border-t border-sidebar-border text-xs text-muted-foreground bg-sidebar-accent/30">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="status-indicator w-2 h-2 rounded-full bg-green-500" />
+          <span className="font-medium">Connected to Kraken</span>
         </div>
-        <div className="mt-1">v{import.meta.env?.VITE_APP_VERSION || '1.0.0'}</div>
+        <div className="text-[10px] opacity-70">v{import.meta.env?.VITE_APP_VERSION || '1.0.0'}</div>
       </div>
     </Sidebar>
   );

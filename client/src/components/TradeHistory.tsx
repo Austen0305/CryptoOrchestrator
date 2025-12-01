@@ -5,10 +5,13 @@ import { useToast } from "@/hooks/use-toast";
 import { exportToCSV, exportToJSON, exportTradesToPDF, formatTradesForExport, exportWithNotification } from "@/lib/export";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTradingMode } from "@/contexts/TradingModeContext";
-import { useState } from "react";
+import { EmptyTradesState } from "@/components/EmptyState";
+import { useState, useMemo, useCallback } from "react";
+import React from "react";
+import { VirtualizedList } from "@/components/VirtualizedList";
+import { TradeItem } from "@/components/memoized/TradeItem";
 
 interface Trade {
   id: string;
@@ -29,18 +32,23 @@ interface TradeHistoryProps {
   trades: Trade[];
 }
 
-export function TradeHistory({ trades }: TradeHistoryProps) {
+// Removed renderTradeItem - now using memoized TradeItem component
+
+export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHistoryProps) {
   const { toast } = useToast();
   const { mode } = useTradingMode();
   const [filterMode, setFilterMode] = useState<string>("all"); // 'all', 'paper', 'real'
   const [filterSide, setFilterSide] = useState<string>("all"); // 'all', 'buy', 'sell'
   const [filterExchange, setFilterExchange] = useState<string>("all");
 
-  // Get unique exchanges from trades
-  const exchanges = Array.from(new Set(trades.map(t => t.exchange).filter(Boolean)));
+  // Get unique exchanges from trades - memoized
+  const exchanges = useMemo(() => 
+    Array.from(new Set(trades.map(t => t.exchange).filter(Boolean))),
+    [trades]
+  );
 
-  // Filter trades
-  const filteredTrades = trades.filter(trade => {
+  // Filter trades - memoized for performance
+  const filteredTrades = useMemo(() => trades.filter(trade => {
     // Filter by mode
     if (filterMode !== "all" && trade.mode !== filterMode) {
       return false;
@@ -58,35 +66,35 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
     }
     
     return true;
-  });
+  }), [trades, filterMode, filterSide, filterExchange]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     const rows = formatTradesForExport(filteredTrades);
     exportWithNotification(() => exportToCSV(rows, { filename: `trades-${Date.now()}.csv` }), toast, 'Trades exported to CSV');
-  };
+  }, [filteredTrades, toast]);
 
-  const handleExportJSON = () => {
+  const handleExportJSON = useCallback(() => {
     exportWithNotification(() => exportToJSON(filteredTrades, { filename: `trades-${Date.now()}.json` }), toast, 'Trades exported to JSON');
-  };
+  }, [filteredTrades, toast]);
 
-  const handleExportPDF = () => {
+  const handleExportPDF = useCallback(() => {
     exportWithNotification(() => exportTradesToPDF(filteredTrades, { filename: `trades-${Date.now()}.pdf` }), toast, 'Trades exported to PDF');
-  };
+  }, [filteredTrades, toast]);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Trade History</CardTitle>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-trades-csv">
-              <Download className="h-4 w-4 mr-1" /> CSV
+    <Card className="border-card-border shadow-md">
+      <CardHeader className="pb-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <CardTitle className="text-lg font-bold">Trade History</CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-trades-csv" className="rounded-md">
+              <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportJSON} data-testid="button-export-trades-json">
-              <Download className="h-4 w-4 mr-1" /> JSON
+            <Button variant="outline" size="sm" onClick={handleExportJSON} data-testid="button-export-trades-json" className="rounded-md">
+              <Download className="h-3.5 w-3.5 mr-1.5" /> JSON
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="button-export-trades-pdf">
-              <Download className="h-4 w-4 mr-1" /> PDF
+            <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="button-export-trades-pdf" className="rounded-md">
+              <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
             </Button>
           </div>
         </div>
@@ -134,85 +142,57 @@ export function TradeHistory({ trades }: TradeHistoryProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] pr-4">
-          <div className="space-y-3">
-            {filteredTrades.length === 0 ? (
+        {filteredTrades.length === 0 ? (
+          <EmptyTradesState 
+            onRefresh={() => window.location.reload()} 
+          />
+        ) : filteredTrades.length > 50 ? (
+          // Use virtual scrolling for large lists (50+ items)
+          <VirtualizedList
+            items={filteredTrades}
+            itemHeight={80}
+            containerHeight={400}
+            renderItem={(trade, index) => {
+              const tradeSide = trade.side || trade.type;
+              const isBuy = tradeSide === "buy";
+              
+              return (
+                <div
+                  className="mx-2"
+                  data-testid={`trade-${trade.id}`}
+                  aria-label={`Trade ${index + 1}: ${tradeSide} ${trade.amount} ${trade.pair} at $${trade.price.toLocaleString()}`}
+                  tabIndex={0}
+                >
+                  <TradeItem trade={trade} isBuy={isBuy} tradeSide={tradeSide} />
+                </div>
+              );
+            }}
+            emptyState={
               <div className="text-center py-8 text-muted-foreground">
                 No trades found matching your filters
               </div>
-            ) : (
-              filteredTrades.map((trade) => {
+            }
+          />
+        ) : (
+          <ScrollArea className="h-[400px] pr-4">
+            <div className="space-y-3">
+              {filteredTrades.map((trade) => {
                 const tradeSide = trade.side || trade.type;
                 const isBuy = tradeSide === "buy";
                 
                 return (
-                  <div
+                  <TradeItem
                     key={trade.id}
-                    className="flex items-center justify-between p-3 rounded-md border hover-elevate"
-                    data-testid={`trade-${trade.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`p-2 rounded-md ${
-                          isBuy
-                            ? "bg-trading-buy/10 text-trading-buy"
-                            : "bg-trading-sell/10 text-trading-sell"
-                        }`}
-                      >
-                        {isBuy ? (
-                          <ArrowDownRight className="h-4 w-4" />
-                        ) : (
-                          <ArrowUpRight className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{trade.pair}</span>
-                          <Badge
-                            variant={isBuy ? "default" : "destructive"}
-                            className="text-xs"
-                          >
-                            {tradeSide.toUpperCase()}
-                          </Badge>
-                          {trade.mode && (
-                            <Badge
-                              variant={trade.mode === "real" ? "destructive" : "secondary"}
-                              className="text-xs"
-                            >
-                              {trade.mode === "real" ? "Real" : "Paper"}
-                            </Badge>
-                          )}
-                          {trade.exchange && (
-                            <Badge variant="outline" className="text-xs">
-                              {trade.exchange}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {trade.timestamp}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-mono font-semibold">
-                        ${(trade.total || (trade.amount * trade.price)).toLocaleString()}
-                      </div>
-                      <div className="text-sm text-muted-foreground font-mono">
-                        {trade.amount} @ ${trade.price.toLocaleString()}
-                      </div>
-                      {trade.pnl !== undefined && trade.pnl !== null && (
-                        <div className={`text-sm font-semibold ${trade.pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                    trade={trade}
+                    isBuy={isBuy}
+                    tradeSide={tradeSide}
+                  />
                 );
-              })
-            )}
-          </div>
-        </ScrollArea>
+              })}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
-}
+});

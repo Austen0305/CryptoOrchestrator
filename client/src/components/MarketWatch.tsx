@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -9,58 +9,96 @@ import { TrendingUp, TrendingDown, Activity, RefreshCw, Search, Star } from "luc
 import { useMarketTickers, useMarketSummary, useMarkets } from "@/hooks/useMarkets";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage, formatLargeNumber } from "@/lib/formatters";
+import { useDebounce } from "@/hooks/useDebounce";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorRetry } from "@/components/ErrorRetry";
+
+interface TickerData {
+  symbol: string;
+  price: number;
+  change24h: number;
+  volume24h: number;
+  high24h: number;
+  low24h: number;
+}
+
+interface ApiTicker {
+  symbol?: string;
+  pair?: string;
+  last_price?: number;
+  price?: number;
+  current_price?: number;
+  change_24h?: number;
+  change24h?: number;
+  volume_24h?: number;
+  volume24h?: number;
+  high_24h?: number;
+  high24h?: number;
+  low_24h?: number;
+  low24h?: number;
+  [key: string]: unknown; // Allow additional fields from API
+}
 
 export function MarketWatch() {
-  const { data: tickers, isLoading: tickersLoading } = useMarketTickers();
+  const { data: tickers, isLoading: tickersLoading, error: tickersError, refetch: refetchTickers } = useMarketTickers();
   const { data: summary } = useMarketSummary();
   const { data: markets } = useMarkets();
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [sortBy, setSortBy] = useState<"price" | "change" | "volume">("volume");
 
-  // Mock tickers data - in production, this would come from the API
-  const mockTickers = [
-    { symbol: "BTC/USD", price: 47350, change24h: 4.76, volume24h: 2400000000, high24h: 47800, low24h: 46800 },
-    { symbol: "ETH/USD", price: 2920, change24h: 2.1, volume24h: 1200000000, high24h: 2950, low24h: 2880 },
-    { symbol: "SOL/USD", price: 142, change24h: -0.5, volume24h: 450000000, high24h: 145, low24h: 140 },
-    { symbol: "ADA/USD", price: 0.58, change24h: 3.21, volume24h: 320000000, high24h: 0.60, low24h: 0.56 },
-    { symbol: "DOT/USD", price: 7.23, change24h: -2.14, volume24h: 180000000, high24h: 7.50, low24h: 7.10 },
-    { symbol: "MATIC/USD", price: 0.92, change24h: 5.67, volume24h: 280000000, high24h: 0.95, low24h: 0.90 },
-    { symbol: "LINK/USD", price: 14.82, change24h: -3.45, volume24h: 220000000, high24h: 15.20, low24h: 14.50 },
-    { symbol: "UNI/USD", price: 6.45, change24h: 7.23, volume24h: 190000000, high24h: 6.70, low24h: 6.30 },
-  ];
+  // Transform ticker data from API to expected format
+  const tickersData = useMemo((): TickerData[] => {
+    if (!tickers || !Array.isArray(tickers)) return [];
+    return tickers.map((ticker: ApiTicker) => ({
+      symbol: ticker.symbol || ticker.pair || "",
+      price: ticker.last_price || ticker.price || ticker.current_price || 0,
+      change24h: ticker.change_24h || ticker.change24h || 0,
+      volume24h: ticker.volume_24h || ticker.volume24h || 0,
+      high24h: ticker.high_24h || ticker.high24h || 0,
+      low24h: ticker.low_24h || ticker.low24h || 0,
+    }));
+  }, [tickers]);
 
-  const tickersData = tickers || mockTickers;
+  const filteredAndSorted = useMemo(() => {
+    return tickersData
+      .filter((ticker) =>
+        ticker.symbol.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+      )
+      .sort((a, b) => {
+        switch (sortBy) {
+          case "price":
+            return b.price - a.price;
+          case "change":
+            return b.change24h - a.change24h;
+          case "volume":
+            return b.volume24h - a.volume24h;
+          default:
+            return 0;
+        }
+      });
+  }, [tickersData, debouncedSearchQuery, sortBy]);
 
-  const filteredAndSorted = tickersData
-    .filter((ticker: any) =>
-      ticker.symbol.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-    .sort((a: any, b: any) => {
-      switch (sortBy) {
-        case "price":
-          return b.price - a.price;
-        case "change":
-          return b.change24h - a.change24h;
-        case "volume":
-          return b.volume24h - a.volume24h;
-        default:
-          return 0;
-      }
-    });
+  const topGainers = useMemo(() => {
+    return [...tickersData]
+      .filter((t) => t.change24h > 0)
+      .sort((a, b) => b.change24h - a.change24h)
+      .slice(0, 5);
+  }, [tickersData]);
 
-  const topGainers = [...tickersData]
-    .filter((t: any) => t.change24h > 0)
-    .sort((a: any, b: any) => b.change24h - a.change24h)
-    .slice(0, 5);
+  const topLosers = useMemo(() => {
+    return [...tickersData]
+      .filter((t) => t.change24h < 0)
+      .sort((a, b) => a.change24h - b.change24h)
+      .slice(0, 5);
+  }, [tickersData]);
 
-  const topLosers = [...tickersData]
-    .filter((t: any) => t.change24h < 0)
-    .sort((a: any, b: any) => a.change24h - b.change24h)
-    .slice(0, 5);
-
-  const topVolume = [...tickersData]
-    .sort((a: any, b: any) => b.volume24h - a.volume24h)
-    .slice(0, 5);
+  const topVolume = useMemo(() => {
+    return [...tickersData]
+      .sort((a, b) => b.volume24h - a.volume24h)
+      .slice(0, 5);
+  }, [tickersData]);
 
   return (
     <Card className="w-full">
@@ -75,8 +113,13 @@ export function MarketWatch() {
               Real-time market data and price movements
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => refetchTickers()}
+            disabled={tickersLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${tickersLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -141,18 +184,33 @@ export function MarketWatch() {
                 <TableBody>
                   {tickersLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        Loading market data...
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <LoadingSkeleton count={5} className="h-12 w-full" />
+                      </TableCell>
+                    </TableRow>
+                  ) : tickersError ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <ErrorRetry
+                          title="Failed to load market data"
+                          message={tickersError instanceof Error ? tickersError.message : "Unable to fetch market data. Please try again."}
+                          onRetry={() => refetchTickers()}
+                          error={tickersError as Error}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : filteredAndSorted.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        No markets found
+                      <TableCell colSpan={6} className="text-center py-8">
+                        <EmptyState
+                          icon={Search}
+                          title="No markets found"
+                          description={searchQuery ? "Try adjusting your search query" : "No market data available at the moment"}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredAndSorted.map((ticker: any) => (
+                    filteredAndSorted.map((ticker) => (
                       <TableRow key={ticker.symbol} className="hover:bg-muted/50 cursor-pointer">
                         <TableCell className="font-medium">{ticker.symbol}</TableCell>
                         <TableCell>{formatCurrency(ticker.price)}</TableCell>
@@ -198,7 +256,7 @@ export function MarketWatch() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topGainers.map((ticker: any) => (
+                  {topGainers.map((ticker) => (
                     <TableRow key={ticker.symbol}>
                       <TableCell className="font-medium">{ticker.symbol}</TableCell>
                       <TableCell>{formatCurrency(ticker.price)}</TableCell>
@@ -230,7 +288,7 @@ export function MarketWatch() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topLosers.map((ticker: any) => (
+                  {topLosers.map((ticker) => (
                     <TableRow key={ticker.symbol}>
                       <TableCell className="font-medium">{ticker.symbol}</TableCell>
                       <TableCell>{formatCurrency(ticker.price)}</TableCell>
@@ -262,7 +320,7 @@ export function MarketWatch() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {topVolume.map((ticker: any) => (
+                  {topVolume.map((ticker) => (
                     <TableRow key={ticker.symbol}>
                       <TableCell className="font-medium">{ticker.symbol}</TableCell>
                       <TableCell>{formatCurrency(ticker.price)}</TableCell>

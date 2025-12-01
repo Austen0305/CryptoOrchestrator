@@ -17,7 +17,7 @@ from ..services.ai_copilot.copilot_service import (
     BacktestSummaryRequest,
     BacktestSummary
 )
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

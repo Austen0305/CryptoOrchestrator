@@ -1,36 +1,48 @@
 import { BotControlPanel } from "@/components/BotControlPanel";
 import { BotCreator } from "@/components/BotCreator";
+import { EmptyBotsState } from "@/components/EmptyState";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { useBots, useStatus } from "@/hooks/useApi";
-import { Loader2 } from "lucide-react";
 
 export default function Bots() {
-  const { data: bots, isLoading: botsLoading, error: botsError } = useBots();
+  const { data: bots, isLoading: botsLoading, error: botsError, refetch } = useBots();
   const { data: status } = useStatus();
 
   if (botsLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Loading bots...</span>
+      <div className="space-y-6 w-full">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Trading Bots</h1>
+            <p className="text-muted-foreground mt-1">Loading bots...</p>
+          </div>
+        </div>
+        <LoadingSkeleton count={3} className="h-32 w-full mb-4" />
       </div>
     );
   }
 
   if (botsError) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <h2 className="text-xl font-semibold text-destructive">Error Loading Bots</h2>
-          <p className="text-muted-foreground mt-2">
-            Failed to load bot data. Please check your connection.
-          </p>
+      <div className="space-y-6 w-full">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Trading Bots</h1>
+          </div>
         </div>
+        <ErrorRetry
+          title="Failed to load bots"
+          message={botsError instanceof Error ? botsError.message : "An unexpected error occurred."}
+          onRetry={() => refetch()}
+          error={botsError as Error}
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Trading Bots</h1>
@@ -49,12 +61,7 @@ export default function Bots() {
       {bots && bots.length > 0 ? (
         <BotControlPanel bots={bots} />
       ) : (
-        <div className="text-center py-12">
-          <div className="text-muted-foreground">
-            <p className="text-lg mb-2">No trading bots yet</p>
-            <p className="text-sm">Create your first bot to start automated trading</p>
-          </div>
-        </div>
+        <EmptyBotsState onCreate={() => {}} />
       )}
     </div>
   );

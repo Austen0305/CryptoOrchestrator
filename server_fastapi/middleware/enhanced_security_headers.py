@@ -93,7 +93,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Cross-Origin-Resource-Policy"] = "same-origin"
 
         # Remove server header (security through obscurity)
-        response.headers.pop("server", None)
+        # Use del instead of pop since MutableHeaders doesn't have pop method
+        if "server" in response.headers:
+            del response.headers["server"]
 
         return response
 

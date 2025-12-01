@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ interface BotControlPanelProps {
   bots: BotConfig[];
 }
 
-export function BotControlPanel({ bots }: BotControlPanelProps) {
+export const BotControlPanel = React.memo(function BotControlPanel({ bots }: BotControlPanelProps) {
   const startBotMutation = useStartBot();
   const stopBotMutation = useStopBot();
   const [pendingActions, setPendingActions] = useState<Set<string>>(new Set());
@@ -26,7 +26,7 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
   const startIntegrationsMut = useStartIntegrations();
   const stopIntegrationsMut = useStopIntegrations();
 
-  const toggleBot = async (botId: string, currentStatus: string) => {
+  const toggleBot = useCallback(async (botId: string, currentStatus: string) => {
     if (pendingActions.has(botId)) return;
 
     setPendingActions(prev => new Set(prev).add(botId));
@@ -46,9 +46,10 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
         });
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : `Failed to ${currentStatus === "running" ? "stop" : "start"} bot. Please try again.`;
       toast({
         title: "Error",
-        description: `Failed to ${currentStatus === "running" ? "stop" : "start"} bot. Please try again.`,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -58,9 +59,9 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
         return newSet;
       });
     }
-  };
+  }, [pendingActions, stopBotMutation, startBotMutation, toast]);
 
-  const toggleIntelligence = (botId: string) => {
+  const toggleIntelligence = useCallback((botId: string) => {
     setExpandedBots(prev => {
       const newSet = new Set(prev);
       if (newSet.has(botId)) {
@@ -70,7 +71,7 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
       }
       return newSet;
     });
-  };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -192,4 +193,4 @@ export function BotControlPanel({ bots }: BotControlPanelProps) {
       })}
     </div>
   );
-}
+});

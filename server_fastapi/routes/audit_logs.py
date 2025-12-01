@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-from ..services.auth.auth_service import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

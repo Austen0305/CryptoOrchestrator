@@ -9,7 +9,7 @@ from server_fastapi.services.exchange_service import ExchangeService, default_ex
 from server_fastapi.services.exchange.enhanced_kraken_service import enhanced_kraken_service
 from server_fastapi.services.market_analysis_service import MarketAnalysisService
 from server_fastapi.services.volatility_analyzer import VolatilityAnalyzer
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..repositories.candle_repository import CandleRepository
@@ -110,6 +110,7 @@ class MarketAnalysisResponse(BaseModel):
 
 # Existing endpoints updated with dependency injection and improved models
 @router.get("/", response_model=List[TradingPair])
+@cache_query_result(ttl=600, key_prefix="markets", include_user=False, include_params=False)
 async def get_markets(exchange: ExchangeService = Depends(get_exchange_service)) -> List[TradingPair]:
     """Get all available trading pairs"""
     try:

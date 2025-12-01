@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -7,6 +8,11 @@ import { TrendingUp, TrendingDown, Calendar as CalendarIcon, Download } from "lu
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/formatters";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface DailyProfit {
   date: Date;
@@ -15,31 +21,48 @@ interface DailyProfit {
   winRate: number;
 }
 
+interface ProfitCalendarData {
+  daily_profits: Array<{
+    date: string;
+    profit: number;
+    trades: number;
+    win_rate: number;
+  }>;
+}
+
 export function ProfitCalendar() {
   const [selectedMonth, setSelectedMonth] = React.useState<Date>(new Date());
   const [viewMode, setViewMode] = React.useState<"profit" | "trades" | "winrate">("profit");
 
-  // Mock daily profit data - in production, this would come from the API
+  // Fetch daily profit data from API
+  const { data, isLoading, error, refetch } = useQuery<ProfitCalendarData>({
+    queryKey: ['profit-calendar', format(selectedMonth, 'yyyy-MM')],
+    queryFn: async () => {
+      const month = format(selectedMonth, 'yyyy-MM');
+      return await apiRequest<ProfitCalendarData>(`/api/trades/profit-calendar?month=${month}`, { method: 'GET' });
+    },
+    staleTime: 60000, // 1 minute
+    retry: 2,
+  });
+
+  // Convert API data to Map format
   const dailyProfits = useMemo<Map<string, DailyProfit>>(() => {
     const profits = new Map<string, DailyProfit>();
-    const today = new Date();
+    if (!data?.daily_profits) return profits;
     
-    // Generate mock data for the current month
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    data.daily_profits.forEach(item => {
+      const date = new Date(item.date);
       const dateKey = format(date, "yyyy-MM-dd");
-      
       profits.set(dateKey, {
         date,
-        profit: Math.random() * 2000 - 500, // Random profit between -500 and 1500
-        trades: Math.floor(Math.random() * 10) + 1,
-        winRate: Math.random() * 100,
+        profit: item.profit,
+        trades: item.trades,
+        winRate: item.win_rate,
       });
-    }
+    });
     
     return profits;
-  }, []);
+  }, [data]);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -107,6 +130,64 @@ export function ProfitCalendar() {
     return { total, tradeCount, winningDays, totalDays: dailyProfits.size };
   }, [dailyProfits, selectedMonth]);
 
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Profit Calendar
+          </CardTitle>
+          <CardDescription>Loading profit calendar data...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton count={5} className="h-12 w-full mb-2" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Profit Calendar
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load profit calendar"
+            message={error instanceof Error ? error.message : "An unexpected error occurred."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || dailyProfits.size === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Profit Calendar
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={CalendarIcon}
+            title="No profit data available"
+            description="No trading data found for the selected month. Start trading to see your profit calendar."
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -121,7 +202,11 @@ export function ProfitCalendar() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+            <Select value={viewMode} onValueChange={(value) => {
+              if (value === "profit" || value === "trades" || value === "winrate") {
+                setViewMode(value);
+              }
+            }}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue />
               </SelectTrigger>

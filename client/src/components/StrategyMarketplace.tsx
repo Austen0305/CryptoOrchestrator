@@ -6,46 +6,122 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useStrategies, Strategy } from "@/hooks/useStrategies";
-import { Loader2, Search, Star, Download, TrendingUp, Users } from "lucide-react";
-import { useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
+import { EmptyState } from "@/components/EmptyState";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { Search, Star, Download, TrendingUp, Users } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
 import { formatPercentage } from "@/lib/formatters";
 
 export function StrategyMarketplace() {
-  const { data: strategies, isLoading } = useStrategies(true); // Include public strategies
+  const { data: strategies, isLoading, error, refetch } = useStrategies(true); // Include public strategies
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300); // Debounce search input
   const [sortBy, setSortBy] = useState<"rating" | "performance" | "popularity">("rating");
 
   // Filter public/published strategies
-  const marketplaceStrategies = strategies?.filter((s) => s.is_public && s.is_published) || [];
-
-  // Filter by search query
-  const filteredStrategies = marketplaceStrategies.filter((strategy) =>
-    strategy.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    strategy.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    strategy.strategy_type.toLowerCase().includes(searchQuery.toLowerCase())
+  const marketplaceStrategies = useMemo(() => 
+    strategies?.filter((s) => s.is_public && s.is_published) || [],
+    [strategies]
   );
 
-  // Sort strategies
-  const sortedStrategies = [...filteredStrategies].sort((a, b) => {
-    switch (sortBy) {
-      case "rating":
-        return (b.rating || 0) - (a.rating || 0);
-      case "performance":
-        return (b.backtest_sharpe_ratio || 0) - (a.backtest_sharpe_ratio || 0);
-      case "popularity":
-        return b.usage_count - a.usage_count;
-      default:
-        return 0;
-    }
+  // Filter by search query (using debounced value for performance)
+  const filteredStrategies = useMemo(() => 
+    marketplaceStrategies.filter((strategy) =>
+      strategy.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      strategy.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      strategy.strategy_type.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    ),
+    [marketplaceStrategies, debouncedSearchQuery]
+  );
+
+  // Sort strategies (memoized for performance)
+  const sortedStrategies = useMemo(() => {
+    return [...filteredStrategies].sort((a, b) => {
+      switch (sortBy) {
+        case "rating":
+          return (b.rating || 0) - (a.rating || 0);
+        case "performance":
+          return (b.backtest_sharpe_ratio || 0) - (a.backtest_sharpe_ratio || 0);
+        case "popularity":
+          return b.usage_count - a.usage_count;
+        default:
+          return 0;
+      }
+    });
+  }, [filteredStrategies, sortBy]);
+
+  // Pagination hook with dynamic total items
+  const pagination = usePagination({
+    initialPage: 1,
+    initialPageSize: 12,
+    totalItems: sortedStrategies.length,
   });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (pagination.page !== 1) {
+      pagination.goToPage(1);
+    }
+  }, [debouncedSearchQuery, sortBy]);
+
+  // Get paginated strategies
+  const paginatedStrategies = useMemo(() => {
+    return sortedStrategies.slice(pagination.startIndex, pagination.endIndex);
+  }, [sortedStrategies, pagination.startIndex, pagination.endIndex]);
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <div>
+          <LoadingSkeleton className="h-8 w-64 mb-2" />
+          <LoadingSkeleton className="h-4 w-96" />
+        </div>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <LoadingSkeleton className="h-10 flex-1" />
+              <LoadingSkeleton className="h-10 w-48" />
+            </div>
+          </CardContent>
+        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <LoadingSkeleton className="h-6 w-3/4 mb-2" />
+                <LoadingSkeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <LoadingSkeleton className="h-32 w-full mb-4" />
+                <LoadingSkeleton count={2} className="h-4 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">Strategy Marketplace</h2>
+          <p className="text-muted-foreground mt-1">
+            Browse and use strategies from the community
+          </p>
+        </div>
+        <ErrorRetry
+          title="Failed to load marketplace"
+          message={error instanceof Error ? error.message : "Unable to fetch strategy marketplace. Please try again."}
+          onRetry={() => refetch()}
+          error={error as Error}
+        />
+      </div>
     );
   }
 
@@ -73,8 +149,15 @@ export function StrategyMarketplace() {
             </div>
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === "rating" || value === "performance" || value === "popularity") {
+                  setSortBy(value);
+                }
+              }}
               className="px-3 py-2 rounded-md border bg-background"
+              aria-label="Sort strategies by"
+              title="Sort strategies by"
             >
               <option value="rating">Sort by Rating</option>
               <option value="performance">Sort by Performance</option>
@@ -85,17 +168,31 @@ export function StrategyMarketplace() {
       </Card>
 
       {/* Strategy Grid */}
-      {sortedStrategies.length === 0 ? (
+      {paginatedStrategies.length === 0 ? (
         <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">
-              {searchQuery ? "No strategies found matching your search." : "No strategies available in the marketplace yet."}
-            </p>
+          <CardContent className="py-12">
+            <EmptyState
+              icon={Search}
+              title={searchQuery ? "No strategies found" : "Marketplace is empty"}
+              description={
+                searchQuery 
+                  ? "Try adjusting your search terms" 
+                  : "Be the first to publish a strategy to the marketplace"
+              }
+              action={
+                searchQuery && (
+                  <Button variant="outline" onClick={() => setSearchQuery("")}>
+                    Clear Search
+                  </Button>
+                )
+              }
+            />
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedStrategies.map((strategy) => (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedStrategies.map((strategy) => (
             <Card key={strategy.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -169,7 +266,21 @@ export function StrategyMarketplace() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+          
+          {/* Pagination */}
+          {sortedStrategies.length > pagination.pageSize && (
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              onPageChange={pagination.goToPage}
+              onPageSizeChange={pagination.setPageSize}
+              pageSizeOptions={[12, 24, 48]}
+            />
+          )}
+        </>
       )}
     </div>
   );

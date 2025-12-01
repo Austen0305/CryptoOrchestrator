@@ -9,6 +9,12 @@
 
 Comprehensive testing of the CryptoOrchestrator project has been completed successfully. All core components, services, routes, and functionality have been tested and verified to be working correctly.
 
+### How to Run the Suites Locally
+
+- **Backend type + integration:** `pytest server_fastapi/tests -v --cov=server_fastapi`
+- **Frontend type/checks:** `npm run ci:frontend` (runs `tsc` + Vitest)
+- **Playwright/Web:** `npm run test:e2e` (UI smoke)
+
 ### Test Results
 
 - **Total Tests**: 55

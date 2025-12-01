@@ -3,7 +3,7 @@
  * Loads images lazily for better performance
  */
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { LoadingSkeleton } from './LoadingSkeleton';
 
@@ -19,7 +19,7 @@ interface LazyImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   onError?: () => void;
 }
 
-export function LazyImage({
+export const LazyImage = React.memo(function LazyImage({
   src,
   alt,
   fallback,
@@ -62,18 +62,18 @@ export function LazyImage({
     return () => observer.disconnect();
   }, [src, root, rootMargin, threshold]);
 
-  const handleLoad = () => {
+  const handleLoad = useCallback(() => {
     setIsLoaded(true);
     onLoad?.();
-  };
+  }, [onLoad]);
 
-  const handleError = () => {
+  const handleError = useCallback(() => {
     setHasError(true);
     if (fallback) {
       setCurrentSrc(fallback);
     }
     onError?.();
-  };
+  }, [fallback, onError]);
 
   return (
     <div className={cn("relative", className)}>
@@ -98,5 +98,5 @@ export function LazyImage({
       />
     </div>
   );
-}
+});
 

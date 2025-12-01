@@ -1,261 +1,266 @@
-import asyncio
+"""
+Real-time Notification Service
+Handles push notifications, email alerts, and in-app notifications.
+"""
+
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
+from typing import Dict, List, Optional, Any
+from datetime import datetime
 from enum import Enum
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
+
+from ..models.user import User
+from ..services.email_service import email_service
+from ..services.sms_service import sms_service
+# Import websocket manager
+try:
+    from ..services.websocket_manager import connection_manager as websocket_manager
+except ImportError:
+    try:
+        from ..routes.ws import manager as websocket_manager
+    except ImportError:
+        # Fallback: create a simple mock
+        class MockWebSocketManager:
+            async def broadcast(self, channel: str, message: dict):
+                logger.warning("WebSocket manager not available, notification not sent")
+            async def send_to_client(self, client_id: str, message: dict):
+                return False
+            async def broadcast_to_user(self, user_id: int, message: dict):
+                return False
+        websocket_manager = MockWebSocketManager()
 
 logger = logging.getLogger(__name__)
 
-class NotificationPriority(Enum):
+
+class NotificationType(str, Enum):
+    """Notification types"""
+    TRADE_EXECUTED = "trade_executed"
+    TRADE_FAILED = "trade_failed"
+    ORDER_FILLED = "order_filled"
+    STOP_LOSS_TRIGGERED = "stop_loss_triggered"
+    TAKE_PROFIT_TRIGGERED = "take_profit_triggered"
+    RISK_ALERT = "risk_alert"
+    PORTFOLIO_ALERT = "portfolio_alert"
+    BOT_STARTED = "bot_started"
+    BOT_STOPPED = "bot_stopped"
+    COPY_TRADE_EXECUTED = "copy_trade_executed"
+    PRICE_ALERT = "price_alert"
+    SYSTEM_ALERT = "system_alert"
+
+
+class NotificationPriority(str, Enum):
+    """Notification priority levels"""
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    URGENT = "urgent"
+    CRITICAL = "critical"
 
-class NotificationCategory(Enum):
-    TRADE = "trade"
-    BOT = "bot"
-    MARKET = "market"
-    SYSTEM = "system"
-    PORTFOLIO = "portfolio"
-    RISK = "risk"
 
 class NotificationService:
-    def __init__(self):
-        self.notifications = {}  # user_id -> list of notifications
-        self.notification_id_counter = 1
-        self.listeners = {}  # user_id -> list of callback functions
-
-    async def create_notification(
+    """Service for sending real-time notifications"""
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+    
+    async def send_notification(
         self,
         user_id: int,
+        notification_type: NotificationType,
+        title: str,
         message: str,
-        level: str = 'info',
-        title: str = None,
-        category: NotificationCategory = None,
         priority: NotificationPriority = NotificationPriority.MEDIUM,
-        data: Dict[str, Any] = None,
-        expires_at: datetime = None
-    ) -> Dict[str, Any]:
-        """Create a new notification for a user with advanced features"""
-        notification_id = self.notification_id_counter
-        self.notification_id_counter += 1
-
-        notification = {
-            'id': notification_id,
-            'user_id': user_id,
-            'title': title or self._generate_title(level, category),
-            'message': message,
-            'level': level,  # 'info', 'warning', 'error', 'success'
-            'category': category.value if category else 'system',
-            'priority': priority.value,
-            'data': data or {},
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'created_at': datetime.now(timezone.utc).isoformat(),
-            'read': False,
-            'read_at': None,
-            'expires_at': expires_at.isoformat() if expires_at else None
-        }
-
-        if user_id not in self.notifications:
-            self.notifications[user_id] = []
-
-        # Remove expired notifications before adding new one
-        await self._cleanup_expired_notifications(user_id)
-
-        self.notifications[user_id].append(notification)
-
-        logger.info(f"Created notification {notification['id']} for user {user_id}: {message}")
-
-        # Notify listeners
-        await self._notify_listeners(user_id, notification)
-
-        return notification
-
-    def _generate_title(self, level: str, category: NotificationCategory) -> str:
-        """Generate a default title based on level and category"""
-        level_titles = {
-            'info': 'Information',
-            'warning': 'Warning',
-            'error': 'Error',
-            'success': 'Success'
-        }
-
-        category_titles = {
-            NotificationCategory.TRADE: 'Trade',
-            NotificationCategory.BOT: 'Bot',
-            NotificationCategory.MARKET: 'Market',
-            NotificationCategory.SYSTEM: 'System',
-            NotificationCategory.PORTFOLIO: 'Portfolio',
-            NotificationCategory.RISK: 'Risk'
-        }
-
-        category_title = category_titles.get(category, 'Notification')
-        level_title = level_titles.get(level, 'Notification')
-
-        return f"{category_title} {level_title}"
-
-    async def _cleanup_expired_notifications(self, user_id: int):
-        """Remove expired notifications"""
-        if user_id not in self.notifications:
-            return
-
-        current_time = datetime.now(timezone.utc)
-        self.notifications[user_id] = [
-            n for n in self.notifications[user_id]
-            if n.get('expires_at') is None or datetime.fromisoformat(n['expires_at']) > current_time
-        ]
-
-    async def get_recent_notifications(
-        self,
-        user_id: int,
-        limit: int = 50,
-        category: NotificationCategory = None,
-        unread_only: bool = False,
-        priority_filter: List[NotificationPriority] = None
-    ) -> List[Dict[str, Any]]:
-        """Get recent notifications for a user with filtering options"""
-        user_notifications = self.notifications.get(user_id, [])
-
-        # Apply filters
-        filtered = user_notifications
-        if category:
-            filtered = [n for n in filtered if n.get('category') == category.value]
-        if unread_only:
-            filtered = [n for n in filtered if not n.get('read', False)]
-        if priority_filter:
-            priority_values = [p.value for p in priority_filter]
-            filtered = [n for n in filtered if n.get('priority') in priority_values]
-
-        # Sort by timestamp (most recent first) and priority
-        def sort_key(n):
-            priority_order = {p.value: i for i, p in enumerate(NotificationPriority)}
-            return (
-                -priority_order.get(n.get('priority', NotificationPriority.MEDIUM.value), 1),
-                -datetime.fromisoformat(n['timestamp']).timestamp()
-            )
-
-        return sorted(filtered, key=sort_key)[:limit]
-
-    async def mark_as_read(self, user_id: int, notification_id: int) -> bool:
-        """Mark a notification as read"""
-        user_notifications = self.notifications.get(user_id, [])
-        for notification in user_notifications:
-            if notification['id'] == notification_id:
-                if not notification['read']:
-                    notification['read'] = True
-                    notification['read_at'] = datetime.now(timezone.utc).isoformat()
-                    logger.info(f"Marked notification {notification_id} as read for user {user_id}")
-                return True
-        return False
-
-    async def mark_all_as_read(self, user_id: int, category: NotificationCategory = None) -> int:
-        """Mark all notifications as read, optionally filtered by category"""
-        user_notifications = self.notifications.get(user_id, [])
-        count = 0
-
-        for notification in user_notifications:
-            if not notification.get('read', False):
-                if category is None or notification.get('category') == category.value:
-                    notification['read'] = True
-                    notification['read_at'] = datetime.now(timezone.utc).isoformat()
-                    count += 1
-
-        logger.info(f"Marked {count} notifications as read for user {user_id}")
-        return count
-
-    async def delete_notification(self, user_id: int, notification_id: int) -> bool:
-        """Delete a specific notification"""
-        if user_id not in self.notifications:
+        data: Optional[Dict[str, Any]] = None,
+        send_email: bool = False
+    ) -> bool:
+        """
+        Send a notification to a user.
+        
+        Args:
+            user_id: User ID
+            notification_type: Type of notification
+            title: Notification title
+            message: Notification message
+            priority: Notification priority
+            data: Additional data
+            send_email: Whether to send email notification
+        
+        Returns:
+            True if notification sent successfully
+        """
+        try:
+            # Get user
+            user_stmt = select(User).where(User.id == user_id)
+            user_result = await self.db.execute(user_stmt)
+            user = user_result.scalar_one_or_none()
+            
+            if not user:
+                logger.warning(f"User {user_id} not found for notification")
+                return False
+            
+            notification = {
+                "id": f"notif_{datetime.now().timestamp()}",
+                "user_id": user_id,
+                "type": notification_type.value,
+                "title": title,
+                "message": message,
+                "priority": priority.value,
+                "data": data or {},
+                "timestamp": datetime.now().isoformat(),
+                "read": False
+            }
+            
+            # Send via WebSocket (real-time)
+            try:
+                # Try different WebSocket manager methods
+                if hasattr(websocket_manager, 'broadcast_to_user'):
+                    # Use user-based broadcasting (from routes/ws.py)
+                    await websocket_manager.broadcast_to_user(
+                        user_id,
+                        {"type": "notification", **notification}
+                    )
+                elif hasattr(websocket_manager, 'broadcast'):
+                    # Use channel-based broadcasting (from services/websocket_manager.py)
+                    await websocket_manager.broadcast(
+                        channel=f"user:{user_id}",
+                        message={"event": "notification", **notification}
+                    )
+                else:
+                    logger.warning("WebSocket manager method not found")
+            except Exception as e:
+                logger.warning(f"WebSocket notification failed: {e}")
+            
+            # Send email if requested
+            if send_email and user.email:
+                try:
+                    email_subject = f"[{priority.value.upper()}] {title}"
+                    email_body = f"""
+                    {message}
+                    
+                    {f'Additional Details: {data}' if data else ''}
+                    
+                    ---
+                    CryptoOrchestrator
+                    """
+                    await email_service.send_email(
+                        to=user.email,
+                        subject=email_subject,
+                        text_content=email_body
+                    )
+                except Exception as e:
+                    logger.warning(f"Email notification failed: {e}")
+            
+            # Send SMS if requested and priority is high/critical
+            if priority in [NotificationPriority.HIGH, NotificationPriority.CRITICAL]:
+                try:
+                    # Get user phone number from preferences or user model
+                    # For now, check if phone is in metadata
+                    phone_number = None
+                    if data and data.get("phone_number"):
+                        phone_number = data.get("phone_number")
+                    elif hasattr(user, "phone_number") and user.phone_number:
+                        phone_number = user.phone_number
+                    
+                    if phone_number and sms_service.enabled:
+                        sms_message = f"{title}: {message}"
+                        sms_result = await sms_service.send_sms(
+                            to_number=phone_number,
+                            message=sms_message,
+                            priority=priority.value
+                        )
+                        if sms_result.get("success"):
+                            logger.info(f"SMS notification sent to {phone_number}")
+                except Exception as e:
+                    logger.warning(f"SMS notification failed: {e}")
+            
+            logger.info(f"Notification sent to user {user_id}: {title}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending notification: {e}", exc_info=True)
             return False
-
-        original_length = len(self.notifications[user_id])
-        self.notifications[user_id] = [
-            n for n in self.notifications[user_id] if n['id'] != notification_id
-        ]
-
-        deleted = len(self.notifications[user_id]) < original_length
-        if deleted:
-            logger.info(f"Deleted notification {notification_id} for user {user_id}")
-        return deleted
-
-    async def get_unread_count(
+    
+    async def send_trade_notification(
         self,
         user_id: int,
-        category: NotificationCategory = None,
-        priority_filter: List[NotificationPriority] = None
-    ) -> int:
-        """Get count of unread notifications with optional filters"""
-        user_notifications = self.notifications.get(user_id, [])
-
-        unread = [n for n in user_notifications if not n.get('read', False)]
-
-        if category:
-            unread = [n for n in unread if n.get('category') == category.value]
-        if priority_filter:
-            priority_values = [p.value for p in priority_filter]
-            unread = [n for n in unread if n.get('priority') in priority_values]
-
-        return len(unread)
-
-    async def broadcast_notification(
-        self,
-        user_ids: List[int],
-        message: str,
-        level: str = 'info',
-        title: str = None,
-        category: NotificationCategory = None,
-        priority: NotificationPriority = NotificationPriority.MEDIUM,
-        data: Dict[str, Any] = None
+        trade_id: int,
+        trade_status: str,
+        pair: str,
+        side: str,
+        amount: float,
+        price: float
     ):
-        """Broadcast notification to multiple users"""
-        tasks = [
-            self.create_notification(
-                user_id, message, level, title, category, priority, data
+        """Send trade execution notification"""
+        if trade_status == "completed":
+            await self.send_notification(
+                user_id=user_id,
+                notification_type=NotificationType.TRADE_EXECUTED,
+                title="Trade Executed",
+                message=f"Your {side} order for {amount} {pair} at {price} has been executed.",
+                priority=NotificationPriority.HIGH,
+                data={
+                    "trade_id": trade_id,
+                    "pair": pair,
+                    "side": side,
+                    "amount": amount,
+                    "price": price
+                }
             )
-            for user_id in user_ids
-        ]
-        await asyncio.gather(*tasks)
-
-    async def add_listener(self, user_id: int, callback: callable):
-        """Add a listener for real-time notification updates"""
-        if user_id not in self.listeners:
-            self.listeners[user_id] = []
-        self.listeners[user_id].append(callback)
-
-    async def remove_listener(self, user_id: int, callback: callable):
-        """Remove a listener"""
-        if user_id in self.listeners:
-            self.listeners[user_id] = [cb for cb in self.listeners[user_id] if cb != callback]
-
-    async def _notify_listeners(self, user_id: int, notification: Dict[str, Any]):
-        """Notify all listeners for a user about a new notification"""
-        if user_id in self.listeners:
-            tasks = [cb(notification) for cb in self.listeners[user_id]]
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def get_notification_stats(self, user_id: int) -> Dict[str, Any]:
-        """Get notification statistics for a user"""
-        user_notifications = self.notifications.get(user_id, [])
-
-        total = len(user_notifications)
-        unread = len([n for n in user_notifications if not n.get('read', False)])
-
-        # Count by category
-        categories = {}
-        for n in user_notifications:
-            cat = n.get('category', 'system')
-            categories[cat] = categories.get(cat, 0) + 1
-
-        # Count by priority
-        priorities = {}
-        for n in user_notifications:
-            pri = n.get('priority', NotificationPriority.MEDIUM.value)
-            priorities[pri] = priorities.get(pri, 0) + 1
-
-        return {
-            'total': total,
-            'unread': unread,
-            'categories': categories,
-            'priorities': priorities
+        elif trade_status == "failed":
+            await self.send_notification(
+                user_id=user_id,
+                notification_type=NotificationType.TRADE_FAILED,
+                title="Trade Failed",
+                message=f"Your {side} order for {amount} {pair} failed to execute.",
+                priority=NotificationPriority.HIGH,
+                data={"trade_id": trade_id}
+            )
+    
+    async def send_risk_alert(
+        self,
+        user_id: int,
+        alert_type: str,
+        message: str,
+        severity: str = "medium"
+    ):
+        """Send risk management alert"""
+        priority_map = {
+            "low": NotificationPriority.LOW,
+            "medium": NotificationPriority.MEDIUM,
+            "high": NotificationPriority.HIGH,
+            "critical": NotificationPriority.CRITICAL
         }
+        
+        await self.send_notification(
+            user_id=user_id,
+            notification_type=NotificationType.RISK_ALERT,
+            title=f"Risk Alert: {alert_type}",
+            message=message,
+            priority=priority_map.get(severity, NotificationPriority.MEDIUM),
+            data={"alert_type": alert_type, "severity": severity},
+            send_email=(severity in ["high", "critical"])
+        )
+    
+    async def send_price_alert(
+        self,
+        user_id: int,
+        pair: str,
+        target_price: float,
+        current_price: float,
+        direction: str  # "above" or "below"
+    ):
+        """Send price alert notification"""
+        await self.send_notification(
+            user_id=user_id,
+            notification_type=NotificationType.PRICE_ALERT,
+            title="Price Alert",
+            message=f"{pair} price is now {direction} your target of {target_price} (current: {current_price})",
+            priority=NotificationPriority.MEDIUM,
+            data={
+                "pair": pair,
+                "target_price": target_price,
+                "current_price": current_price,
+                "direction": direction
+            }
+        )
+

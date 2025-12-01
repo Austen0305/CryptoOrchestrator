@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 // Create api object for useAnalytics hooks
 const api = {
   get: async (url: string) => {
-    return await apiRequest("GET", url);
+    return await apiRequest(url, { method: "GET" });
   },
 };
 
@@ -16,8 +16,7 @@ export const useAnalyticsSummary = () => {
   return useQuery({
     queryKey: ["analytics", "summary"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/analytics/summary");
-      return response.json();
+      return await apiRequest("/api/analytics/summary", { method: "GET" });
     },
     enabled: isAuthenticated,
     refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds

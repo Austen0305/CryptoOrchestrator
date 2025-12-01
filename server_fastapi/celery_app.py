@@ -28,6 +28,19 @@ try:
 except ImportError:
     logger.warning("Bot worker tasks not available")
 
+# Import competitive trading bot worker tasks
+try:
+    from .workers.trading_bots_worker import (
+        process_dca_orders,
+        process_grid_cycles,
+        process_infinity_grids,
+        process_trailing_bots,
+        update_futures_pnl
+    )
+    logger.info("✅ Competitive trading bot worker tasks loaded")
+except ImportError as e:
+    logger.warning(f"Competitive trading bot worker tasks not available: {e}")
+
 # Configuration
 celery_app.conf.update(
     task_serializer='json',
@@ -63,6 +76,19 @@ celery_app.conf.beat_schedule = {
     'reconcile-portfolios': {
         'task': 'tasks.reconcile_portfolios',
         'schedule': 3600.0,  # Every hour
+    },
+    # Backup tasks
+    'daily-backup': {
+        'task': 'backups.create_daily_backup',
+        'schedule': crontab(hour=2, minute=0),  # 2 AM daily
+    },
+    'cleanup-backups': {
+        'task': 'backups.cleanup_old_backups',
+        'schedule': crontab(hour=3, minute=0),  # 3 AM daily
+    },
+    'distribute-staking-rewards': {
+        'task': 'tasks.distribute_staking_rewards',
+        'schedule': crontab(hour=0, minute=0),  # Daily at midnight UTC
     },
 }
 

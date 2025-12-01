@@ -1,30 +1,22 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TradingRecommendations } from "@/components/TradingRecommendations";
+import { TradingRecommendations, type RecommendationConfig } from "@/components/TradingRecommendations";
 import { useCreateBot } from "@/hooks/useApi";
 import { toast } from "@/hooks/use-toast";
 import { Plus, Loader2, Target } from "lucide-react";
+import { botConfigSchema, formatValidationErrors } from "@/lib/validation";
+import { FormFieldError } from "@/components/FormFieldError";
 import type { InsertBotConfig } from "../../../shared/schema";
+import type { z } from "zod";
 
-const botSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  strategy: z.string().min(1, "Strategy is required"),
-  tradingPair: z.string().min(1, "Trading pair is required"),
-  maxPositionSize: z.number().min(0.01, "Must be at least 0.01"),
-  stopLoss: z.number().min(0.1, "Must be at least 0.1%").max(50, "Cannot exceed 50%"),
-  takeProfit: z.number().min(0.1, "Must be at least 0.1%").max(100, "Cannot exceed 100%"),
-  riskPerTrade: z.number().min(0.1, "Must be at least 0.1%").max(10, "Cannot exceed 10%"),
-});
-
-type BotFormData = z.infer<typeof botSchema>;
+type BotFormData = z.infer<typeof botConfigSchema>;
 
 const strategies = [
   { value: "smart_adaptive", label: "Smart Adaptive (AI v2.0)" },
@@ -53,7 +45,7 @@ export function BotCreator() {
     setValue,
     reset,
   } = useForm<BotFormData>({
-    resolver: zodResolver(botSchema),
+    resolver: zodResolver(botConfigSchema),
     defaultValues: {
       maxPositionSize: 0.1,
       stopLoss: 2.0,
@@ -86,7 +78,7 @@ export function BotCreator() {
     }
   };
 
-  const handleApplyRecommendation = (pair: string, config: any) => {
+  const handleApplyRecommendation = (pair: string, config: RecommendationConfig) => {
     setValue("tradingPair", pair);
     setValue("riskPerTrade", config.riskPerTrade);
     setValue("stopLoss", config.stopLoss);
@@ -136,9 +128,7 @@ export function BotCreator() {
               placeholder="e.g., ML Trend Follower"
               {...register("name")}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
+            {errors.name && <FormFieldError message={errors.name.message} />}
           </div>
 
           <div className="space-y-2">
@@ -155,9 +145,7 @@ export function BotCreator() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.strategy && (
-              <p className="text-sm text-destructive">{errors.strategy.message}</p>
-            )}
+            {errors.strategy && <FormFieldError message={errors.strategy.message} />}
           </div>
 
           <div className="space-y-2">
@@ -174,9 +162,7 @@ export function BotCreator() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.tradingPair && (
-              <p className="text-sm text-destructive">{errors.tradingPair.message}</p>
-            )}
+            {errors.tradingPair && <FormFieldError message={errors.tradingPair.message} />}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -189,9 +175,7 @@ export function BotCreator() {
                 placeholder="0.1"
                 {...register("maxPositionSize", { valueAsNumber: true })}
               />
-              {errors.maxPositionSize && (
-                <p className="text-sm text-destructive">{errors.maxPositionSize.message}</p>
-              )}
+              {errors.maxPositionSize && <FormFieldError message={errors.maxPositionSize.message} />}
             </div>
 
             <div className="space-y-2">
@@ -203,9 +187,7 @@ export function BotCreator() {
                 placeholder="1.0"
                 {...register("riskPerTrade", { valueAsNumber: true })}
               />
-              {errors.riskPerTrade && (
-                <p className="text-sm text-destructive">{errors.riskPerTrade.message}</p>
-              )}
+              {errors.riskPerTrade && <FormFieldError message={errors.riskPerTrade.message} />}
             </div>
           </div>
 
@@ -219,9 +201,7 @@ export function BotCreator() {
                 placeholder="2.0"
                 {...register("stopLoss", { valueAsNumber: true })}
               />
-              {errors.stopLoss && (
-                <p className="text-sm text-destructive">{errors.stopLoss.message}</p>
-              )}
+              {errors.stopLoss && <FormFieldError message={errors.stopLoss.message} />}
             </div>
 
             <div className="space-y-2">
@@ -233,9 +213,7 @@ export function BotCreator() {
                 placeholder="5.0"
                 {...register("takeProfit", { valueAsNumber: true })}
               />
-              {errors.takeProfit && (
-                <p className="text-sm text-destructive">{errors.takeProfit.message}</p>
-              )}
+              {errors.takeProfit && <FormFieldError message={errors.takeProfit.message} />}
             </div>
           </div>
 

@@ -27,9 +27,23 @@ class KuCoinFee:
 class KuCoinService:
     """Full KuCoin exchange service with complete feature set"""
     
-    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None, passphrase: Optional[str] = None, sandbox: bool = False):
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None, passphrase: Optional[str] = None, sandbox: bool = False, use_mock: Optional[bool] = None):
         self.name = 'kucoin'
-        self.use_mock = os.getenv("USE_MOCK_KUCOIN", "false").lower() == "true"
+        # Check production mode - mock data disabled in production
+        from ...config.settings import get_settings
+        settings = get_settings()
+        production_mode = settings.production_mode or settings.is_production
+        
+        # Determine mock mode: explicit override > production check > env var > default False
+        if use_mock is not None:
+            self.use_mock = use_mock
+        elif production_mode:
+            self.use_mock = False  # Force real mode in production
+            logger.info("Production mode detected - disabling mock data for KuCoin")
+        else:
+            # Only allow mock in development if explicitly enabled
+            self.use_mock = os.getenv("ENABLE_MOCK_DATA", "false").lower() == "true" or os.getenv("USE_MOCK_KUCOIN", "false").lower() == "true"
+        
         self.connected = False
         self.exchange = None
         self.sandbox = sandbox

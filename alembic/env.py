@@ -20,16 +20,28 @@ try:
     # Import all models to ensure they're registered with Base.metadata
     from server_fastapi.models import (
         User, Bot, RiskAlert, RiskLimit, Portfolio, Trade,
-        Candle, ExchangeAPIKey
+        Candle, ExchangeAPIKey, Wallet, WalletTransaction, IdempotencyKey,
+        Order, OrderType, OrderStatus, Follow, CopiedTrade
     )
+    # Import new competitive bot models
+    try:
+        from server_fastapi.models import GridBot, DCABot, InfinityGrid, TrailingBot, FuturesPosition
+    except ImportError:
+        pass  # Models may not all exist yet
 except ImportError:
     try:
         from models import Base
         # Import all models to ensure they're registered with Base.metadata
         from models import (
             User, Bot, RiskAlert, RiskLimit, Portfolio, Trade,
-            Candle, ExchangeAPIKey
+            Candle, ExchangeAPIKey, Wallet, WalletTransaction, IdempotencyKey,
+            Order, OrderType, OrderStatus, Follow, CopiedTrade
         )
+        # Import new competitive bot models
+        try:
+            from models import GridBot, DCABot, InfinityGrid, TrailingBot, FuturesPosition
+        except ImportError:
+            pass  # Models may not all exist yet
     except ImportError:
         pass  # Models may not all exist yet
 

@@ -1,3 +1,4 @@
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -5,7 +6,7 @@ import { useRiskMetrics } from '@/hooks/useRiskMetrics';
 import { ShieldAlert, Activity } from 'lucide-react';
 import { useScenarioStore } from '@/hooks/useScenarioStore';
 
-export function RiskSummary() {
+export const RiskSummary = React.memo(function RiskSummary() {
   const { var95, cvar95, maxDrawdown, sharpe, tradeCount, volatility } = useRiskMetrics();
   const lastScenario = useScenarioStore(s => s.last);
 
@@ -70,4 +71,4 @@ export function RiskSummary() {
       </CardContent>
     </Card>
   );
-}
+});

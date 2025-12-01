@@ -79,6 +79,20 @@ export const statusApi = {
     apiRequest("/api/status", { method: "GET" }).then((res) => res),
 };
 
+// Activity API functions
+export const activityApi = {
+  getRecentActivity: (limit = 10) =>
+    apiRequest(`/api/activity/recent?limit=${limit}`, { method: "GET" }).then((res) => res),
+};
+
+// Performance API functions
+export const performanceApi = {
+  getSummary: (mode?: "paper" | "real" | "live") => {
+    const params = mode ? `?mode=${mode === "live" ? "real" : mode}` : "";
+    return apiRequest(`/api/performance/summary${params}`, { method: "GET" }).then((res) => res);
+  },
+};
+
 // Integrations API
 export const integrationsApi = {
   status: () => apiRequest('/api/integrations/status', { method: 'GET' }).then((r) => r),
@@ -144,4 +158,89 @@ export interface ScenarioResponse {
 export async function runRiskScenario(body: ScenarioRequest): Promise<ScenarioResponse> {
   return apiRequest('/api/risk-scenarios/simulate', { method: 'POST', body }).then(r => r);
 }
+
+// Grid Trading API
+export const gridTradingApi = {
+  getGridBots: (skip = 0, limit = 100) =>
+    apiRequest(`/api/grid-bots?skip=${skip}&limit=${limit}`, { method: "GET" }).then((res) => res),
+  getGridBot: (id: string) =>
+    apiRequest(`/api/grid-bots/${id}`, { method: "GET" }).then((res) => res),
+  createGridBot: (bot: any) =>
+    apiRequest("/api/grid-bots", { method: "POST", body: bot }).then((res) => res),
+  startGridBot: (id: string) =>
+    apiRequest(`/api/grid-bots/${id}/start`, { method: "POST" }).then((res) => res),
+  stopGridBot: (id: string) =>
+    apiRequest(`/api/grid-bots/${id}/stop`, { method: "POST" }).then((res) => res),
+  deleteGridBot: (id: string) =>
+    apiRequest(`/api/grid-bots/${id}`, { method: "DELETE" }).then((res) => res),
+};
+
+// DCA Trading API
+export const dcaTradingApi = {
+  getDCABots: (skip = 0, limit = 100) =>
+    apiRequest(`/api/dca-bots?skip=${skip}&limit=${limit}`, { method: "GET" }).then((res) => res),
+  getDCABot: (id: string) =>
+    apiRequest(`/api/dca-bots/${id}`, { method: "GET" }).then((res) => res),
+  createDCABot: (bot: any) =>
+    apiRequest("/api/dca-bots", { method: "POST", body: bot }).then((res) => res),
+  startDCABot: (id: string) =>
+    apiRequest(`/api/dca-bots/${id}/start`, { method: "POST" }).then((res) => res),
+  stopDCABot: (id: string) =>
+    apiRequest(`/api/dca-bots/${id}/stop`, { method: "POST" }).then((res) => res),
+  deleteDCABot: (id: string) =>
+    apiRequest(`/api/dca-bots/${id}`, { method: "DELETE" }).then((res) => res),
+};
+
+// Infinity Grid API
+export const infinityGridApi = {
+  getInfinityGrids: (skip = 0, limit = 100) =>
+    apiRequest(`/api/infinity-grids?skip=${skip}&limit=${limit}`, { method: "GET" }).then((res) => res),
+  getInfinityGrid: (id: string) =>
+    apiRequest(`/api/infinity-grids/${id}`, { method: "GET" }).then((res) => res),
+  createInfinityGrid: (bot: any) =>
+    apiRequest("/api/infinity-grids", { method: "POST", body: bot }).then((res) => res),
+  startInfinityGrid: (id: string) =>
+    apiRequest(`/api/infinity-grids/${id}/start`, { method: "POST" }).then((res) => res),
+  stopInfinityGrid: (id: string) =>
+    apiRequest(`/api/infinity-grids/${id}/stop`, { method: "POST" }).then((res) => res),
+  deleteInfinityGrid: (id: string) =>
+    apiRequest(`/api/infinity-grids/${id}`, { method: "DELETE" }).then((res) => res),
+};
+
+// Trailing Bot API
+export const trailingBotApi = {
+  getTrailingBots: (skip = 0, limit = 100) =>
+    apiRequest(`/api/trailing-bots?skip=${skip}&limit=${limit}`, { method: "GET" }).then((res) => res),
+  getTrailingBot: (id: string) =>
+    apiRequest(`/api/trailing-bots/${id}`, { method: "GET" }).then((res) => res),
+  createTrailingBot: (bot: any) =>
+    apiRequest("/api/trailing-bots", { method: "POST", body: bot }).then((res) => res),
+  startTrailingBot: (id: string) =>
+    apiRequest(`/api/trailing-bots/${id}/start`, { method: "POST" }).then((res) => res),
+  stopTrailingBot: (id: string) =>
+    apiRequest(`/api/trailing-bots/${id}/stop`, { method: "POST" }).then((res) => res),
+  deleteTrailingBot: (id: string) =>
+    apiRequest(`/api/trailing-bots/${id}`, { method: "DELETE" }).then((res) => res),
+};
+
+// Futures Trading API
+export const futuresTradingApi = {
+  getFuturesPositions: (skip = 0, limit = 100, openOnly = false) => {
+    const params = new URLSearchParams();
+    params.append("skip", String(skip));
+    params.append("limit", String(limit));
+    if (openOnly) params.append("open_only", "true");
+    return apiRequest(`/api/futures/positions?${params.toString()}`, { method: "GET" }).then((res) => res);
+  },
+  getFuturesPosition: (id: string) =>
+    apiRequest(`/api/futures/positions/${id}`, { method: "GET" }).then((res) => res),
+  createFuturesPosition: (position: any) =>
+    apiRequest("/api/futures/positions", { method: "POST", body: position }).then((res) => res),
+  closeFuturesPosition: (id: string, closePrice?: number) => {
+    const params = closePrice ? `?close_price=${closePrice}` : "";
+    return apiRequest(`/api/futures/positions/${id}/close${params}`, { method: "POST" }).then((res) => res);
+  },
+  updatePositionPnl: (id: string) =>
+    apiRequest(`/api/futures/positions/${id}/update-pnl`, { method: "POST" }).then((res) => res),
+};
 

@@ -5,8 +5,8 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { apiRequest } from '@/lib/apiClient';
-import { toast } from '@/components/ui/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { toast } from '@/hooks/use-toast';
 
 type TradingMode = 'paper' | 'real';
 

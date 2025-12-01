@@ -28,11 +28,11 @@ export class ErrorBoundaryWithRetry extends Component<Props, State> {
     retryCount: 0,
   };
 
-  public static getDerivedStateFromError(error: Error): Partial<State> {
+  public static override getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log to our logging system
     logger.error('React Error Boundary caught an error', {
       error: error.toString(),
@@ -42,8 +42,14 @@ export class ErrorBoundaryWithRetry extends Component<Props, State> {
     });
 
     // If Sentry is configured, report to it
-    if (typeof window !== 'undefined' && (window as any).Sentry) {
-      (window as any).Sentry.captureException(error, {
+    interface WindowWithSentry extends Window {
+      Sentry?: {
+        captureException: (error: Error, context?: { contexts?: { react?: { componentStack?: string } } }) => void;
+      };
+    }
+    const windowWithSentry = typeof window !== 'undefined' ? window as WindowWithSentry : null;
+    if (windowWithSentry?.Sentry) {
+      windowWithSentry.Sentry.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack,
@@ -76,7 +82,7 @@ export class ErrorBoundaryWithRetry extends Component<Props, State> {
     window.location.href = '/';
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;

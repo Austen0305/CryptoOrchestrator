@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, MessageSquare, Twitter, RefreshCw, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface SentimentData {
   overall: number; // -100 to 100
@@ -23,63 +28,79 @@ interface SentimentAnalysisProps {
   refreshInterval?: number;
 }
 
-export function SentimentAnalysis({ 
+export const SentimentAnalysis = React.memo(function SentimentAnalysis({ 
   symbol = "BTC", 
   autoRefresh = true,
   refreshInterval = 60000 // 1 minute
 }: SentimentAnalysisProps) {
-  const [sentiment, setSentiment] = useState<SentimentData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: sentiment, isLoading, error, refetch, isRefetching } = useQuery<SentimentData>({
+    queryKey: ['sentiment-analysis', symbol],
+    queryFn: async () => {
+      const data = await apiRequest<SentimentData>(`/api/sentiment/${symbol}`, { method: 'GET' });
+      // Ensure timestamp is a Date object
+      return {
+        ...data,
+        timestamp: new Date(data.timestamp),
+      };
+    },
+    enabled: !!symbol,
+    refetchInterval: autoRefresh ? refreshInterval : false,
+    retry: 2,
+  });
 
-  const fetchSentiment = async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // In production, this would call the actual API
-      // Simulated sentiment data
-      setTimeout(() => {
-        setSentiment({
-          overall: 65, // Positive sentiment
-          twitter: 70,
-          reddit: 60,
-          news: 65,
-          fearGreedIndex: 68, // Greed
-          confidence: 85,
-          timestamp: new Date(),
-        });
-        setIsLoading(false);
-      }, 500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch sentiment");
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSentiment();
-    
-    if (autoRefresh) {
-      const interval = setInterval(fetchSentiment, refreshInterval);
-      return () => clearInterval(interval);
-    }
-  }, [symbol, autoRefresh, refreshInterval]);
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Sentiment Analysis
+          </CardTitle>
+          <CardDescription>Loading sentiment data...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton count={5} className="h-16 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (error) {
     return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
-          <CardTitle>Sentiment Analysis</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Sentiment Analysis
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-destructive">
-            <AlertCircle className="h-12 w-12 mx-auto mb-2" />
-            <p>{error}</p>
-            <Button onClick={fetchSentiment} className="mt-4" variant="outline">
-              Retry
-            </Button>
-          </div>
+          <ErrorRetry
+            title="Failed to load sentiment analysis"
+            message={error instanceof Error ? error.message : "Unable to fetch sentiment data. Please try again."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!sentiment) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Sentiment Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={MessageSquare}
+            title="No sentiment data available"
+            description={`Sentiment analysis for ${symbol} is not available at the moment.`}
+          />
         </CardContent>
       </Card>
     );
@@ -120,21 +141,16 @@ export function SentimentAnalysis({
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchSentiment}
-            disabled={isLoading}
+            onClick={() => refetch()}
+            disabled={isRefetching}
           >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+            <RefreshCw className={cn("h-4 w-4 mr-2", isRefetching && "animate-spin")} />
             Refresh
           </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        {isLoading && !sentiment ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
-            <p>Analyzing sentiment...</p>
-          </div>
-        ) : sentiment ? (
+        {sentiment && (
           <>
             {/* Overall Sentiment */}
             <div className="text-center space-y-2">
@@ -237,11 +253,11 @@ export function SentimentAnalysis({
               {autoRefresh && <span className="ml-2">• Auto-refreshing every {refreshInterval / 1000}s</span>}
             </div>
           </>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );
-}
+});
 
 function SentimentSourceItem({ 
   label, 

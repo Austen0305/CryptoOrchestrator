@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Check, X, CreditCard, Calendar, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useLocation } from "wouter";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Plan {
   plan: string;
@@ -36,11 +39,7 @@ export default function Billing() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
   const { getPlans, getSubscription, createCheckout, createPortal, cancelSubscription } = usePayments();
-  
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [processing, setProcessing] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,48 +47,84 @@ export default function Billing() {
       setLocation("/login");
       return;
     }
-    loadData();
-  }, [user]);
+  }, [user, setLocation]);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [plansData, subscriptionData] = await Promise.all([
-        getPlans(),
-        getSubscription(),
-      ]);
-      setPlans(plansData || []);
-      setSubscription(subscriptionData || null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load billing information");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: plansData, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useQuery<Plan[]>({
+    queryKey: ['billing-plans'],
+    queryFn: async () => {
+      return await getPlans() || [];
+    },
+    enabled: !!user,
+    retry: 2,
+  });
 
-  const handleUpgrade = async (plan: string, priceId: string, interval: "monthly" | "yearly") => {
-    try {
-      setProcessing(`upgrade-${plan}`);
-      const session = await createCheckout(priceId, plan);
+  const { data: subscription, isLoading: subscriptionLoading, error: subscriptionError, refetch: refetchSubscription } = useQuery<Subscription | null>({
+    queryKey: ['billing-subscription'],
+    queryFn: async () => {
+      return await getSubscription() || null;
+    },
+    enabled: !!user,
+    retry: 2,
+  });
+
+  const plans = plansData || [];
+  const isLoading = plansLoading || subscriptionLoading;
+  const error = plansError || subscriptionError;
+
+  const upgradeMutation = useMutation({
+    mutationFn: async ({ plan, priceId }: { plan: string; priceId: string }) => {
+      return await createCheckout(priceId, plan);
+    },
+    onSuccess: (session) => {
       if (session?.checkout_url) {
         window.location.href = session.checkout_url;
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create checkout session");
+    },
+    onError: (error: Error) => {
+      // Error will be shown via toast if usePayments hook handles it
+      console.error('Failed to create checkout session:', error);
+    },
+  });
+
+  const manageMutation = useMutation({
+    mutationFn: async () => {
+      return await createPortal();
+    },
+    onSuccess: (session) => {
+      if (session?.portal_url) {
+        window.location.href = session.portal_url;
+      }
+    },
+    onError: (error: Error) => {
+      console.error('Failed to open customer portal:', error);
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: async () => {
+      return await cancelSubscription(false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['billing-subscription'] });
+    },
+    onError: (error: Error) => {
+      console.error('Failed to cancel subscription:', error);
+    },
+  });
+
+  const handleUpgrade = async (plan: string, priceId: string, interval: "monthly" | "yearly") => {
+    setProcessing(`upgrade-${plan}`);
+    try {
+      await upgradeMutation.mutateAsync({ plan, priceId });
     } finally {
       setProcessing(null);
     }
   };
 
   const handleManage = async () => {
+    setProcessing("manage");
     try {
-      setProcessing("manage");
-      const session = await createPortal();
-      if (session?.portal_url) {
-        window.location.href = session.portal_url;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to open customer portal");
+      await manageMutation.mutateAsync();
     } finally {
       setProcessing(null);
     }
@@ -99,21 +134,38 @@ export default function Billing() {
     if (!confirm("Are you sure you want to cancel your subscription? It will remain active until the end of the current billing period.")) {
       return;
     }
+    setProcessing("cancel");
     try {
-      setProcessing("cancel");
-      await cancelSubscription(false);
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel subscription");
+      await cancelMutation.mutateAsync();
     } finally {
       setProcessing(null);
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="w-full max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Billing & Subscription</h1>
+          <p className="text-muted-foreground mt-2">Loading billing information...</p>
+        </div>
+        <LoadingSkeleton count={5} className="h-48 w-full mb-4" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Billing & Subscription</h1>
+        </div>
+        <ErrorRetry
+          title="Failed to load billing information"
+          message={error instanceof Error ? error.message : "An unexpected error occurred."}
+          onRetry={() => { refetchPlans(); refetchSubscription(); }}
+          error={error as Error}
+        />
       </div>
     );
   }
@@ -122,8 +174,8 @@ export default function Billing() {
   const isActive = subscription?.status === "active" || subscription?.status === "trialing";
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="space-y-6">
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="space-y-6 w-full">
         <div>
           <h1 className="text-3xl font-bold">Billing & Subscription</h1>
           <p className="text-muted-foreground mt-2">
@@ -131,13 +183,6 @@ export default function Billing() {
           </p>
         </div>
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
 
         {/* Current Subscription */}
         {subscription && (

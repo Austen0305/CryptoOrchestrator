@@ -16,6 +16,7 @@ from ..models.bot import Bot
 from ..models.user import User
 from ..models.subscription import Subscription
 from ..billing import SubscriptionService
+from ..services.trading.bot_service import BotService
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +121,8 @@ async def execute_bot(self, bot_id: str, user_id: int, session: AsyncSession = N
         # Execute bot strategy
         logger.info(f"Executing bot {bot_id} for user {user_id}")
         
-        # Import bot service dynamically to avoid circular imports
-        from ..services.trading.bot_service import get_bot_service
-        bot_service = get_bot_service()
+        # Bot service bound to the worker session
+        bot_service = BotService(db_session=session)
         
         # Execute strategy
         result = await bot_service.execute_strategy(

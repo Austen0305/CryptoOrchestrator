@@ -1,12 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Dict, Any, List, Optional
 import logging
 
 from ..services.trading_orchestrator import TradingOrchestrator, EnsemblePrediction, PingResult, BacktestResult
 from ..services.integration_service import integration_service, IntegrationConfig, FreqtradeConfig, JesseConfig
-from fastapi import Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 
 logger = logging.getLogger(__name__)
@@ -19,12 +17,8 @@ def get_trading_orchestrator():
 def get_integration_service():
     return integration_service
 
-# Simple JWT authentication dependency (replace with real implementation)
-security = HTTPBearer()
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    if not credentials or credentials.scheme.lower() != "bearer":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication scheme")
-    return {"id": 1, "email": "test@example.com"}
+# Import centralized auth dependency
+from ..dependencies.auth import get_current_user
 
 # Pydantic models for integration management
 class IntegrationListResponse(BaseModel):

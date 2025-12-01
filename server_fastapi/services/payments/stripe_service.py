@@ -265,17 +265,33 @@ class StripeService:
         amount: int,
         currency: str = "usd",
         customer_id: Optional[str] = None,
+        payment_method_type: str = "card",  # 'card', 'ach_debit', 'us_bank_account'
         metadata: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
-        """Create a payment intent for one-time payments"""
+        """Create a payment intent for one-time payments
+        
+        Supports:
+        - card: Credit/debit cards
+        - ach_debit: ACH Direct Debit (bank transfers)
+        - us_bank_account: US bank account transfers
+        """
         if not STRIPE_AVAILABLE:
             return None
         
         try:
+            # Map payment method types
+            payment_method_types = []
+            if payment_method_type == "card":
+                payment_method_types = ['card']
+            elif payment_method_type in ["ach_debit", "bank_transfer", "ach"]:
+                payment_method_types = ['us_bank_account']
+            else:
+                payment_method_types = ['card']  # Default to card
+            
             intent_params = {
                 'amount': amount,
                 'currency': currency,
-                'payment_method_types': ['card']
+                'payment_method_types': payment_method_types
             }
             
             if customer_id:
@@ -284,6 +300,17 @@ class StripeService:
             if metadata:
                 intent_params['metadata'] = metadata
             
+            # For ACH, add additional parameters
+            if 'us_bank_account' in payment_method_types:
+                intent_params['payment_method_options'] = {
+                    'us_bank_account': {
+                        'verification_method': 'automatic',  # or 'microdeposits'
+                        'financial_connections': {
+                            'permissions': ['payment_method', 'balances']
+                        }
+                    }
+                }
+            
             intent = stripe.PaymentIntent.create(**intent_params)
             
             return {
@@ -291,11 +318,165 @@ class StripeService:
                 'client_secret': intent.client_secret,
                 'amount': intent.amount,
                 'currency': intent.currency,
-                'status': intent.status
+                'status': intent.status,
+                'payment_method_types': payment_method_types
             }
         except stripe.error.StripeError as e:
             logger.error(f"Failed to create payment intent: {e}")
             return None
+    
+    def get_payment_intent(self, payment_intent_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a payment intent from Stripe"""
+        if not STRIPE_AVAILABLE:
+            return None
+        
+        try:
+            intent = stripe.PaymentIntent.retrieve(payment_intent_id)
+            return {
+                'id': intent.id,
+                'status': intent.status,
+                'amount': intent.amount,
+                'currency': intent.currency,
+                'client_secret': intent.client_secret,
+                'payment_method': intent.payment_method,
+                'metadata': intent.metadata
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to retrieve payment intent: {e}")
+            return None
+    
+    def create_setup_intent(
+        self,
+        customer_id: Optional[str] = None,
+        payment_method_type: str = "card",
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Create a setup intent for saving payment methods"""
+        if not STRIPE_AVAILABLE:
+            return None
+        
+        try:
+            payment_method_types = []
+            if payment_method_type == "card":
+                payment_method_types = ['card']
+            elif payment_method_type in ["ach_debit", "bank_transfer", "ach"]:
+                payment_method_types = ['us_bank_account']
+            else:
+                payment_method_types = ['card']
+            
+            setup_params = {
+                'payment_method_types': payment_method_types
+            }
+            
+            if customer_id:
+                setup_params['customer'] = customer_id
+            
+            if metadata:
+                setup_params['metadata'] = metadata
+            
+            if 'us_bank_account' in payment_method_types:
+                setup_params['payment_method_options'] = {
+                    'us_bank_account': {
+                        'verification_method': 'automatic',
+                        'financial_connections': {
+                            'permissions': ['payment_method', 'balances']
+                        }
+                    }
+                }
+            
+            setup_intent = stripe.SetupIntent.create(**setup_params)
+            
+            return {
+                'id': setup_intent.id,
+                'client_secret': setup_intent.client_secret,
+                'status': setup_intent.status,
+                'payment_method_types': payment_method_types
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to create setup intent: {e}")
+            return None
+    
+    def attach_payment_method(
+        self,
+        payment_method_id: str,
+        customer_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Attach a payment method to a customer"""
+        if not STRIPE_AVAILABLE:
+            return None
+        
+        try:
+            payment_method = stripe.PaymentMethod.attach(
+                payment_method_id,
+                customer=customer_id
+            )
+            
+            # Set as default if no default exists
+            customer = stripe.Customer.retrieve(customer_id)
+            if not customer.invoice_settings.default_payment_method:
+                stripe.Customer.modify(
+                    customer_id,
+                    invoice_settings={'default_payment_method': payment_method_id}
+                )
+            
+            return {
+                'id': payment_method.id,
+                'type': payment_method.type,
+                'customer': payment_method.customer
+            }
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to attach payment method: {e}")
+            return None
+    
+    def list_payment_methods(
+        self,
+        customer_id: str,
+        payment_method_type: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """List payment methods for a customer"""
+        if not STRIPE_AVAILABLE:
+            return []
+        
+        try:
+            params = {'customer': customer_id}
+            if payment_method_type:
+                params['type'] = payment_method_type
+            
+            payment_methods = stripe.PaymentMethod.list(**params)
+            
+            return [
+                {
+                    'id': pm.id,
+                    'type': pm.type,
+                    'card': {
+                        'brand': pm.card.brand if hasattr(pm, 'card') and pm.card else None,
+                        'last4': pm.card.last4 if hasattr(pm, 'card') and pm.card else None,
+                        'exp_month': pm.card.exp_month if hasattr(pm, 'card') and pm.card else None,
+                        'exp_year': pm.card.exp_year if hasattr(pm, 'card') and pm.card else None
+                    } if hasattr(pm, 'card') and pm.card else None,
+                    'us_bank_account': {
+                        'bank_name': pm.us_bank_account.bank_name if hasattr(pm, 'us_bank_account') and pm.us_bank_account else None,
+                        'last4': pm.us_bank_account.last4 if hasattr(pm, 'us_bank_account') and pm.us_bank_account else None,
+                        'account_type': pm.us_bank_account.account_type if hasattr(pm, 'us_bank_account') and pm.us_bank_account else None
+                    } if hasattr(pm, 'us_bank_account') and pm.us_bank_account else None
+                }
+                for pm in payment_methods.data
+            ]
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to list payment methods: {e}")
+            return []
+    
+    def delete_payment_method(self, payment_method_id: str) -> bool:
+        """Delete a payment method"""
+        if not STRIPE_AVAILABLE:
+            return False
+        
+        try:
+            stripe.PaymentMethod.detach(payment_method_id)
+            return True
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to delete payment method: {e}")
+            return False
     
     def handle_webhook(self, payload: bytes, signature: str) -> Optional[Dict[str, Any]]:
         """Handle Stripe webhook events"""

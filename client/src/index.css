@@ -2,6 +2,375 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Enhanced Loading Animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* ============================================
+   SCROLLBAR FIX - Single scrollbar solution
+   ============================================ */
+
+/* CRITICAL: These styles MUST come after Tailwind and override everything */
+/* Use maximum specificity and !important to ensure they apply */
+html:not(.landing-page-active) {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
+body:not(.landing-page-active) {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  min-height: 100vh !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+}
+
+#root {
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  /* Ensure root contains all content and doesn't extend beyond viewport */
+  box-sizing: border-box !important;
+}
+
+/* Landing page - override to allow body scroll */
+html.landing-page-active {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+body.landing-page-active {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#root.landing-page-active {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+  display: block !important;
+}
+
+/* Main content area - ONLY scrollable area when authenticated */
+main#main-content {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important; /* Smooth scrolling on iOS */
+  /* CRITICAL: Prevent scrolling past content */
+  overscroll-behavior: contain !important;
+  overscroll-behavior-y: contain !important;
+  overscroll-behavior-x: contain !important;
+  /* Prevent rubber-banding and scrolling past boundaries */
+  -webkit-overflow-scrolling: touch;
+  /* Enhanced styling */
+  background: linear-gradient(to bottom, hsl(var(--background)), hsl(var(--muted) / 0.3));
+}
+
+/* Ensure main content wrapper doesn't extend beyond content */
+main#main-content > div {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  padding-bottom: 2rem !important;
+  box-sizing: border-box !important;
+}
+
+/* Enhanced UI Improvements */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Smooth scrollbar styling */
+main#main-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+main#main-content::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 4px;
+}
+
+main#main-content::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+  transition: background 200ms;
+}
+
+main#main-content::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Enhanced card hover effects - More visible - MUST override Tailwind with maximum specificity */
+.shadcn-card,
+div.shadcn-card,
+[class*="shadcn-card"],
+div[class*="shadcn-card"],
+.shadcn-card.shadcn-card,
+div[class*="rounded"]:has(.shadcn-card),
+.shadcn-card[class*="border"] {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  border-width: 3px !important;
+  border-style: solid !important;
+  box-shadow: 0px 16px 32px -8px hsl(220 8% 2% / 0.50), 0px 8px 16px -8px hsl(220 8% 2% / 0.50) !important;
+  border-radius: 1.25rem !important;
+  padding: 1.5rem !important;
+}
+
+.shadcn-card::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 4px !important;
+  background: linear-gradient(90deg, hsl(217 91% 50%), hsl(217 91% 60%), hsl(217 91% 50%)) !important;
+  opacity: 0 !important;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 1 !important;
+  box-shadow: 0 2px 8px hsl(217 91% 50% / 0.4) !important;
+}
+
+.shadcn-card:hover,
+div.shadcn-card:hover,
+[class*="shadcn-card"]:hover {
+  transform: translateY(-6px) scale(1.02) !important;
+  box-shadow: 0px 20px 40px -10px hsl(220 8% 2% / 0.60), 0px 10px 20px -10px hsl(220 8% 2% / 0.60) !important;
+  border-color: hsl(var(--primary) / 0.7) !important;
+  border-width: 3px !important;
+}
+
+.shadcn-card:hover::before {
+  opacity: 1 !important;
+}
+
+/* Enhanced button hover effects - More visible */
+button:not(:disabled):hover {
+  transform: translateY(-3px) scale(1.03) !important;
+  box-shadow: 0px 6px 16px -4px hsl(220 8% 2% / 0.45), 0px 4px 8px -4px hsl(220 8% 2% / 0.45) !important;
+}
+
+button:not(:disabled):active {
+  transform: translateY(0) scale(0.97) !important;
+  box-shadow: 0px 2px 4px -1px hsl(220 8% 2% / 0.30) !important;
+}
+
+/* Enhanced badge styling */
+.badge-enhanced {
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  transition: all var(--transition-base);
+}
+
+.badge-enhanced:hover {
+  transform: scale(1.05);
+}
+
+/* Enhanced input focus states */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: hsl(var(--ring));
+  ring-offset: 2px;
+  ring-offset-color: hsl(var(--background));
+  box-shadow: var(--glow-primary);
+}
+
+/* Enhanced status indicators */
+.status-indicator {
+  position: relative;
+  display: inline-block;
+}
+
+.status-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 0 8px currentColor;
+    opacity: 0;
+  }
+}
+
+/* Enhanced loading states */
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* Enhanced grid layouts */
+.grid-enhanced {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+@media (min-width: 640px) {
+  .grid-enhanced {
+    gap: var(--spacing-xl);
+  }
+}
+
+/* Enhanced typography */
+.text-gradient {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Enhanced glass morphism effect */
+.glass {
+  background: hsl(var(--card) / 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+/* Enhanced focus visible states */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Force header and sidebar styles with maximum specificity */
+header[class*="border"] {
+  border-bottom-width: 4px !important;
+  border-bottom-style: solid !important;
+  min-height: 5rem !important;
+  height: 5rem !important;
+  box-shadow: 0px 12px 24px -6px hsl(220 8% 2% / 0.50), 0px 6px 12px -6px hsl(220 8% 2% / 0.50) !important;
+}
+
+aside[class*="border"],
+[data-sidebar] {
+  border-right-width: 4px !important;
+  border-right-style: solid !important;
+  box-shadow: 8px 0px 16px -6px hsl(220 8% 2% / 0.40) !important;
+}
+
+/* Force h1 gradient text */
+header h1 {
+  background-image: linear-gradient(135deg, hsl(217 91% 55%), hsl(217 91% 65%), hsl(217 91% 55%)) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-weight: 900 !important;
+  font-size: clamp(1.5rem, 4vw, 2.25rem) !important;
+}
+
+/* Remove excessive margins from last child to prevent scroll past */
+main#main-content > div > *:last-child {
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Allow landing page to scroll when not authenticated */
+.landing-page-container {
+  /* Don't constrain height - let content flow naturally */
+  min-height: 100vh !important;
+  /* Prevent scroll position from being reset */
+  scroll-behavior: auto !important;
+  /* Ensure smooth scrolling without jumps */
+  position: relative;
+  /* Use body scroll instead of container scroll */
+  overflow: visible !important;
+}
+
+/* Hide Recharts measurement elements that cause HTML overflow */
+#recharts_measurement_span,
+[id^="recharts_"] {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none !important;
+}
+
 /* Accessibility Improvements */
 @layer base {
   /* Screen reader only */
@@ -100,6 +469,23 @@
   /* Backgrounds applied on top of other backgrounds when hovered/active */
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
+  
+  /* Enhanced UI variables - Also available in light mode */
+  --gradient-primary: linear-gradient(135deg, hsl(217 91% 35%), hsl(217 91% 45%));
+  --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+  --gradient-danger: linear-gradient(135deg, hsl(0 84% 40%), hsl(0 84% 50%));
+  --glow-primary: 0 0 20px hsl(217 91% 35% / 0.3);
+  --glow-success: 0 0 20px hsl(142 76% 36% / 0.3);
+  --glow-danger: 0 0 20px hsl(0 84% 40% / 0.3);
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
 
   --background: 220 5% 98%;
 
@@ -293,6 +679,27 @@
   --shadow-lg: 0px 10px 15px -3px hsl(220 8% 2% / 0.30), 0px 4px 6px -4px hsl(220 8% 2% / 0.30);
   --shadow-xl: 0px 20px 25px -5px hsl(220 8% 2% / 0.30), 0px 8px 10px -6px hsl(220 8% 2% / 0.30);
   --shadow-2xl: 0px 25px 50px -12px hsl(220 8% 2% / 0.50);
+  
+  /* Enhanced UI variables - Available in both light and dark */
+  --gradient-primary: linear-gradient(135deg, hsl(217 91% 35%), hsl(217 91% 45%));
+  --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%));
+  --gradient-danger: linear-gradient(135deg, hsl(0 84% 40%), hsl(0 84% 50%));
+  --glow-primary: 0 0 20px hsl(217 91% 35% / 0.3);
+  --glow-success: 0 0 20px hsl(142 76% 36% / 0.3);
+  --glow-danger: 0 0 20px hsl(0 84% 40% / 0.3);
+  
+  /* Smooth transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Enhanced spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
 
   /* Fallback for older browsers */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -328,8 +735,48 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  /* Custom scrollbar styling for scrollable containers only */
+  .scrollable,
+  [class*="overflow-y-auto"],
+  [class*="overflow-auto"] {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  .scrollable::-webkit-scrollbar,
+  [class*="overflow-y-auto"]::-webkit-scrollbar,
+  [class*="overflow-auto"]::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollable::-webkit-scrollbar-track,
+  [class*="overflow-y-auto"]::-webkit-scrollbar-track,
+  [class*="overflow-auto"]::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollable::-webkit-scrollbar-thumb,
+  [class*="overflow-y-auto"]::-webkit-scrollbar-thumb,
+  [class*="overflow-auto"]::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .scrollable::-webkit-scrollbar-thumb:hover,
+  [class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover,
+  [class*="overflow-auto"]::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
   }
 }
 
@@ -449,3 +896,36 @@
     inset: -1px;
   }
 }
+
+/* CRITICAL: Landing page scroll fix - MUST be at the end to override everything with maximum specificity */
+html.landing-page-active {
+  width: 100% !important;
+  min-width: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100vh !important;
+}
+
+body.landing-page-active {
+  width: 100% !important;
+  min-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 100vh !important;
+}
+
+#root.landing-page-active {
+  width: 100% !important;
+  min-width: 100% !important;
+  display: block !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+

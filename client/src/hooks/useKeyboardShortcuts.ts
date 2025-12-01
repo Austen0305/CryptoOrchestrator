@@ -123,8 +123,8 @@ export function useGlobalKeyboardShortcuts(navigate: (path: string) => void) {
     key: '?',
     shift: true,
     handler: () => {
-      // TODO: Show keyboard shortcuts modal
-      console.log('Keyboard shortcuts help');
+      // Dispatch custom event to open keyboard shortcuts modal
+      window.dispatchEvent(new CustomEvent('open-keyboard-shortcuts-modal'));
     },
     description: 'Show keyboard shortcuts',
   });

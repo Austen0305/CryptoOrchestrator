@@ -1,0 +1,545 @@
+---
+alwaysApply: true
+---
+# CryptoOrchestrator - Architect Mode
+
+You are operating in **Architect Mode**, which means you follow a systematic **Research → Plan → Build** workflow. This mode is designed for complex features, architectural decisions, and comprehensive solutions that require deep understanding before implementation.
+
+> **Activation**: This mode should be used when the user requests architectural changes, new features requiring design decisions, or complex refactoring. When activated, explicitly state: "🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build"
+
+---
+
+## 🎯 Architect Mode Workflow
+
+### Phase 1: RESEARCH 🔍
+
+**Goal**: Understand the problem, existing codebase, and available solutions before making any decisions.
+
+#### 1.1 Problem Understanding
+- **Read the user's request carefully** - What is the actual problem they're trying to solve?
+- **Identify constraints** - Performance, security, compatibility, timeline
+- **Clarify ambiguities** - Ask specific questions if requirements are unclear
+- **Define success criteria** - How will we know the solution works?
+
+#### 1.2 Codebase Research
+**Always search the codebase first** to understand existing patterns:
+
+```typescript
+// Search patterns:
+- "How does X work in the codebase?"
+- "Where is Y implemented?"
+- "What patterns exist for Z?"
+- "How is authentication handled?"
+- "Where are database queries made?"
+```
+
+**Key Files to Review** (when relevant):
+- `.cursor/rules/cursorprojectrules.mdc` - Full-stack patterns
+- `.cursor/rules/cursor-backend.mdc` - Backend-specific patterns
+- `.cursor/rules/cursor-frontend.mdc` - Frontend-specific patterns
+- `README.md` - Project overview and features
+- `docs/architecture.md` - System architecture
+- `server_fastapi/main.py` - Backend entry point
+- `client/src/lib/api.ts` - Frontend API client
+
+#### 1.3 External Research (Using MCP Tools)
+
+**Use MCP tools intelligently** based on the research need:
+
+**Context7** - Library Documentation & Patterns:
+- When: Need latest library patterns, API documentation, or best practices
+- Examples:
+  - "Get latest FastAPI async dependency injection patterns"
+  - "Find React Query invalidation best practices"
+  - "Get TypeScript strict mode patterns"
+  - "FastAPI WebSocket implementation guide"
+- **When to use**: Before implementing with a library, especially if local docs might be outdated
+
+**StackOverflow** - Community Solutions:
+- When: Encountering error messages, need community-tested solutions
+- Examples:
+  - Search for specific error messages
+  - Find solutions to common problems
+  - Learn from community implementations
+- **When to use**: Debugging issues, finding proven solutions, learning patterns
+
+**Brave Search** - Best Practices & Current Standards:
+- When: Need latest industry best practices, security recommendations, or when Context7 doesn't cover it
+- Examples:
+  - "Cryptocurrency exchange API security best practices 2024"
+  - "FastAPI async best practices"
+  - "React performance optimization techniques"
+  - "PostgreSQL connection pooling strategies"
+- **When to use**: Research best practices, security standards, performance optimization
+
+**ArXiv** - Research Papers (for ML/AI features):
+- When: Implementing ML models, trading algorithms, or advanced AI features
+- Examples:
+  - "Cryptocurrency market prediction using LSTM"
+  - "Risk management in algorithmic trading"
+  - "Sentiment analysis for financial markets"
+- **When to use**: Research advanced algorithms, academic approaches to trading problems
+
+**AllThingsDev** - API Marketplace:
+- When: Need to integrate external APIs or services
+- Examples:
+  - Search for cryptocurrency APIs
+  - Find market data providers
+  - Compare API offerings
+- **When to use**: Exploring third-party integrations
+
+**Sequential Thinking** - Complex Problem Solving:
+- When: Dealing with complex architectural problems that need step-by-step reasoning
+- Examples:
+  - Design database schema for new feature
+  - Plan migration strategy
+  - Analyze trade-offs between approaches
+- **When to use**: Complex decision-making requiring logical reasoning
+
+**Memory/Memory-Bank** - Knowledge Storage:
+- When: Important architectural decisions need to be stored for future reference
+- Examples:
+  - Store design decisions
+  - Remember why specific patterns were chosen
+  - Document trade-offs made
+- **When to use**: After making important decisions, store them for future reference
+
+**GitHub** - Repository Management:
+- When: Need to understand git history, create branches, or review PRs
+- Examples:
+  - Review commit history for context
+  - Create feature branches for new work
+  - Search issues for related discussions
+- **When to use**: Understanding project history, managing work
+
+**Database Tools** (Postgres/Enhanced-Postgres/SQLite):
+- When: Need to understand database schema, test queries, or debug data issues
+- Examples:
+  - Inspect existing database schema
+  - Test query performance
+  - Verify data relationships
+- **When to use**: Database-related research and testing
+
+**Puppeteer/Browser** - Frontend Testing:
+- When: Need to verify UI behavior, test user flows, or debug frontend issues
+- Examples:
+  - Verify component rendering
+  - Test user workflows
+  - Debug visual issues
+- **When to use**: Frontend research and verification
+
+#### 1.4 Documentation Review
+- Review existing documentation in `/docs` directory
+- Check API documentation at `http://localhost:8000/docs`
+- Review architecture diagrams and design docs
+
+#### 1.5 Research Output
+After research, provide:
+- **Summary of findings** - What did you learn?
+- **Existing patterns** - What patterns already exist in the codebase?
+- **Gaps identified** - What's missing or needs improvement?
+- **Technology choices** - What libraries/tools are best suited?
+
+---
+
+### Phase 2: PLAN 📋
+
+**Goal**: Create a comprehensive implementation plan before writing any code.
+
+#### 2.1 Architecture Design
+
+**For Backend Features:**
+1. **Data Model Design**
+   - Design SQLAlchemy models
+   - Plan database migrations
+   - Consider relationships and constraints
+
+2. **API Design**
+   - Define request/response models (Pydantic)
+   - Design endpoint structure
+   - Plan error handling
+   - Consider rate limiting and security
+
+3. **Service Layer Design**
+   - Define service interfaces
+   - Plan business logic separation
+   - Consider caching strategies
+   - Plan error handling
+
+4. **Repository Layer Design**
+   - Plan data access patterns
+   - Consider query optimization
+   - Plan transaction handling
+
+**For Frontend Features:**
+1. **Component Architecture**
+   - Design component hierarchy
+   - Plan state management (React Query vs useState)
+   - Consider component reusability
+   - Plan loading/error states
+
+2. **API Integration**
+   - Design API functions in `lib/api.ts`
+   - Plan React Query hooks
+   - Consider caching and invalidation strategies
+
+3. **User Experience**
+   - Plan user flows
+   - Design error handling
+   - Consider accessibility
+   - Plan responsive design
+
+#### 2.2 Implementation Strategy
+
+**Break down into steps:**
+1. **Dependencies** - What needs to be created first?
+2. **Order of implementation** - What's the logical sequence?
+3. **Integration points** - How do pieces connect?
+4. **Testing strategy** - How will we verify it works?
+
+#### 2.3 Risk Assessment
+
+**Identify potential issues:**
+- **Security risks** - Authentication, authorization, input validation
+- **Performance concerns** - Database queries, API calls, rendering
+- **Scalability issues** - Will this scale?
+- **Breaking changes** - Will this affect existing features?
+- **Migration complexity** - If changing existing code
+
+#### 2.4 Plan Output
+
+Create a comprehensive plan document:
+
+```markdown
+## Implementation Plan
+
+### Overview
+[Brief description of what we're building and why]
+
+### Architecture
+
+#### Backend (if applicable)
+- **Models**: [List of models to create/modify]
+- **Routes**: [List of endpoints]
+- **Services**: [List of services]
+- **Migrations**: [Migration plan]
+
+#### Frontend (if applicable)
+- **Components**: [List of components]
+- **Hooks**: [List of custom hooks]
+- **API Functions**: [List of API functions]
+- **State Management**: [React Query keys, state strategy]
+
+### Implementation Steps
+
+1. [Step 1: Description]
+   - Files to create: [list]
+   - Files to modify: [list]
+   - Dependencies: [list]
+
+2. [Step 2: Description]
+   ...
+
+### Testing Strategy
+- Unit tests: [what to test]
+- Integration tests: [what to test]
+- E2E tests: [what to test]
+
+### Risk Mitigation
+- [Risk 1]: [Mitigation strategy]
+- [Risk 2]: [Mitigation strategy]
+
+### Dependencies
+- [New libraries needed]
+- [Environment variables needed]
+- [Database migrations needed]
+```
+
+#### 2.5 Get Approval (When Appropriate)
+
+For major architectural changes:
+- Present the plan clearly
+- Explain trade-offs
+- Ask for user approval before proceeding
+- Be open to feedback and adjustments
+
+---
+
+### Phase 3: BUILD 🔨
+
+**Goal**: Implement the solution following the plan, with high-quality, production-ready code.
+
+#### 3.1 Implementation Order
+
+**Follow this sequence:**
+
+1. **Foundation First**
+   - Database models and migrations (backend)
+   - Type definitions (shared/frontend)
+   - Core utilities
+
+2. **Data Layer**
+   - Repository layer (backend)
+   - API client functions (frontend)
+
+3. **Business Logic**
+   - Service layer (backend)
+   - React Query hooks (frontend)
+
+4. **API Layer**
+   - Routes and endpoints (backend)
+   - API integration (frontend)
+
+5. **UI Layer**
+   - Components (frontend)
+   - Error boundaries
+   - Loading states
+
+6. **Integration**
+   - Connect all layers
+   - End-to-end testing
+   - Error handling
+
+#### 3.2 Code Quality Standards
+
+**Follow all existing rules:**
+- `.cursor/rules/cursorprojectrules.mdc` - Full-stack patterns
+- `.cursor/rules/cursor-backend.mdc` - Backend patterns
+- `.cursor/rules/cursor-frontend.mdc` - Frontend patterns
+
+**Key Quality Checks:**
+- ✅ Type hints/types are complete (no `any` in TypeScript)
+- ✅ Error handling is comprehensive
+- ✅ Tests are included
+- ✅ Documentation is updated
+- ✅ Security is considered
+- ✅ Performance is acceptable
+- ✅ Code follows project patterns
+- ✅ Edge cases are handled
+
+#### 3.3 Incremental Implementation
+
+**Build incrementally:**
+1. Implement one layer at a time
+2. Test after each layer
+3. Verify integration points
+4. Refactor if needed
+
+**Use Git branches:**
+- Create feature branch: `feature/architect-mode/[feature-name]`
+- Commit incrementally with meaningful messages
+- Test before finalizing
+
+#### 3.4 Testing
+
+**Include tests from the start:**
+- **Unit tests** - Test individual functions/components
+- **Integration tests** - Test API endpoints with test database
+- **E2E tests** - Test complete user workflows
+
+**Testing checklist:**
+- ✅ Success cases
+- ✅ Error cases
+- ✅ Edge cases
+- ✅ Validation errors
+- ✅ Permission checks
+
+#### 3.5 Documentation
+
+**Update documentation:**
+- Add docstrings to new functions/classes
+- Update API documentation (FastAPI auto-generates)
+- Update README if needed
+- Add comments for complex logic
+
+#### 3.6 Final Review
+
+**Before completion, verify:**
+- ✅ All tests pass
+- ✅ No linter errors
+- ✅ Type checking passes (mypy/TypeScript)
+- ✅ Code follows project patterns
+- ✅ Security review completed
+- ✅ Performance acceptable
+- ✅ Documentation complete
+
+---
+
+## 🛠️ MCP Tool Usage Guide
+
+### Decision Tree for MCP Tool Selection
+
+```text
+Need Documentation/Library Patterns?
+├─ Yes → Context7 (latest library docs)
+└─ No → Continue
+
+Need Community Solutions/Error Help?
+├─ Yes → StackOverflow
+└─ No → Continue
+
+Need Best Practices/Security Info?
+├─ Yes → Brave Search
+└─ No → Continue
+
+Need ML/AI Research?
+├─ Yes → ArXiv
+└─ No → Continue
+
+Need External API Integration?
+├─ Yes → AllThingsDev
+└─ No → Continue
+
+Complex Problem Solving?
+├─ Yes → Sequential Thinking
+└─ No → Continue
+
+Need Database Research?
+├─ Yes → Postgres/Enhanced-Postgres/SQLite
+└─ No → Continue
+
+Need Frontend Verification?
+├─ Yes → Puppeteer/Browser
+└─ No → Continue
+
+Need Git Operations?
+├─ Yes → GitHub
+└─ No → Continue
+
+Need to Store Knowledge?
+├─ Yes → Memory/Memory-Bank
+└─ No → Continue
+```
+
+### MCP Tool Best Practices
+
+1. **Use Multiple Sources** - Don't rely on one tool; cross-reference information
+2. **Verify Relevance** - Ensure solutions apply to your stack versions
+3. **Store Findings** - Use Memory-Bank for important decisions
+4. **Test in Isolation** - Try solutions in a test environment first
+5. **Document Sources** - Note where you found important information
+
+---
+
+## 📊 Architect Mode Checklist
+
+### Research Phase ✅
+- [ ] Problem clearly understood
+- [ ] Codebase searched for existing patterns
+- [ ] External research completed (MCP tools used appropriately)
+- [ ] Documentation reviewed
+- [ ] Findings summarized
+
+### Plan Phase ✅
+- [ ] Architecture designed
+- [ ] Implementation strategy defined
+- [ ] Risks identified and mitigation planned
+- [ ] Plan documented
+- [ ] User approval obtained (if major changes)
+
+### Build Phase ✅
+- [ ] Foundation implemented (models/types)
+- [ ] Data layer implemented
+- [ ] Business logic implemented
+- [ ] API/UI layer implemented
+- [ ] Integration completed
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] Code quality checks passed
+
+---
+
+## 🎯 When to Use Architect Mode
+
+**Use Architect Mode for:**
+- ✅ New major features requiring design decisions
+- ✅ Architectural refactoring
+- ✅ Complex integrations
+- ✅ Security-sensitive features
+- ✅ Performance-critical features
+- ✅ Features affecting multiple layers
+- ✅ Migration or upgrade tasks
+- ✅ Features requiring external research
+
+**Skip Architect Mode for:**
+- ❌ Simple bug fixes
+- ❌ Minor UI tweaks
+- ❌ Adding tests to existing code
+- ❌ Documentation updates only
+- ❌ Simple refactoring (extract function, rename)
+
+---
+
+## 🔄 Architect Mode Workflow Example
+
+```text
+User: "Add real-time notifications for bot status changes"
+
+🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build
+
+=== PHASE 1: RESEARCH ===
+1. Search codebase: "How are WebSockets currently implemented?"
+2. Search codebase: "Where are bot status changes handled?"
+3. Use Context7: "FastAPI WebSocket best practices"
+4. Use Context7: "React WebSocket hook patterns"
+5. Review existing WebSocket implementation (if any)
+
+=== PHASE 2: PLAN ===
+1. Design WebSocket architecture:
+   - Backend: FastAPI WebSocket endpoint
+   - Frontend: React hook for WebSocket connection
+   - Message format: JSON with type and payload
+2. Integration points:
+   - Connect to bot service status updates
+   - Frontend subscription management
+3. Implementation steps:
+   - Step 1: Backend WebSocket endpoint
+   - Step 2: WebSocket service for broadcasting
+   - Step 3: Frontend WebSocket hook
+   - Step 4: Notification component
+   - Step 5: Integration with bot status updates
+
+=== PHASE 3: BUILD ===
+1. Implement backend WebSocket endpoint
+2. Create WebSocket service
+3. Create React WebSocket hook
+4. Create notification component
+5. Integrate with bot service
+6. Write tests
+7. Update documentation
+```
+
+---
+
+## 🚨 Critical Architect Mode Rules
+
+1. **Never skip research** - Always understand the problem and existing codebase first
+2. **Always create a plan** - Document your approach before coding
+3. **Use MCP tools intelligently** - Research with appropriate tools before implementing
+4. **Follow existing patterns** - Match the codebase style and architecture
+5. **Test incrementally** - Don't wait until the end to test
+6. **Document decisions** - Store important architectural decisions in Memory-Bank
+7. **Get approval for major changes** - Present plan before implementing large features
+8. **Maintain quality** - All code should meet project quality standards
+9. **Consider security** - Always think about security implications
+10. **Plan for scalability** - Consider future growth and requirements
+
+---
+
+## 📚 Integration with Other Rules
+
+This Architect Mode rules file works in conjunction with:
+- **`.cursor/rules/cursorprojectrules.mdc`** - Follow full-stack patterns
+- **`.cursor/rules/cursor-backend.mdc`** - Follow backend patterns
+- **`.cursor/rules/cursor-frontend.mdc`** - Follow frontend patterns
+
+**When in Architect Mode:**
+- Follow ALL existing rules
+- Use Architect Mode workflow (Research → Plan → Build)
+- Apply MCP tools intelligently during Research phase
+- Create comprehensive plans during Plan phase
+- Implement with high quality during Build phase
+
+---
+
+**Remember**: Architect Mode is about doing things right the first time. Take time to research, plan thoroughly, then build with confidence. Quality over speed! 🏗️

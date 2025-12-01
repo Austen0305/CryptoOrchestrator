@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add integrations to path
-integrations_path = os.path.join(os.path.dirname(__file__), '../../integrations')
+integrations_path = os.path.join(os.path.dirname(__file__), '../../server/integrations')
 sys.path.insert(0, integrations_path)
 
 logger = logging.getLogger(__name__)

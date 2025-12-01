@@ -5,20 +5,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { EmptyStrategiesState } from "@/components/EmptyState";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
 import { useStrategies, Strategy } from "@/hooks/useStrategies";
-import { Loader2, Edit, Trash2, Play, BarChart3, Copy, Globe, Plus } from "lucide-react";
+import { Edit, Trash2, Play, BarChart3, Copy, Globe, Plus } from "lucide-react";
 import { formatPercentage, formatCurrency } from "@/lib/formatters";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useDeleteStrategy } from "@/hooks/useStrategies";
 import { toast } from "@/hooks/use-toast";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
 
 interface StrategyListProps {
-  onEdit?: (strategy: Strategy) => void;
+  /** Called when editing an existing strategy or creating a new one (pass null for new) */
+  onEdit?: (strategy: Strategy | null) => void;
 }
 
 export function StrategyList({ onEdit }: StrategyListProps) {
-  const { data: strategies, isLoading } = useStrategies(false);
+  const { data: strategies, isLoading, error, refetch } = useStrategies(false);
   const deleteStrategy = useDeleteStrategy();
+  
+  // Pagination
+  const pagination = usePagination({
+    initialPage: 1,
+    initialPageSize: 10,
+    totalItems: strategies?.length || 0,
+  });
+
+  const paginatedStrategies = useMemo(() => {
+    if (!strategies) return [];
+    return strategies.slice(pagination.startIndex, pagination.endIndex);
+  }, [strategies, pagination.startIndex, pagination.endIndex]);
 
   const handleDelete = async (strategyId: string, strategyName: string) => {
     if (!confirm(`Are you sure you want to delete "${strategyName}"?`)) {
@@ -43,8 +61,30 @@ export function StrategyList({ onEdit }: StrategyListProps) {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <CardHeader>
+          <CardTitle>My Strategies</CardTitle>
+          <CardDescription>Loading strategies...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton variant="table" count={5} className="h-16" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>My Strategies</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load strategies"
+            message={error instanceof Error ? error.message : "Unable to fetch strategies. Please try again."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
         </CardContent>
       </Card>
     );
@@ -52,15 +92,7 @@ export function StrategyList({ onEdit }: StrategyListProps) {
 
   if (!strategies || strategies.length === 0) {
     return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <p className="text-muted-foreground mb-4">No strategies found.</p>
-          <Button onClick={() => onEdit?.(null as any)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Your First Strategy
-          </Button>
-        </CardContent>
-      </Card>
+      <EmptyStrategiesState onCreate={() => onEdit?.(null)} />
     );
   }
 
@@ -69,7 +101,7 @@ export function StrategyList({ onEdit }: StrategyListProps) {
       <CardHeader>
         <CardTitle>My Strategies</CardTitle>
         <CardDescription>
-          Manage your trading strategies ({strategies.length} total)
+          Manage your trading strategies ({strategies?.length || 0} total)
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -86,7 +118,7 @@ export function StrategyList({ onEdit }: StrategyListProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {strategies.map((strategy) => (
+            {paginatedStrategies.map((strategy) => (
               <TableRow key={strategy.id}>
                 <TableCell>
                   <div>
@@ -162,6 +194,21 @@ export function StrategyList({ onEdit }: StrategyListProps) {
             ))}
           </TableBody>
         </Table>
+        
+        {/* Pagination */}
+        {strategies && strategies.length > pagination.pageSize && (
+          <div className="mt-4 pt-4 border-t">
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              totalPages={pagination.totalPages}
+              totalItems={pagination.totalItems}
+              onPageChange={(page) => pagination.goToPage(page)}
+              onPageSizeChange={(size) => pagination.setPageSize(size)}
+              pageSizeOptions={[10, 20, 50]}
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

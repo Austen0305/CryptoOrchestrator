@@ -12,6 +12,9 @@ from ..exchange_service import ExchangeService
 from ...services.auth.exchange_key_service import exchange_key_service
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.trading.safe_trading_system import SafeTradingSystem
+from ...services.real_money_safety import real_money_safety_service
+from ...services.real_money_transaction_manager import real_money_transaction_manager
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +25,8 @@ class RealMoneyTradingService:
     def __init__(self):
         self.risk_manager = AdvancedRiskManager.get_instance()
         self.safe_trading_system = SafeTradingSystem()
+        # Note: real_money_safety_service and real_money_transaction_manager
+        # are imported at module level to avoid circular imports
 
     async def execute_real_money_trade(
         self,
@@ -34,8 +39,126 @@ class RealMoneyTradingService:
         price: Optional[float] = None,
         bot_id: Optional[str] = None,
         mfa_token: Optional[str] = None,
+        stop: Optional[float] = None,
+        take_profit: Optional[float] = None,
+        trailing_stop_percent: Optional[float] = None,
+        time_in_force: Optional[str] = "GTC",
     ) -> Dict[str, Any]:
         """Execute a real money trade with proper validation and security"""
+        user_id_int = int(user_id) if isinstance(user_id, str) and user_id.isdigit() else user_id
+        if not isinstance(user_id_int, int):
+            user_id_int = int(user_id) if user_id else 1
+        
+        # Convert to Decimal for precision
+        amount_decimal = Decimal(str(amount))
+        price_decimal = Decimal(str(price)) if price else None
+        
+        # Calculate trade value in USD for compliance checks
+        trade_value_usd = float(amount_decimal) * (float(price_decimal) if price_decimal else 0.0)
+        if not price_decimal:  # Market order - estimate with current price
+            try:
+                from ..exchange_service import ExchangeService
+                from ..auth.exchange_key_service import exchange_key_service
+                api_key_data = await exchange_key_service.get_api_key(
+                    str(user_id_int), exchange, include_secrets=False
+                )
+                if api_key_data:
+                    exchange_service = ExchangeService(
+                        name=exchange,
+                        use_mock=False,
+                        api_key=api_key_data.get('api_key'),
+                        api_secret=api_key_data.get('api_secret')
+                    )
+                    current_price = await exchange_service.get_market_price(pair)
+                    if current_price:
+                        trade_value_usd = float(amount_decimal) * current_price
+            except Exception as e:
+                logger.warning(f"Could not estimate trade value for compliance: {e}")
+        
+        # Compliance checks
+        from ..compliance.compliance_service import compliance_service, ComplianceCheckResult
+        compliance_result, compliance_reasons = await compliance_service.check_trade_compliance(
+            user_id=user_id_int,
+            amount_usd=trade_value_usd,
+            exchange=exchange,
+            symbol=pair,
+            side=side
+        )
+        
+        if compliance_result == ComplianceCheckResult.BLOCKED:
+            error_message = "; ".join(compliance_reasons)
+            logger.warning(f"Trade blocked by compliance for user {user_id}: {error_message}")
+            raise ValueError(f"Trade blocked by compliance: {error_message}")
+        elif compliance_result == ComplianceCheckResult.REQUIRES_KYC:
+            error_message = "; ".join(compliance_reasons)
+            logger.warning(f"Trade requires KYC for user {user_id}: {error_message}")
+            raise ValueError(f"KYC verification required: {error_message}")
+        elif compliance_result == ComplianceCheckResult.REQUIRES_REVIEW:
+            logger.warning(f"Trade flagged for compliance review for user {user_id}: {compliance_reasons}")
+            # Continue with trade but log for review
+        
+        # Comprehensive safety validation
+        is_valid, errors, metadata = await real_money_safety_service.validate_real_money_trade(
+            user_id=user_id_int,
+            exchange=exchange,
+            symbol=pair,
+            side=side,
+            amount=amount_decimal,
+            price=price_decimal
+        )
+        
+        if not is_valid:
+            error_message = "; ".join(errors)
+            logger.warning(f"Real money trade validation failed for user {user_id}: {error_message}")
+            raise ValueError(f"Trade validation failed: {error_message}")
+        
+        # Execute within atomic transaction
+        async def _execute_trade(db):
+            return await self._execute_trade_internal(
+                user_id_int, exchange, pair, side, order_type,
+                float(amount_decimal), float(price_decimal) if price_decimal else None,
+                bot_id, mfa_token, db
+            )
+        
+        try:
+            result = await real_money_transaction_manager.execute_with_rollback(
+                operation=_execute_trade,
+                operation_name="trade",
+                user_id=user_id_int,
+                operation_details={
+                    "exchange": exchange,
+                    "symbol": pair,
+                    "side": side,
+                    "amount": float(amount_decimal),
+                    "price": float(price_decimal) if price_decimal else None,
+                    "order_type": order_type,
+                    "bot_id": bot_id,
+                    **metadata
+                }
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Failed to execute real money trade: {e}", exc_info=True)
+            raise
+    
+    async def _execute_trade_internal(
+        self,
+        user_id: int,
+        exchange: str,
+        pair: str,
+        side: str,
+        order_type: str,
+        amount: float,
+        price: Optional[float],
+        bot_id: Optional[str],
+        mfa_token: Optional[str],
+        db,
+        stop: Optional[float] = None,
+        take_profit: Optional[float] = None,
+        trailing_stop_percent: Optional[float] = None,
+        time_in_force: Optional[str] = "GTC",
+    ) -> Dict[str, Any]:
+        """Internal trade execution logic (called within transaction)"""
         try:
             # Convert user_id to int
             user_id_int = int(user_id) if isinstance(user_id, str) and user_id.isdigit() else user_id
@@ -130,7 +253,7 @@ class RealMoneyTradingService:
             except Exception as e:
                 raise ConnectionError(f"Failed to connect to {exchange}: {e}")
 
-            # 4. Execute trade
+            # 4. Execute trade with advanced order type support
             if order_type == "market":
                 order_result = await exchange_instance.create_market_order(
                     symbol=pair,
@@ -145,6 +268,48 @@ class RealMoneyTradingService:
                     side=side,
                     amount=amount,
                     price=price,
+                    time_in_force=time_in_force or "GTC",
+                )
+            elif order_type in ("stop", "stop-limit"):
+                if not stop:
+                    raise ValueError("Stop price required for stop orders")
+                if order_type == "stop-limit" and not price:
+                    raise ValueError("Price required for stop-limit orders")
+                # Use exchange service place_order method which supports stop orders
+                from ..exchange_service import default_exchange
+                order_result = await default_exchange.place_order(
+                    pair=pair,
+                    side=side,
+                    type_=order_type,
+                    amount=amount,
+                    price=price,
+                    stop=stop,
+                    time_in_force=time_in_force or "GTC",
+                )
+            elif order_type == "take-profit":
+                if not take_profit:
+                    raise ValueError("Take profit price required for take-profit orders")
+                # Take-profit orders are typically limit orders with a specific price
+                order_result = await exchange_instance.create_limit_order(
+                    symbol=pair,
+                    side=side,
+                    amount=amount,
+                    price=take_profit,
+                    time_in_force=time_in_force or "GTC",
+                )
+            elif order_type == "trailing-stop":
+                if not trailing_stop_percent:
+                    raise ValueError("Trailing stop percentage required for trailing-stop orders")
+                # Trailing stop orders require exchange-specific implementation
+                # For now, create a stop order that will be updated dynamically
+                # This would need exchange-specific API support
+                order_result = await exchange_instance.create_order(
+                    symbol=pair,
+                    type="STOP_LOSS_LIMIT" if price else "STOP_LOSS",
+                    side=side.upper(),
+                    amount=amount,
+                    price=price,
+                    stopPrice=price * (1 - trailing_stop_percent / 100) if side == "buy" else price * (1 + trailing_stop_percent / 100),
                 )
             else:
                 raise ValueError(f"Unsupported order type: {order_type}")
@@ -202,6 +367,22 @@ class RealMoneyTradingService:
                 f"Real money trade executed: user={user_id}, exchange={exchange}, "
                 f"pair={pair}, side={side}, amount={amount}, price={price}"
             )
+            
+            # Record transaction for compliance monitoring
+            try:
+                from ..compliance.compliance_service import compliance_service
+                trade_value_usd = amount * (price or order_result.get("price", 0))
+                await compliance_service.record_transaction(
+                    user_id=user_id_int,
+                    transaction_id=order_result.get("id", "unknown"),
+                    amount_usd=trade_value_usd,
+                    exchange=exchange,
+                    symbol=pair,
+                    side=side,
+                    order_id=order_result.get("id")
+                )
+            except Exception as e:
+                logger.error(f"Failed to record transaction for compliance: {e}")
 
             return {
                 "success": True,

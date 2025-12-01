@@ -12,8 +12,13 @@ type MetricHandler = (metric: Metric) => void;
  */
 async function sendToAnalytics(metric: Metric) {
   try {
+    // Get base URL from environment or use default backend URL (same as apiRequest)
+    const windowWithGlobals = typeof window !== 'undefined' ? window as Window & { VITE_API_URL?: string } : null;
+    const baseUrl = windowWithGlobals?.VITE_API_URL || "http://localhost:8000";
+    const url = `${baseUrl}/api/analytics/web-vitals`;
+    
     // Send to FastAPI analytics endpoint
-    const response = await fetch('/api/analytics/web-vitals', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -30,10 +35,18 @@ async function sendToAnalytics(metric: Metric) {
     });
 
     if (!response.ok) {
-      console.warn('Failed to send web vitals:', response.statusText);
+      // Silently fail for 404 - endpoint may not be available until backend is restarted
+      // Don't log 404 errors to avoid console spam
+      if (response.status !== 404 && import.meta.env.DEV) {
+        console.debug('Failed to send web vitals:', response.statusText);
+      }
     }
   } catch (error) {
-    console.warn('Error sending web vitals:', error);
+    // Silently fail - analytics endpoint is optional
+    // Only log in development mode
+    if (import.meta.env.DEV) {
+      console.debug('Web vitals analytics endpoint not available:', error);
+    }
   }
 
   // Also log to console in development

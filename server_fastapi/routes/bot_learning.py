@@ -8,9 +8,10 @@ from typing import Dict, Any, List
 from datetime import datetime
 import logging
 
-from ..middleware.auth import get_current_user
+from ..dependencies.auth import get_current_user
 from ..services.ml.adaptive_learning import adaptive_learning_service
-from ..services.trading.bot_service import BotService, get_bot_service
+from ..services.trading.bot_service import BotService
+from ..dependencies.bots import get_bot_service
 
 logger = logging.getLogger(__name__)
 

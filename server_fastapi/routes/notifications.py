@@ -1,40 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-import jwt
-import os
 import logging
 
 from ..services.notification_service import NotificationService, NotificationCategory, NotificationPriority
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-security = HTTPBearer()
-
-# Environment variables
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 
 # Initialize service
 notification_service = NotificationService()
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    """Get current user from JWT token"""
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload.get('id')
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
-
-        # Mock user lookup - in real implementation, get from database
-        user = {'id': user_id, 'email': f'user{user_id}@example.com'}
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
 
 @router.get("/", response_model=Dict[str, Any])
 async def get_notifications(

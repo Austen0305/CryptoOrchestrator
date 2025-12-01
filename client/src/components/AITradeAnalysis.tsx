@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -13,6 +11,10 @@ import {
   RefreshCw,
   Sparkles
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
 
 interface TradeInsight {
   type: 'strength' | 'weakness' | 'opportunity' | 'threat';
@@ -49,40 +51,15 @@ interface AITradeAnalysisProps {
 }
 
 export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
-  const [analysis, setAnalysis] = useState<AIAnalysisData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchAnalysis = async () => {
-    try {
-      setRefreshing(true);
-      const response = await fetch(`/api/ai-analysis/bot/${botId}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch AI analysis');
-      }
-      
-      const data = await response.json();
-      setAnalysis(data);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      console.error('Error fetching AI analysis:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAnalysis();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchAnalysis, 30000);
-    
-    return () => clearInterval(interval);
-  }, [botId]);
+  const { data: analysis, isLoading, error, refetch, isRefetching } = useQuery<AIAnalysisData>({
+    queryKey: ['ai-analysis', botId],
+    queryFn: async () => {
+      return await apiRequest(`/api/ai-analysis/bot/${botId}`, { method: 'GET' });
+    },
+    enabled: !!botId,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    retry: 2,
+  });
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -138,7 +115,7 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
@@ -148,9 +125,7 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
+          <LoadingSkeleton count={3} className="h-24 w-full" />
         </CardContent>
       </Card>
     );
@@ -160,17 +135,18 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-red-500">
-            <AlertCircle className="h-6 w-6" />
-            Error Loading Analysis
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-6 w-6" />
+            AI Trade Analysis
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">{error || 'No data available'}</p>
-          <Button onClick={fetchAnalysis} className="mt-4">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+          <ErrorRetry
+            title="Failed to load AI analysis"
+            message={error instanceof Error ? error.message : 'No data available'}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
         </CardContent>
       </Card>
     );
@@ -192,10 +168,10 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={fetchAnalysis}
-            disabled={refreshing}
+            onClick={() => refetch()}
+            disabled={isRefetching}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
           </Button>
         </div>
       </CardHeader>

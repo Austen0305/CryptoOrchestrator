@@ -1,14 +1,4 @@
 {
-  "include": ["client/src/**/*", "shared/**/*"],
-  "exclude": [
-    "node_modules",
-    "build",
-    "dist",
-    "server/**",
-    "**/*.test.ts",
-    "**/*.test.tsx",
-    "**/__tests__/**"
-  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
@@ -31,9 +21,31 @@
     },
     "typeRoots": ["./node_modules/@types", "./types"],
     "strictNullChecks": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
-  }
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "exactOptionalPropertyTypes": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["client/src/**/*", "shared/**/*"],
+  "exclude": [
+    "node_modules",
+    "build",
+    "dist",
+    "server/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**"
+  ]
 }

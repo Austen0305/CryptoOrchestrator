@@ -7,15 +7,20 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Bell, Check, Trash2, CheckCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { NotificationCenterEmpty } from './NotificationCenterEmpty';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
 
 export const NotificationCenter = () => {
   const {
     notifications,
     isLoading,
+    error,
     unreadCount,
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    fetchNotifications,
   } = useNotifications();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -75,12 +80,21 @@ export const NotificationCenter = () => {
           <CardContent className="p-0">
             <ScrollArea className="h-80">
               {isLoading ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  Loading notifications...
+                <div className="p-4 space-y-2">
+                  <LoadingSkeleton count={3} className="h-16 w-full" />
+                </div>
+              ) : error ? (
+                <div className="p-4">
+                  <ErrorRetry
+                    title="Failed to load notifications"
+                    message={error instanceof Error ? error.message : "An unexpected error occurred."}
+                    onRetry={() => fetchNotifications()}
+                    error={error as Error}
+                  />
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="p-4 text-center text-sm text-muted-foreground">
-                  No notifications yet
+                <div className="p-4">
+                  <NotificationCenterEmpty />
                 </div>
               ) : (
                 <div className="space-y-1">

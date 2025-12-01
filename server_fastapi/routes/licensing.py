@@ -8,7 +8,7 @@ from datetime import datetime
 import logging
 
 from ..services.licensing.license_service import license_service, LicenseType
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

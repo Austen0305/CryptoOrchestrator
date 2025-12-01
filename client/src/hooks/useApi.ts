@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { botApi, tradeApi, portfolioApi, marketApi, feeApi, statusApi, integrationsApi, runRiskScenario } from "@/lib/api";
+import { botApi, tradeApi, portfolioApi, marketApi, feeApi, statusApi, integrationsApi, runRiskScenario, activityApi, performanceApi, gridTradingApi, dcaTradingApi, infinityGridApi, trailingBotApi, futuresTradingApi } from "@/lib/api";
 import type { BotConfig } from "../../../shared/schema";
 import { useAuth } from "@/hooks/useAuth";
 import { usePortfolioWebSocket } from "@/hooks/usePortfolioWebSocket";
@@ -58,7 +58,34 @@ export const useStartBot = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: botApi.startBot,
-    onSuccess: () => {
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async (botId: string) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["bots"] });
+      
+      // Snapshot the previous value
+      const previousBots = queryClient.getQueryData<BotConfig[]>(["bots"]);
+      
+      // Optimistically update to the new value
+      if (previousBots) {
+        queryClient.setQueryData<BotConfig[]>(["bots"], (old) =>
+          old?.map((bot) =>
+            bot.id === botId ? { ...bot, status: "running" as const } : bot
+          ) ?? []
+        );
+      }
+      
+      // Return a context object with the snapshotted value
+      return { previousBots };
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, botId, context) => {
+      if (context?.previousBots) {
+        queryClient.setQueryData(["bots"], context.previousBots);
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
       queryClient.invalidateQueries({ queryKey: ["status"] });
     },
@@ -69,7 +96,34 @@ export const useStopBot = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: botApi.stopBot,
-    onSuccess: () => {
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async (botId: string) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["bots"] });
+      
+      // Snapshot the previous value
+      const previousBots = queryClient.getQueryData<BotConfig[]>(["bots"]);
+      
+      // Optimistically update to the new value
+      if (previousBots) {
+        queryClient.setQueryData<BotConfig[]>(["bots"], (old) =>
+          old?.map((bot) =>
+            bot.id === botId ? { ...bot, status: "stopped" as const } : bot
+          ) ?? []
+        );
+      }
+      
+      // Return a context object with the snapshotted value
+      return { previousBots };
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, botId, context) => {
+      if (context?.previousBots) {
+        queryClient.setQueryData(["bots"], context.previousBots);
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["bots"] });
       queryClient.invalidateQueries({ queryKey: ["status"] });
     },
@@ -221,5 +275,315 @@ export const useStopIntegrations = () => {
 export const useRunRiskScenario = () => {
   return useMutation({
     mutationFn: runRiskScenario,
+  });
+};
+
+// Activity hooks
+export const useRecentActivity = (limit = 10) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["activity", "recent", limit],
+    queryFn: () => activityApi.getRecentActivity(limit),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds
+  });
+};
+
+// Performance hooks
+export const usePerformanceSummary = (mode?: "paper" | "real" | "live") => {
+  const { isAuthenticated } = useAuth();
+  const normalizedMode = mode === "live" ? "real" : mode;
+  return useQuery({
+    queryKey: ["performance", "summary", normalizedMode],
+    queryFn: () => performanceApi.getSummary(normalizedMode),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 60000 : false, // 1 minute
+  });
+};
+
+// Grid Trading hooks
+export const useGridBots = (skip = 0, limit = 100) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["grid-bots", skip, limit],
+    queryFn: () => gridTradingApi.getGridBots(skip, limit),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false,
+  });
+};
+
+export const useGridBot = (id: string) => {
+  return useQuery({
+    queryKey: ["grid-bots", id],
+    queryFn: () => gridTradingApi.getGridBot(id),
+    enabled: !!id,
+  });
+};
+
+export const useCreateGridBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: gridTradingApi.createGridBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["grid-bots"] });
+    },
+  });
+};
+
+export const useStartGridBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: gridTradingApi.startGridBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["grid-bots"] });
+    },
+  });
+};
+
+export const useStopGridBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: gridTradingApi.stopGridBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["grid-bots"] });
+    },
+  });
+};
+
+export const useDeleteGridBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: gridTradingApi.deleteGridBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["grid-bots"] });
+    },
+  });
+};
+
+// DCA Trading hooks
+export const useDCABots = (skip = 0, limit = 100) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["dca-bots", skip, limit],
+    queryFn: () => dcaTradingApi.getDCABots(skip, limit),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false,
+  });
+};
+
+export const useDCABot = (id: string) => {
+  return useQuery({
+    queryKey: ["dca-bots", id],
+    queryFn: () => dcaTradingApi.getDCABot(id),
+    enabled: !!id,
+  });
+};
+
+export const useCreateDCABot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: dcaTradingApi.createDCABot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dca-bots"] });
+    },
+  });
+};
+
+export const useStartDCABot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: dcaTradingApi.startDCABot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dca-bots"] });
+    },
+  });
+};
+
+export const useStopDCABot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: dcaTradingApi.stopDCABot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dca-bots"] });
+    },
+  });
+};
+
+export const useDeleteDCABot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: dcaTradingApi.deleteDCABot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dca-bots"] });
+    },
+  });
+};
+
+// Infinity Grid hooks
+export const useInfinityGrids = (skip = 0, limit = 100) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["infinity-grids", skip, limit],
+    queryFn: () => infinityGridApi.getInfinityGrids(skip, limit),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false,
+  });
+};
+
+export const useInfinityGrid = (id: string) => {
+  return useQuery({
+    queryKey: ["infinity-grids", id],
+    queryFn: () => infinityGridApi.getInfinityGrid(id),
+    enabled: !!id,
+  });
+};
+
+export const useCreateInfinityGrid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: infinityGridApi.createInfinityGrid,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["infinity-grids"] });
+    },
+  });
+};
+
+export const useStartInfinityGrid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: infinityGridApi.startInfinityGrid,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["infinity-grids"] });
+    },
+  });
+};
+
+export const useStopInfinityGrid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: infinityGridApi.stopInfinityGrid,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["infinity-grids"] });
+    },
+  });
+};
+
+export const useDeleteInfinityGrid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: infinityGridApi.deleteInfinityGrid,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["infinity-grids"] });
+    },
+  });
+};
+
+// Trailing Bot hooks
+export const useTrailingBots = (skip = 0, limit = 100) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["trailing-bots", skip, limit],
+    queryFn: () => trailingBotApi.getTrailingBots(skip, limit),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 10000 : false,
+  });
+};
+
+export const useTrailingBot = (id: string) => {
+  return useQuery({
+    queryKey: ["trailing-bots", id],
+    queryFn: () => trailingBotApi.getTrailingBot(id),
+    enabled: !!id,
+  });
+};
+
+export const useCreateTrailingBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: trailingBotApi.createTrailingBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trailing-bots"] });
+    },
+  });
+};
+
+export const useStartTrailingBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: trailingBotApi.startTrailingBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trailing-bots"] });
+    },
+  });
+};
+
+export const useStopTrailingBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: trailingBotApi.stopTrailingBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trailing-bots"] });
+    },
+  });
+};
+
+export const useDeleteTrailingBot = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: trailingBotApi.deleteTrailingBot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trailing-bots"] });
+    },
+  });
+};
+
+// Futures Trading hooks
+export const useFuturesPositions = (skip = 0, limit = 100, openOnly = false) => {
+  const { isAuthenticated } = useAuth();
+  return useQuery({
+    queryKey: ["futures-positions", skip, limit, openOnly],
+    queryFn: () => futuresTradingApi.getFuturesPositions(skip, limit, openOnly),
+    enabled: isAuthenticated,
+    refetchInterval: isAuthenticated ? 5000 : false, // More frequent for futures
+  });
+};
+
+export const useFuturesPosition = (id: string) => {
+  return useQuery({
+    queryKey: ["futures-positions", id],
+    queryFn: () => futuresTradingApi.getFuturesPosition(id),
+    enabled: !!id,
+    refetchInterval: 5000, // Frequent updates for P&L
+  });
+};
+
+export const useCreateFuturesPosition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: futuresTradingApi.createFuturesPosition,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["futures-positions"] });
+    },
+  });
+};
+
+export const useCloseFuturesPosition = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, closePrice }: { id: string; closePrice?: number }) =>
+      futuresTradingApi.closeFuturesPosition(id, closePrice),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["futures-positions"] });
+    },
+  });
+};
+
+export const useUpdatePositionPnl = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: futuresTradingApi.updatePositionPnl,
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ["futures-positions", id] });
+    },
   });
 };

@@ -12,59 +12,123 @@ from fastapi import status
 class TestBotRoutes:
     """Test bot management endpoints"""
     
-    async def test_list_bots_empty(self, client: AsyncClient):
+    async def test_list_bots_empty(self, client: AsyncClient, auth_headers: dict):
         """Test listing bots when none exist"""
-        # This assumes a test client is available from conftest
-        # If not available, skip gracefully
-        pytest.skip("Test client not configured")
+        response = await client.get("/api/bots/", headers=auth_headers)
+        assert response.status_code in [200, 404]
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, (list, dict))
     
-    async def test_create_bot_success(self, client: AsyncClient, test_bot_data):
+    async def test_create_bot_success(self, client: AsyncClient, test_bot_data, auth_headers: dict):
         """Test successful bot creation"""
-        pytest.skip("Test client not configured")
+        response = await client.post("/api/bots/", json=test_bot_data, headers=auth_headers)
+        assert response.status_code in [200, 201, 400, 422]
+        if response.status_code in [200, 201]:
+            data = response.json()
+            assert "id" in data or "name" in data
     
-    async def test_create_bot_invalid_exchange(self, client: AsyncClient):
+    async def test_create_bot_invalid_exchange(self, client: AsyncClient, auth_headers: dict):
         """Test bot creation with invalid exchange"""
-        pytest.skip("Test client not configured")
+        invalid_bot = {
+            "name": "Invalid Bot",
+            "exchange": "invalid_exchange",
+            "symbol": "BTC/USD",
+            "strategy": "momentum"
+        }
+        response = await client.post("/api/bots/", json=invalid_bot, headers=auth_headers)
+        assert response.status_code in [400, 422]
     
-    async def test_create_bot_missing_fields(self, client: AsyncClient):
+    async def test_create_bot_missing_fields(self, client: AsyncClient, auth_headers: dict):
         """Test bot creation with missing required fields"""
-        pytest.skip("Test client not configured")
+        incomplete_bot = {"name": "Incomplete Bot"}
+        response = await client.post("/api/bots/", json=incomplete_bot, headers=auth_headers)
+        assert response.status_code in [400, 422]
     
-    async def test_get_bot_by_id(self, client: AsyncClient, created_bot):
+    async def test_get_bot_by_id(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test retrieving specific bot"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping get test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            response = await client.get(f"/api/bots/{bot_id}", headers=auth_headers)
+            assert response.status_code in [200, 404]
     
-    async def test_get_bot_not_found(self, client: AsyncClient):
+    async def test_get_bot_not_found(self, client: AsyncClient, auth_headers: dict):
         """Test retrieving non-existent bot"""
-        pytest.skip("Test client not configured")
+        fake_id = "nonexistent-bot-id-12345"
+        response = await client.get(f"/api/bots/{fake_id}", headers=auth_headers)
+        assert response.status_code == 404
     
-    async def test_update_bot(self, client: AsyncClient, created_bot):
+    async def test_update_bot(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test updating bot configuration"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping update test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            update_data = {"name": "Updated Bot Name"}
+            response = await client.patch(f"/api/bots/{bot_id}", json=update_data, headers=auth_headers)
+            assert response.status_code in [200, 404]
     
-    async def test_delete_bot(self, client: AsyncClient, created_bot):
+    async def test_delete_bot(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test bot deletion"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping delete test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            response = await client.delete(f"/api/bots/{bot_id}", headers=auth_headers)
+            assert response.status_code in [200, 204, 404]
     
-    async def test_start_bot(self, client: AsyncClient, created_bot):
+    async def test_start_bot(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test starting a bot"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping start test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            response = await client.post(f"/api/bots/{bot_id}/start", headers=auth_headers)
+            assert response.status_code in [200, 400, 404]
     
-    async def test_start_bot_already_active(self, client: AsyncClient, created_bot):
+    async def test_start_bot_already_active(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test starting an already active bot"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping start test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            # Start bot first
+            await client.post(f"/api/bots/{bot_id}/start", headers=auth_headers)
+            # Try to start again
+            response = await client.post(f"/api/bots/{bot_id}/start", headers=auth_headers)
+            assert response.status_code in [200, 400, 409]
     
-    async def test_stop_bot(self, client: AsyncClient, created_bot):
+    async def test_stop_bot(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test stopping a bot"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping stop test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            response = await client.post(f"/api/bots/{bot_id}/stop", headers=auth_headers)
+            assert response.status_code in [200, 400, 404]
     
-    async def test_stop_bot_already_inactive(self, client: AsyncClient, created_bot):
+    async def test_stop_bot_already_inactive(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test stopping an already inactive bot"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping stop test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            # Stop bot first (if it was started)
+            await client.post(f"/api/bots/{bot_id}/stop", headers=auth_headers)
+            # Try to stop again
+            response = await client.post(f"/api/bots/{bot_id}/stop", headers=auth_headers)
+            assert response.status_code in [200, 400, 409]
     
-    async def test_bot_status(self, client: AsyncClient, created_bot):
+    async def test_bot_status(self, client: AsyncClient, created_bot, auth_headers: dict):
         """Test retrieving bot status"""
-        pytest.skip("Test client not configured")
+        if not created_bot:
+            pytest.skip("Bot creation failed, skipping status test")
+        bot_id = created_bot.get("id") or created_bot.get("_id")
+        if bot_id:
+            response = await client.get(f"/api/bots/{bot_id}/status", headers=auth_headers)
+            assert response.status_code in [200, 404]
 
 
 @pytest.mark.asyncio

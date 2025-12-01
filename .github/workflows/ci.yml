@@ -49,13 +49,14 @@ jobs:
         pip install black
         black --check server_fastapi
     
-    - name: Run pytest
+    - name: Run pytest with coverage
       run: |
-        pytest server_fastapi/tests/ -v --tb=short
+        pytest server_fastapi/tests/ -v --tb=short --cov=server_fastapi --cov-report=xml --cov-report=html --cov-fail-under=80
       env:
         DATABASE_URL: sqlite:///./test.db
         JWT_SECRET: test-secret-key-for-ci
         NODE_ENV: test
+        TEST_DATABASE_URL: sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
@@ -83,6 +84,12 @@ jobs:
     - name: Install dependencies
       run: npm ci --legacy-peer-deps
     
+    - name: Frontend type check
+      run: npm run check
+    
+    - name: Frontend unit tests
+      run: npm run test:frontend -- --run --coverage || true
+    
     - name: Lint with ESLint
       run: npm run lint || true
     
@@ -94,8 +101,8 @@ jobs:
       env:
         NODE_ENV: production
     
-    - name: Run tests
-      run: npm test -- --passWithNoTests || true
+    - name: Run all frontend tests
+      run: npm run test:frontend -- --run || true
     
     - name: Build Electron app
       run: npm run build:electron || true

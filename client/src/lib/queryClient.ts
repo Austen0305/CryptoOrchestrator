@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import logger from "./logger";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -8,7 +9,11 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest<T = any>(
+interface WindowWithGlobals extends Window {
+  VITE_API_URL?: string;
+}
+
+export async function apiRequest<T = unknown>(
   url: string,
   options?: {
     method?: string;
@@ -16,13 +21,14 @@ export async function apiRequest<T = any>(
     headers?: Record<string, string>;
   },
 ): Promise<T> {
-  const baseUrl = (globalThis as any).VITE_API_URL || "http://localhost:8000";
+  const windowWithGlobals = typeof window !== 'undefined' ? window as WindowWithGlobals : null;
+  const baseUrl = windowWithGlobals?.VITE_API_URL || "http://localhost:8000";
   const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
   const method = options?.method || 'GET';
   const body = options?.body;
   const customHeaders = options?.headers || {};
 
-  console.log(`[API Request] ${method} ${fullUrl}`, body);
+  logger.debug(`API Request: ${method} ${fullUrl}`, body);
 
   // Attach Authorization header if token exists (proper fix: use login flow)
   const headers: Record<string, string> = {
@@ -39,25 +45,32 @@ export async function apiRequest<T = any>(
     credentials: "include",
   });
 
-  console.log(`[API Response] ${method} ${fullUrl} - Status: ${res.status}`, res.headers.get('content-type'));
+  logger.debug(`API Response: ${method} ${fullUrl} - Status: ${res.status}`, { contentType: res.headers.get('content-type') });
 
   // Centralized 401 handling and error log without consuming original body
   if (!res.ok) {
     const errorText = await res.clone().text();
-    console.error(`[API Error] ${method} ${fullUrl} - ${res.status}: ${errorText}`);
+    logger.error(`API Error: ${method} ${fullUrl} - ${res.status}`, { errorText });
 
     if (res.status === 401) {
       try {
         const obj = JSON.parse(errorText);
         const detail = (obj && (obj.detail || obj.message)) || String(errorText);
-        if (/token/i.test(detail)) {
+        if (/token/i.test(detail) || /unauthorized/i.test(detail) || /expired/i.test(detail)) {
           // Clear invalid token and notify app
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_user');
+          sessionStorage.removeItem('auth_token');
+          sessionStorage.removeItem('auth_user');
           window.dispatchEvent(new CustomEvent('auth:expired'));
         }
       } catch {
-        // ignore JSON parse failure
+        // If JSON parse fails, still clear tokens on 401
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_user');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_user');
+        window.dispatchEvent(new CustomEvent('auth:expired'));
       }
     }
   }
@@ -90,11 +103,20 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 30000, // 30 seconds - better balance between freshness and performance
+      gcTime: 5 * 60 * 1000, // 5 minutes (formerly cacheTime)
+      retry: (failureCount, error) => {
+        // Don't retry on 4xx errors (client errors)
+        if (error instanceof Error && error.message.includes('4')) {
+          return false;
+        }
+        // Retry up to 2 times for network errors
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
     mutations: {
-      retry: false,
+      retry: false, // Mutations shouldn't retry automatically
     },
   },
 });

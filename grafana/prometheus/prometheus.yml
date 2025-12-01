@@ -1,0 +1,28 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cryptoorchestrator'
+    environment: 'production'
+
+scrape_configs:
+  - job_name: 'cryptoorchestrator-api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+        labels:
+          service: 'api'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  # - "alerts.yml"
+

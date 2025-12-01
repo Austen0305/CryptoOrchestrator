@@ -52,10 +52,10 @@ export const DashboardScreen: React.FC = () => {
         return response.data;
       } catch (error) {
         console.error('Failed to fetch portfolio:', error);
-        // Return mock data on error
+        // Return empty portfolio on error (no mock data)
         return {
-          totalBalance: 100000.0,
-          availableBalance: 95000.0,
+          totalBalance: 0.0,
+          availableBalance: 0.0,
           positions: {},
           profitLoss24h: 0,
           profitLossTotal: 0,

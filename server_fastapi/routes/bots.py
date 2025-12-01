@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, ValidationError
 from typing import List, Optional, Dict, Any
 import logging
@@ -7,42 +6,10 @@ import asyncio
 from datetime import datetime
 
 from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
-from ..services.trading.bot_service import (
-    get_bot_service as get_bot_service_impl,
-    get_bot_trading_service as get_bot_trading_service_impl
-)
-from .auth import get_current_user, storage
-import jwt
-import os
-
+from ..dependencies.bots import get_bot_service, get_bot_trading_service
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
-
-# JWT Configuration
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-
-def validate_jwt_and_get_user(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> dict:
-    """Validate JWT token and return user information."""
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=["HS256"])
-        user = storage.getUserById(payload['id'])
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception as e:
-        logger.error(f"JWT validation error: {e}")
-        raise HTTPException(status_code=401, detail="Invalid token")
-
-# Dependency injection for services
-def get_bot_service():
-    return get_bot_service_impl()
-
-def get_bot_trading_service():
-    return get_bot_trading_service_impl()
 
 router = APIRouter()
 
@@ -165,7 +132,7 @@ class MockBotStorage:
         return False
 
 @router.get("/")
-async def get_bots(current_user: dict = Depends(validate_jwt_and_get_user)) -> List[BotConfig]:
+async def get_bots(current_user: dict = Depends(get_current_user)) -> List[BotConfig]:
     """Get all trading bots for the authenticated user"""
     try:
         bot_service = get_bot_service()
@@ -185,7 +152,7 @@ async def get_bots(current_user: dict = Depends(validate_jwt_and_get_user)) -> L
         raise HTTPException(status_code=500, detail="Failed to fetch bots")
 
 @router.get("/{bot_id}")
-async def get_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotConfig:
+async def get_bot(bot_id: str, current_user: dict = Depends(get_current_user)) -> BotConfig:
     """Get a specific bot by ID"""
     try:
         bot_service = get_bot_service()
@@ -200,7 +167,7 @@ async def get_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get
         raise HTTPException(status_code=500, detail="Failed to fetch bot")
 
 @router.post("/")
-async def create_bot(request: CreateBotRequest, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotConfig:
+async def create_bot(request: CreateBotRequest, current_user: dict = Depends(get_current_user)) -> BotConfig:
     """Create a new trading bot"""
     try:
         # Validate strategy
@@ -240,7 +207,7 @@ async def create_bot(request: CreateBotRequest, current_user: dict = Depends(val
         raise HTTPException(status_code=500, detail="Failed to create bot")
 
 @router.patch("/{bot_id}")
-async def update_bot(bot_id: str, request: UpdateBotRequest, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotConfig:
+async def update_bot(bot_id: str, request: UpdateBotRequest, current_user: dict = Depends(get_current_user)) -> BotConfig:
     """Update an existing bot"""
     try:
         bot_service = get_bot_service()
@@ -276,7 +243,7 @@ async def update_bot(bot_id: str, request: UpdateBotRequest, current_user: dict 
         raise HTTPException(status_code=500, detail="Failed to update bot")
 
 @router.delete("/{bot_id}")
-async def delete_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)):
+async def delete_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
     """Delete a bot"""
     try:
         bot_service = get_bot_service()
@@ -299,7 +266,7 @@ async def delete_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_
         raise HTTPException(status_code=500, detail="Failed to delete bot")
 
 @router.post("/{bot_id}/start")
-async def start_bot(bot_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(validate_jwt_and_get_user)):
+async def start_bot(bot_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Start a trading bot with safety checks"""
     try:
         bot_service = get_bot_service()
@@ -339,7 +306,7 @@ async def start_bot(bot_id: str, background_tasks: BackgroundTasks, current_user
         raise HTTPException(status_code=500, detail="Failed to start bot")
 
 @router.post("/{bot_id}/stop")
-async def stop_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)):
+async def stop_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
     """Stop a trading bot"""
     try:
         bot_service = get_bot_service()
@@ -365,7 +332,7 @@ async def stop_bot(bot_id: str, current_user: dict = Depends(validate_jwt_and_ge
         raise HTTPException(status_code=500, detail="Failed to stop bot")
 
 @router.get("/{bot_id}/model")
-async def get_bot_model(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> Dict[str, Any]:
+async def get_bot_model(bot_id: str, current_user: dict = Depends(get_current_user)) -> Dict[str, Any]:
     """Get bot's ML model status"""
     try:
         bot_service = get_bot_service()
@@ -402,7 +369,7 @@ async def get_bot_model(bot_id: str, current_user: dict = Depends(validate_jwt_a
         raise HTTPException(status_code=500, detail="Failed to get model status")
 
 @router.get("/{bot_id}/performance")
-async def get_bot_performance(bot_id: str, current_user: dict = Depends(validate_jwt_and_get_user)) -> BotPerformance:
+async def get_bot_performance(bot_id: str, current_user: dict = Depends(get_current_user)) -> BotPerformance:
     """Get bot performance metrics"""
     try:
         bot_service = get_bot_service()
@@ -433,7 +400,7 @@ async def get_bot_performance(bot_id: str, current_user: dict = Depends(validate
 
 
 @router.get("/safety/status")
-async def get_safety_status(current_user: dict = Depends(validate_jwt_and_get_user)):
+async def get_safety_status(current_user: dict = Depends(get_current_user)):
     """Get current safety status"""
     try:
         bot_service = get_bot_service()
@@ -444,7 +411,7 @@ async def get_safety_status(current_user: dict = Depends(validate_jwt_and_get_us
         raise HTTPException(status_code=500, detail="Failed to get safety status")
 
 @router.post("/safety/emergency-stop")
-async def emergency_stop(current_user: dict = Depends(validate_jwt_and_get_user)):
+async def emergency_stop(current_user: dict = Depends(get_current_user)):
     """Trigger emergency stop for all trading activities"""
     try:
         # Check if user has admin privileges (simplified check)

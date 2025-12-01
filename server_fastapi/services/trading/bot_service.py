@@ -5,6 +5,7 @@ Unified bot service facade
 import logging
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .bot_creation_service import BotCreationService
 from .bot_control_service import BotControlService
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 class BotService:
     """Unified facade for all bot operations"""
 
-    def __init__(self):
-        self.creation = BotCreationService()
-        self.control = BotControlService()
-        self.monitoring = BotMonitoringService()
-        self.trading = BotTradingService()
+    def __init__(self, db_session: Optional[AsyncSession] = None):
+        self.creation = BotCreationService(session=db_session)
+        self.control = BotControlService(session=db_session)
+        self.monitoring = BotMonitoringService(session=db_session)
+        self.trading = BotTradingService(session=db_session)
 
     # Creation operations
     async def create_bot(self, user_id: int, name: str, symbol: str, strategy: str, parameters: Dict[str, Any]) -> Optional[str]:
@@ -113,26 +114,26 @@ class BotService:
 
 
 # Dependency injection functions
-def get_bot_service() -> BotService:
+def get_bot_service(db_session: Optional[AsyncSession] = None) -> BotService:
     """Get bot service instance"""
-    return BotService()
+    return BotService(db_session=db_session)
 
 
-def get_bot_creation_service() -> BotCreationService:
+def get_bot_creation_service(db_session: Optional[AsyncSession] = None) -> BotCreationService:
     """Get bot creation service instance"""
-    return BotCreationService()
+    return BotCreationService(session=db_session)
 
 
-def get_bot_control_service() -> BotControlService:
+def get_bot_control_service(db_session: Optional[AsyncSession] = None) -> BotControlService:
     """Get bot control service instance"""
-    return BotControlService()
+    return BotControlService(session=db_session)
 
 
-def get_bot_monitoring_service() -> BotMonitoringService:
+def get_bot_monitoring_service(db_session: Optional[AsyncSession] = None) -> BotMonitoringService:
     """Get bot monitoring service instance"""
-    return BotMonitoringService()
+    return BotMonitoringService(session=db_session)
 
 
-def get_bot_trading_service() -> BotTradingService:
+def get_bot_trading_service(db_session: Optional[AsyncSession] = None) -> BotTradingService:
     """Get bot trading service instance"""
-    return BotTradingService()
+    return BotTradingService(session=db_session)

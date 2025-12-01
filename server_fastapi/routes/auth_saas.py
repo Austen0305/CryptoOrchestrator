@@ -18,6 +18,7 @@ import secrets
 from ..database import get_db_session
 from ..models.user import User
 from ..dependencies.auth import get_current_user
+from ..services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +137,12 @@ async def register(
         access_token = jwt.encode(access_token_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
         refresh_token = jwt.encode(refresh_token_payload, JWT_REFRESH_SECRET, algorithm=JWT_ALGORITHM)
         
-        # TODO: Send verification email
+        # Send verification email
+        try:
+            await email_service.send_verification_email(user.email, verification_token)
+            logger.info(f"Verification email sent to {user.email}")
+        except Exception as e:
+            logger.warning(f"Failed to send verification email: {e}")
         
         logger.info(f"User registered: {user.email}")
         
@@ -326,8 +332,13 @@ async def forgot_password(
             user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
             await db.commit()
             
-            # TODO: Send password reset email
-        
+            # Send password reset email
+            try:
+                await email_service.send_password_reset_email(user.email, reset_token)
+                logger.info(f"Password reset email sent to {user.email}")
+            except Exception as e:
+                logger.warning(f"Failed to send password reset email: {e}")
+            
         # Always return success to prevent email enumeration
         return {"message": "If an account exists, a password reset email has been sent"}
         
@@ -426,4 +437,105 @@ async def get_current_user_info(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get user information"
+        )
+
+@router.post("/verify-email")
+async def verify_email(
+    token: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Verify email address with token"""
+    try:
+        result = await db.execute(
+            select(User).where(
+                User.email_verification_token == token
+            )
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid verification token"
+            )
+        
+        if user.is_email_verified:
+            return {"message": "Email already verified"}
+        
+        if not user.email_verification_expires:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token expired"
+            )
+        
+        if user.email_verification_expires < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Verification token expired"
+            )
+        
+        # Verify email
+        user.is_email_verified = True
+        user.email_verification_token = None
+        user.email_verification_expires = None
+        await db.commit()
+        
+        logger.info(f"Email verified for user: {user.email}")
+        
+        return {"message": "Email verified successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Email verification failed: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Email verification failed"
+        )
+
+@router.post("/resend-verification")
+async def resend_verification_email(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """Resend email verification"""
+    try:
+        result = await db.execute(
+            select(User).where(User.id == current_user["id"])
+        )
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        if user.is_email_verified:
+            return {"message": "Email already verified"}
+        
+        # Generate new verification token
+        verification_token = secrets.token_urlsafe(32)
+        user.email_verification_token = verification_token
+        user.email_verification_expires = datetime.utcnow() + timedelta(days=7)
+        await db.commit()
+        
+        # Send verification email
+        try:
+            await email_service.send_verification_email(user.email, verification_token)
+            logger.info(f"Verification email resent to {user.email}")
+        except Exception as e:
+            logger.warning(f"Failed to send verification email: {e}")
+        
+        return {"message": "Verification email sent"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to resend verification email: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to resend verification email"
         )

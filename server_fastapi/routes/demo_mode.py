@@ -8,7 +8,7 @@ import logging
 
 from ..services.licensing.demo_mode import demo_mode_service
 from ..services.licensing.license_service import license_service
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

@@ -6,55 +6,71 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Keyboard, AlertTriangle } from "lucide-react";
+import { Keyboard, AlertTriangle, Shield } from "lucide-react";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/components/ui/use-toast";
+import { validateOrder, formatValidationErrors } from "@/lib/validation";
+import { FormFieldError } from "@/components/FormFieldError";
+import { useQuery } from "@tanstack/react-query";
 
-export function OrderEntryPanel() {
+interface OrderEntryPanelProps {
+  /** Trading pair (e.g., "BTC/USD"). Defaults to "BTC/USD" if not provided. */
+  pair?: string;
+}
+
+export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
   const { mode, isRealMoney, isPaperTrading } = useTradingMode();
-  const [orderType, setOrderType] = useState<"market" | "limit" | "stop">("market");
+  const [orderType, setOrderType] = useState<"market" | "limit" | "stop" | "stop-limit" | "take-profit" | "trailing-stop">("market");
+  const [stopPrice, setStopPrice] = useState("");
+  const [takeProfitPrice, setTakeProfitPrice] = useState("");
+  const [trailingStopPercent, setTrailingStopPercent] = useState("");
+  const [timeInForce, setTimeInForce] = useState<"GTC" | "IOC" | "FOK">("GTC");
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
   const [percentage, setPercentage] = useState([0]);
   const [exchange, setExchange] = useState<string>("");
   const [mfaToken, setMfaToken] = useState<string>("");
-  const [availableExchanges, setAvailableExchanges] = useState<Array<{exchange: string, label: string}>>([]);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<{ side: "buy" | "sell"; amount: string; price: string; exchange?: string; mfaToken?: string } | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const amountInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
 
+  // Load available exchanges using React Query
+  const { data: exchangeKeys, isLoading: exchangesLoading } = useQuery<Array<{exchange: string, label: string | null}>>({
+    queryKey: ['exchange-keys'],
+    queryFn: async () => {
+      return await apiRequest<Array<{exchange: string, label: string | null}>>("/api/exchange-keys", {
+        method: "GET",
+      });
+    },
+    enabled: isRealMoney,
+    retry: 2,
+  });
+
+  // Transform exchange keys to the format expected by the component
+  const availableExchanges = exchangeKeys
+    ?.filter(k => k)
+    .map(k => ({
+      exchange: k.exchange,
+      label: k.label || k.exchange.charAt(0).toUpperCase() + k.exchange.slice(1)
+    })) || [];
+
+  // Set default exchange when available exchanges load
+  useEffect(() => {
+    if (availableExchanges.length > 0 && !exchange) {
+      setExchange(availableExchanges[0].exchange);
+    }
+  }, [availableExchanges, exchange]);
+
   const handlePercentage = (value: number) => {
     setPercentage([value]);
-    console.log(`Setting ${value}% of available balance`);
+    // Percentage set via slider - no logging needed
   };
-
-  // Load available exchanges on mount
-  useEffect(() => {
-    const loadExchanges = async () => {
-      if (isRealMoney) {
-        try {
-          const keys = await apiRequest<Array<{exchange: string, label: string | null}>>("/api/exchange-keys", {
-            method: "GET",
-          });
-          const validated = keys.filter(k => k).map(k => ({
-            exchange: k.exchange,
-            label: k.label || k.exchange.charAt(0).toUpperCase() + k.exchange.slice(1)
-          }));
-          setAvailableExchanges(validated);
-          if (validated.length > 0 && !exchange) {
-            setExchange(validated[0].exchange);
-          }
-        } catch (error) {
-          console.error("Failed to load exchanges:", error);
-        }
-      }
-    };
-    loadExchanges();
-  }, [isRealMoney, exchange]);
 
   const handleOrder = async (side: "buy" | "sell") => {
     // Validate inputs
@@ -67,10 +83,28 @@ export function OrderEntryPanel() {
       return;
     }
 
-    if (orderType === "limit" && (!price || parseFloat(price) <= 0)) {
+    if ((orderType === "limit" || orderType === "stop-limit" || orderType === "take-profit") && (!price || parseFloat(price) <= 0)) {
       toast({
         title: "Invalid Price",
-        description: "Please enter a valid price for limit orders",
+        description: "Please enter a valid price for this order type",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if ((orderType === "stop" || orderType === "stop-limit") && (!stopPrice || parseFloat(stopPrice) <= 0)) {
+      toast({
+        title: "Invalid Stop Price",
+        description: "Please enter a valid stop price",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (orderType === "trailing-stop" && (!trailingStopPercent || parseFloat(trailingStopPercent) <= 0)) {
+      toast({
+        title: "Invalid Trailing Stop",
+        description: "Please enter a valid trailing stop percentage",
         variant: "destructive",
       });
       return;
@@ -100,18 +134,59 @@ export function OrderEntryPanel() {
   const executeOrder = async (side: "buy" | "sell", orderAmount: string, orderPrice: string, orderExchange?: string, orderMfaToken?: string) => {
     setIsPlacingOrder(true);
     try {
+      interface OrderBody {
+        pair: string;
+        side: "buy" | "sell";
+        type: string;
+        amount: number;
+        mode: string;
+        exchange?: string;
+        mfa_token?: string;
+        price?: number;
+        stop?: number;
+        take_profit?: number;
+        trailing_stop_percent?: number;
+        time_in_force?: string;
+      }
+
+      const orderBody: OrderBody = {
+        pair: pair,
+        side,
+        type: orderType,
+        amount: parseFloat(orderAmount),
+        mode: mode,
+        exchange: orderExchange || exchange || undefined,
+        mfa_token: orderMfaToken || mfaToken || undefined,
+      };
+
+      // Add price for limit orders
+      if (orderPrice) {
+        orderBody.price = parseFloat(orderPrice);
+      }
+
+      // Add stop price for stop orders
+      if (stopPrice) {
+        orderBody.stop = parseFloat(stopPrice);
+      }
+
+      // Add take profit price
+      if (takeProfitPrice) {
+        orderBody.take_profit = parseFloat(takeProfitPrice);
+      }
+
+      // Add trailing stop percentage
+      if (trailingStopPercent) {
+        orderBody.trailing_stop_percent = parseFloat(trailingStopPercent);
+      }
+
+      // Add time in force for limit orders
+      if (orderType === "limit" || orderType === "stop-limit") {
+        orderBody.time_in_force = timeInForce;
+      }
+
       const response = await apiRequest("/api/trades", {
         method: "POST",
-        body: {
-          pair: "BTC/USD", // TODO: Get from context
-          side,
-          type: orderType,
-          amount: parseFloat(orderAmount),
-          price: orderPrice ? parseFloat(orderPrice) : null,
-          mode: mode,
-          exchange: orderExchange || exchange || undefined,
-          mfa_token: orderMfaToken || mfaToken || undefined,
-        },
+        body: orderBody,
       });
 
       toast({
@@ -123,10 +198,10 @@ export function OrderEntryPanel() {
       setAmount("");
       setPrice("");
       setPercentage([0]);
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: "Order Failed",
-        description: error.message || "Failed to place order",
+        description: error instanceof Error ? error.message : "Failed to place order",
         variant: "destructive",
       });
     } finally {
@@ -144,18 +219,28 @@ export function OrderEntryPanel() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Only handle shortcuts when input fields are not focused
-      if (document.activeElement?.tagName === "INPUT") return;
+      // Don't trigger shortcuts when typing in inputs or textareas
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).isContentEditable
+      ) {
+        return;
+      }
 
       // Buy: B key
       if (e.key === "b" || e.key === "B") {
         e.preventDefault();
-        handleOrder("buy");
+        if (!isPlacingOrder) {
+          handleOrder("buy");
+        }
       }
       // Sell: S key
       if (e.key === "s" || e.key === "S") {
         e.preventDefault();
-        handleOrder("sell");
+        if (!isPlacingOrder) {
+          handleOrder("sell");
+        }
       }
       // Focus amount: A key
       if (e.key === "a" || e.key === "A") {
@@ -186,32 +271,66 @@ export function OrderEntryPanel() {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [amount, price, orderType]);
+  }, [isPlacingOrder, amount, price, orderType]);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-2 border-card-border/70 shadow-2xl bg-gradient-to-br from-card via-card/98 to-card/95" style={{ borderWidth: '3px', borderStyle: 'solid', boxShadow: '0px 20px 40px -10px hsl(220 8% 2% / 0.60), 0px 10px 20px -10px hsl(220 8% 2% / 0.60)' }}>
+      <CardHeader className="pb-5 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b-2 border-primary/20">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Quick Trade Widget</CardTitle>
-            <CardDescription>One-click trading with keyboard shortcuts</CardDescription>
+            <CardTitle className="text-lg font-extrabold">Place Order</CardTitle>
+            <CardDescription className="text-xs mt-1 font-medium">One-click trading with keyboard shortcuts</CardDescription>
           </div>
-          <Badge variant="outline" className="text-xs">
+          <Badge variant="outline" className="text-xs badge-enhanced border-primary/30 bg-primary/10">
             <Keyboard className="h-3 w-3 mr-1" />
             Shortcuts
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={orderType} onValueChange={(v) => setOrderType(v as any)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="market" data-testid="button-order-market">Market</TabsTrigger>
-            <TabsTrigger value="limit" data-testid="button-order-limit">Limit</TabsTrigger>
-            <TabsTrigger value="stop" data-testid="button-order-stop">Stop-Loss</TabsTrigger>
+        <Tabs value={orderType} onValueChange={(v) => {
+          type OrderType = "market" | "limit" | "stop" | "stop-limit" | "take-profit" | "trailing-stop";
+          const validTypes: OrderType[] = ["market", "limit", "stop", "stop-limit", "take-profit", "trailing-stop"];
+          if (validTypes.includes(v as OrderType)) {
+            setOrderType(v as OrderType);
+          }
+        }}>
+          <TabsList className="grid w-full grid-cols-3 bg-muted/50">
+            <TabsTrigger value="market" data-testid="button-order-market" className="rounded-md font-medium">Market</TabsTrigger>
+            <TabsTrigger value="limit" data-testid="button-order-limit" className="rounded-md font-medium">Limit</TabsTrigger>
+            <TabsTrigger value="stop" data-testid="button-order-stop" className="rounded-md font-medium">Stop</TabsTrigger>
           </TabsList>
         </Tabs>
+        
+        {/* Advanced Order Types */}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={orderType === "stop-limit" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOrderType("stop-limit")}
+            className="text-xs"
+          >
+            Stop-Limit
+          </Button>
+          <Button
+            variant={orderType === "take-profit" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOrderType("take-profit")}
+            className="text-xs"
+          >
+            Take-Profit
+          </Button>
+          <Button
+            variant={orderType === "trailing-stop" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setOrderType("trailing-stop")}
+            className="text-xs"
+          >
+            Trailing Stop
+          </Button>
+        </div>
 
-        {orderType === "limit" && (
+        {(orderType === "limit" || orderType === "stop-limit" || orderType === "take-profit") && (
           <div className="space-y-2">
             <Label htmlFor="price">Price</Label>
             <Input
@@ -220,10 +339,143 @@ export function OrderEntryPanel() {
               type="number"
               placeholder="0.00"
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="font-mono"
+              onChange={(e) => {
+                setPrice(e.target.value);
+                // Clear validation error when user types
+                if (validationErrors.price) {
+                  setValidationErrors(prev => {
+                    const next = { ...prev };
+                    delete next.price;
+                    return next;
+                  });
+                }
+              }}
+              className={`font-mono ${validationErrors.price ? 'border-destructive' : ''}`}
               data-testid="input-price"
+              aria-label="Order price"
+              aria-describedby="price-description"
+              aria-invalid={!!validationErrors.price}
             />
+            <span id="price-description" className="sr-only">Enter the price at which to execute the order</span>
+            <FormFieldError error={validationErrors.price} />
+          </div>
+        )}
+
+        {(orderType === "stop" || orderType === "stop-limit") && (
+          <div className="space-y-2">
+            <Label htmlFor="stop-price">Stop Price</Label>
+            <Input
+              id="stop-price"
+              type="number"
+              placeholder="0.00"
+              value={stopPrice}
+              onChange={(e) => {
+                setStopPrice(e.target.value);
+                if (validationErrors.stop) {
+                  setValidationErrors(prev => {
+                    const next = { ...prev };
+                    delete next.stop;
+                    return next;
+                  });
+                }
+              }}
+              className={`font-mono ${validationErrors.stop ? 'border-destructive' : ''}`}
+              aria-label="Stop price"
+              aria-describedby="stop-price-description"
+              aria-invalid={!!validationErrors.stop}
+            />
+            <span id="stop-price-description" className="sr-only">Price level at which the stop order will trigger</span>
+            <FormFieldError error={validationErrors.stop} />
+            <p className="text-xs text-muted-foreground">
+              Order triggers when price reaches this level
+            </p>
+          </div>
+        )}
+
+        {orderType === "take-profit" && (
+          <div className="space-y-2">
+            <Label htmlFor="take-profit-price">Take Profit Price</Label>
+            <Input
+              id="take-profit-price"
+              type="number"
+              placeholder="0.00"
+              value={takeProfitPrice}
+              onChange={(e) => {
+                setTakeProfitPrice(e.target.value);
+                if (validationErrors.take_profit) {
+                  setValidationErrors(prev => {
+                    const next = { ...prev };
+                    delete next.take_profit;
+                    return next;
+                  });
+                }
+              }}
+              className={`font-mono ${validationErrors.take_profit ? 'border-destructive' : ''}`}
+              aria-label="Take profit price"
+              aria-describedby="take-profit-description"
+              aria-invalid={!!validationErrors.take_profit}
+            />
+            <span id="take-profit-description" className="sr-only">Price target at which to take profit</span>
+            <FormFieldError error={validationErrors.take_profit} />
+            <p className="text-xs text-muted-foreground">
+              Order executes when price reaches this profit target
+            </p>
+          </div>
+        )}
+
+        {orderType === "trailing-stop" && (
+          <div className="space-y-2">
+            <Label htmlFor="trailing-stop-percent">Trailing Stop %</Label>
+            <Input
+              id="trailing-stop-percent"
+              type="number"
+              placeholder="2.5"
+              value={trailingStopPercent}
+              onChange={(e) => {
+                setTrailingStopPercent(e.target.value);
+                if (validationErrors.trailing_stop_percent) {
+                  setValidationErrors(prev => {
+                    const next = { ...prev };
+                    delete next.trailing_stop_percent;
+                    return next;
+                  });
+                }
+              }}
+              className={`font-mono ${validationErrors.trailing_stop_percent ? 'border-destructive' : ''}`}
+              aria-label="Trailing stop percentage"
+              aria-describedby="trailing-stop-description"
+              aria-invalid={!!validationErrors.trailing_stop_percent}
+            />
+            <span id="trailing-stop-description" className="sr-only">Percentage distance for trailing stop loss</span>
+            <FormFieldError error={validationErrors.trailing_stop_percent} />
+            <p className="text-xs text-muted-foreground">
+              Stop loss follows price by this percentage
+            </p>
+          </div>
+        )}
+
+        {(orderType === "limit" || orderType === "stop-limit") && (
+          <div className="space-y-2">
+            <Label htmlFor="time-in-force">Time in Force</Label>
+            <Select value={timeInForce} onValueChange={(v) => {
+              if (v === "GTC" || v === "IOC" || v === "FOK") {
+                setTimeInForce(v);
+              }
+            }}>
+              <SelectTrigger 
+                id="time-in-force"
+                aria-label="Time in force"
+                aria-describedby="time-in-force-description"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GTC">GTC (Good Till Cancel)</SelectItem>
+                <SelectItem value="IOC">IOC (Immediate Or Cancel)</SelectItem>
+                <SelectItem value="FOK">FOK (Fill Or Kill)</SelectItem>
+              </SelectContent>
+            </Select>
+            <span id="time-in-force-description" className="sr-only">Order execution time constraint</span>
           </div>
         )}
 
@@ -235,17 +487,36 @@ export function OrderEntryPanel() {
             type="number"
             placeholder="0.00"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            className="font-mono"
+            onChange={(e) => {
+              setAmount(e.target.value);
+              // Clear validation error when user types
+              if (validationErrors.amount) {
+                setValidationErrors(prev => {
+                  const next = { ...prev };
+                  delete next.amount;
+                  return next;
+                });
+              }
+            }}
+            className={`font-mono ${validationErrors.amount ? 'border-destructive' : ''}`}
             data-testid="input-amount"
+            aria-label="Order amount"
+            aria-describedby="amount-description"
+            aria-invalid={!!validationErrors.amount}
           />
+          <span id="amount-description" className="sr-only">Amount of cryptocurrency to trade</span>
+          <FormFieldError error={validationErrors.amount} />
         </div>
 
         {isRealMoney && availableExchanges.length > 0 && (
           <div className="space-y-2">
             <Label htmlFor="exchange">Exchange</Label>
             <Select value={exchange} onValueChange={setExchange}>
-              <SelectTrigger id="exchange">
+              <SelectTrigger 
+                id="exchange"
+                aria-label="Trading exchange"
+                aria-describedby="exchange-description"
+              >
                 <SelectValue placeholder="Select Exchange" />
               </SelectTrigger>
               <SelectContent>
@@ -256,6 +527,7 @@ export function OrderEntryPanel() {
                 ))}
               </SelectContent>
             </Select>
+            <span id="exchange-description" className="sr-only">Select the exchange to execute the trade on</span>
           </div>
         )}
 
@@ -272,7 +544,10 @@ export function OrderEntryPanel() {
               value={mfaToken}
               onChange={(e) => setMfaToken(e.target.value)}
               className="font-mono"
+              aria-label="Two-factor authentication token"
+              aria-describedby="mfa-token-description"
             />
+            <span id="mfa-token-description" className="sr-only">Optional 2FA token if two-factor authentication is enabled</span>
             <p className="text-xs text-muted-foreground">
               Required if 2FA is enabled on your account
             </p>
@@ -363,21 +638,27 @@ export function OrderEntryPanel() {
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <Button
-            className="bg-trading-buy hover:bg-trading-buy-hover text-white"
+            className="bg-gradient-to-r from-trading-buy to-trading-buy-hover hover:from-trading-buy-hover hover:to-trading-buy text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-trading-buy/30"
             onClick={() => handleOrder("buy")}
             disabled={isPlacingOrder}
             data-testid="button-buy"
+            aria-label="Place buy order"
+            aria-describedby="buy-button-description"
           >
-            {isPlacingOrder ? "Placing..." : "Buy"} <span className="ml-2 text-xs opacity-70">(B)</span>
+            {isPlacingOrder ? "Placing..." : "Buy"} <span className="ml-2 text-xs opacity-90">(B)</span>
           </Button>
+          <span id="buy-button-description" className="sr-only">Place a buy order. Press B key for keyboard shortcut.</span>
           <Button
-            className="bg-trading-sell hover:bg-trading-sell-hover text-white"
+            className="bg-gradient-to-r from-trading-sell to-trading-sell-hover hover:from-trading-sell-hover hover:to-trading-sell text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-trading-sell/30"
             onClick={() => handleOrder("sell")}
             disabled={isPlacingOrder}
             data-testid="button-sell"
+            aria-label="Place sell order"
+            aria-describedby="sell-button-description"
           >
-            {isPlacingOrder ? "Placing..." : "Sell"} <span className="ml-2 text-xs opacity-70">(S)</span>
+            {isPlacingOrder ? "Placing..." : "Sell"} <span className="ml-2 text-xs opacity-90">(S)</span>
           </Button>
+          <span id="sell-button-description" className="sr-only">Place a sell order. Press S key for keyboard shortcut.</span>
         </div>
 
         {isRealMoney && (

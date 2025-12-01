@@ -12,6 +12,11 @@ if TYPE_CHECKING:
     from .exchange_api_key import ExchangeAPIKey
     from .bot import Bot
     from .strategy import Strategy
+    from .grid_bot import GridBot
+    from .dca_bot import DCABot
+    from .infinity_grid import InfinityGrid
+    from .trailing_bot import TrailingBot
+    from .futures_position import FuturesPosition
 
 
 class User(BaseModel):
@@ -64,6 +69,21 @@ class User(BaseModel):
     )
     strategies: Mapped[List["Strategy"]] = relationship(
         "Strategy", back_populates="user", cascade="all, delete-orphan"
+    )
+    grid_bots: Mapped[List["GridBot"]] = relationship(
+        "GridBot", back_populates="user", cascade="all, delete-orphan"
+    )
+    dca_bots: Mapped[List["DCABot"]] = relationship(
+        "DCABot", back_populates="user", cascade="all, delete-orphan"
+    )
+    infinity_grids: Mapped[List["InfinityGrid"]] = relationship(
+        "InfinityGrid", back_populates="user", cascade="all, delete-orphan"
+    )
+    trailing_bots: Mapped[List["TrailingBot"]] = relationship(
+        "TrailingBot", back_populates="user", cascade="all, delete-orphan"
+    )
+    futures_positions: Mapped[List["FuturesPosition"]] = relationship(
+        "FuturesPosition", back_populates="user", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

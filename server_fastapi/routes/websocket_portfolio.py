@@ -13,7 +13,7 @@ import json
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from ..services.auth.auth_service import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -161,36 +161,105 @@ async def websocket_portfolio(
                 from ..services.analytics_engine import analytics_engine
                 from ..routes.portfolio import Portfolio, Position
                 
-                # For paper mode, return mock data (same as portfolio route)
-                portfolio_data = {
-                    "totalBalance": 100000.0,
-                    "availableBalance": 95000.0,
-                    "positions": {
-                        "BTC": {
-                            "asset": "BTC",
-                            "amount": 1.2,
-                            "averagePrice": 48000.0,
-                            "currentPrice": 50000.0,
-                            "totalValue": 60000.0,
-                            "profitLoss": 4800.0,
-                            "profitLossPercent": 8.0,
-                        }
-                    },
-                    "profitLoss24h": 1250.50,
-                    "profitLossTotal": 7800.0,
-                    "successfulTrades": 45,
-                    "failedTrades": 12,
-                    "totalTrades": 57,
-                    "winRate": 0.789,
-                    "averageWin": 215.50,
-                    "averageLoss": -180.25,
-                }
+                # Get real portfolio data from portfolio route
+                from ..routes.portfolio import get_portfolio
+                from ..dependencies.auth import get_current_user
                 
-                await websocket.send_json({
-                    "type": "portfolio_update",
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "data": portfolio_data,
-                })
+                # Create user context for portfolio route
+                mock_user = MockUser(user_id)
+                
+                # Get real portfolio data
+                try:
+                    from ..database import get_db_context
+                    from ..routes.portfolio import get_portfolio
+                    async with get_db_context() as db:
+                        portfolio = await get_portfolio(
+                            mode="paper",  # Default to paper, can be made configurable
+                            current_user={"user_id": user_id, "sub": user_id},
+                            db=db
+                        )
+                        
+                        # Convert portfolio to WebSocket format
+                        portfolio_data = {
+                            "totalBalance": portfolio.totalBalance,
+                            "availableBalance": portfolio.availableBalance,
+                            "positions": {
+                                asset: {
+                                    "asset": pos.asset,
+                                    "amount": pos.amount,
+                                    "averagePrice": pos.averagePrice,
+                                    "currentPrice": pos.currentPrice,
+                                    "totalValue": pos.totalValue,
+                                    "profitLoss": pos.profitLoss,
+                                    "profitLossPercent": pos.profitLossPercent,
+                                }
+                                for asset, pos in portfolio.positions.items()
+                            },
+                            "profitLoss24h": portfolio.profitLoss24h,
+                            "profitLossTotal": portfolio.profitLossTotal,
+                            "successfulTrades": portfolio.successfulTrades,
+                            "failedTrades": portfolio.failedTrades,
+                            "totalTrades": portfolio.totalTrades,
+                            "winRate": portfolio.winRate,
+                            "averageWin": portfolio.averageWin,
+                            "averageLoss": portfolio.averageLoss,
+                        }
+                        
+                        await websocket.send_json({
+                            "type": "portfolio_update",
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "data": portfolio_data,
+                        })
+                except Exception as e:
+                    logger.error(f"Failed to fetch real portfolio data: {e}")
+                    # Fallback to empty portfolio in production
+                    from ..config.settings import get_settings
+                    settings = get_settings()
+                    if settings.production_mode or settings.is_production:
+                        portfolio_data = {
+                            "totalBalance": 0.0,
+                            "availableBalance": 0.0,
+                            "positions": {},
+                            "profitLoss24h": 0.0,
+                            "profitLossTotal": 0.0,
+                            "successfulTrades": 0,
+                            "failedTrades": 0,
+                            "totalTrades": 0,
+                            "winRate": 0.0,
+                            "averageWin": 0.0,
+                            "averageLoss": 0.0,
+                        }
+                    else:
+                        # Development fallback
+                        portfolio_data = {
+                            "totalBalance": 100000.0,
+                            "availableBalance": 95000.0,
+                            "positions": {
+                                "BTC": {
+                                    "asset": "BTC",
+                                    "amount": 1.2,
+                                    "averagePrice": 48000.0,
+                                    "currentPrice": 50000.0,
+                                    "totalValue": 60000.0,
+                                    "profitLoss": 4800.0,
+                                    "profitLossPercent": 8.0,
+                                }
+                            },
+                            "profitLoss24h": 1250.50,
+                            "profitLossTotal": 7800.0,
+                            "successfulTrades": 45,
+                            "failedTrades": 12,
+                            "totalTrades": 57,
+                            "winRate": 0.789,
+                            "averageWin": 215.50,
+                            "averageLoss": -180.25,
+                        }
+                    
+                    await websocket.send_json({
+                        "type": "portfolio_update",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "data": portfolio_data,
+                    })
             except Exception as e:
                 logger.error(f"Failed to send initial portfolio data: {e}")
         except Exception as e:
@@ -202,14 +271,56 @@ async def websocket_portfolio(
                 try:
                     await asyncio.sleep(10)  # Update every 10 seconds
                     
-                    # Send mock portfolio update (in production, fetch from database)
-                    portfolio_data = {
-                        "totalBalance": 100000.0,
-                        "availableBalance": 95000.0,
-                        "positions": {},
-                        "profitLoss24h": 0,
-                        "profitLossTotal": 0,
-                    }
+                    # Fetch real portfolio data
+                    try:
+                        from ..routes.portfolio import get_portfolio
+                        from ..database import get_db_context
+                        async with get_db_context() as db:
+                            portfolio = await get_portfolio(
+                                mode="paper",
+                                current_user={"user_id": user_id, "sub": user_id},
+                                db=db
+                            )
+                            portfolio_data = {
+                                "totalBalance": portfolio.totalBalance,
+                                "availableBalance": portfolio.availableBalance,
+                                "positions": {
+                                    asset: {
+                                        "asset": pos.asset,
+                                        "amount": pos.amount,
+                                        "averagePrice": pos.averagePrice,
+                                        "currentPrice": pos.currentPrice,
+                                        "totalValue": pos.totalValue,
+                                        "profitLoss": pos.profitLoss,
+                                        "profitLossPercent": pos.profitLossPercent,
+                                    }
+                                    for asset, pos in portfolio.positions.items()
+                                },
+                                "profitLoss24h": portfolio.profitLoss24h,
+                                "profitLossTotal": portfolio.profitLossTotal,
+                            }
+                    except Exception as e:
+                        logger.error(f"Failed to fetch portfolio in periodic update: {e}")
+                        # In production, return empty data
+                        from ..config.settings import get_settings
+                        settings = get_settings()
+                        if settings.production_mode or settings.is_production:
+                            portfolio_data = {
+                                "totalBalance": 0.0,
+                                "availableBalance": 0.0,
+                                "positions": {},
+                                "profitLoss24h": 0.0,
+                                "profitLossTotal": 0.0,
+                            }
+                        else:
+                            # Development fallback
+                            portfolio_data = {
+                                "totalBalance": 100000.0,
+                                "availableBalance": 95000.0,
+                                "positions": {},
+                                "profitLoss24h": 0,
+                                "profitLossTotal": 0,
+                            }
                     
                     await websocket.send_json({
                         "type": "portfolio_update",
@@ -243,10 +354,43 @@ async def websocket_portfolio(
                 elif message.get("type") == "get_portfolio":
                     # Get current portfolio
                     mode = message.get("mode", "paper")
-                    # Send mock portfolio data (in production, fetch from database/API)
-                    portfolio_data = {
-                        "totalBalance": 100000.0,
-                        "availableBalance": 95000.0,
+                    # Fetch real portfolio data
+                    try:
+                        from ..routes.portfolio import get_portfolio
+                        from ..database import get_db_context
+                        async with get_db_context() as db:
+                            portfolio = await get_portfolio(
+                                mode=mode,
+                                current_user={"user_id": user_id, "sub": user_id},
+                                db=db
+                            )
+                            portfolio_data = {
+                                "totalBalance": portfolio.totalBalance,
+                                "availableBalance": portfolio.availableBalance,
+                                "positions": {
+                                    asset: {
+                                        "asset": pos.asset,
+                                        "amount": pos.amount,
+                                        "averagePrice": pos.averagePrice,
+                                        "currentPrice": pos.currentPrice,
+                                        "totalValue": pos.totalValue,
+                                        "profitLoss": pos.profitLoss,
+                                        "profitLossPercent": pos.profitLossPercent,
+                                    }
+                                    for asset, pos in portfolio.positions.items()
+                                },
+                                "profitLoss24h": portfolio.profitLoss24h,
+                                "profitLossTotal": portfolio.profitLossTotal,
+                            }
+                    except Exception as e:
+                        logger.error(f"Failed to fetch portfolio: {e}")
+                        # In production, return empty data
+                        from ..config.settings import get_settings
+                        settings = get_settings()
+                        if settings.production_mode or settings.is_production:
+                            portfolio_data = {
+                                "totalBalance": 0.0,
+                                "availableBalance": 0.0,
                         "positions": {},
                         "profitLoss24h": 0,
                         "profitLossTotal": 0,

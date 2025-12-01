@@ -102,7 +102,7 @@ export type InsertTrade = z.infer<typeof insertTradeSchema>;
 export const portfolioSchema = z.object({
   totalBalance: z.number(),
   availableBalance: z.number(),
-    positions: z.record(z.string(), z.object({
+  positions: z.record(z.string(), z.object({
     asset: z.string(),
     amount: z.number(),
     averagePrice: z.number(),
@@ -216,7 +216,7 @@ export const userSchema = z.object({
   passwordResetExpires: z.number().optional(),
   createdAt: z.number(),
   updatedAt: z.number(),
-    settings: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const userAuthSchema = z.object({
@@ -274,7 +274,7 @@ export const notificationSchema = z.object({
   type: notificationTypeSchema,
   title: z.string(),
   message: z.string(),
-    data: z.record(z.string(), z.any()).optional(),
+  data: z.record(z.string(), z.any()).optional(),
   read: z.boolean(),
   createdAt: z.number(),
 });

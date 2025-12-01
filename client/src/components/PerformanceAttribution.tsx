@@ -1,4 +1,7 @@
 import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,9 @@ import {
 import { TrendingUp, Target, Percent, Activity, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage, formatNumber } from "@/lib/formatters";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface AttributionData {
   strategy: string;
@@ -31,9 +37,29 @@ interface AttributionData {
   avgReturn: number;
 }
 
-export function PerformanceAttribution() {
-  // Mock attribution data - in production, this would come from the API
-  const attributionData: AttributionData[] = [
+interface CumulativeReturn {
+  month: string;
+  returns: number;
+  benchmark: number;
+  alpha: number;
+}
+
+interface FactorAnalysis {
+  factor: string;
+  exposure: number;
+  contribution: number;
+  color: string;
+}
+
+interface PerformanceAttributionResponse {
+  attribution: AttributionData[];
+  cumulativeReturns: CumulativeReturn[];
+  factorAnalysis: FactorAnalysis[];
+}
+
+// Mock data fallback (will be replaced when API endpoint is available)
+const MOCK_ATTRIBUTION_DATA: PerformanceAttributionResponse = {
+  attribution: [
     {
       strategy: "ML Enhanced",
       alpha: 8.5,
@@ -78,9 +104,8 @@ export function PerformanceAttribution() {
       winRate: 62,
       avgReturn: 1.9,
     },
-  ];
-
-  const cumulativeReturns = [
+  ],
+  cumulativeReturns: [
     { month: "Jan", returns: 0, benchmark: 0, alpha: 0 },
     { month: "Feb", returns: 2.5, benchmark: 1.8, alpha: 0.7 },
     { month: "Mar", returns: 5.2, benchmark: 3.5, alpha: 1.7 },
@@ -93,20 +118,103 @@ export function PerformanceAttribution() {
     { month: "Oct", returns: 27.8, benchmark: 23.8, alpha: 4.0 },
     { month: "Nov", returns: 30.2, benchmark: 26.1, alpha: 4.1 },
     { month: "Dec", returns: 32.5, benchmark: 28.5, alpha: 4.0 },
-  ];
-
-  const factorAnalysis = [
+  ],
+  factorAnalysis: [
     { factor: "Momentum", exposure: 0.65, contribution: 12.5, color: "#8884d8" },
     { factor: "Value", exposure: 0.45, contribution: 8.2, color: "#82ca9d" },
     { factor: "Size", exposure: 0.25, contribution: 4.5, color: "#ffc658" },
     { factor: "Volatility", exposure: -0.15, contribution: -2.1, color: "#ff7c7c" },
     { factor: "Quality", exposure: 0.35, contribution: 6.8, color: "#8dd1e1" },
-  ];
+  ],
+};
+
+export function PerformanceAttribution() {
+  const { isAuthenticated } = useAuth();
+
+  // Note: API endpoint /api/analytics/performance/attribution doesn't exist yet
+  // Using mock data as fallback. When endpoint is available, remove the mock fallback.
+  const { data, isLoading, error, refetch } = useQuery<PerformanceAttributionResponse>({
+    queryKey: ['performance-attribution'],
+    queryFn: async () => {
+      try {
+        // Try to fetch from API (will fail until endpoint is created)
+        const response = await apiRequest<PerformanceAttributionResponse>(
+          '/api/analytics/performance/attribution',
+          { method: 'GET' }
+        );
+        return response;
+      } catch (err) {
+        // Fallback to mock data until API endpoint is available
+        console.warn('Performance Attribution API endpoint not available, using mock data:', err);
+        return MOCK_ATTRIBUTION_DATA;
+      }
+    },
+    enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds
+    retry: false, // Don't retry since we have mock fallback
+  });
+
+  // Use data or fallback to mock
+  const attributionData = data?.attribution || MOCK_ATTRIBUTION_DATA.attribution;
+  const cumulativeReturns = data?.cumulativeReturns || MOCK_ATTRIBUTION_DATA.cumulativeReturns;
+  const factorAnalysis = data?.factorAnalysis || MOCK_ATTRIBUTION_DATA.factorAnalysis;
 
   const totalAlpha = attributionData.reduce((sum, d) => sum + d.alpha * (d.contribution / 100), 0);
   const totalBeta = attributionData.reduce((sum, d) => sum + d.beta * (d.contribution / 100), 0);
   const totalSharpe = attributionData.reduce((sum, d) => sum + d.sharpe * (d.contribution / 100), 0);
   const totalInfoRatio = attributionData.reduce((sum, d) => sum + d.informationRatio * (d.contribution / 100), 0);
+
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Performance Attribution
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton className="h-96" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Performance Attribution
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry error={error as Error} onRetry={() => refetch()} />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!attributionData || attributionData.length === 0) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Performance Attribution
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={BarChart3}
+            title="No Performance Data"
+            description="Performance attribution data is not available yet."
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full">

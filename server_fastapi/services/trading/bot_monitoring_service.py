@@ -6,6 +6,8 @@ import logging
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from .bot_control_service import BotControlService
 from ..monitoring.safety_monitor import SafetyMonitor
 from ..trading.safe_trading_system import SafeTradingSystem
@@ -24,8 +26,8 @@ class MonitoringAlert(BaseModel):
 class BotMonitoringService:
     """Service for bot monitoring, safety checks, and alerts"""
 
-    def __init__(self):
-        self.control_service = BotControlService()
+    def __init__(self, session: Optional[AsyncSession] = None):
+        self.control_service = BotControlService(session=session)
         self.safety_monitor = SafetyMonitor()
         self.safe_trading_system = SafeTradingSystem()
 

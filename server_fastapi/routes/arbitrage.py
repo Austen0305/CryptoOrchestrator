@@ -122,33 +122,124 @@ class ArbitrageScanner:
     async def fetch_exchange_prices(
         self,
         exchange: str,
-        symbols: List[str]
+        symbols: List[str],
+        user_id: Optional[int] = None
     ) -> Dict[str, ExchangePriceData]:
-        """Fetch current prices from an exchange"""
-        # Mock implementation - integrate with ccxt
-        import random
+        """Fetch real current prices from an exchange"""
+        import time
+        from ...services.exchange_service import ExchangeService
+        from ...services.auth.exchange_key_service import exchange_key_service
         
         prices = {}
-        for symbol in symbols:
-            base_price = 50000.0  # Mock BTC price
-            spread = random.uniform(0.001, 0.01)
-            
-            bid = base_price * (1 - spread / 2)
-            ask = base_price * (1 + spread / 2)
-            
-            prices[symbol] = ExchangePriceData(
-                exchange=exchange,
-                symbol=symbol,
-                bid=bid,
-                ask=ask,
-                spread_percent=spread * 100,
-                volume_24h=random.uniform(100000, 10000000),
-                fee_percent=0.1,  # 0.1% trading fee
-                latency_ms=random.uniform(50, 300),
-                timestamp=datetime.now().isoformat()
-            )
+        start_time = time.time()
         
-        return prices
+        try:
+            # Get user's API keys if provided
+            api_key_data = None
+            if user_id:
+                api_key_data = await exchange_key_service.get_api_key(
+                    str(user_id), exchange, include_secrets=True
+                )
+            
+            # Create exchange service
+            if api_key_data and api_key_data.get('is_validated'):
+                exchange_service = ExchangeService(
+                    name=exchange,
+                    use_mock=False,  # Force real mode
+                    api_key=api_key_data.get('api_key'),
+                    api_secret=api_key_data.get('api_secret')
+                )
+            else:
+                # Public data - no API keys needed for ticker data
+                exchange_service = ExchangeService(
+                    name=exchange,
+                    use_mock=False  # Force real mode
+                )
+            
+            await exchange_service.connect()
+            
+            if not exchange_service.is_connected():
+                raise ConnectionError(f"Failed to connect to {exchange}")
+            
+            # Fetch real prices for each symbol
+            for symbol in symbols:
+                try:
+                    # Get order book for bid/ask
+                    order_book = await exchange_service.get_order_book(symbol)
+                    
+                    if not order_book.bids or not order_book.asks:
+                        continue
+                    
+                    # Best bid (highest price to sell at)
+                    best_bid = order_book.bids[0][0] if order_book.bids else 0.0
+                    # Best ask (lowest price to buy at)
+                    best_ask = order_book.asks[0][0] if order_book.asks else 0.0
+                    
+                    if best_bid == 0 or best_ask == 0:
+                        continue
+                    
+                    # Calculate spread
+                    spread = (best_ask - best_bid) / best_bid if best_bid > 0 else 0.0
+                    
+                    # Get ticker for volume data
+                    ticker_price = await exchange_service.get_market_price(symbol)
+                    if not ticker_price:
+                        ticker_price = (best_bid + best_ask) / 2
+                    
+                    # Get fees (default to 0.1% if not available)
+                    fee_percent = 0.1  # Default
+                    try:
+                        fees = exchange_service.get_fees()
+                        fee_percent = (fees.taker * 100) if hasattr(fees, 'taker') else 0.1
+                    except:
+                        pass
+                    
+                    # Calculate latency
+                    latency_ms = (time.time() - start_time) * 1000
+                    
+                    prices[symbol] = ExchangePriceData(
+                        exchange=exchange,
+                        symbol=symbol,
+                        bid=best_bid,
+                        ask=best_ask,
+                        spread_percent=spread * 100,
+                        volume_24h=0.0,  # Would need ticker for this, skip for now
+                        fee_percent=fee_percent,
+                        latency_ms=latency_ms,
+                        timestamp=datetime.now().isoformat()
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to fetch price for {symbol} on {exchange}: {e}")
+                    continue
+            
+            return prices
+            
+        except Exception as e:
+            logger.error(f"Error fetching prices from {exchange}: {e}", exc_info=True)
+            # In production, don't return mock data
+            from ...config.settings import get_settings
+            settings = get_settings()
+            if settings.production_mode or settings.is_production:
+                return {}  # Return empty dict in production
+            else:
+                # Development fallback only
+                import random
+                logger.warning(f"Using mock data fallback for {exchange} in development")
+                for symbol in symbols:
+                    base_price = 50000.0
+                    spread = random.uniform(0.001, 0.01)
+                    prices[symbol] = ExchangePriceData(
+                        exchange=exchange,
+                        symbol=symbol,
+                        bid=base_price * (1 - spread / 2),
+                        ask=base_price * (1 + spread / 2),
+                        spread_percent=spread * 100,
+                        volume_24h=random.uniform(100000, 10000000),
+                        fee_percent=0.1,
+                        latency_ms=random.uniform(50, 300),
+                        timestamp=datetime.now().isoformat()
+                    )
+                return prices
     
     async def scan_simple_arbitrage(
         self,
@@ -160,8 +251,9 @@ class ArbitrageScanner:
         opportunities = []
         
         # Fetch prices from all exchanges in parallel
+        # Note: user_id can be passed if available for authenticated requests
         fetch_tasks = [
-            self.fetch_exchange_prices(exchange, symbols)
+            self.fetch_exchange_prices(exchange, symbols, user_id=None)  # Public data doesn't need auth
             for exchange in exchanges
         ]
         

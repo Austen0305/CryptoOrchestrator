@@ -9,7 +9,7 @@ import logging
 import uuid
 
 from ..services.strategy.template_service import StrategyTemplateService, StrategyType, StrategyCategory
-from .auth import get_current_user
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

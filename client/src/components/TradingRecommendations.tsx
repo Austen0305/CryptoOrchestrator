@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, TrendingUp, TrendingDown, BarChart3, Target, Shield, Zap } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface PairAnalysis {
   symbol: string;
@@ -35,37 +39,30 @@ interface TradingRecommendations {
   lastUpdated: number;
 }
 
-interface TradingRecommendationsProps {
-  onApplyRecommendation?: (pair: string, config: any) => void;
+export interface RecommendationConfig {
+  tradingPair: string;
+  riskPerTrade: number;
+  stopLoss: number;
+  takeProfit: number;
+  maxPositionSize: number;
 }
 
-export function TradingRecommendations({ onApplyRecommendation }: TradingRecommendationsProps) {
-  const [recommendations, setRecommendations] = useState<TradingRecommendations | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+interface TradingRecommendationsProps {
+  onApplyRecommendation?: (pair: string, config: RecommendationConfig) => void;
+}
+
+export const TradingRecommendations = React.memo(function TradingRecommendations({ onApplyRecommendation }: TradingRecommendationsProps) {
   const { isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchRecommendations();
-    } else {
-      setRecommendations(null);
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  const fetchRecommendations = async () => {
-    try {
-      setLoading(true);
-      const response = await apiRequest('GET', '/api/recommendations');
-      const data = await response.json();
-      setRecommendations(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { data: recommendations, isLoading, error, refetch, isRefetching } = useQuery<TradingRecommendations>({
+    queryKey: ['trading-recommendations'],
+    queryFn: async () => {
+      return await apiRequest<TradingRecommendations>('/api/recommendations', { method: 'GET' });
+    },
+    enabled: isAuthenticated,
+    refetchInterval: 60000, // Refresh every minute
+    retry: 2,
+  });
 
   const getSentimentIcon = (sentiment: string) => {
     switch (sentiment) {
@@ -92,7 +89,21 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
   const formatPercentage = (value: number) => `${(value * 100).toFixed(2)}%`;
   const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
-  if (loading) {
+  if (!isAuthenticated) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Trading Recommendations
+          </CardTitle>
+          <CardDescription>Please log in to view trading recommendations</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (isLoading) {
     return (
       <Card>
         <CardHeader>
@@ -103,10 +114,19 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
           <CardDescription>Loading market analysis...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          <div className="space-y-4">
+            <LoadingSkeleton count={3} className="h-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              {[1, 2, 3, 4].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <LoadingSkeleton className="h-6 w-24 mb-2" />
+                    <LoadingSkeleton className="h-4 w-32 mb-4" />
+                    <LoadingSkeleton count={2} className="h-3" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -118,17 +138,37 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-red-500" />
+            <Target className="w-5 h-5" />
             Trading Recommendations
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load recommendations: {error}
-            </AlertDescription>
-          </Alert>
+          <ErrorRetry
+            title="Failed to load recommendations"
+            message={error instanceof Error ? error.message : "Unable to fetch trading recommendations. Please try again."}
+            onRetry={() => refetch()}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!recommendations || !recommendations.topPairs || recommendations.topPairs.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Trading Recommendations
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Target}
+            title="No recommendations available"
+            description="Trading recommendations are not available at the moment. Check back later."
+          />
         </CardContent>
       </Card>
     );
@@ -137,13 +177,13 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
   if (!recommendations) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Target className="w-5 h-5" />
+    <Card className="border-card-border shadow-md">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-lg font-bold">
+          <Target className="w-5 h-5 text-primary" />
           Trading Recommendations
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-sm">
           AI-powered analysis of trading pairs and optimal parameters
         </CardDescription>
       </CardHeader>
@@ -333,4 +373,4 @@ export function TradingRecommendations({ onApplyRecommendation }: TradingRecomme
       </CardContent>
     </Card>
   );
-}
+});

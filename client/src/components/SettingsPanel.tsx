@@ -12,12 +12,13 @@ import { AlertCircle, Palette, Bell, Monitor, RefreshCw, Languages } from 'lucid
 import { Alert, AlertDescription } from './ui/alert';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n';
+import { LoadingSkeleton } from './LoadingSkeleton';
+import { ErrorRetry } from './ErrorRetry';
 
 export function SettingsPanel() {
-  const { preferences, updatePreferences, resetPreferences, loading, error } = usePreferences();
+  const { preferences, updatePreferences, resetPreferences, loading, error, refetch } = usePreferences();
   const { theme, setTheme } = useTheme();
   const { t, i18n } = useTranslation();
-  const [saving, setSaving] = useState(false);
 
   const handleThemeChange = async (newTheme: "light" | "dark" | "system") => {
     try {
@@ -31,7 +32,6 @@ export function SettingsPanel() {
     if (!preferences) return;
 
     try {
-      setSaving(true);
       await updatePreferences({
         notifications: {
           ...preferences.notifications,
@@ -40,16 +40,13 @@ export function SettingsPanel() {
       });
     } catch (error) {
       console.error('Failed to update notifications:', error);
-    } finally {
-      setSaving(false);
     }
   };
 
-  const handleUISettingChange = async (key: string, value: any) => {
+  const handleUISettingChange = async (key: string, value: string | number | boolean) => {
     if (!preferences) return;
 
     try {
-      setSaving(true);
       await updatePreferences({
         uiSettings: {
           ...preferences.uiSettings,
@@ -58,16 +55,13 @@ export function SettingsPanel() {
       });
     } catch (error) {
       console.error('Failed to update UI settings:', error);
-    } finally {
-      setSaving(false);
     }
   };
 
-  const handleTradingSettingChange = async (key: string, value: any) => {
+  const handleTradingSettingChange = async (key: string, value: string | number | boolean) => {
     if (!preferences) return;
 
     try {
-      setSaving(true);
       await updatePreferences({
         tradingSettings: {
           ...preferences.tradingSettings,
@@ -76,8 +70,6 @@ export function SettingsPanel() {
       });
     } catch (error) {
       console.error('Failed to update trading settings:', error);
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -101,12 +93,9 @@ export function SettingsPanel() {
   const handleReset = async () => {
     if (confirm(t('common.resetConfirm'))) {
       try {
-        setSaving(true);
         await resetPreferences();
       } catch (error) {
         console.error('Failed to reset preferences:', error);
-      } finally {
-        setSaving(false);
       }
     }
   };
@@ -114,24 +103,30 @@ export function SettingsPanel() {
   if (loading) {
     return (
       <Card>
-        <CardContent className="flex items-center justify-center p-6">
-          <RefreshCw className="h-6 w-6 animate-spin" />
-          <span className="ml-2">{t('common.loading')}</span>
+        <CardHeader>
+          <CardTitle>Settings</CardTitle>
+          <CardDescription>Loading preferences...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LoadingSkeleton count={5} className="h-16 w-full mb-4" />
         </CardContent>
       </Card>
     );
   }
 
-  if (!preferences) {
+  if (error || !preferences) {
     return (
       <Card>
-        <CardContent className="p-6">
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load preferences. Please try refreshing the page.
-            </AlertDescription>
-          </Alert>
+        <CardHeader>
+          <CardTitle>Settings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load preferences"
+            message={error || "Preferences could not be loaded. Please try refreshing the page."}
+            onRetry={() => refetch()}
+            error={error ? new Error(error) : new Error("Failed to load preferences")}
+          />
         </CardContent>
       </Card>
     );
@@ -168,6 +163,10 @@ export function SettingsPanel() {
                 <SelectItem value="en">English</SelectItem>
                 <SelectItem value="es">Español</SelectItem>
                 <SelectItem value="ar">العربية</SelectItem>
+                <SelectItem value="fr">Français</SelectItem>
+                <SelectItem value="de">Deutsch</SelectItem>
+                <SelectItem value="ja">日本語</SelectItem>
+                <SelectItem value="zh">中文</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -210,7 +209,6 @@ export function SettingsPanel() {
             <Switch
               checked={preferences.uiSettings.compact_mode}
               onCheckedChange={(checked) => handleUISettingChange('compact_mode', checked)}
-              disabled={saving}
             />
           </div>
         </CardContent>
@@ -239,7 +237,6 @@ export function SettingsPanel() {
               <Switch
                 checked={enabled}
                 onCheckedChange={(checked) => handleNotificationChange(type as keyof typeof preferences.notifications, checked)}
-                disabled={saving}
               />
             </div>
           ))}
@@ -268,7 +265,6 @@ export function SettingsPanel() {
             <Switch
               checked={preferences.uiSettings.auto_refresh}
               onCheckedChange={(checked) => handleUISettingChange('auto_refresh', checked)}
-              disabled={saving}
             />
           </div>
 
@@ -277,7 +273,7 @@ export function SettingsPanel() {
             <Select
               value={preferences.uiSettings.refresh_interval.toString()}
               onValueChange={(value) => handleUISettingChange('refresh_interval', parseInt(value))}
-              disabled={!preferences.uiSettings.auto_refresh || saving}
+              disabled={!preferences.uiSettings.auto_refresh}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -332,7 +328,6 @@ export function SettingsPanel() {
             <Switch
               checked={preferences.tradingSettings.confirm_orders}
               onCheckedChange={(checked) => handleTradingSettingChange('confirm_orders', checked)}
-              disabled={saving}
             />
           </div>
 
@@ -346,7 +341,6 @@ export function SettingsPanel() {
             <Switch
               checked={preferences.tradingSettings.show_fees}
               onCheckedChange={(checked) => handleTradingSettingChange('show_fees', checked)}
-              disabled={saving}
             />
           </div>
 
@@ -374,7 +368,6 @@ export function SettingsPanel() {
         <Button
           variant="destructive"
           onClick={handleReset}
-          disabled={saving}
         >
           {t('common.reset')}
         </Button>

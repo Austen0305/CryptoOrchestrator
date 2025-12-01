@@ -5,10 +5,22 @@
 import { useEffect, useState, useRef } from 'react';
 import { useAuth } from './useAuth';
 
+interface WindowWithGlobals extends Window {
+  __WS_BASE__?: string;
+  __API_BASE__?: string;
+  VITE_API_URL?: string;
+}
+interface ImportMetaWithEnv extends ImportMeta {
+  env?: {
+    VITE_API_BASE_URL?: string;
+    VITE_API_URL?: string;
+  };
+}
+
 interface PortfolioData {
   totalBalance: number;
   availableBalance: number;
-  positions: Record<string, any>;
+  positions: Record<string, unknown>;
   profitLoss24h: number;
   profitLossTotal: number;
   successfulTrades?: number;
@@ -40,7 +52,7 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
 
     const connect = () => {
       try {
-        const baseUrl = (globalThis as any).VITE_API_URL || 'http://localhost:8000';
+        const baseUrl = (globalThis as WindowWithGlobals).VITE_API_URL || (import.meta as ImportMetaWithEnv)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
         const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
         const token = localStorage.getItem('auth_token');
         
@@ -53,7 +65,6 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
         const ws = new WebSocket(fullUrl);
 
         ws.onopen = () => {
-          console.log('[Portfolio WS] Connected');
           setIsConnected(true);
           setError(null);
           
@@ -69,24 +80,25 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
             const message: PortfolioUpdate = JSON.parse(event.data);
             
             if (message.type === 'portfolio_update' && message.data) {
-              setPortfolio(message.data);
+              setPortfolio(message.data as PortfolioData);
             } else if (message.type === 'pong') {
               // Heartbeat response
             } else if (message.type === 'error') {
-              setError(message.data as any);
+              setError(message.data as string);
             }
-          } catch (e) {
-            console.error('[Portfolio WS] Failed to parse message:', e);
+          } catch (e: unknown) {
+            const error = e instanceof Error ? e : new Error(String(e));
+            // Failed to parse message - log silently
           }
         };
 
         ws.onerror = (error) => {
-          console.error('[Portfolio WS] Error:', error);
+          // WebSocket error - handled by onerror
           setError('WebSocket connection error');
         };
 
         ws.onclose = () => {
-          console.log('[Portfolio WS] Disconnected');
+          // WebSocket disconnected
           setIsConnected(false);
           
           // Attempt to reconnect after 3 seconds
@@ -96,8 +108,9 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
         };
 
         wsRef.current = ws;
-      } catch (e) {
-        console.error('[Portfolio WS] Failed to connect:', e);
+      } catch (e: unknown) {
+        const error = e instanceof Error ? e : new Error(String(e));
+        // Failed to connect - error state already set
         setError('Failed to establish WebSocket connection');
       }
     };

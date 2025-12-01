@@ -8,11 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RefreshCw, Shield, AlertCircle, CheckCircle2, XCircle, Filter } from 'lucide-react';
 import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from '@tanstack/react-query';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
+import { ErrorRetry } from '@/components/ErrorRetry';
+import { EmptyState } from '@/components/EmptyState';
+import { Pagination } from '@/components/Pagination';
 
 interface AuditLogEntry {
   timestamp: string;
@@ -39,7 +42,7 @@ export function AuditLogViewer() {
   const [eventType, setEventType] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
 
-  const { data, isLoading, refetch, isRefetching } = useQuery<AuditLogResponse>({
+  const { data, isLoading, refetch, isRefetching, error } = useQuery<AuditLogResponse>({
     queryKey: ['audit-logs', page, pageSize, eventType, status],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -57,6 +60,10 @@ export function AuditLogViewer() {
 
   const handleRefresh = () => {
     refetch();
+  };
+  const handlePageSizeChange = (size: number) => {
+    setPage(1);
+    setPageSize(size);
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -89,13 +96,34 @@ export function AuditLogViewer() {
           <CardDescription>Loading audit logs...</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            Loading...
-          </div>
+          <LoadingSkeleton count={6} className="h-16 w-full" />
         </CardContent>
       </Card>
     );
   }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Audit Logs
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load audit logs"
+            message={error instanceof Error ? error.message : 'Unable to fetch audit logs. Please try again.'}
+            onRetry={handleRefresh}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const hasEntries = data && data.entries.length > 0;
 
   return (
     <Card>
@@ -161,11 +189,12 @@ export function AuditLogViewer() {
         </div>
       </CardHeader>
       <CardContent>
-        {!data || data.entries.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No audit logs found</p>
-          </div>
+        {!hasEntries ? (
+          <EmptyState
+            icon={AlertCircle}
+            title="No audit logs found"
+            description="Audit log entries will appear here once system activity is recorded."
+          />
         ) : (
           <>
             <ScrollArea className="h-[600px] pr-4">
@@ -228,35 +257,18 @@ export function AuditLogViewer() {
                 ))}
               </div>
             </ScrollArea>
-            
-            {/* Pagination */}
+
             {data.total > pageSize && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                <div className="text-sm text-muted-foreground">
-                  Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, data.total)} of {data.total} entries
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page - 1)}
-                    disabled={page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <span className="text-sm text-muted-foreground">
-                    Page {page} of {Math.ceil(data.total / pageSize)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage(page + 1)}
-                    disabled={page * pageSize >= data.total}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
+              <Pagination
+                page={page}
+                pageSize={pageSize}
+                totalPages={Math.ceil(data.total / pageSize)}
+                totalItems={data.total}
+                onPageChange={(page) => setPage(page)}
+                onPageSizeChange={handlePageSizeChange}
+                pageSizeOptions={[25, 50, 100]}
+                className="mt-4"
+              />
             )}
           </>
         )}

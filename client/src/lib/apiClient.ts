@@ -20,8 +20,21 @@ class ApiClient {
   private   baseURL: string;
   private authToken: string | null = null;
 
-  constructor(baseURL: string = '/api') {
-    this.baseURL = baseURL;
+  constructor(baseURL?: string) {
+    // Use backend URL (from env or default) if not provided
+    if (!baseURL) {
+      const envBaseUrl =
+        typeof window !== "undefined"
+          ? (window as any).__API_BASE__
+          : import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL;
+
+      // Default to main FastAPI backend on port 8000.
+      // Minimal auth server on :9000 is legacy and should only be used
+      // if explicitly configured via env/JS globals.
+      this.baseURL = envBaseUrl || "http://localhost:8000/api";
+    } else {
+      this.baseURL = baseURL;
+    }
     // Initialize from localStorage if available
     if (typeof window !== 'undefined') {
       this.authToken = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');

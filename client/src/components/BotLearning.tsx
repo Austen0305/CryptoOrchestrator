@@ -26,6 +26,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { formatPercentage, formatCurrency } from "@/lib/formatters";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
+import { EmptyState } from "@/components/EmptyState";
 
 interface BotLearningProps {
   botId: string;
@@ -77,8 +80,7 @@ export function BotLearning({ botId }: BotLearningProps) {
   const { data: learningMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<LearningMetrics>({
     queryKey: ["bots", botId, "learning", "metrics"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bots/${botId}/learning/metrics`);
-      const data = await response.json();
+      const data = await apiRequest(`/api/bots/${botId}/learning/metrics`, { method: "GET" });
       return data.learning_metrics || {
         total_trades_analyzed: 1247,
         successful_patterns: 892,
@@ -103,8 +105,7 @@ export function BotLearning({ botId }: BotLearningProps) {
   const { data: patternAnalysis, isLoading: patternsLoading } = useQuery<PatternAnalysis[]>({
     queryKey: ["bots", botId, "learning", "patterns"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/api/bots/${botId}/learning/patterns`);
-      const data = await response.json();
+      const data = await apiRequest(`/api/bots/${botId}/learning/patterns`, { method: "GET" });
       return data.patterns || [
         {
           pattern: "Golden Cross",
@@ -214,8 +215,7 @@ export function BotLearning({ botId }: BotLearningProps) {
 
   const retrainMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/bots/${botId}/learning/retrain`);
-      return response.json();
+      return await apiRequest(`/api/bots/${botId}/learning/retrain`, { method: "POST" });
     },
     onMutate: () => {
       setIsRetraining(true);
@@ -227,7 +227,7 @@ export function BotLearning({ botId }: BotLearningProps) {
       });
       refetchMetrics();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Retraining Failed",
         description: error.message || "Failed to initiate model retraining.",
@@ -307,11 +307,15 @@ export function BotLearning({ botId }: BotLearningProps) {
           {/* Learning Metrics Tab */}
           <TabsContent value="metrics" className="space-y-4 mt-4">
             {metricsLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                Loading learning metrics...
-              </div>
-            ) : learningMetrics ? (
+              <LoadingSkeleton count={5} className="h-16 w-full" />
+            ) : !learningMetrics ? (
+              <ErrorRetry
+                title="Failed to load learning metrics"
+                message="Unable to fetch bot learning data. Please try again."
+                onRetry={() => refetchMetrics()}
+                error={new Error("No learning metrics available")}
+              />
+            ) : (
               <>
                 {/* Summary Stats */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -423,21 +427,20 @@ export function BotLearning({ botId }: BotLearningProps) {
                   Last learning update: {new Date(learningMetrics.last_learning_update).toLocaleString()}
                 </div>
               </>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No learning data available yet
-              </div>
             )}
           </TabsContent>
 
           {/* Pattern Analysis Tab */}
           <TabsContent value="patterns" className="space-y-4 mt-4">
             {patternsLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                Loading pattern analysis...
-              </div>
-            ) : patternAnalysis && patternAnalysis.length > 0 ? (
+              <LoadingSkeleton count={4} className="h-12 w-full" />
+            ) : !patternAnalysis || patternAnalysis.length === 0 ? (
+              <EmptyState
+                icon={Target}
+                title="No pattern analysis available"
+                description="The bot needs more trading data to analyze patterns. Keep trading to see pattern insights."
+              />
+            ) : (
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -494,21 +497,20 @@ export function BotLearning({ botId }: BotLearningProps) {
                   </TableBody>
                 </Table>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No pattern analysis available yet
-              </div>
             )}
           </TabsContent>
 
           {/* Adaptive Strategies Tab */}
           <TabsContent value="strategies" className="space-y-4 mt-4">
             {strategiesLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                Loading adaptive strategies...
-              </div>
-            ) : adaptiveStrategies && adaptiveStrategies.length > 0 ? (
+              <LoadingSkeleton count={3} className="h-48 w-full" />
+            ) : !adaptiveStrategies || adaptiveStrategies.length === 0 ? (
+              <EmptyState
+                icon={Zap}
+                title="No adaptive strategies available"
+                description="The bot needs more market data to learn adaptive strategies. Keep trading to see strategy recommendations."
+              />
+            ) : (
               <div className="space-y-4">
                 {adaptiveStrategies.map((strategy, idx) => (
                   <Card key={idx}>
@@ -584,10 +586,6 @@ export function BotLearning({ botId }: BotLearningProps) {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No adaptive strategies available yet
               </div>
             )}
           </TabsContent>

@@ -9,63 +9,60 @@ import { useArbitrageStatus, useArbitrageOpportunities, useArbitrageStats, useSt
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorRetry } from "@/components/ErrorRetry";
+
+interface ArbitrageOpportunity {
+  id?: string;
+  opportunity_id?: string;
+  pair?: string;
+  symbol?: string;
+  exchangeA?: string;
+  buy_exchange?: string;
+  exchangeB?: string;
+  sell_exchange?: string;
+  priceA?: number;
+  buy_price?: number;
+  priceB?: number;
+  sell_price?: number;
+  spread?: number;
+  spread_percent?: number;
+  spreadPercent?: number;
+  estimatedProfit?: number;
+  estimated_profit_usd?: number;
+  profit_percent?: number;
+  volume?: string;
+  volume_available?: number;
+  timestamp?: string;
+}
 
 export function ArbitrageDashboard() {
   const { isAuthenticated } = useAuth();
-  const { data: status, isLoading: statusLoading } = useArbitrageStatus();
-  const { data: opportunities, isLoading: opportunitiesLoading } = useArbitrageOpportunities();
-  const { data: stats, isLoading: statsLoading } = useArbitrageStats();
+  const { data: status, isLoading: statusLoading, error: statusError, refetch: refetchStatus } = useArbitrageStatus();
+  const { data: opportunities, isLoading: opportunitiesLoading, error: opportunitiesError, refetch: refetchOpportunities } = useArbitrageOpportunities();
+  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useArbitrageStats();
   const startArbitrage = useStartArbitrage();
   const stopArbitrage = useStopArbitrage();
   const executeArbitrage = useExecuteArbitrage();
 
-  // Mock data - in production, this would come from the API
-  const mockStatus = {
+  const hasError = statusError || opportunitiesError || statsError;
+  const error = statusError || opportunitiesError || statsError;
+
+  // Use real API data, with loading states
+  const statusData = status || {
     isRunning: false,
     lastScanTime: new Date(),
     activeOpportunities: 0,
   };
-
-  const mockOpportunities = [
-    {
-      id: "1",
-      pair: "BTC/USD",
-      exchangeA: "Kraken",
-      exchangeB: "Binance",
-      priceA: 47300,
-      priceB: 47450,
-      spread: 150,
-      spreadPercent: 0.32,
-      estimatedProfit: 145,
-      volume: 1.0,
-      timestamp: new Date(),
-    },
-    {
-      id: "2",
-      pair: "ETH/USD",
-      exchangeA: "Kraken",
-      exchangeB: "Coinbase",
-      priceA: 2915,
-      priceB: 2928,
-      spread: 13,
-      spreadPercent: 0.45,
-      estimatedProfit: 12.5,
-      volume: 10.0,
-      timestamp: new Date(),
-    },
-  ];
-
-  const mockStats = {
-    totalOpportunities: 45,
-    totalExecuted: 12,
-    totalProfit: 1250,
-    successRate: 92.5,
-    averageProfit: 104.17,
+  const opportunitiesData = opportunities || [];
+  const statsData = stats || {
+    totalOpportunities: 0,
+    totalExecuted: 0,
+    totalProfit: 0,
+    successRate: 0,
+    averageProfit: 0,
   };
-
-  const statusData = status || mockStatus;
-  const opportunitiesData = opportunities || mockOpportunities;
-  const statsData = stats || mockStats;
 
   const handleStart = async () => {
     await startArbitrage.mutateAsync();
@@ -86,6 +83,81 @@ export function ArbitrageDashboard() {
           <CardTitle>Arbitrage Dashboard</CardTitle>
           <CardDescription>Please log in to access arbitrage features</CardDescription>
         </CardHeader>
+      </Card>
+    );
+  }
+
+  if (statusLoading || opportunitiesLoading || statsLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Multi-Exchange Arbitrage
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <LoadingSkeleton count={4} className="h-20 w-full" />
+            </div>
+            <LoadingSkeleton count={1} className="h-64 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Multi-Exchange Arbitrage
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ErrorRetry
+            title="Failed to load arbitrage data"
+            message={error instanceof Error ? error.message : "Unable to fetch arbitrage information. Please try again."}
+            onRetry={() => {
+              refetchStatus();
+              refetchOpportunities();
+              refetchStats();
+            }}
+            error={error as Error}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (opportunitiesData.length === 0 && !statusData.isRunning) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-yellow-500" />
+            Multi-Exchange Arbitrage
+          </CardTitle>
+          <CardDescription>
+            Real-time arbitrage opportunities across exchanges
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Zap}
+            title="No Arbitrage Opportunities"
+            description="Start the arbitrage scanner to find opportunities across exchanges"
+            action={
+              <Button onClick={handleStart} disabled={startArbitrage.isPending}>
+                <Play className="h-4 w-4 mr-2" />
+                Start Scanner
+              </Button>
+            }
+          />
+        </CardContent>
       </Card>
     );
   }
@@ -150,15 +222,13 @@ export function ArbitrageDashboard() {
 
           <TabsContent value="opportunities" className="space-y-4">
             {opportunitiesLoading ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Loading opportunities...
-              </div>
+              <LoadingSkeleton count={5} className="h-12 w-full" />
             ) : opportunitiesData.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Activity className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>No arbitrage opportunities found</p>
-                <p className="text-sm">Start scanning to find opportunities across exchanges</p>
-              </div>
+              <EmptyState
+                icon={Activity}
+                title="No arbitrage opportunities found"
+                description="Start scanning to find opportunities across exchanges"
+              />
             ) : (
               <div className="rounded-md border">
                 <Table>
@@ -174,51 +244,64 @@ export function ArbitrageDashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {opportunitiesData.map((opp: any) => (
-                      <TableRow key={opp.id}>
-                        <TableCell className="font-medium">{opp.pair}</TableCell>
-                        <TableCell>
-                          <div className="text-sm">{opp.exchangeA}</div>
-                          <div className="text-xs text-muted-foreground">{formatCurrency(opp.priceA)}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">{opp.exchangeB}</div>
-                          <div className="text-xs text-muted-foreground">{formatCurrency(opp.priceB)}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              "font-medium",
-                              opp.spread > 0 ? "text-green-500" : "text-red-500"
-                            )}>
-                              {formatCurrency(opp.spread)}
+                    {opportunitiesData.map((opp: ArbitrageOpportunity) => {
+                      const opportunityId = opp.id || opp.opportunity_id || "";
+                      const pair = opp.pair || opp.symbol || "N/A";
+                      const buyExchange = opp.exchangeA || opp.buy_exchange || "N/A";
+                      const sellExchange = opp.exchangeB || opp.sell_exchange || "N/A";
+                      const buyPrice = opp.priceA || opp.buy_price || 0;
+                      const sellPrice = opp.priceB || opp.sell_price || 0;
+                      const spread = opp.spread ?? (sellPrice - buyPrice);
+                      const spreadPercent = opp.spreadPercent || opp.spread_percent || ((spread / buyPrice) * 100);
+                      const estimatedProfit = opp.estimatedProfit || opp.estimated_profit_usd || 0;
+                      const volume = opp.volume || (opp.volume_available ? `${opp.volume_available}` : "N/A");
+
+                      return (
+                        <TableRow key={opportunityId}>
+                          <TableCell className="font-medium">{pair}</TableCell>
+                          <TableCell>
+                            <div className="text-sm">{buyExchange}</div>
+                            <div className="text-xs text-muted-foreground">{formatCurrency(buyPrice)}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{sellExchange}</div>
+                            <div className="text-xs text-muted-foreground">{formatCurrency(sellPrice)}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "font-medium",
+                                spread > 0 ? "text-green-500" : "text-red-500"
+                              )}>
+                                {formatCurrency(spread)}
+                              </div>
+                              <Badge variant="outline" className={cn(
+                                spreadPercent > 0.3 ? "border-green-500 text-green-500" : ""
+                              )}>
+                                {formatPercentage(spreadPercent)}
+                              </Badge>
                             </div>
-                            <Badge variant="outline" className={cn(
-                              opp.spreadPercent > 0.3 ? "border-green-500 text-green-500" : ""
-                            )}>
-                              {formatPercentage(opp.spreadPercent)}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium text-green-500">
-                            {formatCurrency(opp.estimatedProfit)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {opp.volume}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            onClick={() => handleExecute(opp.id)}
-                            disabled={executeArbitrage.isPending}
-                          >
-                            Execute
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-medium text-green-500">
+                              {formatCurrency(estimatedProfit)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {volume}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              onClick={() => handleExecute(opportunityId)}
+                              disabled={executeArbitrage.isPending}
+                            >
+                              Execute
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
