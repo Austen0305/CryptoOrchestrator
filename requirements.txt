@@ -75,6 +75,10 @@ twilio==9.2.3  # For SMS notifications via Twilio
 # Backup and encryption
 cryptography==41.0.7  # For backup encryption (if using GPG)
 
+# BIP39/BIP32 wallet seed generation (FREE - for wallet features)
+mnemonic>=0.20  # BIP39 mnemonic seed phrases
+hdwallets>=0.1.2  # HD wallet derivation (BIP32/BIP44)
+
 # Notes:
 # - Removed 'technicalindicators==3.1.0' as it is a JavaScript-only package and not available on PyPI.
 #   Frontend/Node uses 'technicalindicators' via npm; Python backend should use 'ta' or 'pandas_ta' if needed.

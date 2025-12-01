@@ -313,6 +313,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error closing rate limiter: {e}")
     
+    # Close CoinGecko service
+    try:
+        from .services.coingecko_service import cleanup_coingecko_service
+        await cleanup_coingecko_service()
+        logger.info("CoinGecko service closed")
+    except Exception as e:
+        logger.warning(f"Error closing CoinGecko service: {e}")
+    
     # Close Redis cache manager
     if redis_available and cache_manager:
         try:
@@ -878,6 +886,7 @@ _safe_include("server_fastapi.routes.platform_revenue", "router", "", ["Platform
 _safe_include("server_fastapi.routes.backups", "router", "", ["Backups"])
 _safe_include("server_fastapi.routes.security_whitelists", "router", "", ["Security Whitelists"])
 _safe_include("server_fastapi.routes.fraud_detection", "router", "", ["Fraud Detection"])
+_safe_include("server_fastapi.routes.coingecko", "router", "/api/coingecko", ["CoinGecko Market Data"])
 
 try:
     from server_fastapi.routes.health_advanced import router as health_advanced_router
