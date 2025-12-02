@@ -13,6 +13,18 @@ from ...repositories.bot_repository import BotRepository
 from ..portfolio_reconciliation import reconcile_user_portfolio
 from contextlib import asynccontextmanager
 
+# Import cache utilities
+try:
+    from ...middleware.query_cache import cache_query_result
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    def cache_query_result(*args, **kwargs):
+        """Fallback no-op decorator when cache not available"""
+        def decorator(func):
+            return func
+        return decorator
+
 logger = logging.getLogger(__name__)
 
 
@@ -155,7 +167,10 @@ class BotCreationService:
         """Validate bot configuration for given strategy"""
         try:
             # Basic validation - strategy exists
-            valid_strategies = ['ml_enhanced', 'ensemble', 'neural_network', 'simple_ma', 'rsi']
+            valid_strategies = [
+                'ml_enhanced', 'ensemble', 'neural_network', 
+                'simple_ma', 'rsi', 'momentum', 'smart_adaptive'
+            ]
             if strategy not in valid_strategies:
                 logger.warning(f"Invalid strategy: {strategy}")
                 return False
@@ -190,7 +205,12 @@ class BotCreationService:
 
             return True
 
+        except Exception as e:
+            logger.error(f"Error validating bot config: {str(e)}")
+            return False
+
     async def _trigger_reconciliation(self, user_id: int, session: AsyncSession) -> None:
+        """Trigger portfolio reconciliation after bot changes"""
         try:
             await reconcile_user_portfolio(str(user_id), session)
         except Exception as exc:
@@ -198,7 +218,3 @@ class BotCreationService:
                 f"Portfolio reconciliation after bot change failed for user {user_id}: {exc}",
                 exc_info=True,
             )
-
-        except Exception as e:
-            logger.error(f"Error validating bot config: {str(e)}")
-            return False

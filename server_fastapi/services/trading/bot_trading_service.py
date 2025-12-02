@@ -291,15 +291,19 @@ class BotTradingService:
                         }
 
             elif strategy == 'simple_ma':
-                # Simple moving average strategy (mock)
+                # Simple moving average crossover strategy
                 return self._simple_ma_signal(market_data, bot_config)
 
             elif strategy == 'rsi':
-                # RSI strategy (mock)
+                # RSI (Relative Strength Index) strategy
                 return self._rsi_signal(market_data, bot_config)
+            
+            elif strategy == 'momentum':
+                # Momentum-based strategy
+                return self._momentum_signal(market_data, bot_config)
 
             # Default hold signal
-            return {"action": "hold", "confidence": 0.5, "reasoning": "Default hold"}
+            return {"action": "hold", "confidence": 0.5, "reasoning": "Unknown strategy - holding"}
 
         except Exception as e:
             logger.error(f"Error getting trading signal for strategy {strategy}: {str(e)}")
@@ -339,14 +343,367 @@ class BotTradingService:
         }
 
     def _simple_ma_signal(self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Simple moving average trading signal"""
-        # Mock implementation - in reality would calculate actual MAs
-        return {"action": "hold", "confidence": 0.5, "reasoning": "Simple MA strategy"}
+        """
+        Simple Moving Average Crossover strategy.
+        Generates buy signal when fast MA (50) crosses above slow MA (200).
+        Generates sell signal when fast MA (50) crosses below slow MA (200).
+        Includes volume confirmation filter.
+        """
+        try:
+            if len(market_data) < 200:
+                logger.warning(f"Insufficient data for MA crossover: {len(market_data)} candles (need 200)")
+                return {"action": "hold", "confidence": 0.3, "reasoning": "Insufficient data for MA analysis"}
+            
+            # Extract close prices and volumes
+            closes = [float(candle['close']) for candle in market_data]
+            volumes = [float(candle['volume']) for candle in market_data]
+            
+            # Calculate SMAs
+            fast_period = bot_config.get('config', {}).get('fast_ma_period', 50)
+            slow_period = bot_config.get('config', {}).get('slow_ma_period', 200)
+            volume_period = bot_config.get('config', {}).get('volume_period', 20)
+            
+            # Calculate current and previous fast MA (50-period SMA)
+            fast_ma_current = sum(closes[-fast_period:]) / fast_period
+            fast_ma_prev = sum(closes[-(fast_period + 1):-1]) / fast_period
+            
+            # Calculate current and previous slow MA (200-period SMA)
+            slow_ma_current = sum(closes[-slow_period:]) / slow_period
+            slow_ma_prev = sum(closes[-(slow_period + 1):-1]) / slow_period
+            
+            # Calculate average volume for confirmation
+            avg_volume = sum(volumes[-volume_period:]) / volume_period
+            current_volume = volumes[-1]
+            volume_confirmed = current_volume > avg_volume
+            
+            # Calculate momentum for confidence scoring
+            momentum = (closes[-1] - closes[-5]) / closes[-5] if len(closes) >= 5 else 0
+            
+            # Determine signal
+            action = "hold"
+            confidence = 0.5
+            reasoning = []
+            
+            # Bullish crossover: fast MA crosses above slow MA
+            if fast_ma_prev <= slow_ma_prev and fast_ma_current > slow_ma_current:
+                action = "buy"
+                base_confidence = 0.7
+                reasoning.append("Fast MA crossed above slow MA (golden cross)")
+                
+                # Boost confidence with volume confirmation
+                if volume_confirmed:
+                    base_confidence += 0.1
+                    reasoning.append("Volume confirms the move")
+                
+                # Boost confidence with positive momentum
+                if momentum > 0.02:
+                    base_confidence += 0.1
+                    reasoning.append(f"Strong positive momentum ({momentum:.2%})")
+                
+                confidence = min(base_confidence, 0.95)
+                
+            # Bearish crossover: fast MA crosses below slow MA
+            elif fast_ma_prev >= slow_ma_prev and fast_ma_current < slow_ma_current:
+                action = "sell"
+                base_confidence = 0.7
+                reasoning.append("Fast MA crossed below slow MA (death cross)")
+                
+                # Boost confidence with volume confirmation
+                if volume_confirmed:
+                    base_confidence += 0.1
+                    reasoning.append("Volume confirms the move")
+                
+                # Boost confidence with negative momentum
+                if momentum < -0.02:
+                    base_confidence += 0.1
+                    reasoning.append(f"Strong negative momentum ({momentum:.2%})")
+                
+                confidence = min(base_confidence, 0.95)
+                
+            else:
+                # No crossover - trend following
+                if fast_ma_current > slow_ma_current:
+                    # Uptrend but no new crossover
+                    reasoning.append("Uptrend: fast MA above slow MA")
+                    if momentum > 0.01:
+                        action = "buy"
+                        confidence = 0.55 + (0.1 if volume_confirmed else 0)
+                        reasoning.append("Continued upward momentum")
+                else:
+                    # Downtrend but no new crossover
+                    reasoning.append("Downtrend: fast MA below slow MA")
+                    if momentum < -0.01:
+                        action = "sell"
+                        confidence = 0.55 + (0.1 if volume_confirmed else 0)
+                        reasoning.append("Continued downward momentum")
+            
+            logger.info(f"MA Signal: {action} with {confidence:.2%} confidence - {'; '.join(reasoning)}")
+            
+            return {
+                "action": action,
+                "confidence": confidence,
+                "reasoning": "; ".join(reasoning),
+                "indicators": {
+                    "fast_ma": fast_ma_current,
+                    "slow_ma": slow_ma_current,
+                    "momentum": momentum,
+                    "volume_ratio": current_volume / avg_volume if avg_volume > 0 else 1.0
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating MA signal: {e}", exc_info=True)
+            return {"action": "hold", "confidence": 0.3, "reasoning": f"Error in MA calculation: {str(e)}"}
 
     def _rsi_signal(self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]) -> Dict[str, Any]:
-        """RSI-based trading signal"""
-        # Mock implementation - in reality would calculate RSI
-        return {"action": "hold", "confidence": 0.5, "reasoning": "RSI strategy"}
+        """
+        RSI (Relative Strength Index) trading strategy.
+        Generates buy signal when RSI < 30 (oversold).
+        Generates sell signal when RSI > 70 (overbought).
+        Includes divergence detection and trend confirmation.
+        """
+        try:
+            rsi_period = bot_config.get('config', {}).get('rsi_period', 14)
+            oversold_threshold = bot_config.get('config', {}).get('rsi_oversold', 30)
+            overbought_threshold = bot_config.get('config', {}).get('rsi_overbought', 70)
+            
+            if len(market_data) < rsi_period + 1:
+                logger.warning(f"Insufficient data for RSI: {len(market_data)} candles (need {rsi_period + 1})")
+                return {"action": "hold", "confidence": 0.3, "reasoning": "Insufficient data for RSI analysis"}
+            
+            # Extract close prices
+            closes = [float(candle['close']) for candle in market_data]
+            
+            # Calculate RSI
+            rsi = self._calculate_rsi(closes, rsi_period)
+            
+            if rsi is None:
+                return {"action": "hold", "confidence": 0.3, "reasoning": "Unable to calculate RSI"}
+            
+            # Calculate RSI from previous period for divergence
+            prev_rsi = self._calculate_rsi(closes[:-1], rsi_period)
+            
+            # Calculate price momentum for confirmation
+            current_price = closes[-1]
+            prev_price = closes[-5] if len(closes) >= 5 else closes[0]
+            price_momentum = (current_price - prev_price) / prev_price
+            
+            action = "hold"
+            confidence = 0.5
+            reasoning = []
+            
+            # Oversold condition - potential buy
+            if rsi < oversold_threshold:
+                action = "buy"
+                base_confidence = 0.65
+                reasoning.append(f"RSI ({rsi:.1f}) indicates oversold condition")
+                
+                # Check for bullish divergence (price lower but RSI higher)
+                if prev_rsi is not None and rsi > prev_rsi and price_momentum < 0:
+                    base_confidence += 0.15
+                    reasoning.append("Bullish divergence detected")
+                
+                # Deeper oversold = higher confidence
+                if rsi < 20:
+                    base_confidence += 0.1
+                    reasoning.append("Extremely oversold")
+                
+                confidence = min(base_confidence, 0.95)
+                
+            # Overbought condition - potential sell
+            elif rsi > overbought_threshold:
+                action = "sell"
+                base_confidence = 0.65
+                reasoning.append(f"RSI ({rsi:.1f}) indicates overbought condition")
+                
+                # Check for bearish divergence (price higher but RSI lower)
+                if prev_rsi is not None and rsi < prev_rsi and price_momentum > 0:
+                    base_confidence += 0.15
+                    reasoning.append("Bearish divergence detected")
+                
+                # More overbought = higher confidence
+                if rsi > 80:
+                    base_confidence += 0.1
+                    reasoning.append("Extremely overbought")
+                
+                confidence = min(base_confidence, 0.95)
+                
+            else:
+                # RSI in neutral zone
+                reasoning.append(f"RSI ({rsi:.1f}) in neutral zone")
+                
+                # Check for emerging trends
+                if prev_rsi is not None:
+                    if rsi > prev_rsi and rsi > 50:
+                        action = "buy"
+                        confidence = 0.55
+                        reasoning.append("RSI trending upward")
+                    elif rsi < prev_rsi and rsi < 50:
+                        action = "sell"
+                        confidence = 0.55
+                        reasoning.append("RSI trending downward")
+            
+            logger.info(f"RSI Signal: {action} with {confidence:.2%} confidence - RSI: {rsi:.1f}")
+            
+            return {
+                "action": action,
+                "confidence": confidence,
+                "reasoning": "; ".join(reasoning),
+                "indicators": {
+                    "rsi": rsi,
+                    "prev_rsi": prev_rsi,
+                    "price_momentum": price_momentum
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating RSI signal: {e}", exc_info=True)
+            return {"action": "hold", "confidence": 0.3, "reasoning": f"Error in RSI calculation: {str(e)}"}
+    
+    def _calculate_rsi(self, closes: List[float], period: int = 14) -> Optional[float]:
+        """
+        Calculate RSI (Relative Strength Index) using Wilder's smoothing method.
+        
+        This implementation uses the standard RSI formula:
+        1. Calculate price changes
+        2. Separate gains and losses
+        3. Use Wilder's Smoothed Moving Average (SMMA) for average gain/loss
+        4. RS = Avg Gain / Avg Loss
+        5. RSI = 100 - (100 / (1 + RS))
+        
+        Returns RSI value between 0 and 100.
+        """
+        if len(closes) < period + 1:
+            return None
+        
+        # Calculate price changes
+        changes = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+        
+        if len(changes) < period:
+            return None
+        
+        # Separate gains and losses
+        gains = [max(change, 0) for change in changes]
+        losses = [abs(min(change, 0)) for change in changes]
+        
+        # Calculate initial SMA for first period
+        first_avg_gain = sum(gains[:period]) / period
+        first_avg_loss = sum(losses[:period]) / period
+        
+        # Apply Wilder's smoothing for remaining periods
+        avg_gain = first_avg_gain
+        avg_loss = first_avg_loss
+        
+        for i in range(period, len(changes)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        
+        if avg_loss == 0:
+            return 100.0
+        
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        return rsi
+    
+    def _momentum_signal(self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Momentum-based trading strategy.
+        Calculates 12-period Rate of Change (ROC) for price and volume momentum.
+        Generates signals based on momentum acceleration.
+        """
+        try:
+            roc_period = bot_config.get('config', {}).get('roc_period', 12)
+            ma_period = bot_config.get('config', {}).get('momentum_ma_period', 20)
+            
+            if len(market_data) < max(roc_period, ma_period) + 5:
+                return {"action": "hold", "confidence": 0.3, "reasoning": "Insufficient data for momentum analysis"}
+            
+            closes = [float(candle['close']) for candle in market_data]
+            volumes = [float(candle['volume']) for candle in market_data]
+            
+            # Calculate Price Rate of Change (ROC)
+            current_price = closes[-1]
+            prev_price = closes[-roc_period - 1]
+            price_roc = ((current_price - prev_price) / prev_price) * 100
+            
+            # Calculate Volume momentum
+            current_volume = volumes[-1]
+            avg_volume = sum(volumes[-roc_period:]) / roc_period
+            volume_momentum = (current_volume - avg_volume) / avg_volume if avg_volume > 0 else 0
+            
+            # Calculate acceleration (change in momentum)
+            prev_price_for_prev_roc = closes[-roc_period - 2]
+            price_at_prev_roc = closes[-2]
+            prev_roc = ((price_at_prev_roc - prev_price_for_prev_roc) / prev_price_for_prev_roc) * 100
+            acceleration = price_roc - prev_roc
+            
+            # Moving average filter
+            ma = sum(closes[-ma_period:]) / ma_period
+            above_ma = current_price > ma
+            
+            action = "hold"
+            confidence = 0.5
+            reasoning = []
+            
+            # Strong positive momentum with acceleration
+            if price_roc > 2 and acceleration > 0:
+                action = "buy"
+                base_confidence = 0.6
+                reasoning.append(f"Positive momentum ({price_roc:.1f}%)")
+                
+                if acceleration > 1:
+                    base_confidence += 0.1
+                    reasoning.append("Accelerating momentum")
+                
+                if volume_momentum > 0.5:
+                    base_confidence += 0.1
+                    reasoning.append("Volume confirming")
+                
+                if above_ma:
+                    base_confidence += 0.05
+                    reasoning.append("Price above MA")
+                
+                confidence = min(base_confidence, 0.9)
+                
+            # Strong negative momentum with deceleration
+            elif price_roc < -2 and acceleration < 0:
+                action = "sell"
+                base_confidence = 0.6
+                reasoning.append(f"Negative momentum ({price_roc:.1f}%)")
+                
+                if acceleration < -1:
+                    base_confidence += 0.1
+                    reasoning.append("Decelerating momentum")
+                
+                if volume_momentum > 0.5:
+                    base_confidence += 0.1
+                    reasoning.append("Volume confirming")
+                
+                if not above_ma:
+                    base_confidence += 0.05
+                    reasoning.append("Price below MA")
+                
+                confidence = min(base_confidence, 0.9)
+                
+            else:
+                reasoning.append(f"Neutral momentum (ROC: {price_roc:.1f}%)")
+            
+            return {
+                "action": action,
+                "confidence": confidence,
+                "reasoning": "; ".join(reasoning),
+                "indicators": {
+                    "price_roc": price_roc,
+                    "volume_momentum": volume_momentum,
+                    "acceleration": acceleration,
+                    "above_ma": above_ma
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error calculating momentum signal: {e}", exc_info=True)
+            return {"action": "hold", "confidence": 0.3, "reasoning": f"Error in momentum calculation: {str(e)}"}
 
     async def _calculate_risk_profile(self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]) -> RiskProfile:
         """Calculate risk profile for trading"""

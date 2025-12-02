@@ -2,7 +2,7 @@
 Comprehensive Health Check Routes
 Kubernetes-ready liveness and readiness probes with detailed dependency checks
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Any
 from datetime import datetime

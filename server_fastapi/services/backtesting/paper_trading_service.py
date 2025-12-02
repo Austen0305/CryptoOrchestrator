@@ -12,6 +12,18 @@ import logging
 import asyncio
 import uuid
 
+# Import cache utilities
+try:
+    from ...middleware.query_cache import cache_query_result
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+    def cache_query_result(*args, **kwargs):
+        """Fallback no-op decorator when cache not available"""
+        def decorator(func):
+            return func
+        return decorator
+
 logger = logging.getLogger(__name__)
 
 

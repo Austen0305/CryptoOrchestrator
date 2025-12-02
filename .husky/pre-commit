@@ -1,8 +1,1 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-# Run lint-staged
-npx lint-staged
-
-# Run type checking (optional, can be slow)
-# npm run check
+npm test

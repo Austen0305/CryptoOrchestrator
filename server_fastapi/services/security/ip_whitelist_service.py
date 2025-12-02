@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, delete
 from ipaddress import ip_address, IPv4Address, IPv6Address
 
-from ..models.base import User
-from ..database import get_db_context
+from ...models.base import User
+from ...database import get_db_context
 
 logger = logging.getLogger(__name__)
 

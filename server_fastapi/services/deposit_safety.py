@@ -3,7 +3,7 @@ Deposit Safety Service
 Ensures no money is lost during deposit operations with comprehensive safety measures
 """
 import logging
-from typing import Dict, Optional, Tuple, List
+from typing import Any, Dict, Optional, Tuple, List
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from ..models.base import User
-from ..database import get_db_context
+from ...models.base import User
+from ...database import get_db_context
 
 logger = logging.getLogger(__name__)
 
