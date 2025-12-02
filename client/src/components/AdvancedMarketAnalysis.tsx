@@ -549,7 +549,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
               </TabsContent>
             </Tabs>
           </>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );

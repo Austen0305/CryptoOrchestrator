@@ -167,7 +167,10 @@ class BotCreationService:
         """Validate bot configuration for given strategy"""
         try:
             # Basic validation - strategy exists
-            valid_strategies = ['ml_enhanced', 'ensemble', 'neural_network', 'simple_ma', 'rsi']
+            valid_strategies = [
+                'ml_enhanced', 'ensemble', 'neural_network', 
+                'simple_ma', 'rsi', 'momentum', 'smart_adaptive'
+            ]
             if strategy not in valid_strategies:
                 logger.warning(f"Invalid strategy: {strategy}")
                 return False

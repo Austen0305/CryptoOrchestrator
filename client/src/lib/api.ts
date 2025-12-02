@@ -91,6 +91,24 @@ export const performanceApi = {
     const params = mode ? `?mode=${mode === "live" ? "real" : mode}` : "";
     return apiRequest(`/api/performance/summary${params}`, { method: "GET" }).then((res) => res);
   },
+  getAdvanced: (mode?: "paper" | "real" | "live", days: number = 30) => {
+    const params = new URLSearchParams();
+    if (mode) params.append("mode", mode === "live" ? "real" : mode);
+    params.append("days", String(days));
+    return apiRequest(`/api/performance/advanced?${params.toString()}`, { method: "GET" }).then((res) => res);
+  },
+  getDailyPnL: (mode?: "paper" | "real" | "live", days: number = 30) => {
+    const params = new URLSearchParams();
+    if (mode) params.append("mode", mode === "live" ? "real" : mode);
+    params.append("days", String(days));
+    return apiRequest(`/api/performance/daily-pnl?${params.toString()}`, { method: "GET" }).then((res) => res);
+  },
+  getDrawdown: (mode?: "paper" | "real" | "live", days: number = 30) => {
+    const params = new URLSearchParams();
+    if (mode) params.append("mode", mode === "live" ? "real" : mode);
+    params.append("days", String(days));
+    return apiRequest(`/api/performance/drawdown?${params.toString()}`, { method: "GET" }).then((res) => res);
+  },
 };
 
 // Integrations API
