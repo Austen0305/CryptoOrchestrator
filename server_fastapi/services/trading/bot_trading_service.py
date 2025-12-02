@@ -562,7 +562,15 @@ class BotTradingService:
     
     def _calculate_rsi(self, closes: List[float], period: int = 14) -> Optional[float]:
         """
-        Calculate RSI (Relative Strength Index).
+        Calculate RSI (Relative Strength Index) using Wilder's smoothing method.
+        
+        This implementation uses the standard RSI formula:
+        1. Calculate price changes
+        2. Separate gains and losses
+        3. Use Wilder's Smoothed Moving Average (SMMA) for average gain/loss
+        4. RS = Avg Gain / Avg Loss
+        5. RSI = 100 - (100 / (1 + RS))
+        
         Returns RSI value between 0 and 100.
         """
         if len(closes) < period + 1:
@@ -571,14 +579,24 @@ class BotTradingService:
         # Calculate price changes
         changes = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
         
-        # Get the most recent 'period' changes
-        recent_changes = changes[-period:]
+        if len(changes) < period:
+            return None
         
-        gains = [change if change > 0 else 0 for change in recent_changes]
-        losses = [-change if change < 0 else 0 for change in recent_changes]
+        # Separate gains and losses
+        gains = [max(change, 0) for change in changes]
+        losses = [abs(min(change, 0)) for change in changes]
         
-        avg_gain = sum(gains) / period
-        avg_loss = sum(losses) / period
+        # Calculate initial SMA for first period
+        first_avg_gain = sum(gains[:period]) / period
+        first_avg_loss = sum(losses[:period]) / period
+        
+        # Apply Wilder's smoothing for remaining periods
+        avg_gain = first_avg_gain
+        avg_loss = first_avg_loss
+        
+        for i in range(period, len(changes)):
+            avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+            avg_loss = (avg_loss * (period - 1) + losses[i]) / period
         
         if avg_loss == 0:
             return 100.0

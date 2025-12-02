@@ -28,6 +28,11 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Configuration constants
+DEFAULT_INITIAL_CAPITAL = 10000.0  # Default starting capital for calculations
+RISK_FREE_RATE = 0.04  # 4% annual risk-free rate (approximate T-bill rate)
+TRADING_DAYS_PER_YEAR = 252  # Standard trading days for annualization
+
 
 class PerformanceSummary(BaseModel):
     """Basic performance summary model"""
@@ -243,8 +248,7 @@ async def get_advanced_metrics(
             profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
             
             # Calculate returns for risk metrics
-            # Assume initial capital of $10,000 if not specified
-            initial_capital = 10000.0
+            initial_capital = DEFAULT_INITIAL_CAPITAL
             cumulative_pnl = []
             running_total = 0.0
             for p in profits:
@@ -259,12 +263,15 @@ async def get_advanced_metrics(
                 returns.append(ret)
                 equity += p
             
-            # Sharpe Ratio (annualized)
-            # Assuming 252 trading days per year
+            # Sharpe Ratio (annualized, with risk-free rate)
+            # Using configurable trading days per year
             if len(returns) > 1:
                 avg_return = sum(returns) / len(returns)
                 std_return = math.sqrt(sum((r - avg_return) ** 2 for r in returns) / (len(returns) - 1))
-                sharpe_ratio = (avg_return / std_return * math.sqrt(252)) if std_return > 0 else 0.0
+                # Subtract daily risk-free rate from average return
+                daily_risk_free = RISK_FREE_RATE / TRADING_DAYS_PER_YEAR
+                excess_return = avg_return - daily_risk_free
+                sharpe_ratio = (excess_return / std_return * math.sqrt(TRADING_DAYS_PER_YEAR)) if std_return > 0 else 0.0
             else:
                 sharpe_ratio = 0.0
             
@@ -450,7 +457,7 @@ async def get_drawdown_chart(
                 return []
             
             # Calculate drawdown over time
-            initial_capital = 10000.0
+            initial_capital = DEFAULT_INITIAL_CAPITAL
             equity = initial_capital
             peak_equity = initial_capital
             
