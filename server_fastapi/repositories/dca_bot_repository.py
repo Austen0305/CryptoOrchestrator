@@ -2,6 +2,7 @@
 DCA Bot repository for database operations.
 """
 
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
