@@ -588,6 +588,7 @@ def validate_origin(origin: str) -> bool:
 
 
 # Get allowed origins from environment or use defaults
+cors_origins = None  # Initialize variable
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 if allowed_origins_env:
     # Parse comma-separated origins from environment with validation
