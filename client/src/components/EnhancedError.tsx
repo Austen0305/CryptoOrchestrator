@@ -1,7 +1,7 @@
-"""
-Enhanced Error Display Component
-Shows user-friendly error messages with actionable information
-"""
+/**
+ * Enhanced Error Display Component
+ * Shows user-friendly error messages with actionable information
+ */
 import { AlertCircle, RefreshCw, XCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";

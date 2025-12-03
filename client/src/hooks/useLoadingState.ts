@@ -1,7 +1,7 @@
-"""
-Loading state management utilities
-Provides consistent loading indicators across the application
-"""
+/**
+ * Loading state management utilities
+ * Provides consistent loading indicators across the application
+ */
 import { useState, useCallback } from 'react';
 
 export interface LoadingState {
