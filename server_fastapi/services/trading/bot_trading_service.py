@@ -149,6 +149,60 @@ class BotTradingService:
                     price=trade_result.get('executed_price', trade_details['price'])
                 )
                 
+                # Automatically create stop-loss and take-profit orders
+                position_id = f"pos_{trade_id}"
+                executed_price = trade_result.get('executed_price', trade_details['price'])
+                
+                try:
+                    from .sl_tp_service import get_sl_tp_service
+                    sl_tp_service = get_sl_tp_service()
+                    
+                    # Get stop-loss and take-profit percentages from risk profile
+                    stop_loss_pct = trade_details.get('risk_profile', {}).get('stop_loss_pct', 0.02)  # 2% default
+                    take_profit_pct = trade_details.get('risk_profile', {}).get('take_profit_pct', 0.05)  # 5% default
+                    
+                    # Create stop-loss order
+                    sl_order = sl_tp_service.create_stop_loss(
+                        position_id=position_id,
+                        symbol=trade_details['symbol'],
+                        side=trade_details['action'],
+                        quantity=trade_details['quantity'],
+                        entry_price=executed_price,
+                        stop_loss_pct=stop_loss_pct,
+                        user_id=str(user_id),
+                        bot_id=str(bot_id)
+                    )
+                    
+                    logger.info(
+                        f"Auto-created stop-loss for position {position_id}: "
+                        f"Entry ${executed_price:.2f}, Stop ${sl_order['trigger_price']:.2f}"
+                    )
+                    
+                    # Create take-profit order
+                    tp_order = sl_tp_service.create_take_profit(
+                        position_id=position_id,
+                        symbol=trade_details['symbol'],
+                        side=trade_details['action'],
+                        quantity=trade_details['quantity'],
+                        entry_price=executed_price,
+                        take_profit_pct=take_profit_pct,
+                        user_id=str(user_id),
+                        bot_id=str(bot_id)
+                    )
+                    
+                    logger.info(
+                        f"Auto-created take-profit for position {position_id}: "
+                        f"Entry ${executed_price:.2f}, Target ${tp_order['trigger_price']:.2f}"
+                    )
+                    
+                    # Store order IDs in trade result for reference
+                    trade_result['stop_loss_order_id'] = sl_order['order_id']
+                    trade_result['take_profit_order_id'] = tp_order['order_id']
+                    
+                except Exception as e:
+                    logger.error(f"Failed to create SL/TP orders for position {position_id}: {e}")
+                    # Don't fail the trade, just log the error
+                
                 logger.info(f"Trade result recorded with safety service for bot {bot_id}")
 
             # Adaptive Learning: Learn from trade

@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 import logging
 
 from server_fastapi.services.trading.sl_tp_service import get_sl_tp_service, OrderType
+from server_fastapi.services.trading.price_monitor import get_price_monitor
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -242,3 +243,60 @@ async def health_check():
             "error": str(e),
             "service": "stop_loss_take_profit"
         }
+
+
+@router.post("/monitor/start")
+async def start_price_monitoring(check_interval: int = 5):
+    """
+    Start the price monitoring service.
+    
+    This service will continuously check market prices and trigger
+    stop-loss/take-profit orders automatically.
+    
+    Args:
+        check_interval: How often to check prices (in seconds)
+    """
+    try:
+        monitor = get_price_monitor()
+        await monitor.start_monitoring(check_interval=check_interval)
+        
+        return {
+            "success": True,
+            "message": f"Price monitoring started (checking every {check_interval}s)",
+            "status": monitor.get_monitoring_status()
+        }
+    except Exception as e:
+        logger.error(f"Error starting price monitoring: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/monitor/stop")
+async def stop_price_monitoring():
+    """Stop the price monitoring service."""
+    try:
+        monitor = get_price_monitor()
+        await monitor.stop_monitoring()
+        
+        return {
+            "success": True,
+            "message": "Price monitoring stopped"
+        }
+    except Exception as e:
+        logger.error(f"Error stopping price monitoring: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/monitor/status")
+async def get_monitoring_status():
+    """Get the current status of price monitoring."""
+    try:
+        monitor = get_price_monitor()
+        status = monitor.get_monitoring_status()
+        
+        return {
+            "success": True,
+            "status": status
+        }
+    except Exception as e:
+        logger.error(f"Error getting monitoring status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

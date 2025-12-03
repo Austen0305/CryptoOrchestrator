@@ -799,6 +799,8 @@ _safe_include("server_fastapi.routes.dca_trading", "router", "/api", ["DCA Tradi
 _safe_include("server_fastapi.routes.infinity_grid", "router", "/api", ["Infinity Grid"])
 _safe_include("server_fastapi.routes.trailing_bot", "router", "/api", ["Trailing Bot"])
 _safe_include("server_fastapi.routes.futures_trading", "router", "/api", ["Futures Trading"])
+_safe_include("server_fastapi.routes.trading_safety", "router", "/api/trading-safety", ["Trading Safety"])
+_safe_include("server_fastapi.routes.sl_tp", "router", "/api/sl-tp", ["Stop Loss / Take Profit"])
 _safe_include("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"])
 _safe_include("server_fastapi.routes.trades", "router", "/api/trades", ["Trades"])
 _safe_include("server_fastapi.routes.analytics", "router", "/api/analytics", ["Analytics"])
