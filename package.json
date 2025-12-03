@@ -74,6 +74,9 @@
     "bundle:analyze": "node scripts/bundle-analyze.js",
     "check:deps": "node scripts/check-deps.js",
     "audit:security": "npm audit && safety check || true",
+    "validate:jwt-auth": "python scripts/validate_jwt_auth.py",
+    "validate:env": "python scripts/validate_env_vars.py",
+    "validate:all": "npm run validate:env && npm run validate:jwt-auth",
     "postinstall": "node -e \"try{const {execSync}=require('child_process');const cmd=process.platform==='win32'?'python\\\\python.exe -m pip install -r requirements.txt':(process.env.PYTHON||'python3')+' -m pip install -r requirements.txt';execSync(cmd,{stdio:'inherit'})}catch(e){console.log('Skipping pip install:', e.message)}\"",
     "precommit": "lint-staged",
     "prepare": "husky"
