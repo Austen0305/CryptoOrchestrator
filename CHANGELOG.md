@@ -2,6 +2,45 @@
 
 All notable changes and improvements to this project are documented in this file.
 
+## [Unreleased] - 2025-12-03
+
+### 🧹 Major Cleanup & Improvements
+
+#### Documentation Cleanup
+- **Moved 104 AI-generated session reports** (1.1MB) to `docs/archive/ai-sessions/`
+  - Streamlined root directory to 4 essential files (README, CHANGELOG, GETTING_STARTED, TODO)
+  - Improved repository navigation and clarity
+  - Updated .gitignore to prevent future AI report commits
+
+#### Python 3.12 Compatibility
+- **Updated Dependencies** for Python 3.12 support
+  - torch: 2.1.2 → ≥2.2.0
+  - tensorflow: ≥2.20.0 → ≥2.15.0,<2.17.0 (pinned to avoid breaking changes)
+  - stripe: 7.8.0 → ≥8.0.0 (removed yanked version)
+  - stable-baselines3: 2.2.0 → ≥2.3.0 (removed yanked version)
+  - opentelemetry-exporter-prometheus: 1.12.0rc1 → ≥0.43b0 (removed deprecated version)
+- **Updated .python-version** from 3.11.9 to 3.12.3
+
+#### Security Fixes
+- **Removed sensitive files from git tracking**
+  - Removed `.env` files (root and mobile/) from git
+  - Removed database files (backtest_results.db) from git
+  - Enhanced .gitignore for comprehensive coverage
+- **Added CORS origin validation** to prevent malformed or unsafe origins
+- **CodeQL Security Scan**: No vulnerabilities found ✅
+
+#### Code Quality
+- **Removed duplicate route registrations** in main.py (cache_warmer, performance)
+- **Applied Black formatting** to main.py
+- **Cleaned Python cache files** (__pycache__, *.pyc, *.pyo)
+- **Removed temporary test files**
+
+#### Statistics
+- Files cleaned: 104 markdown files + 3 sensitive files
+- Space saved: ~1.1MB of AI session reports archived
+- Security issues resolved: 3 (env files, database files)
+- Duplicate code removed: 2 route registrations
+
 ## [1.1.0] - 2025-11-06
 
 ### 🎉 Major Enhancements

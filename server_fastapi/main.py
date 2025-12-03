@@ -590,11 +590,23 @@ def validate_origin(origin: str) -> bool:
 # Get allowed origins from environment or use defaults
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 if allowed_origins_env:
-    # Parse comma-separated origins from environment
-    cors_origins = [
+    # Parse comma-separated origins from environment with validation
+    parsed_origins = [
         origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()
     ]
-else:
+    # Validate origins to ensure they're properly formatted URLs
+    cors_origins = []
+    for origin in parsed_origins:
+        if origin in ["null", "file://", "exp://"]:  # Special development origins
+            cors_origins.append(origin)
+        elif origin.startswith(("http://", "https://")):  # Valid URL protocols
+            cors_origins.append(origin)
+        else:
+            logger.warning(f"Skipping invalid CORS origin from environment: {origin}")
+    if not cors_origins:
+        logger.warning("No valid CORS origins found in environment, using defaults")
+        cors_origins = None  # Will use defaults below
+if not cors_origins:
     # Default origins including Render domains
     cors_origins = [
         "http://localhost:3000",  # React dev server
