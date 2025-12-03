@@ -1,0 +1,101 @@
+{
+  "timestamp": "2025-12-03T17:20:54.360649",
+  "duration_seconds": 10.383193,
+  "phases": {
+    "phase1": {
+      "name": "Infrastructure",
+      "tests": [
+        [
+          "Infrastructure",
+          false,
+          "Traceback (most recent call last):\n  File \"/home/runner/work/Crypto-Orchestrator/Crypto-Orchestrator/scripts/test_infrastructure.py\", line 15, in <module>\n    import aiohttp\nModuleNotFoundError: No module named 'aiohttp'\n"
+        ],
+        [
+          "Migrations",
+          true,
+          "No pending migrations\n"
+        ]
+      ],
+      "passed": 1,
+      "total": 2
+    },
+    "phase2": {
+      "name": "Security",
+      "tests": [
+        [
+          "Security",
+          false,
+          "Traceback (most recent call last):\n  File \"/home/runner/work/Crypto-Orchestrator/Crypto-Orchestrator/scripts/test_security.py\", line 15, in <module>\n    import aiohttp\nModuleNotFoundError: No module named 'aiohttp'\n"
+        ],
+        [
+          "NPM Audit",
+          null,
+          "Passed"
+        ]
+      ],
+      "passed": 0,
+      "total": 2
+    },
+    "phase4": {
+      "name": "Backend",
+      "tests": [
+        [
+          "Backend Tests",
+          false,
+          "ImportError while loading conftest '/home/runner/work/Crypto-Orchestrator/Crypto-Orchestrator/server_fastapi/tests/conftest.py'.\nserver_fastapi/tests/conftest.py:3: in <module>\n    from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker\nE   ModuleNotFoundError: No module named 'sqlalchemy'\n"
+        ]
+      ],
+      "passed": 0,
+      "total": 1
+    },
+    "quality": {
+      "name": "Code Quality",
+      "tests": [
+        [
+          "Python Syntax",
+          false,
+          "/usr/bin/python: No module named flake8\n"
+        ],
+        [
+          "TypeScript",
+          false,
+          ""
+        ]
+      ],
+      "passed": 0,
+      "total": 2
+    },
+    "phase9": {
+      "name": "E2E",
+      "tests": [
+        [
+          "E2E Tests",
+          null,
+          "Requires manual run with server"
+        ]
+      ],
+      "passed": 0,
+      "total": 1
+    },
+    "phase10": {
+      "name": "Performance",
+      "tests": [
+        [
+          "Load Tests",
+          null,
+          "Requires manual run with server"
+        ]
+      ],
+      "passed": 0,
+      "total": 1
+    }
+  },
+  "summary": {
+    "total_tests": 9,
+    "passed": 1,
+    "failed": 8,
+    "percentage": 11.11111111111111,
+    "status": "\u274c NOT READY",
+    "recommendation": "Critical gaps exist. Do NOT deploy."
+  }
+}

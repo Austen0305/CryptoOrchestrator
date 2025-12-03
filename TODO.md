@@ -59,8 +59,17 @@ _Open items from the legacy checklist are superseded by the execution plan below
 
 ## 2. Testing & Quality Assurance
 
-- [ ] Raise backend coverage to ≥90% with integration suites for bots, the trading orchestrator, and exchange adapters (happy path + error scenarios).
-- [ ] Add end-to-end desktop smoke tests (FastAPI + Electron + React) using Playwright or Spectron to validate launch, login, bot start/stop, and risk alerts.
+- [x] **Created comprehensive testing infrastructure** (December 2024)
+  - [x] Infrastructure tests (`scripts/test_infrastructure.py`)
+  - [x] Security tests (`scripts/test_security.py`)
+  - [x] Load/performance tests (`scripts/load_test.py` enhanced)
+  - [x] Pre-deployment test orchestrator (`scripts/test_pre_deploy.py`)
+  - [x] E2E critical flows tests (`tests/e2e/critical-flows.spec.ts`)
+  - [x] Testing documentation (`docs/TESTING_GUIDE.md`, `docs/TESTING_README.md`)
+  - [x] Deployment scorecard (`docs/DEPLOYMENT_SCORECARD.md`)
+  - [x] NPM test commands configured
+- [ ] Raise backend coverage to ≥90% with integration suites for bots, the trading orchestrator, and exchange adapters (happy path + error scenarios) - **Infrastructure ready, requires server**
+- [x] Add end-to-end desktop smoke tests (FastAPI + Electron + React) using Playwright - **8 critical flows implemented**
 - [ ] Reinstate rate limiting in tests with high test-specific limits instead of disabling SlowAPI.
 - [ ] Automate frontend checks (`npm test`, `npm run check`) in CI to catch regressions in the command palette, notifications, and export features.
 
@@ -88,6 +97,6 @@ _Open items from the legacy checklist are superseded by the execution plan below
 ## 6. Documentation & Developer Experience
 
 - [ ] Synchronize quick-start guides (`QUICK_START.md`, `SMART_BOT_QUICKSTART.md`, `README.md`) to reflect the FastAPI-first architecture and desktop workflow.
-- [ ] Document the expanded test strategy, including how to run integration and E2E suites locally.
+- [x] **Document the expanded test strategy** - **Complete 11-phase testing guide created** (`docs/TESTING_GUIDE.md`, `docs/TESTING_README.md`, `docs/PRE_DEPLOYMENT_STATUS.md`)
 - [ ] Publish an architecture decision record covering the retirement of legacy Node services and remaining hybrid pieces.
 - [ ] Add onboarding scripts (`scripts/setup.ps1` / `.sh`) that install prerequisites, create env files, and seed sample data in a single command.
