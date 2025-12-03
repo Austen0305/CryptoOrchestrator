@@ -220,17 +220,17 @@ test.describe('Critical User Flows', () => {
     
     for (const link of navLinks) {
       try {
-        // Use the regex pattern directly in locator
-        const linkElement = page.locator('nav a', { hasText: link.text });
+        // Use the regex directly in the text selector
+        const linkElement = page.locator('nav a').filter({ hasText: link.text });
         if (await linkElement.count() > 0) {
           await linkElement.first().click();
           await page.waitForTimeout(500);
-          console.log(`✅ Navigated to link matching ${link.text}`);
+          console.log(`✅ Navigated to link matching pattern`);
         } else {
-          console.log(`⚠️  Navigation link not found: ${link.text}`);
+          console.log(`⚠️  Navigation link not found`);
         }
       } catch (error) {
-        console.log(`⚠️  Error navigating to ${link.text}: ${error}`);
+        console.log(`⚠️  Error navigating: ${error}`);
       }
     }
   });
