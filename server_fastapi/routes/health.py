@@ -136,6 +136,90 @@ async def check_exchange_apis() -> ComponentHealth:
         )
 
 
+async def check_trading_safety() -> ComponentHealth:
+    """Check trading safety service"""
+    start_time = time.time()
+    try:
+        from ..services.trading.trading_safety_service import get_trading_safety_service
+        
+        service = get_trading_safety_service()
+        status_data = service.get_safety_status()
+        response_time = (time.time() - start_time) * 1000
+        
+        return ComponentHealth(
+            status="healthy",
+            message=f"Trading safety service operational (Kill switch: {status_data['kill_switch_active']})",
+            response_time_ms=round(response_time, 2),
+            details={
+                "kill_switch_active": status_data['kill_switch_active'],
+                "trades_today": status_data['trades_today'],
+                "daily_pnl": status_data['daily_pnl']
+            }
+        )
+    except Exception as e:
+        response_time = (time.time() - start_time) * 1000
+        logger.warning(f"Trading safety health check failed: {e}")
+        return ComponentHealth(
+            status="degraded",
+            message=f"Trading safety service unavailable: {str(e)}",
+            response_time_ms=round(response_time, 2)
+        )
+
+
+async def check_sl_tp_service() -> ComponentHealth:
+    """Check stop-loss/take-profit service"""
+    start_time = time.time()
+    try:
+        from ..services.trading.sl_tp_service import get_sl_tp_service
+        
+        service = get_sl_tp_service()
+        active_orders = service.get_active_orders()
+        response_time = (time.time() - start_time) * 1000
+        
+        return ComponentHealth(
+            status="healthy",
+            message=f"SL/TP service operational ({len(active_orders)} active orders)",
+            response_time_ms=round(response_time, 2),
+            details={"active_orders": len(active_orders)}
+        )
+    except Exception as e:
+        response_time = (time.time() - start_time) * 1000
+        logger.warning(f"SL/TP health check failed: {e}")
+        return ComponentHealth(
+            status="degraded",
+            message=f"SL/TP service unavailable: {str(e)}",
+            response_time_ms=round(response_time, 2)
+        )
+
+
+async def check_price_monitor() -> ComponentHealth:
+    """Check price monitoring service"""
+    start_time = time.time()
+    try:
+        from ..services.trading.price_monitor import get_price_monitor
+        
+        monitor = get_price_monitor()
+        monitor_status = monitor.get_monitoring_status()
+        response_time = (time.time() - start_time) * 1000
+        
+        status = "healthy" if monitor_status['monitoring'] else "idle"
+        
+        return ComponentHealth(
+            status=status,
+            message=f"Price monitor {'active' if monitor_status['monitoring'] else 'idle'}",
+            response_time_ms=round(response_time, 2),
+            details=monitor_status
+        )
+    except Exception as e:
+        response_time = (time.time() - start_time) * 1000
+        logger.warning(f"Price monitor health check failed: {e}")
+        return ComponentHealth(
+            status="degraded",
+            message=f"Price monitor unavailable: {str(e)}",
+            response_time_ms=round(response_time, 2)
+        )
+
+
 @router.get("/", response_model=HealthStatus)
 async def get_health():
     """
@@ -153,6 +237,9 @@ async def get_health():
             check_database(),
             check_redis(),
             check_exchange_apis(),
+            check_trading_safety(),
+            check_sl_tp_service(),
+            check_price_monitor(),
             return_exceptions=True
         )
         
@@ -169,6 +256,18 @@ async def get_health():
             "exchange_apis": checks[2].dict() if not isinstance(checks[2], Exception) else {
                 "status": "degraded",
                 "message": str(checks[2])
+            },
+            "trading_safety": checks[3].dict() if not isinstance(checks[3], Exception) else {
+                "status": "degraded",
+                "message": str(checks[3])
+            },
+            "sl_tp_service": checks[4].dict() if not isinstance(checks[4], Exception) else {
+                "status": "degraded",
+                "message": str(checks[4])
+            },
+            "price_monitor": checks[5].dict() if not isinstance(checks[5], Exception) else {
+                "status": "degraded",
+                "message": str(checks[5])
             }
         }
         
