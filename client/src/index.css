@@ -1467,6 +1467,7 @@ body.landing-page-active {
   );
   background-size: 200% 200%;
   animation: border-flow 3s ease infinite;
+  /* Modern browsers use 'exclude', older webkit uses 'xor' - both achieve same visual result */
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -1586,6 +1587,7 @@ body.landing-page-active {
   font-size: 2.5rem;
   font-weight: 800;
   letter-spacing: -0.02em;
+  color: hsl(var(--foreground)); /* Fallback for browsers without background-clip support */
   background: linear-gradient(135deg, 
     hsl(var(--foreground)) 0%, 
     hsl(var(--primary)) 100%);
@@ -1650,17 +1652,26 @@ body.landing-page-active {
   transition: opacity 0.3s ease;
 }
 
-/* Modern Input Focus States */
+/* Modern Input Focus States - Enhanced for Accessibility */
 input:focus,
 textarea:focus,
 select:focus {
-  outline: none;
+  outline: 2px solid transparent; /* Keep outline for high contrast mode, but make it transparent */
+  outline-offset: 2px;
   border-color: hsl(var(--primary));
   box-shadow: 
     0 0 0 3px hsl(var(--primary) / 0.1),
     0 1px 2px 0 hsl(220 8% 2% / 0.05);
   transform: translateY(-1px);
   transition: all 0.2s ease;
+}
+
+/* Ensure visible focus for keyboard navigation */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
 }
 
 /* Enhanced Scrollbar Styling */
