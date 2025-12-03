@@ -64,8 +64,6 @@ pip-delete-this-directory.txt
 *.sqlite
 *.sqlite3
 !*.db.example
-backtest_results.db
-crypto_orchestrator.db
 data/*.db
 
 # Alembic
@@ -105,3 +103,19 @@ dist/
 dist-electron/
 build/
 *.local
+
+# AI-generated reports and status files (should go in docs/archive/)
+*_REPORT.md
+*_SUMMARY.md
+*_STATUS.md
+*_COMPLETE.md
+*_FINAL.md
+*_PLAN.md
+*_PROGRESS.md
+*_TODO*.md
+!TODO.md
+!CHANGELOG.md
+Master-Todo-List*
+comprehensive_feature_validation.py
+test_real_money_trading.py
+file:pytest_*

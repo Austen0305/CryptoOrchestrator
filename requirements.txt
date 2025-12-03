@@ -6,7 +6,7 @@ pydantic-settings==2.1.0
 python-multipart==0.0.6
 websockets==12.0
 ccxt==4.2.48
-tensorflow>=2.20.0
+tensorflow>=2.15.0
 numpy>=1.24.3,<2.0.0  # Pin to NumPy 1.x for compatibility with torch/tensorflow
 pandas>=2.2.0
 scikit-learn>=1.4.0
@@ -33,7 +33,7 @@ httpx==0.25.2  # For GitHub API and HTTP requests
 email-validator==2.2.0
 
 # Payment processing
-stripe==7.8.0
+stripe>=8.0.0  # Updated from yanked 7.8.0
 
 # Redis for caching
 aioredis==2.0.1
@@ -51,10 +51,10 @@ safety==2.3.5  # For dependency vulnerability scanning
 # ML V2 - AutoML and Reinforcement Learning
 scikit-optimize==0.9.0  # Bayesian optimization
 optuna==3.4.0  # Hyperparameter optimization framework
-stable-baselines3==2.2.0  # Reinforcement learning (PPO, DQN)
+stable-baselines3>=2.3.0  # Reinforcement learning (PPO, DQN) - Updated from yanked 2.2.0
 gymnasium==0.29.1  # RL environment
 transformers==4.35.2  # For sentiment analysis
-torch==2.1.2  # PyTorch for RL and transformers
+torch>=2.2.0  # PyTorch for RL and transformers (Python 3.12 compatible)
 
 # Sentiment Analysis
 vaderSentiment==3.3.2  # VADER sentiment analyzer
@@ -67,7 +67,7 @@ opentelemetry-instrumentation-fastapi==0.42b0
 opentelemetry-instrumentation-sqlalchemy==0.42b0
 opentelemetry-instrumentation-requests==0.42b0
 opentelemetry-exporter-otlp-proto-grpc==1.21.0
-opentelemetry-exporter-prometheus==1.12.0rc1
+opentelemetry-exporter-prometheus>=0.43b0  # Updated from deprecated 1.12.0rc1
 
 # SMS notifications
 twilio==9.2.3  # For SMS notifications via Twilio
