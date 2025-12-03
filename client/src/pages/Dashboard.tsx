@@ -16,6 +16,7 @@ import { ExchangeStatusIndicator } from "@/components/ExchangeStatusIndicator";
 import { DashboardSkeleton } from "@/components/LoadingSkeletons";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { EmptyState } from "@/components/EmptyState";
+import { TradingSafetyStatus } from "@/components/TradingSafetyStatus";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import React, { Suspense } from 'react';
 const RiskSummary = React.lazy(() => import('@/components/RiskSummary').then(m => ({ default: m.RiskSummary })));
@@ -111,8 +112,9 @@ export default function Dashboard() {
         totalTrades={trades?.length || 0}
       />
 
-      {/* Exchange Status Indicator */}
+      {/* Trading Safety Status and Exchange Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <TradingSafetyStatus />
         <ExchangeStatusIndicator />
       </div>
 
