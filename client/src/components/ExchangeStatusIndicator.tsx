@@ -83,7 +83,7 @@ export function ExchangeStatusIndicator() {
     );
   }
 
-  if (!data || data.total_exchanges === 0) {
+  if (!data || !data.exchanges || data.exchanges.length === 0 || data.total_exchanges === 0) {
     return (
       <Card className="border-card-border shadow-md">
         <CardHeader>
@@ -131,7 +131,7 @@ export function ExchangeStatusIndicator() {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {data.exchanges.map((status) => (
+          {(data.exchanges || []).map((status) => (
             <div
               key={status.exchange}
               className="flex items-center justify-between p-3 md:p-4 rounded-lg border border-border/50 bg-card hover:bg-accent/30 transition-all duration-200"

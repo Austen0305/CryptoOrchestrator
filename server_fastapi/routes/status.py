@@ -35,8 +35,19 @@ async def get_status() -> SystemStatus:
             },
         )
     except Exception as e:
-        logger.error(f"Failed to get status: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve status")
+        logger.error(f"Failed to get status: {e}", exc_info=True)
+        # Return default status instead of 500 error
+        return SystemStatus(
+            status="degraded",
+            timestamp=datetime.utcnow().isoformat(),
+            uptime=0.0,
+            version="1.0.0",
+            services={
+                "fastapi": "unknown",
+                "database": "unknown",
+                "redis": "unknown",
+            },
+        )
 
 
 @router.get("/protected")
@@ -58,7 +69,17 @@ async def get_protected_status(
             },
         )
     except Exception as e:
-        logger.error(f"Failed to get protected status: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to retrieve protected status"
+        logger.error(f"Failed to get protected status: {e}", exc_info=True)
+        # Return default status instead of 500 error
+        return SystemStatus(
+            status="degraded",
+            timestamp=datetime.utcnow().isoformat(),
+            uptime=0.0,
+            version="1.0.0",
+            services={
+                "fastapi": "unknown",
+                "database": "unknown",
+                "redis": "unknown",
+                "auth": "unknown",
+            },
         )

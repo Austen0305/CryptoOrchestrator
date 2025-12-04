@@ -19,6 +19,13 @@ logger = logging.getLogger(__name__)
 
 # Resolve and normalize database URL
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/app.db")
+
+# Ensure SQLite URLs use aiosqlite driver (not pysqlite)
+if DATABASE_URL.startswith("sqlite://") and not DATABASE_URL.startswith("sqlite+aiosqlite://"):
+    # Convert sqlite:// to sqlite+aiosqlite:// for async support
+    DATABASE_URL = DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    logger.warning(f"Converted database URL to use aiosqlite driver: {DATABASE_URL}")
+
 if DATABASE_URL.endswith(":memory:"):
     # Use shared memory URI to allow multiple engine instances to see same DB
     driver_prefix = DATABASE_URL.split(":///")[0]
@@ -34,7 +41,22 @@ def _get_engine():
     global _engine
     if _engine is None:
         try:
+            # Verify aiosqlite is available for SQLite databases
             if DATABASE_URL.startswith("sqlite+"):
+                if "aiosqlite" not in DATABASE_URL:
+                    raise ValueError(
+                        "SQLite database requires aiosqlite driver. "
+                        "Install with: pip install aiosqlite"
+                    )
+                # Try to import aiosqlite to verify it's installed
+                try:
+                    import aiosqlite  # noqa: F401
+                except ImportError:
+                    raise ImportError(
+                        "aiosqlite is required for async SQLite support. "
+                        "Install with: pip install aiosqlite"
+                    )
+                
                 _engine = create_async_engine(
                     DATABASE_URL,
                     echo=False,
@@ -70,6 +92,20 @@ try:
     # Try to create engine immediately for backward compatibility
     # But catch errors so module can still be imported
     if DATABASE_URL.startswith("sqlite+"):
+        # Verify aiosqlite is available
+        if "aiosqlite" not in DATABASE_URL:
+            raise ValueError(
+                "SQLite database requires aiosqlite driver. "
+                "Install with: pip install aiosqlite"
+            )
+        try:
+            import aiosqlite  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "aiosqlite is required for async SQLite support. "
+                "Install with: pip install aiosqlite"
+            )
+        
         engine = create_async_engine(
             DATABASE_URL,
             echo=False,

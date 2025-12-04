@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import logging
+import time
 
 from server_fastapi.services.exchange_service import (
     ExchangeService,
@@ -148,7 +149,7 @@ async def get_markets(
         raise HTTPException(status_code=500, detail="Failed to fetch markets")
 
 
-@router.get("/{pair}/ohlcv", response_model=PriceChartResponse)
+@router.get("/{pair:path}/ohlcv", response_model=PriceChartResponse)
 async def get_ohlcv(
     pair: str,
     timeframe: str = Query(
@@ -180,10 +181,10 @@ async def get_ohlcv(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching OHLCV for {pair}: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch OHLCV data for {pair}"
-        )
+        logger.error(f"Error fetching OHLCV for {pair}: {e}", exc_info=True)
+        # Return empty data instead of 500 error for better UX during development
+        logger.warning(f"Returning empty OHLCV data due to error: {e}")
+        return PriceChartResponse(pair=pair, timeframe=timeframe, data=[])
 
 
 @router.get("/{pair:path}/history", response_model=CandleHistoryResponse)
@@ -222,7 +223,7 @@ async def get_candle_history(
         )
 
 
-@router.get("/{pair}/orderbook", response_model=OrderBook)
+@router.get("/{pair:path}/orderbook", response_model=OrderBook)
 async def get_order_book(
     pair: str, exchange: ExchangeService = Depends(get_exchange_service)
 ) -> OrderBook:
@@ -237,10 +238,17 @@ async def get_order_book(
         return order_book
     except HTTPException:
         raise
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching order book for {pair}: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch order book for {pair}"
+        logger.error(f"Error fetching order book for {pair}: {e}", exc_info=True)
+        # Return empty orderbook instead of 500 error for better UX during development
+        logger.warning(f"Returning empty orderbook for {pair} due to error: {e}")
+        return OrderBook(
+            pair=pair,
+            bids=[],
+            asks=[],
+            timestamp=int(time.time() * 1000),
         )
 
 

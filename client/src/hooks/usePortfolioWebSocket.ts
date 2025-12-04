@@ -65,26 +65,39 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
         const ws = new WebSocket(fullUrl);
 
         ws.onopen = () => {
+          // Connection opened - token is already in query string
+          // Backend will authenticate automatically
           setIsConnected(true);
           setError(null);
-          
-          // Send authentication message if needed
-          ws.send(JSON.stringify({
-            type: 'auth',
-            token: token,
-          }));
         };
 
         ws.onmessage = (event) => {
           try {
             const message: PortfolioUpdate = JSON.parse(event.data);
             
+            // Handle auth success message
+            if (message.type === 'auth_success') {
+              setIsConnected(true);
+              setError(null);
+              return;
+            }
+            
+            // Handle error messages
+            if (message.type === 'error') {
+              const errorMsg = (message as any).error || message.data;
+              setError(typeof errorMsg === 'string' ? errorMsg : 'WebSocket error');
+              if (errorMsg === 'Authentication required') {
+                setIsConnected(false);
+                ws.close();
+              }
+              return;
+            }
+            
+            // Handle portfolio updates
             if (message.type === 'portfolio_update' && message.data) {
               setPortfolio(message.data as PortfolioData);
             } else if (message.type === 'pong') {
               // Heartbeat response
-            } else if (message.type === 'error') {
-              setError(message.data as string);
             }
           } catch (e: unknown) {
             const error = e instanceof Error ? e : new Error(String(e));

@@ -30,6 +30,7 @@ error_handler = RotatingFileHandler(
     os.path.join(logs_dir, "error.log"),
     maxBytes=10 * 1024 * 1024,  # 10MB
     backupCount=14,
+    delay=True,  # Delay file opening to avoid Windows file lock issues
 )
 error_handler.setLevel(logging.ERROR)
 error_handler.setFormatter(json_formatter)
@@ -39,6 +40,7 @@ combined_handler = RotatingFileHandler(
     os.path.join(logs_dir, "combined.log"),
     maxBytes=10 * 1024 * 1024,  # 10MB
     backupCount=14,
+    delay=True,  # Delay file opening to avoid Windows file lock issues
 )
 combined_handler.setLevel(logging.INFO)
 combined_handler.setFormatter(json_formatter)

@@ -40,8 +40,10 @@ class PortfolioWebSocketManager:
         self.connections: Dict[str, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket, user_id: str, client_id: str):
-        """Connect a WebSocket client"""
-        await websocket.accept()
+        """Connect a WebSocket client - connection should already be accepted by route handler"""
+        # DO NOT call websocket.accept() here - it should already be accepted by the route handler
+        # Just store the connection
+        
         self.connections[client_id] = {
             "websocket": websocket,
             "user_id": user_id,
@@ -109,8 +111,13 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
         return payload
     except jwt.ExpiredSignatureError:
+        logger.warning("JWT token expired")
         return None
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.warning(f"Invalid JWT token: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Error decoding JWT token: {e}", exc_info=True)
         return None
 
 
@@ -124,30 +131,83 @@ async def websocket_portfolio(
     user_id = None
     client_id_str = client_id or f"client_{id(websocket)}"
 
+    # Accept WebSocket connection FIRST (required by FastAPI)
+    # We must accept before we can receive messages
+    # FastAPI requires accept() to be called first in the handler
     try:
-        # Authenticate user
+        await websocket.accept()
+    except Exception as e:
+        # Handle any errors during accept (connection already accepted, wrong state, etc.)
+        error_str = str(e).lower()
+        if any(keyword in error_str for keyword in ["already", "connected", "accepted", "asgi", "state"]):
+            logger.debug(f"WebSocket accept skipped (connection already established): {e}")
+            # If already accepted, we can continue, but log it
+        else:
+            logger.error(f"Failed to accept WebSocket connection: {e}", exc_info=True)
+            # Try to close the connection if accept failed
+            try:
+                await websocket.close(code=1006, reason="Connection error")
+            except Exception:
+                pass
+            return
+    
+    try:
+        # Authenticate user from query string token first (preferred method)
         if token:
             user = get_user_from_token(token)
             if user:
-                user_id = user.get("sub") or user.get("user_id")
-        else:
-            # Try to get token from WebSocket message
+                user_id = user.get("id") or user.get("sub") or user.get("user_id")
+                logger.info(f"WebSocket authenticated user from query token: {user_id}")
+                # Send auth success message to client
+                try:
+                    await websocket.send_json({"type": "auth_success", "user_id": str(user_id)})
+                except Exception as e:
+                    logger.warning(f"Failed to send auth success message: {e}")
+        
+        # If no token in query string, wait for auth message
+        if not user_id:
             try:
-                auth_message = await websocket.receive_json()
+                auth_message = await asyncio.wait_for(websocket.receive_json(), timeout=5.0)
                 if auth_message.get("type") == "auth":
                     token = auth_message.get("token")
                     if token:
                         user = get_user_from_token(token)
                         if user:
-                            user_id = user.get("sub") or user.get("user_id")
-            except:
-                pass
+                            user_id = user.get("id") or user.get("sub") or user.get("user_id")
+                            logger.info(f"WebSocket authenticated user from message token: {user_id}")
+                            # Send auth success message
+                            try:
+                                await websocket.send_json({"type": "auth_success", "user_id": str(user_id)})
+                            except Exception as e:
+                                logger.warning(f"Failed to send auth success message: {e}")
+                else:
+                    # Client sent a non-auth message, ignore it and wait for auth
+                    logger.debug(f"Received non-auth message before authentication: {auth_message.get('type')}")
+            except asyncio.TimeoutError:
+                logger.warning("WebSocket authentication timeout - no auth message received")
+                try:
+                    await websocket.close(code=1008, reason="Authentication timeout")
+                except Exception:
+                    pass
+                return
+            except Exception as e:
+                logger.warning(f"Error receiving auth message: {e}")
+                try:
+                    await websocket.close(code=1008, reason="Authentication failed")
+                except Exception:
+                    pass
+                return
 
         if not user_id:
-            await websocket.close(code=1008, reason="Authentication required")
+            logger.warning(f"WebSocket connection rejected - no user_id found from token")
+            try:
+                await websocket.send_json({"type": "error", "error": "Authentication required"})
+                await websocket.close(code=1008, reason="Authentication required")
+            except Exception:
+                pass
             return
-
-        # Connect WebSocket
+        
+        # Connect WebSocket (manager should not try to accept again)
         await portfolio_ws_manager.connect(websocket, str(user_id), client_id_str)
 
         # Send initial portfolio data
@@ -191,7 +251,7 @@ async def websocket_portfolio(
                     async with get_db_context() as db:
                         portfolio = await get_portfolio(
                             mode="paper",  # Default to paper, can be made configurable
-                            current_user={"user_id": user_id, "sub": user_id},
+                            current_user={"id": user_id, "user_id": user_id, "sub": user_id, "email": "", "role": "user"},
                             db=db,
                         )
 
@@ -282,9 +342,11 @@ async def websocket_portfolio(
                         }
                     )
             except Exception as e:
-                logger.error(f"Failed to send initial portfolio data: {e}")
+                logger.error(f"Failed to send initial portfolio data: {e}", exc_info=True)
+                # Don't break the connection if initial data fails - continue with WebSocket
         except Exception as e:
-            logger.error(f"Failed to send initial portfolio data: {e}")
+            logger.error(f"Failed to send initial portfolio data: {e}", exc_info=True)
+            # Don't break the connection if initial data fails - continue with WebSocket
 
         # Start periodic portfolio updates
         async def send_periodic_updates():
@@ -300,7 +362,7 @@ async def websocket_portfolio(
                         async with get_db_context() as db:
                             portfolio = await get_portfolio(
                                 mode="paper",
-                                current_user={"user_id": user_id, "sub": user_id},
+                                current_user={"id": user_id, "user_id": user_id, "sub": user_id, "email": "", "role": "user"},
                                 db=db,
                             )
                             portfolio_data = {
@@ -391,7 +453,7 @@ async def websocket_portfolio(
                         async with get_db_context() as db:
                             portfolio = await get_portfolio(
                                 mode=mode,
-                                current_user={"user_id": user_id, "sub": user_id},
+                                current_user={"id": user_id, "user_id": user_id, "sub": user_id, "email": "", "role": "user"},
                                 db=db,
                             )
                             portfolio_data = {
@@ -436,13 +498,19 @@ async def websocket_portfolio(
             except WebSocketDisconnect:
                 break
             except Exception as e:
-                logger.error(f"Error handling WebSocket message: {e}")
-                await websocket.send_json(
-                    {
-                        "type": "error",
-                        "message": str(e),
-                    }
-                )
+                logger.error(f"Error handling WebSocket message: {e}", exc_info=True)
+                try:
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "error": str(e),
+                            "message": str(e),
+                        }
+                    )
+                except Exception as send_error:
+                    logger.error(f"Failed to send error message: {send_error}")
+                    # Connection might be closed, break the loop
+                    break
 
         # Cancel update task
         update_task.cancel()
@@ -450,13 +518,19 @@ async def websocket_portfolio(
     except WebSocketDisconnect:
         logger.info(f"Portfolio WebSocket disconnected: {client_id_str}")
     except Exception as e:
-        logger.error(f"Portfolio WebSocket error: {e}")
+        logger.error(f"Portfolio WebSocket error: {e}", exc_info=True)
         try:
             await websocket.close(code=1011, reason=str(e))
-        except:
+        except Exception:
             pass
     finally:
         portfolio_ws_manager.disconnect(client_id_str)
+        # Cancel update task if it exists
+        try:
+            if 'update_task' in locals():
+                update_task.cancel()
+        except Exception:
+            pass
 
 
 # Function to notify portfolio updates (can be called from other services)

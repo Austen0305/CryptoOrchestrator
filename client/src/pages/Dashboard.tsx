@@ -67,7 +67,10 @@ export default function Dashboard() {
     [index: number]: number | undefined;
   }
 
-  const chartData = ohlcvData?.map((candle: OhlcvCandle | number[]) => {
+  // OHLCV API returns { pair, timeframe, data: [...] }, so we need to access .data
+  const ohlcvArray = ohlcvData?.data || (Array.isArray(ohlcvData) ? ohlcvData : []);
+  
+  const chartData = ohlcvArray?.map((candle: OhlcvCandle | number[]) => {
     if (Array.isArray(candle)) {
       // Array format: [timestamp, open, high, low, close, volume]
       return {

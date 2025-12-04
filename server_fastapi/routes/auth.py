@@ -691,8 +691,21 @@ async def login(payload: LoginRequest, request: Request):
         f"Login request received for email/username: {payload.email or payload.username}"
     )
 
-    # Sanitize login identifier
-    login_identifier = sanitize_input(payload.email or payload.username or "")
+    # Normalize login identifier (don't sanitize emails - it breaks email lookups)
+    # For emails: normalize (lowercase, strip whitespace)
+    # For usernames: normalize (lowercase, strip whitespace)
+    if payload.email:
+        # Validate email format first
+        from server_fastapi.middleware.validation import validate_email_format
+        email = payload.email.strip().lower() if isinstance(payload.email, str) else payload.email
+        if not validate_email_format(email):
+            logger.warning(f"Invalid email format during login: {payload.email}")
+            raise HTTPException(status_code=422, detail="Invalid email format")
+        login_identifier = email
+    elif payload.username:
+        login_identifier = payload.username.strip().lower() if isinstance(payload.username, str) else payload.username
+    else:
+        login_identifier = ""
 
     # Find user - prioritize database over in-memory storage
     user = None
@@ -791,12 +804,18 @@ async def login(payload: LoginRequest, request: Request):
     if not user:
         if payload.email:
             user = storage.getUserByEmail(login_identifier)
+            if not user:
+                # Log available emails for debugging (only in development)
+                if os.getenv("NODE_ENV") == "development":
+                    all_emails = [u.get("email") for u in storage.users.values()]
+                    logger.debug(f"Available emails in storage: {all_emails}")
+                    logger.debug(f"Looking for normalized email: {login_identifier}")
         elif payload.username:
             user = storage.getUserByUsername(login_identifier)
 
     if not user or not user.get("passwordHash"):
         logger.warning(
-            f"Login failed: Invalid credentials for {payload.email or payload.username}"
+            f"Login failed: User not found for {payload.email or payload.username} (normalized: {login_identifier})"
         )
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
@@ -1269,29 +1288,34 @@ async def get_profile(current_user: dict = Depends(get_current_user)):
     # Attempt to enrich profile from DB persistence
     db_data = {}
     try:
-        async with get_db_context() as session:
-            db_user = await user_repository.get_by_email(session, current_user["email"])
-            if db_user:
-                db_data = {
-                    "username": db_user.username,
-                    "firstName": db_user.first_name,
-                    "lastName": db_user.last_name,
-                    "avatarUrl": db_user.avatar_url,
-                    "locale": db_user.locale,
-                    "timezone": db_user.timezone,
-                    "preferences": (
-                        json.loads(db_user.preferences_json)
-                        if db_user.preferences_json
-                        else None
-                    ),
-                }
+        user_email = current_user.get("email")
+        if user_email:
+            async with get_db_context() as session:
+                db_user = await user_repository.get_by_email(session, user_email)
+                if db_user:
+                    db_data = {
+                        "username": db_user.username,
+                        "firstName": db_user.first_name,
+                        "lastName": db_user.last_name,
+                        "avatarUrl": db_user.avatar_url,
+                        "locale": db_user.locale,
+                        "timezone": db_user.timezone,
+                        "preferences": (
+                            json.loads(db_user.preferences_json)
+                            if db_user.preferences_json
+                            else None
+                        ),
+                    }
     except Exception as e:
-        logger.warning(f"Profile DB enrichment failed: {e}")
+        logger.warning(f"Profile DB enrichment failed: {e}", exc_info=True)
+        # Continue with in-memory data only
+    
+    # Return profile with fallback values
     return {
-        "id": current_user["id"],
-        "email": current_user["email"],
-        "name": current_user["name"],
-        "createdAt": current_user["createdAt"],
+        "id": current_user.get("id") or current_user.get("user_id") or "1",
+        "email": current_user.get("email") or "",
+        "name": current_user.get("name") or current_user.get("username") or "User",
+        "createdAt": current_user.get("createdAt") or datetime.now(timezone.utc).isoformat(),
         "mfaEnabled": current_user.get("mfaEnabled", False),
         **db_data,
     }

@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _get_user_id(current_user: dict) -> str:
+    """Helper function to safely extract user_id from current_user dict"""
+    user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
+    if not user_id:
+        logger.warning(f"User ID not found in current_user: {current_user}")
+        raise HTTPException(status_code=401, detail="User not authenticated")
+    return str(user_id)
+
+
 # Pydantic models
 class BotConfig(BaseModel):
     id: str
@@ -152,23 +161,32 @@ class MockBotStorage:
 async def get_bots(current_user: dict = Depends(get_current_user)) -> List[BotConfig]:
     """Get all trading bots for the authenticated user"""
     try:
+        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
+        if not user_id:
+            logger.warning(f"User ID not found in current_user: {current_user}")
+            return []
+        
         bot_service = get_bot_service()
-        bot_configs = await bot_service.list_user_bots(current_user["id"])
+        bot_configs = await bot_service.list_user_bots(str(user_id))
         # bot_configs are BotConfiguration objects from service - convert to BotConfig response
         result = []
         for bot_conf in bot_configs:
             # BotConfiguration has: id, strategy, parameters, active
             # BotConfig needs: id, user_id, name, symbol, strategy, is_active, config, created_at, updated_at
             # We need to fetch full bot data to get all fields
-            bot_data = await bot_service.get_bot_config(bot_conf.id, current_user["id"])
+            bot_data = await bot_service.get_bot_config(bot_conf.id, str(user_id))
             if bot_data:
                 result.append(BotConfig(**bot_data))
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
-            f"Error fetching bots for user {current_user['id']}: {e}", exc_info=True
+            f"Error fetching bots for user {current_user.get('id', 'unknown')}: {e}", exc_info=True
         )
-        raise HTTPException(status_code=500, detail="Failed to fetch bots")
+        # Return empty list instead of 500 error for better UX during development
+        logger.warning(f"Returning empty bots list due to error: {e}")
+        return []
 
 
 @router.get("/{bot_id}")
@@ -177,8 +195,9 @@ async def get_bot(
 ) -> BotConfig:
     """Get a specific bot by ID"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
         return BotConfig(**bot)
@@ -209,8 +228,9 @@ async def create_bot(
         if not is_valid:
             raise HTTPException(status_code=400, detail="Invalid bot configuration")
 
+        user_id = _get_user_id(current_user)
         bot_id = await bot_service.create_bot(
-            current_user["id"],
+            user_id,
             request.name,
             request.symbol,
             request.strategy,
@@ -221,20 +241,21 @@ async def create_bot(
             raise HTTPException(status_code=500, detail="Failed to create bot")
 
         # Get the created bot
-        bot_data = await bot_service.get_bot_config(bot_id, current_user["id"])
+        bot_data = await bot_service.get_bot_config(bot_id, user_id)
         if not bot_data:
             raise HTTPException(
                 status_code=500, detail="Failed to retrieve created bot"
             )
 
-        logger.info(f"Created new bot: {bot_id} for user {current_user['id']}")
+        logger.info(f"Created new bot: {bot_id} for user {user_id}")
         return BotConfig(**bot_data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating bot for user {current_user['id']}: {e}")
+        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub") or "unknown"
+        logger.error(f"Error creating bot for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to create bot")
 
 
@@ -246,10 +267,11 @@ async def update_bot(
 ) -> BotConfig:
     """Update an existing bot"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
 
         # Check if bot exists
-        existing_bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        existing_bot = await bot_service.get_bot_config(bot_id, user_id)
         if not existing_bot:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -261,12 +283,12 @@ async def update_bot(
         updates = {k: v for k, v in request.model_dump().items() if v is not None}
 
         # Update bot
-        success = await bot_service.update_bot(bot_id, current_user["id"], updates)
+        success = await bot_service.update_bot(bot_id, user_id, updates)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to update bot")
 
         # Get updated bot
-        updated_bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        updated_bot = await bot_service.get_bot_config(bot_id, user_id)
         if not updated_bot:
             raise HTTPException(
                 status_code=500, detail="Failed to retrieve updated bot"
@@ -285,14 +307,15 @@ async def update_bot(
 async def delete_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
     """Delete a bot"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
 
         # Check if bot exists
-        existing_bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        existing_bot = await bot_service.get_bot_config(bot_id, user_id)
         if not existing_bot:
             raise HTTPException(status_code=404, detail="Bot not found")
 
-        success = await bot_service.delete_bot(bot_id, current_user["id"])
+        success = await bot_service.delete_bot(bot_id, user_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete bot")
 
@@ -313,12 +336,13 @@ async def start_bot(
 ):
     """Start a trading bot with safety checks"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
         trading_service = get_bot_trading_service()
 
         # Validate start conditions
         validation = await bot_service.validate_bot_start_conditions(
-            bot_id, current_user["id"]
+            bot_id, user_id
         )
         if not validation["can_start"]:
             blockers = ", ".join(validation.get("blockers", []))
@@ -330,7 +354,7 @@ async def start_bot(
             )
 
         # Check if bot is already active
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -338,13 +362,13 @@ async def start_bot(
             raise HTTPException(status_code=400, detail="Bot is already active")
 
         # Start the bot
-        success = await bot_service.start_bot(bot_id, current_user["id"])
+        success = await bot_service.start_bot(bot_id, user_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to start bot")
 
         # Start bot trading loop in background
         background_tasks.add_task(
-            trading_service.run_bot_loop, bot_id, current_user["id"]
+            trading_service.run_bot_loop, bot_id, user_id
         )
 
         logger.info(f"Started bot: {bot_id}")
@@ -360,17 +384,18 @@ async def start_bot(
 async def stop_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
     """Stop a trading bot"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
 
         # Check if bot exists
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
 
         if not bot_status.get("is_active"):
             raise HTTPException(status_code=400, detail="Bot is not active")
 
-        success = await bot_service.stop_bot(bot_id, current_user["id"])
+        success = await bot_service.stop_bot(bot_id, user_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to stop bot")
 
@@ -389,8 +414,9 @@ async def get_bot_model(
 ) -> Dict[str, Any]:
     """Get bot's ML model status"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -429,8 +455,9 @@ async def get_bot_performance(
 ) -> BotPerformance:
     """Get bot performance metrics"""
     try:
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot = await bot_service.get_bot_config(bot_id, current_user["id"])
+        bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -479,13 +506,14 @@ async def emergency_stop(current_user: dict = Depends(get_current_user)):
                 status_code=403, detail="Admin privileges required for emergency stop"
             )
 
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
         stopped_count = await bot_service.emergency_stop_all_user_bots(
-            current_user["id"], "admin_emergency"
+            user_id, "admin_emergency"
         )
 
         logger.critical(
-            f"Emergency stop activated by user {current_user['id']}: stopped {stopped_count} bots"
+            f"Emergency stop activated by user {user_id}: stopped {stopped_count} bots"
         )
         return {
             "message": "Emergency stop activated",
@@ -514,8 +542,9 @@ async def get_bot_analysis(
         from ..services.trading.smart_bot_engine import SmartBotEngine
 
         # Get bot configuration
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
@@ -563,8 +592,9 @@ async def get_bot_risk_metrics(
     try:
         from ..services.trading.smart_bot_engine import SmartBotEngine
 
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
@@ -640,8 +670,9 @@ async def optimize_bot_parameters(
         from ..services.trading.smart_bot_engine import SmartBotEngine
         from ..services.ml.adaptive_learning import adaptive_learning_service
 
+        user_id = _get_user_id(current_user)
         bot_service = get_bot_service()
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")

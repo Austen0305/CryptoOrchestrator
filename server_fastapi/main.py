@@ -27,9 +27,10 @@ ENABLE_HEAVY_MIDDLEWARE = (
 
 # Import validation middleware
 try:
-    from .middleware.validation import InputValidationMiddleware
+    from .middleware.validation import InputValidationMiddleware, validate_email_format
 except ImportError:
     InputValidationMiddleware = None
+    validate_email_format = None
 
 # Import monitoring middleware
 try:
@@ -587,6 +588,41 @@ def validate_origin(origin: str) -> bool:
     return origin in allowed_origins
 
 
+def add_cors_headers(response: JSONResponse, request: Request, allowed_origins: list) -> JSONResponse:
+    """Add CORS headers to a response if origin is allowed"""
+    if not allowed_origins:
+        # Fallback to default origins if not provided
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://localhost:8000",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:8000",
+            "file://",
+            "null",
+        ]
+    
+    origin = request.headers.get("origin")
+    if origin:
+        # Check if origin is in allowed list or matches regex patterns
+        origin_allowed = origin in allowed_origins
+        # Also check regex patterns for Render/production domains
+        import re
+        if not origin_allowed:
+            origin_allowed = bool(re.match(
+                r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                origin
+            ))
+        
+        if origin_allowed:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+    return response
+
+
 # Get allowed origins from environment or use defaults
 cors_origins = None  # Initialize variable
 allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
@@ -624,6 +660,56 @@ if not cors_origins:
         "null",  # Electron null origin
     ]
 
+# Additional CORS middleware to ensure all responses (including errors) have CORS headers
+# This runs AFTER CORS middleware on responses (added before CORS so it runs later)
+@app.middleware("http")
+async def cors_headers_middleware(request: Request, call_next):
+    """Ensure all responses have CORS headers, even error responses that might bypass CORS middleware"""
+    try:
+        response = await call_next(request)
+        # If response doesn't have CORS headers, add them
+        origin = request.headers.get("origin")
+        if origin and "Access-Control-Allow-Origin" not in response.headers:
+            origin_allowed = origin in cors_origins
+            if not origin_allowed:
+                import re
+                origin_allowed = bool(re.match(
+                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                    origin
+                ))
+            if origin_allowed:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+        return response
+    except Exception as e:
+        # Handle exceptions that occur during request processing - ensure CORS headers are added
+        logger.error(f"Exception in CORS middleware: {e}", exc_info=True)
+        origin = request.headers.get("origin")
+        origin_allowed = False
+        if origin:
+            origin_allowed = origin in cors_origins
+            if not origin_allowed:
+                import re
+                origin_allowed = bool(re.match(
+                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                    origin
+                ))
+        
+        response = JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
+        
+        if origin_allowed:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+        
+        return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -659,9 +745,21 @@ except ImportError:
 async def global_exception_handler(request: Request, exc: Exception):
     # This will be caught by structured error handler if available
     logger.error(f"Unhandled error: {exc}", exc_info=True)
+    
+    # Get origin from request for CORS
+    origin = request.headers.get("origin")
+    origin_allowed = False
+    if origin:
+        origin_allowed = origin in cors_origins or bool(
+            __import__("re").match(
+                r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                origin
+            )
+        )
+    
     # Return more detailed error info in development
     if os.getenv("NODE_ENV") == "development":
-        return JSONResponse(
+        response = JSONResponse(
             status_code=500,
             content={
                 "error": {
@@ -673,7 +771,7 @@ async def global_exception_handler(request: Request, exc: Exception):
             },
         )
     else:
-        return JSONResponse(
+        response = JSONResponse(
             status_code=500,
             content={
                 "error": {
@@ -683,6 +781,15 @@ async def global_exception_handler(request: Request, exc: Exception):
                 }
             },
         )
+    
+    # Add CORS headers to error response
+    if origin_allowed:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+    
+    return response
 
 
 # Health check endpoint with database status
@@ -733,7 +840,11 @@ async def root():
 #       endpoint will take over again.
 @app.middleware("http")
 async def registration_shim(request: Request, call_next):
-    # Only intercept the registration endpoint
+    # Allow OPTIONS requests (CORS preflight) to pass through
+    if request.method.upper() == "OPTIONS":
+        return await call_next(request)
+    
+    # Only intercept the registration endpoint for POST requests
     if request.url.path == "/api/auth/register" and request.method.upper() == "POST":
         try:
             import json
@@ -743,10 +854,11 @@ async def registration_shim(request: Request, call_next):
             try:
                 data = json.loads(body_bytes.decode() if body_bytes else "{}")
             except json.JSONDecodeError:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=400,
                     content={"detail": "Invalid JSON body"},
                 )
+                return add_cors_headers(response, request, cors_origins)
 
             email = data.get("email")
             password = data.get("password")
@@ -757,14 +869,26 @@ async def registration_shim(request: Request, call_next):
             last_name = data.get("last_name")
 
             if not email or not password:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=422,
                     content={"detail": "Email and password are required"},
                 )
+                return add_cors_headers(response, request, cors_origins)
 
-            # Basic sanitization using existing helpers
-            sanitize = getattr(auth_module, "sanitize_input", lambda x: x)
-            safe_email = sanitize(email)
+            # Normalize email: lowercase and strip whitespace (don't sanitize - it breaks emails)
+            email = email.strip().lower() if isinstance(email, str) else email
+
+            # Validate email format BEFORE processing
+            # Try to get validate_email_format from imported module or auth_module
+            email_validator = validate_email_format
+            if not email_validator:
+                email_validator = getattr(auth_module, "validate_email_format", None)
+            if email_validator and not email_validator(email):
+                response = JSONResponse(
+                    status_code=422,
+                    content={"detail": "Invalid email format. Please check your email address."},
+                )
+                return add_cors_headers(response, request, cors_origins)
 
             # Use shared in‑memory storage from auth module
             storage = getattr(auth_module, "storage", None)
@@ -772,33 +896,52 @@ async def registration_shim(request: Request, call_next):
             generate_token = getattr(auth_module, "generate_token", None)
 
             if storage is None or auth_service is None or generate_token is None:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=500,
                     content={"detail": "Auth services not available"},
                 )
+                return add_cors_headers(response, request, cors_origins)
 
-            # Check if user already exists in memory
-            existing = storage.getUserByEmail(safe_email)
+            # Check if user already exists in memory (use normalized email)
+            existing = storage.getUserByEmail(email)
             if existing:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=400,
-                    content={"detail": "User already exists"},
+                    content={"detail": f"A user with email {email} already exists. Please try logging in instead."},
                 )
+                return add_cors_headers(response, request, cors_origins)
 
             # Delegate to MockAuthService for password hashing + user creation
-            result = auth_service.register(
-                {
-                    "email": safe_email,
-                    "password": password,
-                    "name": username,
-                }
-            )
+            # Use normalized email (not sanitized - sanitization breaks emails)
+            try:
+                result = auth_service.register(
+                    {
+                        "email": email,
+                        "password": password,
+                        "name": username,
+                    }
+                )
+            except ValueError as e:
+                # Handle duplicate email or validation errors from auth service
+                error_msg = str(e)
+                if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
+                    response = JSONResponse(
+                        status_code=400,
+                        content={"detail": f"A user with email {email} already exists. Please try logging in instead."},
+                    )
+                else:
+                    response = JSONResponse(
+                        status_code=422,
+                        content={"detail": f"Registration failed: {error_msg}"},
+                    )
+                return add_cors_headers(response, request, cors_origins)
             user = result.get("user")
             if not user:
-                return JSONResponse(
+                response = JSONResponse(
                     status_code=500,
                     content={"detail": "Registration failed - no user returned"},
                 )
+                return add_cors_headers(response, request, cors_origins)
 
             # Generate access token using existing helper
             token = generate_token(user)
@@ -819,13 +962,25 @@ async def registration_shim(request: Request, call_next):
                 "message": "Registration completed via shim. Email verification may be limited.",
             }
 
-            return JSONResponse(status_code=200, content=response_payload)
+            response = JSONResponse(status_code=200, content=response_payload)
+            return add_cors_headers(response, request, cors_origins)
+        except ValueError as e:
+            # Handle validation errors with clear messages
+            error_msg = str(e)
+            status_code = 422 if "required" in error_msg.lower() or "invalid" in error_msg.lower() else 400
+            response = JSONResponse(
+                status_code=status_code,
+                content={"detail": f"Registration error: {error_msg}"},
+            )
+            return add_cors_headers(response, request, cors_origins)
         except Exception as e:
             # Last‑resort error: return a safe message instead of hanging
-            return JSONResponse(
+            logger.error(f"Registration shim error: {e}", exc_info=True)
+            response = JSONResponse(
                 status_code=500,
-                content={"detail": f"Registration shim error: {str(e)}"},
+                content={"detail": f"Registration failed: {str(e)}. Please try again or contact support if the problem persists."},
             )
+            return add_cors_headers(response, request, cors_origins)
 
     # For all other routes, fall back to normal processing
     return await call_next(request)
@@ -902,6 +1057,9 @@ _safe_include(
 _safe_include("server_fastapi.routes.ml_training", "router", "/api/ml", ["ML Training"])
 _safe_include("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"])
 _safe_include("server_fastapi.routes.trades", "router", "/api/trades", ["Trades"])
+_safe_include("server_fastapi.routes.sentiment", "router", "", ["Sentiment"])
+_safe_include("server_fastapi.routes.logs", "router", "", ["Logs"])
+_safe_include("server_fastapi.routes.price_alerts", "router", "/api/price-alerts", ["Price Alerts"])
 _safe_include(
     "server_fastapi.routes.analytics", "router", "/api/analytics", ["Analytics"]
 )

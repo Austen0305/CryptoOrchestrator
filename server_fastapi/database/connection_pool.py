@@ -1,6 +1,6 @@
 """Database connection pool management with health checks and retry logic"""
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 from contextlib import asynccontextmanager
 import logging
 from typing import AsyncGenerator
@@ -22,6 +22,26 @@ class DatabaseConnectionPool:
             logger.warning("Database connection pool already initialized")
             return
         
+        # Ensure SQLite URLs use aiosqlite driver
+        if database_url.startswith("sqlite://") and not database_url.startswith("sqlite+aiosqlite://"):
+            database_url = database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+            logger.warning(f"Converted database URL to use aiosqlite driver: {database_url}")
+        
+        # Verify aiosqlite is available for SQLite
+        if database_url.startswith("sqlite+"):
+            if "aiosqlite" not in database_url:
+                raise ValueError(
+                    "SQLite database requires aiosqlite driver. "
+                    "Install with: pip install aiosqlite"
+                )
+            try:
+                import aiosqlite  # noqa: F401
+            except ImportError:
+                raise ImportError(
+                    "aiosqlite is required for async SQLite support. "
+                    "Install with: pip install aiosqlite"
+                )
+        
         # Determine pool settings based on environment
         is_production = os.getenv("NODE_ENV") == "production"
         
@@ -33,14 +53,19 @@ class DatabaseConnectionPool:
             "pool_pre_ping": True,  # Verify connections before using
         }
         
-        # Use NullPool for testing, QueuePool for production
-        poolclass = NullPool if os.getenv("TESTING") else QueuePool
+        # Use NullPool for testing, StaticPool for SQLite, QueuePool for production PostgreSQL
+        if database_url.startswith("sqlite+"):
+            poolclass = StaticPool
+            pool_config = {"check_same_thread": False}
+        else:
+            poolclass = NullPool if os.getenv("TESTING") else QueuePool
         
         self.engine = create_async_engine(
             database_url,
             echo=not is_production,
             poolclass=poolclass,
-            **pool_config if poolclass == QueuePool else {}
+            connect_args=pool_config if poolclass == StaticPool else {},
+            **({} if poolclass == StaticPool else (pool_config if poolclass == QueuePool else {}))
         )
         
         self.session_factory = async_sessionmaker(

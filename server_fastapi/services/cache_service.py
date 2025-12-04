@@ -129,10 +129,14 @@ class CacheService:
         self.redis: Optional[redis.Redis] = None
         self.memory_cache = MemoryCache()
         self.redis_available = False
-        self._connect_to_redis()
+        # Don't call async method from __init__ - will connect lazily when needed
+        # self._connect_to_redis()  # Removed - async method cannot be called from sync __init__
 
     async def _connect_to_redis(self):
         """Connect to Redis if available"""
+        if self.redis_available:
+            return  # Already connected
+        
         if not REDIS_AVAILABLE:
             logger.info("Redis library not available, using memory cache")
             return
@@ -153,6 +157,10 @@ class CacheService:
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
         """Set cache value with optional TTL"""
+        # Connect to Redis lazily if not already connected
+        if not self.redis_available:
+            await self._connect_to_redis()
+        
         effective_ttl = ttl or self._get_ttl_for_key(key)
 
         if self.redis_available and self.redis:
@@ -166,6 +174,10 @@ class CacheService:
 
     async def get(self, key: str) -> Optional[Any]:
         """Get cache value"""
+        # Connect to Redis lazily if not already connected
+        if not self.redis_available:
+            await self._connect_to_redis()
+        
         if self.redis_available and self.redis:
             try:
                 value = await self.redis.get(key)
@@ -178,6 +190,10 @@ class CacheService:
 
     async def delete(self, key: str) -> None:
         """Delete cache entry"""
+        # Connect to Redis lazily if not already connected
+        if not self.redis_available:
+            await self._connect_to_redis()
+        
         if self.redis_available and self.redis:
             try:
                 await self.redis.delete(key)
@@ -189,6 +205,10 @@ class CacheService:
 
     async def exists(self, key: str) -> bool:
         """Check if key exists"""
+        # Connect to Redis lazily if not already connected
+        if not self.redis_available:
+            await self._connect_to_redis()
+        
         if self.redis_available and self.redis:
             try:
                 return await self.redis.exists(key) == 1
@@ -199,6 +219,10 @@ class CacheService:
 
     async def clear(self) -> None:
         """Clear all cache entries"""
+        # Connect to Redis lazily if not already connected
+        if not self.redis_available:
+            await self._connect_to_redis()
+        
         if self.redis_available and self.redis:
             try:
                 keys = await self.redis.keys(f"{CACHE_CONFIG['key_prefix']}*")

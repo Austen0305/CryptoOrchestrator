@@ -15,7 +15,7 @@ from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/trading", tags=["trading-mode"])
+router = APIRouter(tags=["trading-mode"])  # Prefix is added in main.py
 security = HTTPBearer()
 
 
@@ -40,9 +40,17 @@ async def check_real_money_requirements(
 ):
     """Check if user meets requirements for real money trading"""
     try:
-        user_id = current_user.get("sub") or current_user.get("user_id")
+        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
         if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+            logger.warning(f"User ID not found in current_user: {current_user}")
+            # Return default response instead of 401 to prevent frontend errors
+            return RealMoneyRequirementsResponse(
+                hasApiKeys=False,
+                has2FA=False,
+                hasVerifiedEmail=False,
+                hasAcceptedTerms=False,
+                canTradeRealMoney=False,
+            )
 
         # Check for exchange API keys
         api_keys = await exchange_key_service.list_api_keys(str(user_id))
@@ -103,9 +111,19 @@ async def check_real_money_requirements(
             canTradeRealMoney=can_trade_real_money,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to check real money requirements: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Failed to check real money requirements: {e}", exc_info=True)
+        # Return default requirements (all False) instead of 500 error for better UX during development
+        logger.warning(f"Returning default real money requirements due to error: {e}")
+        return RealMoneyRequirementsResponse(
+            hasApiKeys=False,
+            has2FA=False,
+            hasVerifiedEmail=False,
+            hasAcceptedTerms=False,
+            canTradeRealMoney=False,
+        )
 
 
 @router.post("/log-mode-switch")

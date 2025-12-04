@@ -96,7 +96,7 @@ def setup_logging(
     # Application log
     app_log_file = log_path / "app.log"
     app_handler = logging.handlers.RotatingFileHandler(
-        app_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        app_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8", delay=True
     )
     app_handler.setLevel(logging.INFO)
     app_handler.setFormatter(formatter or text_formatter)
@@ -105,7 +105,7 @@ def setup_logging(
     # Error log
     error_log_file = log_path / "error.log"
     error_handler = logging.handlers.RotatingFileHandler(
-        error_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        error_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8", delay=True
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(formatter or text_formatter)
@@ -114,7 +114,7 @@ def setup_logging(
     # Audit log
     audit_log_file = log_path / "audit.log"
     audit_handler = logging.handlers.RotatingFileHandler(
-        audit_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+        audit_log_file, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8", delay=True
     )
     audit_handler.setLevel(logging.INFO)
     audit_handler.setFormatter(formatter or text_formatter)
@@ -131,6 +131,7 @@ def setup_logging(
         maxBytes=max_bytes,
         backupCount=backup_count,
         encoding="utf-8",
+        delay=True,
     )
     security_handler.setLevel(logging.WARNING)
     security_handler.setFormatter(formatter or text_formatter)

@@ -30,11 +30,15 @@ export async function apiRequest<T = unknown>(
 
   logger.debug(`API Request: ${method} ${fullUrl}`, body);
 
-  // Attach Authorization header if token exists (proper fix: use login flow)
+  // Attach Authorization header if token exists (check both localStorage and sessionStorage)
   const headers: Record<string, string> = {
     ...customHeaders,
   };
-  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+  let token: string | null = null;
+  if (typeof window !== 'undefined') {
+    // Check localStorage first, then sessionStorage
+    token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (body) headers['Content-Type'] = 'application/json';
 

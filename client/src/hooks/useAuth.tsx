@@ -202,7 +202,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Store tokens - use consistent key 'auth_token' to match API clients
+      // Store in both localStorage and sessionStorage for compatibility
+      localStorage.setItem("auth_token", access_token);
       sessionStorage.setItem("auth_token", access_token);
+      localStorage.setItem("refresh_token", refresh_token || "");
       sessionStorage.setItem("refresh_token", refresh_token || "");
 
       // Set default token in apiClient
