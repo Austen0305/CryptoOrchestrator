@@ -5683,6 +5683,323 @@
         }
       }
     },
+    "/api/trades/profit-calendar": {
+      "get": {
+        "tags": [
+          "Trades"
+        ],
+        "summary": "Get Profit Calendar",
+        "description": "Get daily profit data for a calendar month",
+        "operationId": "get_profit_calendar_api_trades_profit_calendar_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Month in format YYYY-MM",
+              "title": "Month"
+            },
+            "description": "Month in format YYYY-MM"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sentiment/{symbol}": {
+      "get": {
+        "tags": [
+          "Sentiment",
+          "Sentiment"
+        ],
+        "summary": "Get Symbol Sentiment",
+        "description": "Get AI-powered market sentiment analysis for a trading pair\n\nAnalyzes:\n- Technical indicators\n- Volume trends\n- Price momentum\n- Social media sentiment (if available)\n- News sentiment (if available)",
+        "operationId": "get_symbol_sentiment_api_sentiment__symbol__get",
+        "parameters": [
+          {
+            "name": "symbol",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Symbol"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketSentiment"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/": {
+      "post": {
+        "tags": [
+          "Logs",
+          "logs"
+        ],
+        "summary": "Receive Log",
+        "description": "Receive log entries from frontend.\nThis endpoint accepts logs from the client-side logger.",
+        "operationId": "receive_log_api_logs__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LogEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/price-alerts/": {
+      "get": {
+        "tags": [
+          "Price Alerts",
+          "price-alerts"
+        ],
+        "summary": "Get Price Alerts",
+        "description": "Get all price alerts for the current user",
+        "operationId": "get_price_alerts_api_price_alerts__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PriceAlert"
+                  },
+                  "type": "array",
+                  "title": "Response Get Price Alerts Api Price Alerts  Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Price Alerts",
+          "price-alerts"
+        ],
+        "summary": "Create Price Alert",
+        "description": "Create a new price alert",
+        "operationId": "create_price_alert_api_price_alerts__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePriceAlertRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlert"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/price-alerts/{alert_id}/toggle": {
+      "patch": {
+        "tags": [
+          "Price Alerts",
+          "price-alerts"
+        ],
+        "summary": "Toggle Price Alert",
+        "description": "Toggle a price alert's active status",
+        "operationId": "toggle_price_alert_api_price_alerts__alert_id__toggle_patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ToggleAlertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriceAlert"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/price-alerts/{alert_id}": {
+      "delete": {
+        "tags": [
+          "Price Alerts",
+          "price-alerts"
+        ],
+        "summary": "Delete Price Alert",
+        "description": "Delete a price alert",
+        "operationId": "delete_price_alert_api_price_alerts__alert_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Alert Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/analytics/summary": {
       "get": {
         "tags": [
@@ -9921,7 +10238,7 @@
         }
       }
     },
-    "/api/trading/api/trading/check-real-money-requirements": {
+    "/api/trading/check-real-money-requirements": {
       "get": {
         "tags": [
           "Trading Mode",
@@ -9929,7 +10246,7 @@
         ],
         "summary": "Check Real Money Requirements",
         "description": "Check if user meets requirements for real money trading",
-        "operationId": "check_real_money_requirements_api_trading_api_trading_check_real_money_requirements_get",
+        "operationId": "check_real_money_requirements_api_trading_check_real_money_requirements_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -9949,7 +10266,7 @@
         ]
       }
     },
-    "/api/trading/api/trading/log-mode-switch": {
+    "/api/trading/log-mode-switch": {
       "post": {
         "tags": [
           "Trading Mode",
@@ -9957,7 +10274,7 @@
         ],
         "summary": "Log Mode Switch",
         "description": "Log trading mode switch for audit",
-        "operationId": "log_mode_switch_api_trading_api_trading_log_mode_switch_post",
+        "operationId": "log_mode_switch_api_trading_log_mode_switch_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -21861,6 +22178,92 @@
           "trading_mode": "paper"
         }
       },
+      "CreatePriceAlertRequest": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "above",
+              "below",
+              "change",
+              "volume"
+            ],
+            "title": "Condition"
+          },
+          "targetPrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetprice"
+          },
+          "changePercent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changepercent"
+          },
+          "volumeThreshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumethreshold"
+          },
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "push",
+                "sms",
+                "telegram",
+                "discord"
+              ]
+            },
+            "type": "array",
+            "title": "Channels",
+            "default": [
+              "push"
+            ]
+          },
+          "sound": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sound",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "condition"
+        ],
+        "title": "CreatePriceAlertRequest"
+      },
       "CreateSetupIntentRequest": {
         "properties": {
           "payment_method_type": {
@@ -24205,6 +24608,47 @@
         "title": "LimitOrderRequest",
         "description": "Limit order request model"
       },
+      "LogEntry": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "message"
+        ],
+        "title": "LogEntry",
+        "description": "Frontend log entry model"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -25487,6 +25931,125 @@
         ],
         "title": "PredictionRequest",
         "description": "Prediction request"
+      },
+      "PriceAlert": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "above",
+              "below",
+              "change",
+              "volume"
+            ],
+            "title": "Condition"
+          },
+          "targetPrice": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetprice"
+          },
+          "changePercent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changepercent"
+          },
+          "volumeThreshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumethreshold"
+          },
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive",
+            "default": true
+          },
+          "triggered": {
+            "type": "boolean",
+            "title": "Triggered",
+            "default": false
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "triggeredAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triggeredat"
+          },
+          "channels": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "push",
+                "sms",
+                "telegram",
+                "discord"
+              ]
+            },
+            "type": "array",
+            "title": "Channels",
+            "default": [
+              "push"
+            ]
+          },
+          "sound": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sound",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "symbol",
+          "condition",
+          "createdAt"
+        ],
+        "title": "PriceAlert"
       },
       "PriceChartResponse": {
         "properties": {
@@ -27326,6 +27889,19 @@
           "low_24h"
         ],
         "title": "TickerResponse"
+      },
+      "ToggleAlertRequest": {
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "title": "Isactive"
+          }
+        },
+        "type": "object",
+        "required": [
+          "isActive"
+        ],
+        "title": "ToggleAlertRequest"
       },
       "TradeCreate": {
         "properties": {
