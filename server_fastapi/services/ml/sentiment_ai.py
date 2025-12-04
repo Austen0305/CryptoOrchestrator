@@ -9,6 +9,7 @@ import logging
 import asyncio
 import httpx
 import numpy as np
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +106,7 @@ class SentimentAIService:
 
         self._transformer_loading_attempted = True
         try:
-            # Try to load with a short timeout by setting environment variable
-            import os
+            # Try to load with offline mode if model not cached
             os.environ['HF_HUB_OFFLINE'] = '1'  # Force offline mode if model not cached
             
             self.transformer_pipeline = pipeline(
