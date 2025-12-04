@@ -115,6 +115,7 @@ build/
 *_TODO*.md
 !TODO.md
 !CHANGELOG.md
+!END_TO_END_FIX_SUMMARY.md
 Master-Todo-List*
 comprehensive_feature_validation.py
 test_real_money_trading.py
