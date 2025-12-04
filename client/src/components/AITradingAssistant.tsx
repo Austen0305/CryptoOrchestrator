@@ -132,9 +132,9 @@ export function AITradingAssistant() {
       const amountMatch = userInput.match(/\$?([\d,]+\.?\d*)/);
       const priceMatch = userInput.match(/(?:below|under|when|at)\s*\$?([\d,]+\.?\d*)/i);
 
-      const symbol = symbolMatch ? (symbolMatch[2] ? `${symbolMatch[1]}/${symbolMatch[2]}` : symbolMatch[1]) : "BTC/USD";
-      const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, "")) : 500;
-      const price = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, "")) : undefined;
+      const symbol = symbolMatch ? (symbolMatch[2] ? `${symbolMatch[1] || 'BTC'}/${symbolMatch[2]}` : symbolMatch[1] || 'BTC/USD') : "BTC/USD";
+      const amount = amountMatch && amountMatch[1] ? parseFloat(amountMatch[1].replace(/,/g, "")) : 500;
+      const price = priceMatch && priceMatch[1] ? parseFloat(priceMatch[1].replace(/,/g, "")) : undefined;
 
       return {
         content: `I'll help you set up a buy order for ${symbol}${amount ? ` worth ${formatCurrency(amount)}` : ""}${price ? ` when the price drops below ${formatCurrency(price)}` : ""}. Would you like me to create this order now?`,

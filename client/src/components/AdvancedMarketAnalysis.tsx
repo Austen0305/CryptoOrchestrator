@@ -119,10 +119,10 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
           <>
             {/* Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card className={cn("border-2", getSignalColor(analysisData.recommendation))}>
+              <Card className={cn("border-2", getSignalColor(analysisData.recommendation || 'hold'))}>
                 <CardContent className="pt-4">
                   <div className="text-sm font-medium mb-1">Recommendation</div>
-                  <div className="text-2xl font-bold uppercase">{analysisData.recommendation}</div>
+                  <div className="text-2xl font-bold uppercase">{analysisData.recommendation || 'HOLD'}</div>
                   <div className="text-xs text-muted-foreground mt-1">
                     Confidence: {formatPercentage(analysisData.confidence)}
                   </div>
@@ -131,7 +131,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
               <Card>
                 <CardContent className="pt-4">
                   <div className="text-sm font-medium text-muted-foreground mb-1">Current Price</div>
-                  <div className="text-2xl font-bold">{formatCurrency(analysisData.current_price)}</div>
+                  <div className="text-2xl font-bold">{formatCurrency(analysisData.current_price || 0)}</div>
                 </CardContent>
               </Card>
               <Card>
@@ -139,10 +139,10 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                   <div className="text-sm font-medium text-muted-foreground mb-1">Signal Balance</div>
                   <div className="flex items-center gap-2">
                     <Badge variant="default" className="bg-green-500">
-                      Bullish: {analysisData.signals.bullish}
+                      Bullish: {analysisData.signals?.bullish || 0}
                     </Badge>
-                    <Badge variant="destructive">Bearish: {analysisData.signals.bearish}</Badge>
-                    <Badge variant="secondary">Neutral: {analysisData.signals.neutral}</Badge>
+                    <Badge variant="destructive">Bearish: {analysisData.signals?.bearish || 0}</Badge>
+                    <Badge variant="secondary">Neutral: {analysisData.signals?.neutral || 0}</Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -175,20 +175,20 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                     <TableBody>
                       <TableRow>
                         <TableCell className="font-medium">RSI (14)</TableCell>
-                        <TableCell>{analysisData.indicators.rsi.toFixed(1)}</TableCell>
+                        <TableCell>{analysisData.indicators?.rsi?.toFixed(1) || 'N/A'}</TableCell>
                         <TableCell>
-                          {analysisData.indicators.rsi > 70 ? (
+                          {analysisData.indicators?.rsi && analysisData.indicators.rsi > 70 ? (
                             <Badge variant="destructive">Overbought</Badge>
-                          ) : analysisData.indicators.rsi < 30 ? (
+                          ) : analysisData.indicators?.rsi && analysisData.indicators.rsi < 30 ? (
                             <Badge variant="default" className="bg-green-500">Oversold</Badge>
                           ) : (
                             <Badge variant="secondary">Neutral</Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {analysisData.indicators.rsi > 70 ? (
+                          {analysisData.indicators?.rsi && analysisData.indicators.rsi > 70 ? (
                             <TrendingDown className="h-4 w-4 text-red-500" />
-                          ) : analysisData.indicators.rsi < 30 ? (
+                          ) : analysisData.indicators?.rsi && analysisData.indicators.rsi < 30 ? (
                             <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
                             <Activity className="h-4 w-4 text-yellow-500" />
@@ -198,18 +198,17 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                       <TableRow>
                         <TableCell className="font-medium">MACD</TableCell>
                         <TableCell>
-                          {analysisData.indicators.macd.macd.toFixed(1)} /{" "}
-                          {analysisData.indicators.macd.signal.toFixed(1)}
+                          {analysisData.indicators?.macd?.toFixed(1) || 'N/A'}
                         </TableCell>
                         <TableCell>
-                          {analysisData.indicators.macd.histogram > 0 ? (
+                          {analysisData.indicators?.macd && analysisData.indicators.macd > 0 ? (
                             <Badge variant="default" className="bg-green-500">Bullish</Badge>
                           ) : (
                             <Badge variant="destructive">Bearish</Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {analysisData.indicators.macd.histogram > 0 ? (
+                          {analysisData.indicators?.macd && analysisData.indicators.macd > 0 ? (
                             <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
                             <TrendingDown className="h-4 w-4 text-red-500" />
@@ -219,23 +218,27 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                       <TableRow>
                         <TableCell className="font-medium">Bollinger Bands</TableCell>
                         <TableCell>
-                          Upper: {formatCurrency(analysisData.indicators.bollinger.upper)}
+                          Upper: {formatCurrency(analysisData.indicators?.bollinger_upper || 0)}
                           <br />
-                          Lower: {formatCurrency(analysisData.indicators.bollinger.lower)}
+                          Lower: {formatCurrency(analysisData.indicators?.bollinger_lower || 0)}
                         </TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.bollinger.upper ? (
+                          {analysisData.current_price && analysisData.indicators?.bollinger_upper && 
+                           analysisData.current_price > analysisData.indicators.bollinger_upper ? (
                             <Badge variant="destructive">Above Upper</Badge>
-                          ) : analysisData.current_price < analysisData.indicators.bollinger.lower ? (
+                          ) : analysisData.current_price && analysisData.indicators?.bollinger_lower && 
+                             analysisData.current_price < analysisData.indicators.bollinger_lower ? (
                             <Badge variant="default" className="bg-green-500">Below Lower</Badge>
                           ) : (
                             <Badge variant="secondary">Within Bands</Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.bollinger.upper ? (
+                          {analysisData.current_price && analysisData.indicators?.bollinger_upper && 
+                           analysisData.current_price > analysisData.indicators.bollinger_upper ? (
                             <TrendingDown className="h-4 w-4 text-red-500" />
-                          ) : analysisData.current_price < analysisData.indicators.bollinger.lower ? (
+                          ) : analysisData.current_price && analysisData.indicators?.bollinger_lower && 
+                             analysisData.current_price < analysisData.indicators.bollinger_lower ? (
                             <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
                             <Activity className="h-4 w-4 text-yellow-500" />
@@ -244,16 +247,18 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-medium">SMA (20)</TableCell>
-                        <TableCell>{formatCurrency(analysisData.indicators.sma_20)}</TableCell>
+                        <TableCell>{formatCurrency(analysisData.indicators?.sma_20 || 0)}</TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.sma_20 ? (
+                          {analysisData.current_price && analysisData.indicators?.sma_20 && 
+                           analysisData.current_price > analysisData.indicators.sma_20 ? (
                             <Badge variant="default" className="bg-green-500">Above</Badge>
                           ) : (
                             <Badge variant="destructive">Below</Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.sma_20 ? (
+                          {analysisData.current_price && analysisData.indicators?.sma_20 && 
+                           analysisData.current_price > analysisData.indicators.sma_20 ? (
                             <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
                             <TrendingDown className="h-4 w-4 text-red-500" />
@@ -262,16 +267,18 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                       </TableRow>
                       <TableRow>
                         <TableCell className="font-medium">SMA (50)</TableCell>
-                        <TableCell>{formatCurrency(analysisData.indicators.sma_50)}</TableCell>
+                        <TableCell>{formatCurrency(analysisData.indicators?.sma_50 || 0)}</TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.sma_50 ? (
+                          {analysisData.current_price && analysisData.indicators?.sma_50 && 
+                           analysisData.current_price > analysisData.indicators.sma_50 ? (
                             <Badge variant="default" className="bg-green-500">Above</Badge>
                           ) : (
                             <Badge variant="destructive">Below</Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          {analysisData.current_price > analysisData.indicators.sma_50 ? (
+                          {analysisData.current_price && analysisData.indicators?.sma_50 && 
+                           analysisData.current_price > analysisData.indicators.sma_50 ? (
                             <TrendingUp className="h-4 w-4 text-green-500" />
                           ) : (
                             <TrendingDown className="h-4 w-4 text-red-500" />
@@ -469,9 +476,9 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {[
-                        { level: analysisData.indicators.bollinger.lower, strength: "Strong" },
-                        { level: analysisData.indicators.sma_50, strength: "Medium" },
-                        { level: analysisData.indicators.sma_20, strength: "Weak" },
+                        { level: analysisData.indicators?.bollinger_lower || 0, strength: "Strong" },
+                        { level: analysisData.indicators?.sma_50 || 0, strength: "Medium" },
+                        { level: analysisData.indicators?.sma_20 || 0, strength: "Weak" },
                       ].map((support, idx) => (
                         <div
                           key={idx}
@@ -493,9 +500,9 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {[
-                        { level: analysisData.indicators.bollinger.upper, strength: "Strong" },
-                        { level: analysisData.indicators.bollinger.middle + 500, strength: "Medium" },
-                        { level: analysisData.current_price + 1000, strength: "Weak" },
+                        { level: analysisData.indicators?.bollinger_upper || 0, strength: "Strong" },
+                        { level: (analysisData.indicators?.bollinger_middle || 0) + 500, strength: "Medium" },
+                        { level: (analysisData.current_price || 0) + 1000, strength: "Weak" },
                       ].map((resistance, idx) => (
                         <div
                           key={idx}
