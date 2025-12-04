@@ -73,7 +73,10 @@ class ConnectionManager:
 manager = ConnectionManager()
 market_data_service = MarketDataService()
 trading_orchestrator = TradingOrchestrator()
-notification_service = NotificationService()
+# NotificationService requires db session and has incompatible API with this endpoint
+# TODO: Refactor websocket_notifications endpoint to use proper NotificationService API
+# or use alternative websocket routes (websocket_enhanced, websocket_portfolio)
+notification_service = None  # Disabled - see TODO above
 performance_monitor = PerformanceMonitor()
 
 
@@ -299,8 +302,9 @@ async def websocket_notifications(websocket: WebSocket):
         user = get_current_user_ws(token)
         await manager.connect(websocket, user["id"])
 
-        # Add listener for real-time notifications
-        await notification_service.add_listener(user["id"], notification_listener)
+        # Add listener for real-time notifications (if service available)
+        if notification_service:
+            await notification_service.add_listener(user["id"], notification_listener)
 
         await websocket.send_json(
             {"type": "auth_success", "message": "Authenticated successfully"}
@@ -308,19 +312,29 @@ async def websocket_notifications(websocket: WebSocket):
 
         logger.info(f"User {user['id']} connected to notifications")
 
-        # Send recent notifications
-        notifications = await notification_service.get_recent_notifications(
-            user["id"], limit=20
-        )
-        await websocket.send_json(
-            {"type": "initial_notifications", "data": notifications}
-        )
+        # Send recent notifications (if service available)
+        if notification_service:
+            notifications = await notification_service.get_recent_notifications(
+                user["id"], limit=20
+            )
+            await websocket.send_json(
+                {"type": "initial_notifications", "data": notifications}
+            )
 
-        # Send current unread count
-        unread_count = await notification_service.get_unread_count(user["id"])
-        await websocket.send_json(
-            {"type": "unread_count_update", "count": unread_count}
-        )
+            # Send current unread count
+            unread_count = await notification_service.get_unread_count(user["id"])
+            await websocket.send_json(
+                {"type": "unread_count_update", "count": unread_count}
+            )
+        else:
+            # Service not available, send empty data
+            await websocket.send_json(
+                {"type": "initial_notifications", "data": []}
+            )
+            await websocket.send_json(
+                {"type": "unread_count_update", "count": 0}
+            )
+
 
         while True:
             try:
@@ -330,76 +344,96 @@ async def websocket_notifications(websocket: WebSocket):
                     await websocket.send_json({"type": "pong"})
 
                 elif data.get("action") == "mark_read":
-                    notification_id = data.get("notification_id")
-                    if notification_id:
-                        success = await notification_service.mark_as_read(
-                            user["id"], notification_id
+                    if notification_service:
+                        notification_id = data.get("notification_id")
+                        if notification_id:
+                            success = await notification_service.mark_as_read(
+                                user["id"], notification_id
+                            )
+                            if success:
+                                await websocket.send_json(
+                                    {
+                                        "type": "notification_read",
+                                        "notification_id": notification_id,
+                                    }
+                                )
+                                # Send updated unread count
+                                unread_count = await notification_service.get_unread_count(
+                                    user["id"]
+                                )
+                                await websocket.send_json(
+                                    {"type": "unread_count_update", "count": unread_count}
+                                )
+                    else:
+                        await websocket.send_json(
+                            {"error": "Notification service unavailable"}
                         )
-                        if success:
-                            await websocket.send_json(
-                                {
-                                    "type": "notification_read",
-                                    "notification_id": notification_id,
-                                }
-                            )
-                            # Send updated unread count
-                            unread_count = await notification_service.get_unread_count(
-                                user["id"]
-                            )
-                            await websocket.send_json(
-                                {"type": "unread_count_update", "count": unread_count}
-                            )
 
                 elif data.get("action") == "mark_all_read":
-                    category = data.get("category")
-                    from ..services.notification_service import NotificationCategory
+                    if notification_service:
+                        category = data.get("category")
+                        from ..services.notification_service import NotificationCategory
 
-                    category_enum = NotificationCategory(category) if category else None
-                    count = await notification_service.mark_all_as_read(
-                        user["id"], category_enum
-                    )
+                        category_enum = NotificationCategory(category) if category else None
+                        count = await notification_service.mark_all_as_read(
+                            user["id"], category_enum
+                        )
 
-                    await websocket.send_json(
-                        {
-                            "type": "all_notifications_read",
-                            "count": count,
-                            "category": category,
-                        }
-                    )
-                    # Send updated unread count
-                    unread_count = await notification_service.get_unread_count(
-                        user["id"]
-                    )
-                    await websocket.send_json(
-                        {"type": "unread_count_update", "count": unread_count}
-                    )
+                        await websocket.send_json(
+                            {
+                                "type": "all_notifications_read",
+                                "count": count,
+                                "category": category,
+                            }
+                        )
+                        # Send updated unread count
+                        unread_count = await notification_service.get_unread_count(
+                            user["id"]
+                        )
+                        await websocket.send_json(
+                            {"type": "unread_count_update", "count": unread_count}
+                        )
+                    else:
+                        await websocket.send_json(
+                            {"error": "Notification service unavailable"}
+                        )
 
                 elif data.get("action") == "get_stats":
-                    stats = await notification_service.get_notification_stats(
-                        user["id"]
-                    )
-                    await websocket.send_json({"type": "stats_update", "data": stats})
+                    if notification_service:
+                        stats = await notification_service.get_notification_stats(
+                            user["id"]
+                        )
+                        await websocket.send_json({"type": "stats_update", "data": stats})
+                    else:
+                        await websocket.send_json(
+                            {"type": "stats_update", "data": {}}
+                        )
 
                 elif data.get("action") == "delete":
-                    notification_id = data.get("notification_id")
-                    if notification_id:
-                        success = await notification_service.delete_notification(
-                            user["id"], notification_id
+                    if notification_service:
+                        notification_id = data.get("notification_id")
+                        if notification_id:
+                            success = await notification_service.delete_notification(
+                                user["id"], notification_id
+                            )
+                            if success:
+                                await websocket.send_json(
+                                    {
+                                        "type": "notification_deleted",
+                                        "notification_id": notification_id,
+                                    }
+                                )
+                                # Send updated unread count
+                                unread_count = await notification_service.get_unread_count(
+                                    user["id"]
+                                )
+                                await websocket.send_json(
+                                    {"type": "unread_count_update", "count": unread_count}
+                                )
+                    else:
+                        await websocket.send_json(
+                            {"error": "Notification service unavailable"}
                         )
-                        if success:
-                            await websocket.send_json(
-                                {
-                                    "type": "notification_deleted",
-                                    "notification_id": notification_id,
-                                }
-                            )
-                            # Send updated unread count
-                            unread_count = await notification_service.get_unread_count(
-                                user["id"]
-                            )
-                            await websocket.send_json(
-                                {"type": "unread_count_update", "count": unread_count}
-                            )
 
             except json.JSONDecodeError:
                 await websocket.send_json({"error": "Invalid JSON format"})
@@ -414,7 +448,7 @@ async def websocket_notifications(websocket: WebSocket):
             pass
     finally:
         # Remove listener when connection closes
-        if user:
+        if user and notification_service:
             await notification_service.remove_listener(
                 user["id"], notification_listener
             )
