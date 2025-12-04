@@ -72,475 +72,26 @@
         }
       }
     },
-    "/api/auth/register": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Register",
-        "operationId": "register_api_auth_register_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/login": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Login",
-        "operationId": "login_api_auth_login_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/verify-mfa": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Verify Mfa",
-        "operationId": "verify_mfa_api_auth_verify_mfa_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/MFATokenRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/setup-mfa": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Setup Mfa",
-        "operationId": "setup_mfa_api_auth_setup_mfa_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/auth/enable-mfa": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Enable Mfa",
-        "operationId": "enable_mfa_api_auth_enable_mfa_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EnableMFARequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/auth/setup-mfa-choice": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Setup Mfa Choice",
-        "operationId": "setup_mfa_choice_api_auth_setup_mfa_choice_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SetupTwoFactorChoiceRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/auth/verify-mfa-code": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Verify Mfa Code",
-        "operationId": "verify_mfa_code_api_auth_verify_mfa_code_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyTwoFactorCodeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/auth/mfa/recovery/generate": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Generate Recovery Codes",
-        "description": "Generate and persist a new set of MFA recovery codes.\nCodes are one-time use; previously issued codes are replaced.",
-        "operationId": "generate_recovery_codes_api_auth_mfa_recovery_generate_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerateRecoveryCodesResponse"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/auth/mfa/recovery/verify": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Verify Recovery Code",
-        "operationId": "verify_recovery_code_api_auth_mfa_recovery_verify_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyRecoveryCodeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/verify-mfa-login-code": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Verify Mfa Login Code",
-        "operationId": "verify_mfa_login_code_api_auth_verify_mfa_login_code_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyTwoFactorLoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/forgot-password": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Forgot Password",
-        "operationId": "forgot_password_api_auth_forgot_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ForgotPasswordRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/reset-password": {
-      "post": {
-        "tags": [
-          "Authentication"
-        ],
-        "summary": "Reset Password",
-        "operationId": "reset_password_api_auth_reset_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResetPasswordRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/auth/profile": {
+    "/api/bots/": {
       "get": {
         "tags": [
-          "Authentication"
+          "Bots"
         ],
-        "summary": "Get Profile",
-        "operationId": "get_profile_api_auth_profile_get",
+        "summary": "Get Bots",
+        "description": "Get all trading bots for the authenticated user",
+        "operationId": "get_bots_api_bots__get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BotConfig"
+                  },
+                  "type": "array",
+                  "title": "Response Get Bots Api Bots  Get"
+                }
               }
             }
           }
@@ -551,28 +102,140 @@
           }
         ]
       },
+      "post": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Create Bot",
+        "description": "Create a new trading bot",
+        "operationId": "create_bot_api_bots__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotConfig"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/bots/{bot_id}": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Bot",
+        "description": "Get a specific bot by ID",
+        "operationId": "get_bot_api_bots__bot_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotConfig"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
       "patch": {
         "tags": [
-          "Authentication"
+          "Bots"
         ],
-        "summary": "Update Profile",
-        "operationId": "update_profile_api_auth_profile_patch",
+        "summary": "Update Bot",
+        "description": "Update an existing bot",
+        "operationId": "update_bot_api_bots__bot_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProfileRequest"
+                "$ref": "#/components/schemas/UpdateBotRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/BotConfig"
+                }
               }
             }
           },
@@ -586,31 +249,31 @@
               }
             }
           }
-        },
+        }
+      },
+      "delete": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Delete Bot",
+        "description": "Delete a bot",
+        "operationId": "delete_bot_api_bots__bot_id__delete",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
-      }
-    },
-    "/api/auth/refresh": {
-      "post": {
-        "tags": [
-          "Authentication"
         ],
-        "summary": "Refresh Token",
-        "operationId": "refresh_token_api_auth_refresh_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
-              }
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -633,67 +296,30 @@
         }
       }
     },
-    "/api/auth/logout": {
+    "/api/bots/{bot_id}/start": {
       "post": {
         "tags": [
-          "Authentication"
+          "Bots"
         ],
-        "summary": "Logout",
-        "operationId": "logout_api_auth_logout_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LogoutRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
+        "summary": "Start Bot",
+        "description": "Start a trading bot with safety checks",
+        "operationId": "start_bot_api_bots__bot_id__start_post",
         "security": [
           {
             "HTTPBearer": []
           }
-        ]
-      }
-    },
-    "/api/auth/verify-email": {
-      "post": {
-        "tags": [
-          "Authentication"
         ],
-        "summary": "Verify Email",
-        "operationId": "verify_email_api_auth_verify_email_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyEmailRequest"
-              }
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -716,29 +342,485 @@
         }
       }
     },
-    "/api/auth/resend-verification": {
+    "/api/bots/{bot_id}/stop": {
       "post": {
         "tags": [
-          "Authentication"
+          "Bots"
         ],
-        "summary": "Resend Verification",
-        "operationId": "resend_verification_api_auth_resend_verification_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResendVerificationRequest"
-              }
+        "summary": "Stop Bot",
+        "description": "Stop a trading bot",
+        "operationId": "stop_bot_api_bots__bot_id__stop_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
             }
-          },
-          "required": true
-        },
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/{bot_id}/model": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Bot Model",
+        "description": "Get bot's ML model status",
+        "operationId": "get_bot_model_api_bots__bot_id__model_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bot Model Api Bots  Bot Id  Model Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/{bot_id}/performance": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Bot Performance",
+        "description": "Get bot performance metrics",
+        "operationId": "get_bot_performance_api_bots__bot_id__performance_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotPerformance"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/safety/status": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Safety Status",
+        "description": "Get current safety status",
+        "operationId": "get_safety_status_api_bots_safety_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/bots/safety/emergency-stop": {
+      "post": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Emergency Stop",
+        "description": "Trigger emergency stop for all trading activities",
+        "operationId": "emergency_stop_api_bots_safety_emergency_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/bots/bots/{bot_id}/analysis": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Bot Analysis",
+        "description": "Get real-time smart analysis for a bot",
+        "operationId": "get_bot_analysis_api_bots_bots__bot_id__analysis_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/bots/{bot_id}/risk-metrics": {
+      "get": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Get Bot Risk Metrics",
+        "description": "Get comprehensive risk assessment for a bot",
+        "operationId": "get_bot_risk_metrics_api_bots_bots__bot_id__risk_metrics_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/bots/{bot_id}/optimize": {
+      "post": {
+        "tags": [
+          "Bots"
+        ],
+        "summary": "Optimize Bot Parameters",
+        "description": "Optimize bot parameters based on current market conditions and learning history",
+        "operationId": "optimize_bot_parameters_api_bots_bots__bot_id__optimize_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/{bot_id}/learning/metrics": {
+      "get": {
+        "tags": [
+          "Bot Learning",
+          "Bot Learning"
+        ],
+        "summary": "Get Bot Learning Metrics",
+        "description": "Get learning metrics for a bot",
+        "operationId": "get_bot_learning_metrics_api_bots__bot_id__learning_metrics_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bot Learning Metrics Api Bots  Bot Id  Learning Metrics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/{bot_id}/learning/patterns": {
+      "get": {
+        "tags": [
+          "Bot Learning",
+          "Bot Learning"
+        ],
+        "summary": "Get Bot Learning Patterns",
+        "description": "Get learned patterns for a bot",
+        "operationId": "get_bot_learning_patterns_api_bots__bot_id__learning_patterns_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          },
+          {
+            "name": "min_occurrences",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Min Occurrences"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Bot Learning Patterns Api Bots  Bot Id  Learning Patterns Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/bots/{bot_id}/learning/retrain": {
+      "post": {
+        "tags": [
+          "Bot Learning",
+          "Bot Learning"
+        ],
+        "summary": "Retrain Bot Model",
+        "description": "Retrain bot model based on recent trading history",
+        "operationId": "retrain_bot_model_api_bots__bot_id__learning_retrain_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "bot_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Bot Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Retrain Bot Model Api Bots  Bot Id  Learning Retrain Post"
+                }
               }
             }
           },
@@ -2257,7 +2339,7 @@
               "anyOf": [
                 {
                   "type": "number",
-                  "exclusiveMinimum": 0.0
+                  "exclusiveMinimum": 0
                 },
                 {
                   "type": "null"
@@ -2274,6 +2356,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Close Futures Position Api Futures Positions  Position Id  Close Post"
                 }
               }
@@ -2324,6 +2407,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Update Position Pnl Api Futures Positions  Position Id  Update Pnl Post"
                 }
               }
@@ -3292,6 +3376,126 @@
         }
       }
     },
+    "/api/ml/train": {
+      "post": {
+        "tags": [
+          "ML Training"
+        ],
+        "summary": "Train LSTM Model",
+        "description": "Train LSTM model for price prediction\n\nFeatures:\n- 20+ technical indicators\n- LSTM architecture (2 layers, 128/64 units)\n- Early stopping\n- Model checkpointing\n\nReturns training metrics and model path",
+        "operationId": "train_model_api_ml_train_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainModelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ml/predict": {
+      "post": {
+        "tags": [
+          "ML Training"
+        ],
+        "summary": "Make Prediction",
+        "description": "Make price prediction with trained model\n\nRequires:\n- Trained model\n- Recent data (60 time steps with features)",
+        "operationId": "predict_api_ml_predict_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PredictionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ml/status": {
+      "get": {
+        "tags": [
+          "ML Training"
+        ],
+        "summary": "Get ML Service Status",
+        "description": "Get ML service status\n\nReturns:\n- ML libraries availability\n- Model training status\n- Configuration details",
+        "operationId": "get_status_api_ml_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ml/health": {
+      "get": {
+        "tags": [
+          "ML Training"
+        ],
+        "summary": "ML Service Health Check",
+        "description": "Health check for ML service",
+        "operationId": "health_check_api_ml_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/trades/": {
       "get": {
         "tags": [
@@ -3699,7 +3903,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Pnl Chart Api Analytics Pnl Chart Get"
                 }
@@ -3767,7 +3972,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Win Rate Chart Api Analytics Win Rate Chart Get"
                 }
@@ -3835,7 +4041,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Drawdown Chart Api Analytics Drawdown Chart Get"
                 }
@@ -4099,6 +4306,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Backtesting Performance Metrics Api Analytics Backtesting Performance Metrics Get"
                 }
               }
@@ -4493,6 +4701,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Key Performance Indicators Api Analytics Dashboard Kpis Get"
                 }
               }
@@ -4525,6 +4734,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Alerts Summary Api Analytics Dashboard Alerts Summary Get"
                 }
@@ -4788,6 +4998,583 @@
         ]
       }
     },
+    "/api/backtesting/run": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Run Backtest",
+        "description": "Run a backtest for a bot with historical data",
+        "operationId": "run_backtest_api_backtesting_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunBacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server_fastapi__routes__backtesting__BacktestSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/paper-trade": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Execute Paper Trade",
+        "description": "Execute a paper trade",
+        "operationId": "execute_paper_trade_api_backtesting_paper_trade_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaperTradeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Execute Paper Trade Api Backtesting Paper Trade Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/paper-portfolio/{user_id}": {
+      "get": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Get Paper Portfolio",
+        "description": "Get paper trading portfolio",
+        "operationId": "get_paper_portfolio_api_backtesting_paper_portfolio__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Paper Portfolio Api Backtesting Paper Portfolio  User Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/paper-trades/{user_id}": {
+      "get": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Get Paper Trades",
+        "description": "Get paper trading history",
+        "operationId": "get_paper_trades_api_backtesting_paper_trades__user_id__get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Paper Trades Api Backtesting Paper Trades  User Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/paper-reset/{user_id}": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Reset Paper Trading",
+        "description": "Reset paper trading account",
+        "operationId": "reset_paper_trading_api_backtesting_paper_reset__user_id__post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Reset Paper Trading Api Backtesting Paper Reset  User Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/optimize": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Run Strategy Optimization",
+        "description": "Run strategy optimization",
+        "operationId": "run_strategy_optimization_api_backtesting_optimize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/server_fastapi__routes__backtesting__OptimizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Run Strategy Optimization Api Backtesting Optimize Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/parameter-sweep": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Run Parameter Sweep",
+        "description": "Run parameter sweep analysis",
+        "operationId": "run_parameter_sweep_api_backtesting_parameter_sweep_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParameterSweepRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Run Parameter Sweep Api Backtesting Parameter Sweep Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/optimal-parameters/{strategy_name}": {
+      "get": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Get Optimal Parameters",
+        "description": "Get optimal parameters for a strategy",
+        "operationId": "get_optimal_parameters_api_backtesting_optimal_parameters__strategy_name__get",
+        "parameters": [
+          {
+            "name": "strategy_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Strategy Name"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Optimal Parameters Api Backtesting Optimal Parameters  Strategy Name  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/save": {
+      "post": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Save Backtest Result",
+        "description": "Save backtest result to persistent storage",
+        "operationId": "save_backtest_result_api_backtesting_save_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBacktestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server_fastapi__routes__backtesting__BacktestSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/results": {
+      "get": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Get Backtest Results",
+        "description": "Get stored backtest results",
+        "operationId": "get_backtest_results_api_backtesting_results_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "bot_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Bot Id"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/server_fastapi__routes__backtesting__BacktestSummary"
+                  },
+                  "title": "Response Get Backtest Results Api Backtesting Results Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backtesting/results/{result_id}": {
+      "get": {
+        "tags": [
+          "Backtesting"
+        ],
+        "summary": "Get Backtest Result",
+        "description": "Get a specific backtest result by ID",
+        "operationId": "get_backtest_result_api_backtesting_results__result_id__get",
+        "parameters": [
+          {
+            "name": "result_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/server_fastapi__routes__backtesting__BacktestSummary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/risk/metrics": {
       "get": {
         "tags": [
@@ -4977,6 +5764,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Kill Switch State Api Risk Kill Switch State Get"
                 }
@@ -5030,6 +5818,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Activate Kill Switch Api Risk Kill Switch Activate Post"
                 }
               }
@@ -5087,6 +5876,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Deactivate Kill Switch Api Risk Kill Switch Deactivate Post"
                 }
               }
@@ -5140,6 +5930,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Kill Switch Events Api Risk Kill Switch Events Get"
                 }
               }
@@ -5183,6 +5974,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Update Kill Switch Config Api Risk Kill Switch Config Post"
                 }
@@ -5232,6 +6024,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Calculate Var Api Risk Var Calculate Post"
                 }
@@ -5310,6 +6103,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Calculate Multi Horizon Var Api Risk Var Multi Horizon Post"
                 }
               }
@@ -5353,6 +6147,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Run Monte Carlo Simulation Api Risk Monte Carlo Simulate Post"
                 }
@@ -5457,6 +6252,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Calculate Risk Of Ruin Api Risk Monte Carlo Risk Of Ruin Post"
                 }
               }
@@ -5490,6 +6286,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get System Health Api Monitoring Health Get"
                 }
@@ -5515,6 +6312,7 @@
               "application/json": {
                 "schema": {
                   "additionalProperties": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "object",
@@ -5553,6 +6351,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Exchange Health Api Monitoring Exchange  Exchange Name  Get"
                 }
               }
@@ -5587,6 +6386,7 @@
               "application/json": {
                 "schema": {
                   "items": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "array",
@@ -5618,6 +6418,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Trading Metrics Api Monitoring Metrics Get"
                 }
@@ -5641,6 +6442,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Status Api Integrations Status Get"
                 }
@@ -5820,13 +6622,8 @@
           "content": {
             "application/json": {
               "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/IntegrationTestRequest"
-                  }
-                ],
-                "default": {},
-                "title": "Request"
+                "$ref": "#/components/schemas/IntegrationTestRequest",
+                "default": {}
               }
             }
           }
@@ -5838,6 +6635,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Run Integration Test Api Integrations Integrations  Name  Test Post"
                 }
               }
@@ -6202,6 +7000,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Adapter Health Api Integrations Adapter  Name  Health Get"
                 }
               }
@@ -6943,6 +7742,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Startup Probe Health Startup Get"
                 }
@@ -7532,6 +8332,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Cache Warmer Status Api Cache Warmer Status Get"
                 }
@@ -7585,6 +8386,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Trigger Warmup Api Cache Warmer Warmup Post"
                 }
               }
@@ -7618,6 +8420,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Start Cache Warmer Api Cache Warmer Start Post"
                 }
@@ -7647,6 +8450,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Stop Cache Warmer Api Cache Warmer Stop Post"
                 }
@@ -7692,6 +8496,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Metrics Summary Metrics Summary Get"
                 }
@@ -8208,13 +9013,8 @@
             "in": "query",
             "required": false,
             "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/SubscriptionTier"
-                }
-              ],
-              "default": "free",
-              "title": "Tier"
+              "$ref": "#/components/schemas/SubscriptionTier",
+              "default": "free"
             }
           }
         ],
@@ -9637,7 +10437,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Templates Api Strategies Templates Get"
                 }
@@ -9689,6 +10490,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Template Api Strategies Templates  Template Id  Get"
                 }
               }
@@ -10163,6 +10965,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Create Customer Api Payments Customers Post"
                 }
               }
@@ -10206,6 +11009,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Subscription Api Payments Subscriptions Post"
                 }
@@ -10262,6 +11066,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Subscription Api Payments Subscriptions  Subscription Id  Get"
                 }
               }
@@ -10320,6 +11125,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Update Subscription Api Payments Subscriptions  Subscription Id  Patch"
                 }
               }
@@ -10378,6 +11184,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Cancel Subscription Api Payments Subscriptions  Subscription Id  Delete"
                 }
               }
@@ -10421,6 +11228,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Payment Intent Api Payments Payment Intents Post"
                 }
@@ -10509,6 +11317,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Pricing Api Payments Pricing Get"
                 }
@@ -10543,6 +11352,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Generate License Api Licensing Generate Post"
                 }
@@ -10592,6 +11402,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Validate License Api Licensing Validate Post"
                 }
@@ -10641,6 +11452,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Activate License Api Licensing Activate Post"
                 }
@@ -10680,6 +11492,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Machine Id Api Licensing Machine Id Get"
                 }
@@ -10709,6 +11522,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get License Types Api Licensing Types Get"
                 }
@@ -10733,6 +11547,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Demo Status Api Demo Mode Status Get"
                 }
@@ -10762,6 +11577,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Available Features Api Demo Mode Features Get"
                 }
@@ -10808,6 +11624,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Check Feature Api Demo Mode Features  Feature Name  Get"
                 }
               }
@@ -10858,7 +11675,349 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Update License Status Api Demo Mode Update License Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ml-v2/automl/optimize": {
+      "post": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Optimize Hyperparameters",
+        "description": "Optimize hyperparameters using AutoML",
+        "operationId": "optimize_hyperparameters_api_ml_v2_automl_optimize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/server_fastapi__routes__ml_v2__OptimizationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Optimize Hyperparameters Api Ml V2 Automl Optimize Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/rl/train": {
+      "post": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Train Rl Agent",
+        "description": "Train reinforcement learning agent",
+        "operationId": "train_rl_agent_api_ml_v2_rl_train_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RLTrainingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Train Rl Agent Api Ml V2 Rl Train Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/rl/q-learning/stats": {
+      "get": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Get Q Learning Stats",
+        "description": "Get Q-learning agent statistics",
+        "operationId": "get_q_learning_stats_api_ml_v2_rl_q_learning_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Q Learning Stats Api Ml V2 Rl Q Learning Stats Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/sentiment/analyze": {
+      "post": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Analyze Sentiment",
+        "description": "Analyze sentiment of text",
+        "operationId": "analyze_sentiment_api_ml_v2_sentiment_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TextAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Analyze Sentiment Api Ml V2 Sentiment Analyze Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/sentiment/aggregate": {
+      "post": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Aggregate Sentiment",
+        "description": "Aggregate sentiment from multiple sources",
+        "operationId": "aggregate_sentiment_api_ml_v2_sentiment_aggregate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AggregateSentimentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Aggregate Sentiment Api Ml V2 Sentiment Aggregate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/regime/detect": {
+      "post": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Detect Market Regime",
+        "description": "Detect market regime",
+        "operationId": "detect_market_regime_api_ml_v2_regime_detect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegimeDetectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Detect Market Regime Api Ml V2 Regime Detect Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/ml-v2/regime/strategy/{regime}": {
+      "get": {
+        "tags": [
+          "ML V2",
+          "ML V2"
+        ],
+        "summary": "Get Regime Strategy",
+        "description": "Get regime-aware strategy recommendations",
+        "operationId": "get_regime_strategy_api_ml_v2_regime_strategy__regime__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "regime",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Regime"
+            }
+          },
+          {
+            "name": "base_strategy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default",
+              "title": "Base Strategy"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Regime Strategy Api Ml V2 Regime Strategy  Regime  Get"
                 }
               }
             }
@@ -10908,6 +12067,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Binance Ticker Api Exchanges Binance Ticker  Symbol  Get"
                 }
               }
@@ -10970,6 +12130,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Binance Orderbook Api Exchanges Binance Orderbook  Symbol  Get"
                 }
               }
@@ -11003,6 +12164,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Binance Fees Api Exchanges Binance Fees Get"
                 }
@@ -11052,6 +12214,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Binance Trading Pairs Api Exchanges Binance Trading Pairs Get"
                 }
               }
@@ -11102,6 +12265,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Coinbase Ticker Api Exchanges Coinbase Ticker  Symbol  Get"
                 }
               }
@@ -11135,6 +12299,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Coinbase Fees Api Exchanges Coinbase Fees Get"
                 }
@@ -11164,6 +12329,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Coinbase Account Info Api Exchanges Coinbase Account Info Get"
                 }
@@ -11210,6 +12376,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Kucoin Ticker Api Exchanges Kucoin Ticker  Symbol  Get"
                 }
               }
@@ -11243,6 +12410,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Kucoin Fees Api Exchanges Kucoin Fees Get"
                 }
@@ -11292,6 +12460,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Kucoin Symbols Api Exchanges Kucoin Symbols Get"
                 }
               }
@@ -11335,6 +12504,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Smart Routing Quote Api Exchanges Smart Routing Quote Post"
                 }
@@ -11384,6 +12554,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Compare Exchange Prices Api Exchanges Smart Routing Compare Post"
                 }
@@ -11433,6 +12604,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Explain Trade Api Ai Copilot Trade Explain Post"
                 }
@@ -11482,6 +12654,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Generate Strategy Api Ai Copilot Strategy Generate Post"
                 }
@@ -11531,6 +12704,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Optimize Strategy Api Ai Copilot Strategy Optimize Post"
                 }
@@ -11580,6 +12754,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Summarize Backtest Api Ai Copilot Backtest Summarize Post"
                 }
@@ -11646,6 +12821,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Start Hedging Api Automation Hedging Start Post"
                 }
               }
@@ -11696,6 +12872,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Stop Hedging Api Automation Hedging Stop Post"
                 }
               }
@@ -11753,6 +12930,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Hedge Positions Api Automation Hedging Positions Get"
                 }
               }
@@ -11813,6 +12991,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Start Strategy Switching Api Automation Strategy Switching Start Post"
                 }
               }
@@ -11863,6 +13042,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Stop Strategy Switching Api Automation Strategy Switching Stop Post"
                 }
               }
@@ -11932,6 +13112,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Switch History Api Automation Strategy Switching History Get"
                 }
               }
@@ -11975,6 +13156,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Alert Rule Api Automation Alerts Rules Post"
                 }
@@ -12030,6 +13212,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
+                "additionalProperties": true,
                 "title": "Updates"
               }
             }
@@ -12042,6 +13225,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Update Alert Rule Api Automation Alerts Rules  Rule Id  Put"
                 }
               }
@@ -12090,6 +13274,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Delete Alert Rule Api Automation Alerts Rules  Rule Id  Delete"
                 }
               }
@@ -12147,6 +13332,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Active Alerts Api Automation Alerts Active Get"
                 }
               }
@@ -12197,6 +13383,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Acknowledge Alert Api Automation Alerts  Alert Id  Acknowledge Post"
                 }
               }
@@ -12266,6 +13453,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Alert History Api Automation Alerts History Get"
                 }
               }
@@ -12309,6 +13497,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Optimize Portfolio Api Automation Portfolio Optimize Post"
                 }
@@ -12593,6 +13782,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Setup Intent Api Payment Methods Setup Intent Post"
                 }
@@ -12642,6 +13832,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Attach Payment Method Api Payment Methods Attach Post"
                 }
@@ -12706,7 +13897,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response List Payment Methods Api Payment Methods  Get"
                 }
@@ -12758,6 +13950,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Delete Payment Method Api Payment Methods  Payment Method Id  Delete"
                 }
               }
@@ -12801,6 +13994,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Initiate Crypto Transfer Api Crypto Transfer Initiate Post"
                 }
@@ -12850,6 +14044,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Confirm Crypto Transfer Api Crypto Transfer Confirm Post"
                 }
@@ -12899,6 +14094,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Withdraw Crypto Api Crypto Transfer Withdraw Post"
                 }
@@ -12971,6 +14167,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Deposit Address Api Crypto Transfer Deposit Address  Currency  Get"
                 }
               }
@@ -13030,6 +14227,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Check Cold Storage Eligibility Api Cold Storage Check Eligibility Post"
                 }
               }
@@ -13073,6 +14271,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Initiate Cold Storage Transfer Api Cold Storage Initiate Post"
                 }
@@ -13136,6 +14335,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Cold Storage Balance Api Cold Storage Balance Get"
                 }
               }
@@ -13169,6 +14369,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Query Statistics Api Query Optimization Statistics Get"
                 }
@@ -13230,7 +14431,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Slow Queries Api Query Optimization Slow Queries Get"
                 }
@@ -13275,6 +14477,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Optimize Query Api Query Optimization Optimize Post"
                 }
@@ -13314,6 +14517,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Pool Stats Api Query Optimization Pool Stats Get"
                 }
@@ -13398,6 +14602,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Jobs Status Api Background Jobs Status Get"
                 }
@@ -13508,6 +14713,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Jobs Statistics Api Background Jobs Stats Get"
                 }
@@ -13537,6 +14743,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Check Deposit Consistency Api Deposit Safety Consistency Check Get"
                 }
@@ -13576,6 +14783,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Reconcile Deposit Api Deposit Safety Reconcile Post"
                 }
@@ -13659,6 +14867,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Get Total Revenue Api Platform Revenue Total Get"
                 }
               }
@@ -13715,7 +14924,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Daily Revenue Api Platform Revenue Daily Get"
                 }
@@ -13760,6 +14970,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Backup Api Backups Create Post"
                 }
@@ -13800,6 +15011,7 @@
               "application/json": {
                 "schema": {
                   "items": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "array",
@@ -13841,6 +15053,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Restore Backup Api Backups Restore Post"
                 }
@@ -13880,6 +15093,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Backup Status Api Backups Status Get"
                 }
@@ -13910,6 +15124,7 @@
               "application/json": {
                 "schema": {
                   "items": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
                   "type": "array",
@@ -13949,6 +15164,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Add Ip To Whitelist Api Security Whitelists Ip Post"
                 }
@@ -13996,6 +15212,7 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "additionalProperties": true,
                   "type": "object",
                   "title": "Response Remove Ip From Whitelist Api Security Whitelists Ip Delete"
                 }
@@ -14051,6 +15268,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Add Withdrawal Address Api Security Whitelists Withdrawal Post"
                 }
               }
@@ -14098,6 +15316,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Remove Withdrawal Address Api Security Whitelists Withdrawal Delete"
                 }
               }
@@ -14156,7 +15375,8 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "object"
+                    "type": "object",
+                    "additionalProperties": true
                   },
                   "title": "Response Get Withdrawal Whitelist Api Security Whitelists Withdrawal Get"
                 }
@@ -14354,10 +15574,12 @@
             "title": "Insights"
           },
           "market_sentiment": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Market Sentiment"
           },
           "risk_assessment": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Risk Assessment"
           },
@@ -14715,6 +15937,43 @@
           "worstTrade": -320.0
         }
       },
+      "AggregateSentimentRequest": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "news_articles": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "News Articles",
+            "default": []
+          },
+          "social_posts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Social Posts",
+            "default": []
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "default": "vader"
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol"
+        ],
+        "title": "AggregateSentimentRequest",
+        "description": "Aggregate sentiment request"
+      },
       "AlertPriority": {
         "type": "string",
         "enum": [
@@ -14748,6 +16007,7 @@
             "default": true
           },
           "conditions": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Conditions"
           },
@@ -15091,6 +16351,7 @@
           "best_opportunity": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15238,6 +16499,7 @@
           "details": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15459,21 +16721,87 @@
         "title": "BacktestStrategy",
         "description": "Strategy configuration for backtesting"
       },
-      "BacktestSummary": {
+      "BacktestSummary-Input": {
         "properties": {
-          "avg_profit_pct": {
-            "type": "number",
-            "title": "Avg Profit Pct"
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
           },
-          "total_trades": {
+          "botId": {
+            "type": "string",
+            "title": "Botid"
+          },
+          "totalReturn": {
+            "type": "number",
+            "title": "Totalreturn"
+          },
+          "sharpeRatio": {
+            "type": "number",
+            "title": "Sharperatio"
+          },
+          "maxDrawdown": {
+            "type": "number",
+            "title": "Maxdrawdown"
+          },
+          "winRate": {
+            "type": "number",
+            "title": "Winrate"
+          },
+          "totalTrades": {
             "type": "integer",
-            "title": "Total Trades"
+            "title": "Totaltrades"
+          },
+          "profitFactor": {
+            "type": "number",
+            "title": "Profitfactor"
+          },
+          "trades": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trades"
+          },
+          "equityCurve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Equitycurve"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
           }
         },
         "type": "object",
         "required": [
-          "avg_profit_pct",
-          "total_trades"
+          "botId",
+          "totalReturn",
+          "sharpeRatio",
+          "maxDrawdown",
+          "winRate",
+          "totalTrades",
+          "profitFactor",
+          "trades",
+          "equityCurve"
         ],
         "title": "BacktestSummary"
       },
@@ -15484,6 +16812,7 @@
             "title": "Backtest Id"
           },
           "backtest_data": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Backtest Data"
           },
@@ -15607,6 +16936,110 @@
         ],
         "title": "Body_execute_rebalance_api_portfolio_rebalance_execute_post"
       },
+      "BotConfig": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "symbol",
+          "strategy",
+          "is_active",
+          "config",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "BotConfig"
+      },
+      "BotPerformance": {
+        "properties": {
+          "total_trades": {
+            "type": "integer",
+            "title": "Total Trades"
+          },
+          "winning_trades": {
+            "type": "integer",
+            "title": "Winning Trades"
+          },
+          "losing_trades": {
+            "type": "integer",
+            "title": "Losing Trades"
+          },
+          "win_rate": {
+            "type": "number",
+            "title": "Win Rate"
+          },
+          "total_pnl": {
+            "type": "number",
+            "title": "Total Pnl"
+          },
+          "max_drawdown": {
+            "type": "number",
+            "title": "Max Drawdown"
+          },
+          "sharpe_ratio": {
+            "type": "number",
+            "title": "Sharpe Ratio"
+          },
+          "current_balance": {
+            "type": "number",
+            "title": "Current Balance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_trades",
+          "winning_trades",
+          "losing_trades",
+          "win_rate",
+          "total_pnl",
+          "max_drawdown",
+          "sharpe_ratio",
+          "current_balance"
+        ],
+        "title": "BotPerformance"
+      },
       "CacheInfoResponse": {
         "properties": {
           "available": {
@@ -15616,6 +17049,7 @@
           "stats": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15627,6 +17061,7 @@
           "redis": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15638,6 +17073,7 @@
           "warming": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15856,6 +17292,7 @@
           "details": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -15971,6 +17408,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16033,6 +17471,35 @@
           "matrix"
         ],
         "title": "CorrelationMatrix"
+      },
+      "CreateBotRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy"
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "symbol",
+          "strategy",
+          "config"
+        ],
+        "title": "CreateBotRequest"
       },
       "CreateDCABotRequest": {
         "properties": {
@@ -16138,6 +17605,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16269,6 +17737,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16359,6 +17828,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16448,6 +17918,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16739,6 +18210,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -16964,6 +18436,7 @@
             "title": "Next Order At"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
@@ -17120,6 +18593,7 @@
           "details": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -17165,19 +18639,6 @@
         ],
         "title": "DrawdownPoint",
         "description": "Drawdown data point"
-      },
-      "EnableMFARequest": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "title": "EnableMFARequest"
       },
       "EnsemblePrediction": {
         "properties": {
@@ -17573,19 +19034,6 @@
         ],
         "title": "FeeResponse"
       },
-      "ForgotPasswordRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "title": "Email"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "ForgotPasswordRequest"
-      },
       "FuturesPositionResponse": {
         "properties": {
           "id": {
@@ -17736,6 +19184,7 @@
             "title": "Closed At"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           }
@@ -17805,22 +19254,6 @@
         "title": "GenerateLicenseRequest",
         "description": "Generate license request"
       },
-      "GenerateRecoveryCodesResponse": {
-        "properties": {
-          "codes": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Codes"
-          }
-        },
-        "type": "object",
-        "required": [
-          "codes"
-        ],
-        "title": "GenerateRecoveryCodesResponse"
-      },
       "GridBotResponse": {
         "properties": {
           "id": {
@@ -17888,10 +19321,12 @@
             "title": "Win Rate"
           },
           "grid_state": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Grid State"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
@@ -18010,6 +19445,70 @@
         "title": "HedgingStrategy",
         "description": "Hedging strategies"
       },
+      "HyperparameterRangeRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "param_type": {
+            "type": "string",
+            "title": "Param Type"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "param_type"
+        ],
+        "title": "HyperparameterRangeRequest",
+        "description": "Hyperparameter range request"
+      },
       "InfinityGridResponse": {
         "properties": {
           "id": {
@@ -18081,10 +19580,12 @@
             "title": "Grid Adjustments"
           },
           "grid_state": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Grid State"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
@@ -18221,6 +19722,7 @@
             "title": "Enabled"
           },
           "status": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Status"
           },
@@ -18236,6 +19738,7 @@
             "title": "Version"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           }
@@ -18258,6 +19761,7 @@
           "data": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -18325,12 +19829,14 @@
             "title": "Name"
           },
           "status": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Status"
           },
           "details": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -18352,6 +19858,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -18693,76 +20200,6 @@
         "title": "LimitOrderRequest",
         "description": "Limit order request model"
       },
-      "LoginRequest": {
-        "properties": {
-          "email": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Email"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
-          "password": {
-            "type": "string",
-            "title": "Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "password"
-        ],
-        "title": "LoginRequest"
-      },
-      "LogoutRequest": {
-        "properties": {
-          "refreshToken": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Refreshtoken"
-          }
-        },
-        "type": "object",
-        "title": "LogoutRequest"
-      },
-      "MFATokenRequest": {
-        "properties": {
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
-          },
-          "token": {
-            "type": "string",
-            "title": "Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "userId",
-          "token"
-        ],
-        "title": "MFATokenRequest"
-      },
       "MarketOrderRequest": {
         "properties": {
           "symbol": {
@@ -18865,6 +20302,7 @@
           },
           "top_providers": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -19019,6 +20457,7 @@
             "title": "Confidence Level"
           },
           "base_metrics": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Base Metrics"
           },
@@ -19045,15 +20484,18 @@
             "title": "Expected Return"
           },
           "worst_case": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Worst Case"
           },
           "best_case": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Best Case"
           },
           "percentile_metrics": {
             "additionalProperties": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "object",
@@ -19222,6 +20664,87 @@
         ],
         "title": "PairAnalysis"
       },
+      "PaperTradeRequest": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          },
+          "symbol": {
+            "type": "string",
+            "title": "Symbol"
+          },
+          "side": {
+            "type": "string",
+            "title": "Side"
+          },
+          "quantity": {
+            "type": "number",
+            "title": "Quantity"
+          },
+          "price": {
+            "type": "number",
+            "title": "Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "userId",
+          "symbol",
+          "side",
+          "quantity",
+          "price"
+        ],
+        "title": "PaperTradeRequest"
+      },
+      "ParameterSweepRequest": {
+        "properties": {
+          "strategyName": {
+            "type": "string",
+            "title": "Strategyname"
+          },
+          "paramRanges": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Paramranges"
+          },
+          "historicalData": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Historicaldata"
+          },
+          "botId": {
+            "type": "string",
+            "title": "Botid"
+          },
+          "maxCombinations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maxcombinations",
+            "default": 1000
+          }
+        },
+        "type": "object",
+        "required": [
+          "strategyName",
+          "paramRanges",
+          "historicalData",
+          "botId"
+        ],
+        "title": "ParameterSweepRequest"
+      },
       "PaymentIntentRequest": {
         "properties": {
           "amount": {
@@ -19241,6 +20764,7 @@
           "metadata": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -19268,6 +20792,7 @@
           },
           "datasets": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -19395,6 +20920,7 @@
           "freqtrade": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -19406,6 +20932,7 @@
           "jesse": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -19579,6 +21106,7 @@
       "PortfolioOptimizationRequest": {
         "properties": {
           "portfolio": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Portfolio"
           },
@@ -19592,6 +21120,7 @@
           "preferences": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -19667,6 +21196,7 @@
           },
           "data": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -19724,6 +21254,72 @@
           "confidence"
         ],
         "title": "Prediction"
+      },
+      "PredictionRequest": {
+        "properties": {
+          "recent_data": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Recent Data",
+            "description": "Recent price data for prediction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recent_data"
+        ],
+        "title": "PredictionRequest",
+        "description": "Prediction request"
+      },
+      "RLTrainingRequest": {
+        "properties": {
+          "agent_type": {
+            "type": "string",
+            "title": "Agent Type",
+            "default": "q_learning"
+          },
+          "episodes": {
+            "type": "integer",
+            "title": "Episodes",
+            "default": 100
+          },
+          "market_data": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Market Data"
+          },
+          "initial_balance": {
+            "type": "number",
+            "title": "Initial Balance",
+            "default": 10000.0
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "market_data"
+        ],
+        "title": "RLTrainingRequest",
+        "description": "RL training request"
       },
       "RealMoneyRequirementsResponse": {
         "properties": {
@@ -20038,80 +21634,41 @@
         "title": "ReconcileDepositRequest",
         "description": "Request to reconcile a deposit"
       },
-      "RefreshTokenRequest": {
+      "RegimeDetectionRequest": {
         "properties": {
-          "refreshToken": {
-            "type": "string",
-            "title": "Refreshtoken"
+          "prices": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Prices"
+          },
+          "volumes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Volumes"
+          },
+          "lookback_period": {
+            "type": "integer",
+            "title": "Lookback Period",
+            "default": 20
           }
         },
         "type": "object",
         "required": [
-          "refreshToken"
+          "prices"
         ],
-        "title": "RefreshTokenRequest"
-      },
-      "RegisterRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "title": "Email"
-          },
-          "password": {
-            "type": "string",
-            "title": "Password"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Username"
-          },
-          "first_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "First Name"
-          },
-          "last_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "RegisterRequest"
+        "title": "RegimeDetectionRequest",
+        "description": "Regime detection request"
       },
       "RemoveIPRequest": {
         "properties": {
@@ -20145,37 +21702,6 @@
         ],
         "title": "RemoveWithdrawalAddressRequest",
         "description": "Request to remove withdrawal address from whitelist"
-      },
-      "ResendVerificationRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "title": "Email"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "ResendVerificationRequest"
-      },
-      "ResetPasswordRequest": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          },
-          "newPassword": {
-            "type": "string",
-            "title": "Newpassword"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token",
-          "newPassword"
-        ],
-        "title": "ResetPasswordRequest"
       },
       "RestoreRequest": {
         "properties": {
@@ -20374,6 +21900,63 @@
         "title": "RoutingRequest",
         "description": "Smart routing request"
       },
+      "RunBacktestRequest": {
+        "properties": {
+          "botId": {
+            "type": "string",
+            "title": "Botid"
+          },
+          "historicalData": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Historicaldata"
+          },
+          "initialBalance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initialbalance",
+            "default": 1000.0
+          },
+          "commission": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commission",
+            "default": 0.001
+          },
+          "userId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Userid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "botId",
+          "historicalData"
+        ],
+        "title": "RunBacktestRequest"
+      },
       "SafetyStatusResponse": {
         "properties": {
           "kill_switch_active": {
@@ -20408,6 +21991,7 @@
             "title": "Last Reset"
           },
           "configuration": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Configuration"
           }
@@ -20425,29 +22009,22 @@
         "title": "SafetyStatusResponse",
         "description": "Response model for safety status."
       },
-      "SetupTwoFactorChoiceRequest": {
+      "SaveBacktestRequest": {
         "properties": {
-          "method": {
-            "type": "string",
-            "title": "Method"
+          "result": {
+            "$ref": "#/components/schemas/BacktestSummary-Input"
           },
-          "phoneNumber": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Phonenumber"
+          "userId": {
+            "type": "string",
+            "title": "Userid"
           }
         },
         "type": "object",
         "required": [
-          "method"
+          "result",
+          "userId"
         ],
-        "title": "SetupTwoFactorChoiceRequest"
+        "title": "SaveBacktestRequest"
       },
       "SignalProvider": {
         "properties": {
@@ -20620,12 +22197,14 @@
             "title": "Category"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
           "logic": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20674,6 +22253,7 @@
           "market_conditions": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20685,6 +22265,7 @@
           "preferences": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20717,6 +22298,7 @@
           "constraints": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20765,12 +22347,14 @@
             "title": "Category"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
           "logic": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20983,6 +22567,7 @@
           "config": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -20994,6 +22579,7 @@
           "logic": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -21026,12 +22612,14 @@
             "title": "Name"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
           "logic": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -21115,6 +22703,25 @@
           "services"
         ],
         "title": "SystemStatus"
+      },
+      "TextAnalysisRequest": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "method": {
+            "type": "string",
+            "title": "Method",
+            "default": "vader"
+          }
+        },
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "TextAnalysisRequest",
+        "description": "Text analysis request"
       },
       "Theme": {
         "type": "string",
@@ -21273,12 +22880,14 @@
             "title": "Trade Id"
           },
           "trade_data": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Trade Data"
           },
           "market_data": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -21617,6 +23226,7 @@
           },
           "current_positions": {
             "additionalProperties": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "object",
@@ -21672,6 +23282,7 @@
           "adjustments": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -21911,6 +23522,7 @@
             "title": "Lowest Price"
           },
           "config": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Config"
           },
@@ -21949,6 +23561,117 @@
           "updated_at"
         ],
         "title": "TrailingBotResponse"
+      },
+      "TrainModelRequest": {
+        "properties": {
+          "symbol": {
+            "type": "string",
+            "title": "Symbol",
+            "description": "Trading pair (e.g., 'BTC/USDT')"
+          },
+          "price_data": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Price Data",
+            "description": "Historical price data"
+          },
+          "epochs": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 1.0,
+            "title": "Epochs",
+            "description": "Number of training epochs",
+            "default": 50
+          },
+          "batch_size": {
+            "type": "integer",
+            "maximum": 128.0,
+            "minimum": 8.0,
+            "title": "Batch Size",
+            "description": "Batch size",
+            "default": 32
+          },
+          "validation_split": {
+            "type": "number",
+            "maximum": 0.3,
+            "minimum": 0.1,
+            "title": "Validation Split",
+            "description": "Validation split ratio",
+            "default": 0.2
+          }
+        },
+        "type": "object",
+        "required": [
+          "symbol",
+          "price_data"
+        ],
+        "title": "TrainModelRequest",
+        "description": "Model training request"
+      },
+      "UpdateBotRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "symbol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol"
+          },
+          "strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Strategy"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          }
+        },
+        "type": "object",
+        "title": "UpdateBotRequest"
       },
       "UpdateLimitsRequest": {
         "properties": {
@@ -22030,19 +23753,6 @@
           "minDiversification": 0.5
         }
       },
-      "UpdateProfileRequest": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          }
-        },
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "UpdateProfileRequest"
-      },
       "UpdateSubscriptionRequest": {
         "properties": {
           "new_tier": {
@@ -22086,6 +23796,7 @@
           "uiSettings": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -22097,6 +23808,7 @@
           "tradingSettings": {
             "anyOf": [
               {
+                "additionalProperties": true,
                 "type": "object"
               },
               {
@@ -22116,11 +23828,7 @@
             "title": "Userid"
           },
           "theme": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Theme"
-              }
-            ],
+            "$ref": "#/components/schemas/Theme",
             "default": "dark"
           },
           "notifications": {
@@ -22137,6 +23845,7 @@
             }
           },
           "uiSettings": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Uisettings",
             "default": {
@@ -22148,6 +23857,7 @@
             }
           },
           "tradingSettings": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Tradingsettings",
             "default": {
@@ -22273,37 +23983,6 @@
         ],
         "title": "ValidationError"
       },
-      "VerifyEmailRequest": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          }
-        },
-        "type": "object",
-        "required": [
-          "token"
-        ],
-        "title": "VerifyEmailRequest"
-      },
-      "VerifyRecoveryCodeRequest": {
-        "properties": {
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
-          },
-          "code": {
-            "type": "string",
-            "title": "Code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "userId",
-          "code"
-        ],
-        "title": "VerifyRecoveryCodeRequest"
-      },
       "VerifyTokenRequest": {
         "properties": {
           "token": {
@@ -22316,37 +23995,6 @@
           "token"
         ],
         "title": "VerifyTokenRequest"
-      },
-      "VerifyTwoFactorCodeRequest": {
-        "properties": {
-          "code": {
-            "type": "string",
-            "title": "Code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "code"
-        ],
-        "title": "VerifyTwoFactorCodeRequest"
-      },
-      "VerifyTwoFactorLoginRequest": {
-        "properties": {
-          "userId": {
-            "type": "integer",
-            "title": "Userid"
-          },
-          "code": {
-            "type": "string",
-            "title": "Code"
-          }
-        },
-        "type": "object",
-        "required": [
-          "userId",
-          "code"
-        ],
-        "title": "VerifyTwoFactorLoginRequest"
       },
       "WalkForwardConfig": {
         "properties": {
@@ -22397,6 +24045,7 @@
           },
           "in_sample_metrics": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -22404,12 +24053,14 @@
           },
           "out_sample_metrics": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
             "title": "Out Sample Metrics"
           },
           "overall_metrics": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Overall Metrics"
           },
@@ -22423,6 +24074,7 @@
           },
           "optimal_parameters": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -22695,6 +24347,155 @@
         ],
         "title": "RiskMetrics"
       },
+      "server_fastapi__routes__backtesting__BacktestSummary": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "botId": {
+            "type": "string",
+            "title": "Botid"
+          },
+          "totalReturn": {
+            "type": "number",
+            "title": "Totalreturn"
+          },
+          "sharpeRatio": {
+            "type": "number",
+            "title": "Sharperatio"
+          },
+          "maxDrawdown": {
+            "type": "number",
+            "title": "Maxdrawdown"
+          },
+          "winRate": {
+            "type": "number",
+            "title": "Winrate"
+          },
+          "totalTrades": {
+            "type": "integer",
+            "title": "Totaltrades"
+          },
+          "profitFactor": {
+            "type": "number",
+            "title": "Profitfactor"
+          },
+          "trades": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Trades"
+          },
+          "equityCurve": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Equitycurve"
+          },
+          "createdAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "botId",
+          "totalReturn",
+          "sharpeRatio",
+          "maxDrawdown",
+          "winRate",
+          "totalTrades",
+          "profitFactor",
+          "trades",
+          "equityCurve"
+        ],
+        "title": "BacktestSummary"
+      },
+      "server_fastapi__routes__backtesting__OptimizationRequest": {
+        "properties": {
+          "strategyName": {
+            "type": "string",
+            "title": "Strategyname"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Parameters"
+          },
+          "populationSize": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Populationsize",
+            "default": 50
+          },
+          "generations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generations",
+            "default": 20
+          },
+          "historicalData": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Historicaldata"
+          },
+          "botId": {
+            "type": "string",
+            "title": "Botid"
+          },
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "strategyName",
+          "parameters",
+          "historicalData",
+          "botId",
+          "userId"
+        ],
+        "title": "OptimizationRequest"
+      },
       "server_fastapi__routes__backtesting_enhanced__BacktestResult": {
         "properties": {
           "backtest_id": {
@@ -22726,6 +24527,7 @@
             "title": "Final Capital"
           },
           "metrics": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Metrics"
           },
@@ -22741,6 +24543,7 @@
           },
           "trades": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -22748,6 +24551,7 @@
           },
           "drawdown_periods": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
@@ -22793,6 +24597,7 @@
             "title": "Components"
           },
           "system_metrics": {
+            "additionalProperties": true,
             "type": "object",
             "title": "System Metrics"
           }
@@ -22879,6 +24684,7 @@
             "default": 10000.0
           },
           "strategy_params": {
+            "additionalProperties": true,
             "type": "object",
             "title": "Strategy Params",
             "description": "Strategy parameters"
@@ -22900,6 +24706,64 @@
           },
           "symbol": "BTC/USDT"
         }
+      },
+      "server_fastapi__routes__ml_v2__OptimizationRequest": {
+        "properties": {
+          "model_type": {
+            "type": "string",
+            "title": "Model Type"
+          },
+          "hyperparameter_ranges": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HyperparameterRangeRequest"
+            },
+            "type": "object",
+            "title": "Hyperparameter Ranges"
+          },
+          "search_strategy": {
+            "type": "string",
+            "title": "Search Strategy",
+            "default": "bayesian"
+          },
+          "n_trials": {
+            "type": "integer",
+            "title": "N Trials",
+            "default": 100
+          },
+          "n_jobs": {
+            "type": "integer",
+            "title": "N Jobs",
+            "default": 1
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric",
+            "default": "accuracy"
+          },
+          "direction": {
+            "type": "string",
+            "title": "Direction",
+            "default": "maximize"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_type",
+          "hyperparameter_ranges"
+        ],
+        "title": "OptimizationRequest",
+        "description": "Optimization request"
       },
       "server_fastapi__routes__portfolio_rebalance__AssetAllocation": {
         "properties": {
@@ -23078,13 +24942,14 @@
         "properties": {
           "results": {
             "items": {
+              "additionalProperties": true,
               "type": "object"
             },
             "type": "array",
             "title": "Results"
           },
           "summary": {
-            "$ref": "#/components/schemas/BacktestSummary"
+            "$ref": "#/components/schemas/server_fastapi__services__trading_orchestrator__BacktestSummary"
           }
         },
         "type": "object",
@@ -23093,6 +24958,24 @@
           "summary"
         ],
         "title": "BacktestResult"
+      },
+      "server_fastapi__services__trading_orchestrator__BacktestSummary": {
+        "properties": {
+          "avg_profit_pct": {
+            "type": "number",
+            "title": "Avg Profit Pct"
+          },
+          "total_trades": {
+            "type": "integer",
+            "title": "Total Trades"
+          }
+        },
+        "type": "object",
+        "required": [
+          "avg_profit_pct",
+          "total_trades"
+        ],
+        "title": "BacktestSummary"
       }
     },
     "securitySchemes": {
