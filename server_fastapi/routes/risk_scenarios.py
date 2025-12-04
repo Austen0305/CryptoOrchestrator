@@ -2,10 +2,11 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from ..services.risk_scenarios import risk_scenario_service
-from .ws import notification_service
-from ..services.notification_service import NotificationCategory
+from ..services.notification_service import NotificationService, NotificationCategory
+from ..database import get_db_session
 import jwt
 import os
 
@@ -13,6 +14,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
+
+
+def get_notification_service(db: AsyncSession = Depends(get_db_session)) -> NotificationService:
+    """Dependency to get NotificationService instance"""
+    return NotificationService(db)
 
 
 def get_optional_user(
@@ -74,7 +80,9 @@ class ScenarioResponse(BaseModel):
 
 @router.post("/simulate", response_model=ScenarioResponse)
 async def simulate_scenario(
-    req: ScenarioRequest, current_user: Optional[dict] = Depends(get_optional_user)
+    req: ScenarioRequest,
+    current_user: Optional[dict] = Depends(get_optional_user),
+    notification_service: NotificationService = Depends(get_notification_service),
 ):
     try:
 

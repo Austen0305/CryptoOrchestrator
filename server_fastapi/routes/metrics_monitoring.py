@@ -5,7 +5,7 @@ Comprehensive observability for the trading platform
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 import psutil
 import logging
@@ -46,7 +46,7 @@ class PerformanceMetrics(BaseModel):
     system: SystemMetrics
     application: ApplicationMetrics
     circuit_breakers: Dict[str, dict]
-    database: Dict[str, any]
+    database: Dict[str, Any]
     timestamp: str
 
 

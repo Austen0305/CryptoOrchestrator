@@ -54,6 +54,18 @@ class NotificationType(str, Enum):
     SYSTEM_ALERT = "system_alert"
 
 
+class NotificationCategory(str, Enum):
+    """Notification categories for filtering"""
+
+    TRADING = "trading"
+    RISK = "risk"
+    PORTFOLIO = "portfolio"
+    BOT = "bot"
+    SYSTEM = "system"
+    ALERT = "alert"
+    COPY_TRADING = "copy_trading"
+
+
 class NotificationPriority(str, Enum):
     """Notification priority levels"""
 

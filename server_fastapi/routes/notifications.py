@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from ..services.notification_service import (
@@ -9,13 +10,16 @@ from ..services.notification_service import (
     NotificationPriority,
 )
 from ..dependencies.auth import get_current_user
+from ..database import get_db_session
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Initialize service
-notification_service = NotificationService()
+
+def get_notification_service(db: AsyncSession = Depends(get_db_session)) -> NotificationService:
+    """Dependency to get NotificationService instance"""
+    return NotificationService(db)
 
 
 @router.get("/", response_model=Dict[str, Any])
@@ -26,6 +30,7 @@ async def get_notifications(
     unread_only: bool = Query(False),
     priority: Optional[List[str]] = Query(None),
     current_user: dict = Depends(get_current_user),
+    notification_service: NotificationService = Depends(get_notification_service),
 ):
     """Get user's notifications with filtering"""
     try:
@@ -53,7 +58,9 @@ async def get_notifications(
 
 @router.post("/", response_model=Dict[str, Any])
 async def create_notification(
-    notification_data: Dict[str, Any], current_user: dict = Depends(get_current_user)
+    notification_data: Dict[str, Any],
+    current_user: dict = Depends(get_current_user),
+    notification_service: NotificationService = Depends(get_notification_service),
 ):
     """Create a new notification (primarily for testing/admin purposes)"""
     try:

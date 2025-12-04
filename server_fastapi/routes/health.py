@@ -5,7 +5,7 @@ Provides comprehensive health monitoring for the application
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from datetime import datetime
 import logging
 import asyncio
@@ -26,7 +26,7 @@ class HealthStatus(BaseModel):
     timestamp: str
     version: str
     uptime_seconds: float
-    checks: Dict[str, Dict[str, any]]
+    checks: Dict[str, Dict[str, Any]]
 
 
 class ComponentHealth(BaseModel):

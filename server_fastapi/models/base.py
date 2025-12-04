@@ -72,72 +72,10 @@ class BaseModel(Base, TimestampMixin, SoftDeleteMixin):
         }
 
 
-# Example concrete model - User
-class User(BaseModel):
-    """
-    User model for authentication and authorization.
-    """
-
-    __tablename__ = "users"
-
-    username: Mapped[str] = mapped_column(
-        String(50), unique=True, nullable=False, index=True
-    )
-    email: Mapped[str] = mapped_column(
-        String(255), unique=True, nullable=False, index=True
-    )
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    role: Mapped[str] = mapped_column(
-        String(20), default="user", nullable=False
-    )  # user, admin, etc.
-
-    first_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    last_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    avatar_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
-
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    login_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-
-    # MFA & profile extensions
-    mfa_method: Mapped[Optional[str]] = mapped_column(
-        String(10), nullable=True
-    )  # 'email' | 'sms' | 'totp'
-    mfa_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    mfa_secret: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    mfa_recovery_codes: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True
-    )  # JSON list
-    mfa_code: Mapped[Optional[str]] = mapped_column(String(6), nullable=True)
-    mfa_code_expires_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
-    phone_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
-    locale: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    timezone: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
-    preferences_json: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True
-    )  # JSON blob for user preferences
-
-    # Relationship with ExchangeAPIKey
-    exchange_api_keys: Mapped[List["ExchangeAPIKey"]] = relationship(
-        "ExchangeAPIKey", back_populates="user", cascade="all, delete-orphan"
-    )
-
-    # Relationship with IdempotencyKey
-    idempotency_keys: Mapped[List["IdempotencyKey"]] = relationship(
-        "IdempotencyKey", back_populates="user", cascade="all, delete-orphan"
-    )
-
-    def __repr__(self) -> str:
-        return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"
-
-    # Compatibility alias: tests and some callers expect `hashed_password`
-    @property
-    def hashed_password(self) -> str:  # type: ignore[override]
-        return self.password_hash
-
-    @hashed_password.setter
-    def hashed_password(self, value: str) -> None:
-        self.password_hash = value
+# Import User from user.py to avoid duplicate table definition
+# but still allow importing from base.py for backward compatibility
+try:
+    from .user import User
+except ImportError:
+    # If user.py doesn't exist yet, User can be imported from elsewhere
+    pass
