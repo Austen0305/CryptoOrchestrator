@@ -4,12 +4,13 @@ Payments Routes - Stripe payment processing and subscriptions
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Header
 from pydantic import BaseModel, EmailStr
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Annotated
 from datetime import datetime
 import logging
 
 from ..services.payments.stripe_service import stripe_service, SubscriptionTier
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +44,14 @@ class PaymentIntentRequest(BaseModel):
 @router.post("/customers", response_model=Dict)
 async def create_customer(
     email: EmailStr,
+    current_user: Annotated[dict, Depends(get_current_user)],
     name: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
 ):
     """Create a Stripe customer"""
     try:
+        user_id = _get_user_id(current_user)
         customer = stripe_service.create_customer(
-            email=email, name=name, metadata={"user_id": str(current_user["id"])}
+            email=email, name=name, metadata={"user_id": str(user_id)}
         )
 
         if not customer:
@@ -63,13 +65,15 @@ async def create_customer(
 
 @router.post("/subscriptions", response_model=Dict)
 async def create_subscription(
-    request: CreateSubscriptionRequest, current_user: dict = Depends(get_current_user)
+    request: CreateSubscriptionRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Create a subscription"""
     try:
+        user_id = _get_user_id(current_user)
         # Create customer if doesn't exist
         customer = stripe_service.create_customer(
-            email=request.email, metadata={"user_id": str(current_user["id"])}
+            email=request.email, metadata={"user_id": str(user_id)}
         )
 
         if not customer:
@@ -95,7 +99,8 @@ async def create_subscription(
 
 @router.get("/subscriptions/{subscription_id}", response_model=Dict)
 async def get_subscription(
-    subscription_id: str, current_user: dict = Depends(get_current_user)
+    subscription_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Get subscription details"""
     try:
@@ -116,7 +121,7 @@ async def get_subscription(
 async def update_subscription(
     subscription_id: str,
     request: UpdateSubscriptionRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Update subscription tier"""
     try:
@@ -138,8 +143,8 @@ async def update_subscription(
 @router.delete("/subscriptions/{subscription_id}", response_model=Dict)
 async def cancel_subscription(
     subscription_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
     cancel_immediately: bool = False,
-    current_user: dict = Depends(get_current_user),
 ):
     """Cancel a subscription"""
     try:
@@ -160,15 +165,17 @@ async def cancel_subscription(
 
 @router.post("/payment-intents", response_model=Dict)
 async def create_payment_intent(
-    request: PaymentIntentRequest, current_user: dict = Depends(get_current_user)
+    request: PaymentIntentRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Create a payment intent for one-time payments"""
     try:
+        user_id = _get_user_id(current_user)
         intent = stripe_service.create_payment_intent(
             amount=request.amount,
             currency=request.currency,
             payment_method_type=request.payment_method_type,
-            metadata={**(request.metadata or {}), "user_id": str(current_user["id"])},
+            metadata={**(request.metadata or {}), "user_id": str(user_id)},
         )
 
         if not intent:
@@ -244,12 +251,12 @@ async def handle_stripe_webhook(
 
                             if success:
                                 logger.info(
-                                    f"✅ Deposit confirmed safely via webhook: payment_intent {payment_intent_id}, "
+                                    f"[OK] Deposit confirmed safely via webhook: payment_intent {payment_intent_id}, "
                                     f"transaction {processed_txn_id}"
                                 )
                             else:
                                 logger.error(
-                                    f"❌ Failed to confirm deposit safely: payment_intent {payment_intent_id}, "
+                                    f"[ERROR] Failed to confirm deposit safely: payment_intent {payment_intent_id}, "
                                     f"error: {error_msg}"
                                 )
                         else:

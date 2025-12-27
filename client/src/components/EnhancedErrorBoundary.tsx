@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Home, Bug, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import logger from "@/lib/logger";
 
 interface Props {
   children: ReactNode;
@@ -49,12 +50,12 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const errorCount = this.state.errorCount + 1;
     this.setState({ errorInfo, errorCount });
 
     // Log error
-    console.error("EnhancedErrorBoundary caught an error:", error, errorInfo);
+    logger.error("EnhancedErrorBoundary caught an error", { error, errorInfo });
 
     // Call custom error handler
     if (this.props.onError) {
@@ -76,7 +77,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  componentDidUpdate(prevProps: Props) {
+  override componentDidUpdate(prevProps: Props) {
     const { resetKeys, resetOnPropsChange } = this.props;
     const { hasError } = this.state;
 
@@ -87,7 +88,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     }
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     if (this.resetTimeoutId) {
       clearTimeout(this.resetTimeoutId);
     }
@@ -122,7 +123,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
     });
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
@@ -212,7 +213,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
                         retryCount,
                         timestamp: new Date().toISOString(),
                       };
-                      console.error("Error Report:", errorReport);
+                      logger.error("Error Report", { errorReport });
                       // Could send to error tracking service
                     }}
                     variant="outline"

@@ -1,16 +1,43 @@
 {
-  "name": "CryptoML Trading Platform",
-  "short_name": "CryptoML",
-  "description": "AI-powered cryptocurrency trading platform with real-time analytics",
+  "name": "CryptoOrchestrator",
+  "short_name": "CryptoOrch",
+  "description": "Professional cryptocurrency trading automation platform with AI-powered analytics",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "orientation": "portrait",
+  "background_color": "#09090b",
+  "theme_color": "#18181b",
   "icons": [
     {
       "src": "/favicon.png",
       "type": "image/png",
-      "purpose": "any"
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View trading dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Trading",
+      "short_name": "Trading",
+      "description": "Open trading interface",
+      "url": "/trading",
+      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "screenshots": []
 }

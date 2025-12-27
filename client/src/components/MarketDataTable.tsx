@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Star, Search, TrendingUp, TrendingDown, Download } from "lucide-react";
+import { OptimizedSearch } from "@/components/OptimizedSearch";
 import { useState, useMemo, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { exportToCSV, exportWithNotification } from "@/lib/export";
@@ -78,14 +79,12 @@ export const MarketDataTable = React.memo(function MarketDataTable({ markets, on
           <CardTitle>Markets</CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search markets..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-markets"
-            />
+              <OptimizedSearch
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search markets..."
+                className="w-full"
+              />
             </div>
             <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-markets-csv">
               <Download className="h-4 w-4 mr-1" /> CSV

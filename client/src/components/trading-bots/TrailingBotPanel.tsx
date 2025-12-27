@@ -52,7 +52,7 @@ export function TrailingBotPanel() {
         />
       )}
 
-      {bots && bots.length > 0 ? (
+      {bots && Array.isArray(bots) && bots.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {bots.map((bot: any) => (
             <TrailingBotCard key={bot.id} bot={bot} />

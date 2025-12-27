@@ -70,8 +70,8 @@ export function PerformanceMonitor() {
         __WS_BASE__?: string;
         __API_BASE__?: string;
       }
-      interface ImportMetaWithEnv extends ImportMeta {
-        env?: {
+      interface ImportMetaWithEnv extends Omit<ImportMeta, 'env'> {
+        env: {
           VITE_WS_BASE_URL?: string;
           VITE_API_BASE_URL?: string;
         };
@@ -101,7 +101,10 @@ export function PerformanceMonitor() {
             const rtt = performance.now() - data.sentAt;
             setWsLatency(Math.round(rtt));
           }
-        } catch {}
+        } catch (error) {
+          // Silently ignore WebSocket message parsing errors to prevent console spam
+          // These are typically non-critical performance monitoring messages
+        }
       };
       // periodic ping
       const pingInterval = setInterval(() => {

@@ -5,13 +5,14 @@ API endpoints for fraud detection and risk analysis
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Annotated
 from decimal import Decimal
 import logging
 
 from ..dependencies.auth import get_current_user
 from ..services.fraud_detection.fraud_detection_service import fraud_detection_service
 from ..database import get_db_context
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ class TransactionAnalysisRequest(BaseModel):
 
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_transaction(
-    request: TransactionAnalysisRequest, current_user: dict = Depends(get_current_user)
+    request: TransactionAnalysisRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """
     Analyze a transaction for fraud indicators
@@ -38,9 +40,7 @@ async def analyze_transaction(
     to check for fraud risks.
     """
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await fraud_detection_service.analyze_transaction(
@@ -61,13 +61,11 @@ async def analyze_transaction(
 
 @router.get("/risk-profile", response_model=Dict[str, Any])
 async def get_risk_profile(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Get user's risk profile"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             profile = await fraud_detection_service.get_user_risk_profile(

@@ -13,10 +13,16 @@ def client():
 def auth_headers(client):
     """Register and login a unique user, returning Authorization header."""
     unique_email = f"prefuser-{uuid.uuid4().hex[:8]}@example.com"
-    register_data = {"email": unique_email, "password": "PrefPass123!", "name": "Pref User"}
+    register_data = {
+        "email": unique_email,
+        "password": "PrefPass123!",
+        "name": "Pref User",
+    }
     reg_resp = client.post("/api/auth/register", json=register_data)
     assert reg_resp.status_code == 200, reg_resp.text
-    login_resp = client.post("/api/auth/login", json={"email": unique_email, "password": "PrefPass123!"})
+    login_resp = client.post(
+        "/api/auth/login", json={"email": unique_email, "password": "PrefPass123!"}
+    )
     assert login_resp.status_code == 200, login_resp.text
     token = login_resp.json()["data"]["token"]
     return {"Authorization": f"Bearer {token}"}
@@ -35,12 +41,21 @@ class TestPreferencesRecommendations:
         resp = client.get("/api/preferences/", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["theme"] in ["light", "dark"]  # default light, but allow dark if changed
-        assert "uiSettings" in data and "tradingSettings" in data and "notifications" in data
+        assert data["theme"] in [
+            "light",
+            "dark",
+        ]  # default light, but allow dark if changed
+        assert (
+            "uiSettings" in data
+            and "tradingSettings" in data
+            and "notifications" in data
+        )
         assert isinstance(data["userId"], str) and data["userId"].isdigit()
 
     def test_update_theme(self, client, auth_headers):
-        resp = client.patch("/api/preferences/theme", json={"theme": "dark"}, headers=auth_headers)
+        resp = client.patch(
+            "/api/preferences/theme", json={"theme": "dark"}, headers=auth_headers
+        )
         assert resp.status_code == 200
         j = resp.json()
         assert j["theme"] == "dark"

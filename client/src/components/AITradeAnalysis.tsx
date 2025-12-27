@@ -1,23 +1,23 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  AlertCircle, 
-  CheckCircle, 
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
+  CheckCircle,
   Target,
   Shield,
   RefreshCw,
-  Sparkles
-} from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { LoadingSkeleton } from '@/components/LoadingSkeleton';
-import { ErrorRetry } from '@/components/ErrorRetry';
+  Sparkles,
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { ErrorRetry } from "@/components/ErrorRetry";
 
 interface TradeInsight {
-  type: 'strength' | 'weakness' | 'opportunity' | 'threat';
+  type: "strength" | "weakness" | "opportunity" | "threat";
   title: string;
   description: string;
   confidence: number;
@@ -51,10 +51,16 @@ interface AITradeAnalysisProps {
 }
 
 export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
-  const { data: analysis, isLoading, error, refetch, isRefetching } = useQuery<AIAnalysisData>({
-    queryKey: ['ai-analysis', botId],
+  const {
+    data: analysis,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery<AIAnalysisData>({
+    queryKey: ["ai-analysis", botId],
     queryFn: async () => {
-      return await apiRequest(`/api/ai-analysis/bot/${botId}`, { method: 'GET' });
+      return await apiRequest(`/api/ai-analysis/bot/${botId}`, { method: "GET" });
     },
     enabled: !!botId,
     refetchInterval: 30000, // Auto-refresh every 30 seconds
@@ -63,13 +69,13 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
 
   const getInsightIcon = (type: string) => {
     switch (type) {
-      case 'strength':
+      case "strength":
         return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'weakness':
+      case "weakness":
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
-      case 'opportunity':
+      case "opportunity":
         return <TrendingUp className="h-5 w-5 text-blue-500" />;
-      case 'threat':
+      case "threat":
         return <TrendingDown className="h-5 w-5 text-red-500" />;
       default:
         return <Target className="h-5 w-5 text-gray-500" />;
@@ -78,40 +84,40 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
 
   const getInsightBorderColor = (type: string) => {
     switch (type) {
-      case 'strength':
-        return 'border-l-green-500';
-      case 'weakness':
-        return 'border-l-yellow-500';
-      case 'opportunity':
-        return 'border-l-blue-500';
-      case 'threat':
-        return 'border-l-red-500';
+      case "strength":
+        return "border-l-green-500";
+      case "weakness":
+        return "border-l-yellow-500";
+      case "opportunity":
+        return "border-l-blue-500";
+      case "threat":
+        return "border-l-red-500";
       default:
-        return 'border-l-gray-500';
+        return "border-l-gray-500";
     }
   };
 
   const getSentimentColor = (sentiment: string) => {
     switch (sentiment) {
-      case 'bullish':
-        return 'text-green-500 bg-green-50 dark:bg-green-950';
-      case 'bearish':
-        return 'text-red-500 bg-red-50 dark:bg-red-950';
+      case "bullish":
+        return "text-green-500 bg-green-50 dark:bg-green-950";
+      case "bearish":
+        return "text-red-500 bg-red-50 dark:bg-red-950";
       default:
-        return 'text-gray-500 bg-gray-50 dark:bg-gray-950';
+        return "text-gray-500 bg-gray-50 dark:bg-gray-950";
     }
   };
 
   const getRiskColor = (risk: string) => {
     switch (risk) {
-      case 'low':
-        return 'text-green-500 bg-green-50 dark:bg-green-950';
-      case 'medium':
-        return 'text-yellow-500 bg-yellow-50 dark:bg-yellow-950';
-      case 'high':
-        return 'text-red-500 bg-red-50 dark:bg-red-950';
+      case "low":
+        return "text-green-500 bg-green-50 dark:bg-green-950";
+      case "medium":
+        return "text-yellow-500 bg-yellow-50 dark:bg-yellow-950";
+      case "high":
+        return "text-red-500 bg-red-50 dark:bg-red-950";
       default:
-        return 'text-gray-500 bg-gray-50 dark:bg-gray-950';
+        return "text-gray-500 bg-gray-50 dark:bg-gray-950";
     }
   };
 
@@ -164,13 +170,8 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
               {analysis.symbol} • Overall Score: {analysis.overall_score.toFixed(1)}/100
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefetching ? 'animate-spin' : ''}`} />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isRefetching}>
+            <RefreshCw className={`h-4 w-4 ${isRefetching ? "animate-spin" : ""}`} />
           </Button>
         </div>
       </CardHeader>
@@ -205,17 +206,22 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <span className="text-muted-foreground">Confidence:</span>{' '}
+              <span className="text-muted-foreground">Confidence:</span>{" "}
               <span className="font-medium">
                 {(analysis.market_sentiment.confidence * 100).toFixed(0)}%
               </span>
             </div>
-            {Object.entries(analysis.market_sentiment.indicators).map(([key, value]) => (
-              <div key={key}>
-                <span className="text-muted-foreground capitalize">{key.replace('_', ' ')}:</span>{' '}
-                <span className="font-medium">{value.toFixed(1)}</span>
-              </div>
-            ))}
+            {analysis.market_sentiment?.indicators &&
+            typeof analysis.market_sentiment.indicators === "object"
+              ? Object.entries(analysis.market_sentiment.indicators).map(([key, value]) => (
+                  <div key={key}>
+                    <span className="text-muted-foreground capitalize">
+                      {key.replace("_", " ")}:
+                    </span>{" "}
+                    <span className="font-medium">{value.toFixed(1)}</span>
+                  </div>
+                ))
+              : null}
           </div>
         </div>
 
@@ -231,20 +237,23 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
             </Badge>
           </div>
           <div className="space-y-2">
-            {Object.entries(analysis.risk_assessment.factors).map(([factor, score]) => (
-              <div key={factor} className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground capitalize flex-1">
-                  {factor.replace('_', ' ')}
-                </span>
-                <div className="w-32 bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
-                  <div
-                    className="bg-yellow-500 h-1.5 rounded-full"
-                    style={{ width: `${score}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium w-10 text-right">{score}</span>
-              </div>
-            ))}
+            {analysis.risk_assessment?.factors &&
+            typeof analysis.risk_assessment.factors === "object"
+              ? Object.entries(analysis.risk_assessment.factors).map(([factor, score]) => (
+                  <div key={factor} className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground capitalize flex-1">
+                      {factor.replace("_", " ")}
+                    </span>
+                    <div className="w-32 bg-gray-200 rounded-full h-1.5 dark:bg-gray-700">
+                      <div
+                        className="bg-yellow-500 h-1.5 rounded-full"
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium w-10 text-right">{score}</span>
+                  </div>
+                ))
+              : null}
           </div>
         </div>
 
@@ -274,9 +283,7 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
                     </Badge>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {insight.description}
-                </p>
+                <p className="text-sm text-muted-foreground mt-2">{insight.description}</p>
                 {insight.suggestion && (
                   <div className="mt-2 p-2 bg-primary/10 rounded text-sm flex items-start gap-2">
                     <Sparkles className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" />
@@ -297,12 +304,14 @@ export function AITradeAnalysis({ botId }: AITradeAnalysisProps) {
               Recommendations
             </h3>
             <ul className="space-y-2">
-              {analysis.recommendations.map((rec, idx) => (
-                <li key={idx} className="text-sm flex items-start gap-2">
-                  <span className="text-blue-500 font-bold">•</span>
-                  <span>{rec}</span>
-                </li>
-              ))}
+              {analysis.recommendations && Array.isArray(analysis.recommendations)
+                ? analysis.recommendations.map((rec, idx) => (
+                    <li key={idx} className="text-sm flex items-start gap-2">
+                      <span className="text-blue-500 font-bold">•</span>
+                      <span>{rec}</span>
+                    </li>
+                  ))
+                : null}
             </ul>
           </div>
         )}

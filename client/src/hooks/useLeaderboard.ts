@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface LeaderboardEntry {
   user_id: number;
@@ -28,6 +29,7 @@ export const useLeaderboard = (
   mode: string = "paper",
   limit: number = 100
 ) => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["leaderboard", metric, period, mode, limit],
     queryFn: async () => {
@@ -39,8 +41,9 @@ export const useLeaderboard = (
       });
       return await apiRequest<LeaderboardResponse>(`/api/leaderboard?${params}`, { method: "GET" });
     },
+    enabled: isAuthenticated,
     staleTime: 60000, // 1 minute
-    refetchInterval: 300000, // 5 minutes
+    refetchInterval: isAuthenticated ? 300000 : false, // 5 minutes when authenticated
   });
 };
 
@@ -49,6 +52,7 @@ export const useMyRank = (
   period: string = "all_time",
   mode: string = "paper"
 ) => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["leaderboard", "my-rank", metric, period, mode],
     queryFn: async () => {
@@ -59,8 +63,9 @@ export const useMyRank = (
       });
       return await apiRequest<LeaderboardEntry & { rank: number }>(`/api/leaderboard/my-rank?${params}`, { method: "GET" });
     },
-    staleTime: 60000,
-    refetchInterval: 300000,
+    enabled: isAuthenticated,
+    staleTime: 60000, // 1 minute
+    refetchInterval: isAuthenticated ? 300000 : false, // 5 minutes when authenticated
   });
 };
 

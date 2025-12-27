@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import logger from "@/lib/logger";
 import { usePreferences } from "../hooks/usePreferences";
 
 type Theme = "light" | "dark" | "system";
@@ -46,7 +47,7 @@ export function ThemeProvider({
     try {
       await updateTheme(newTheme);
     } catch (error) {
-      console.error("Failed to save theme preference:", error);
+      logger.error("Failed to save theme preference:", error);
     }
   };
 

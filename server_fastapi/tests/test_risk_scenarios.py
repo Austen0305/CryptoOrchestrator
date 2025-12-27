@@ -16,8 +16,16 @@ def test_risk_scenario_simulate_ok():
     assert resp.status_code == 200, resp.text
     data = resp.json()
     for key in [
-        "portfolio_value","baseline_var","shock_percent","correlation_factor","horizon_days",
-        "shocked_var","projected_var","stress_loss","horizon_scale","explanation"
+        "portfolio_value",
+        "baseline_var",
+        "shock_percent",
+        "correlation_factor",
+        "horizon_days",
+        "shocked_var",
+        "projected_var",
+        "stress_loss",
+        "horizon_scale",
+        "explanation",
     ]:
         assert key in data
     assert data["portfolio_value"] == payload["portfolio_value"]

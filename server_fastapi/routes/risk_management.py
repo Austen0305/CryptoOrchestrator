@@ -3,7 +3,7 @@ Enhanced Risk Management Routes - Complete risk management API
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Annotated
 import logging
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -23,6 +23,10 @@ from ..services.risk.monte_carlo_service import (
 )
 from ..dependencies.auth import get_current_user
 from ..dependencies.risk import get_risk_service
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -52,32 +56,48 @@ class UpdateLimitsRequest(BaseModel):
 
 
 @router.get("/metrics", response_model=RiskMetrics)
-async def get_metrics(svc: RiskService = Depends(get_risk_service)):
+async def get_metrics(svc: Annotated[RiskService, Depends(get_risk_service)]):
     return await svc.get_metrics()
 
 
 @router.get("/alerts", response_model=list[RiskAlert])
+@cached(ttl=60, prefix="risk_alerts")  # 60s TTL for risk alerts
 async def get_alerts(
-    current_user: dict = Depends(get_current_user),
-    svc: RiskService = Depends(get_risk_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    svc: Annotated[RiskService, Depends(get_risk_service)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    return await svc.get_user_alerts(current_user["id"])
+    """Get user's risk alerts with pagination"""
+    user_id = _get_user_id(current_user)
+    # Service uses limit parameter - convert page_size to limit for backward compatibility
+    alerts = await svc.get_user_alerts_db(
+        user_id, limit=page_size * page, unresolved_only=False
+    )
+    # Apply pagination manually (service returns all up to limit)
+    total = len(alerts)
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    return alerts[start_idx:end_idx]
 
 
 @router.get("/limits", response_model=RiskLimits)
+@cached(ttl=300, prefix="risk_limits")  # 5min TTL for risk limits (static config)
 async def get_limits(
-    current_user: dict = Depends(get_current_user),
-    svc: RiskService = Depends(get_risk_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    svc: Annotated[RiskService, Depends(get_risk_service)],
 ):
-    return await svc.get_user_limits(current_user["id"])
+    user_id = _get_user_id(current_user)
+    return await svc.get_user_limits(user_id)
 
 
 @router.post("/limits", response_model=RiskLimits)
 async def update_limits(
     payload: UpdateLimitsRequest,
-    current_user: dict = Depends(get_current_user),
-    svc: RiskService = Depends(get_risk_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    svc: Annotated[RiskService, Depends(get_risk_service)],
 ):
+    user_id = _get_user_id(current_user)
     # Manual validation to enforce reasonable ranges beyond model bounds if needed
     updates: Dict[str, Any] = {}
     for field, value in payload.model_dump(exclude_none=True).items():
@@ -107,19 +127,20 @@ async def update_limits(
             )
         updates[field] = value
     if not updates:
-        return await svc.get_user_limits(current_user["id"])
-    updated = await svc.update_user_limits(current_user["id"], updates)
+        return await svc.get_user_limits(user_id)
+    updated = await svc.update_user_limits(user_id, updates)
     return updated
 
 
 @router.post("/alerts/{alert_id}/acknowledge", response_model=RiskAlert)
 async def acknowledge_alert(
     alert_id: str,
-    svc: RiskService = Depends(get_risk_service),
-    current_user: dict = Depends(get_current_user),
+    svc: Annotated[RiskService, Depends(get_risk_service)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    """Acknowledge a risk alert"""
+    """Acknowledge a risk alert - uses database as primary storage"""
     try:
+        user_id = _get_user_id(current_user)
         if svc.db:
             try:
                 numeric_id = int(alert_id)
@@ -130,18 +151,20 @@ async def acknowledge_alert(
             acknowledged = await svc.acknowledge_alert_db(numeric_id)
             if not acknowledged:
                 raise HTTPException(status_code=404, detail="Alert not found")
-            alerts = await svc.get_user_alerts(current_user["id"])
-            updated_alert = next((a for a in alerts if a.id == str(numeric_id)), None)
+            alerts = await svc.get_user_alerts(user_id)
+            updated_alert = next((a for a in alerts if a.id == alert_id), None)
             if not updated_alert:
                 raise HTTPException(status_code=404, detail="Alert not found")
             return updated_alert
-        return await svc.acknowledge_alert(alert_id)
+        # Fallback to in-memory only if DB unavailable
+        return await svc.acknowledge_alert(alert_id, user_id)
     except HTTPException:
         raise
     except KeyError:
         raise HTTPException(status_code=404, detail="Alert not found")
     except Exception as e:
-        logger.error(f"Error acknowledging alert: {e}")
+        logger.error(f"Error acknowledging alert: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to acknowledge alert")
         raise HTTPException(
             status_code=500, detail=f"Failed to acknowledge alert: {str(e)}"
         )
@@ -164,7 +187,9 @@ class KillSwitchConfigRequest(BaseModel):
 
 
 @router.get("/kill-switch/state", response_model=Dict)
-async def get_kill_switch_state(current_user: dict = Depends(get_current_user)):
+async def get_kill_switch_state(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get current drawdown kill switch state"""
     try:
         state = drawdown_kill_switch.get_state()
@@ -178,7 +203,8 @@ async def get_kill_switch_state(current_user: dict = Depends(get_current_user)):
 
 @router.post("/kill-switch/activate", response_model=Dict)
 async def activate_kill_switch(
-    reason: Optional[str] = None, current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    reason: Optional[str] = None,
 ):
     """Manually activate drawdown kill switch"""
     try:
@@ -197,7 +223,8 @@ async def activate_kill_switch(
 
 @router.post("/kill-switch/deactivate", response_model=Dict)
 async def deactivate_kill_switch(
-    reason: Optional[str] = None, current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    reason: Optional[str] = None,
 ):
     """Manually deactivate drawdown kill switch"""
     try:
@@ -220,7 +247,8 @@ async def deactivate_kill_switch(
 
 @router.get("/kill-switch/events", response_model=Dict)
 async def get_kill_switch_events(
-    limit: int = Query(50, ge=1, le=500), current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    limit: int = Query(50, ge=1, le=500),
 ):
     """Get recent drawdown kill switch events"""
     try:
@@ -233,7 +261,8 @@ async def get_kill_switch_events(
 
 @router.post("/kill-switch/config", response_model=Dict)
 async def update_kill_switch_config(
-    config: KillSwitchConfigRequest, current_user: dict = Depends(get_current_user)
+    config: KillSwitchConfigRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Update drawdown kill switch configuration"""
     try:
@@ -266,7 +295,8 @@ class VaRRequest(BaseModel):
 
 @router.post("/var/calculate", response_model=Dict)
 async def calculate_var(
-    request: VaRRequest, current_user: dict = Depends(get_current_user)
+    request: VaRRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Calculate Value at Risk (VaR)"""
     try:
@@ -288,11 +318,11 @@ async def calculate_var(
 
 @router.post("/var/multi-horizon", response_model=Dict)
 async def calculate_multi_horizon_var(
+    current_user: Annotated[dict, Depends(get_current_user)],
     returns: List[float],
     portfolio_value: float,
     confidence_level: float = Query(0.95, ge=0.5, le=0.99),
     horizons: Optional[List[int]] = None,
-    current_user: dict = Depends(get_current_user),
 ):
     """Calculate VaR for multiple time horizons"""
     try:
@@ -330,7 +360,8 @@ class MonteCarloRequest(BaseModel):
 
 @router.post("/monte-carlo/simulate", response_model=Dict)
 async def run_monte_carlo_simulation(
-    request: MonteCarloRequest, current_user: dict = Depends(get_current_user)
+    request: MonteCarloRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Run Monte Carlo simulation"""
     try:
@@ -353,12 +384,12 @@ async def run_monte_carlo_simulation(
 
 @router.post("/monte-carlo/risk-of-ruin", response_model=Dict)
 async def calculate_risk_of_ruin(
+    current_user: Annotated[dict, Depends(get_current_user)],
     historical_returns: List[float],
     initial_value: float,
     target_value: float = 0.0,
     num_simulations: int = Query(10000, ge=1000, le=100000),
     time_horizon_days: int = Query(365, ge=1, le=3650),
-    current_user: dict = Depends(get_current_user),
 ):
     """Calculate risk of ruin"""
     try:

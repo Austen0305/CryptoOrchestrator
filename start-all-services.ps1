@@ -10,7 +10,8 @@ Set-Location $projectRoot
 
 # 1. Start Backend (FastAPI)
 Write-Host "Starting Backend API Server..." -ForegroundColor Cyan
-$backendCmd = "cd '$projectRoot\server_fastapi'; Write-Host 'Backend API Server (Port 8000)' -ForegroundColor Green; uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+# Configure a sensible request timeout for local/dev runs
+$backendCmd = "cd '$projectRoot\server_fastapi'; $env:REQUEST_TIMEOUT='30'; Write-Host 'Backend API Server (Port 8000) (REQUEST_TIMEOUT=30)' -ForegroundColor Green; uvicorn main:app --reload --host 0.0.0.0 --port 8000"
 Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
 
 Start-Sleep -Seconds 2

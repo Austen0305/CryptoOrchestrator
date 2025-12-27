@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Annotated
 import logging
 import json
 
@@ -10,6 +10,7 @@ from ..database import get_db_context
 from ..repositories.preferences_repository import preferences_repository
 from ..repositories.user_repository import user_repository
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -67,32 +68,12 @@ def _merge_with_defaults(prefs_obj) -> Dict[str, Any]:
 
 # Routes (mounted at /api/preferences in main.py)
 @router.get("/", response_model=UserPreferences)
-async def get_user_preferences(current_user: dict = Depends(get_current_user)):
+async def get_user_preferences(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     try:
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
-        if not user_id:
-            logger.warning(f"User ID not found in current_user: {current_user}")
-            # Return default preferences
-            return UserPreferences(
-                userId="1",
-                theme="dark",
-                notifications=_default_notifications(True),
-                uiSettings={
-                    "compact_mode": False,
-                    "auto_refresh": True,
-                    "refresh_interval": 30,
-                    "default_chart_period": "1H",
-                    "language": "en",
-                },
-                tradingSettings={
-                    "default_order_type": "market",
-                    "confirm_orders": True,
-                    "show_fees": True,
-                },
-                createdAt=float(datetime.now().timestamp()),
-                updatedAt=float(datetime.now().timestamp()),
-            )
-        
+        user_id = _get_user_id(current_user)
+
         async with get_db_context() as session:
             prefs = await preferences_repository.get_by_user_id(session, str(user_id))
             if not prefs:
@@ -113,7 +94,7 @@ async def get_user_preferences(current_user: dict = Depends(get_current_user)):
         # Return default preferences instead of 500 error for better UX during development
         logger.warning(f"Returning default preferences due to error: {e}")
         # Import UserPreferences from shared schema
-        user_id = current_user.get("id") or current_user.get("user_id") or "1"
+        user_id = _get_user_id(current_user)
         return UserPreferences(
             userId=str(user_id),
             theme="dark",
@@ -127,15 +108,15 @@ async def get_user_preferences(current_user: dict = Depends(get_current_user)):
 
 @router.put("/", response_model=UserPreferences)
 async def update_user_preferences(
-    updates: UpdateUserPreferences, current_user: dict = Depends(get_current_user)
+    updates: UpdateUserPreferences,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    user_id = _get_user_id(current_user)
     update_data = updates.dict(exclude_unset=True)
     async with get_db_context() as session:
-        prefs = await preferences_repository.get_by_user_id(session, current_user["id"])
+        prefs = await preferences_repository.get_by_user_id(session, str(user_id))
         if not prefs:
-            prefs = await preferences_repository.upsert_for_user(
-                session, current_user["id"]
-            )
+            prefs = await preferences_repository.upsert_for_user(session, str(user_id))
 
         # Load existing data_json and merge
         existing_json = {}
@@ -161,7 +142,7 @@ async def update_user_preferences(
 
         await preferences_repository.upsert_for_user(
             session,
-            current_user["id"],
+            str(user_id),
             theme=(update_data.get("theme") or prefs.theme),
             language=(
                 existing_json.get("uiSettings", {}).get("language") or prefs.language
@@ -175,9 +156,9 @@ async def update_user_preferences(
         )
 
         # Reload and return
-        prefs = await preferences_repository.get_by_user_id(session, current_user["id"])
+        prefs = await preferences_repository.get_by_user_id(session, str(user_id))
         data = _merge_with_defaults(prefs)
-        logger.info(f"Updated preferences for user {current_user['id']}")
+        logger.info(f"Updated preferences for user {user_id}")
         return UserPreferences(**data)
 
 
@@ -187,19 +168,24 @@ class ThemeUpdate(BaseModel):
 
 @router.patch("/theme")
 async def update_theme(
-    payload: ThemeUpdate, current_user: dict = Depends(get_current_user)
+    payload: ThemeUpdate,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    user_id = _get_user_id(current_user)
     async with get_db_context() as session:
         await preferences_repository.upsert_for_user(
-            session, current_user["id"], theme=payload.theme
+            session, str(user_id), theme=payload.theme
         )
         return {"message": "Theme updated successfully", "theme": payload.theme}
 
 
 @router.delete("/")
-async def delete_user_preferences(current_user: dict = Depends(get_current_user)):
+async def delete_user_preferences(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
+    user_id = _get_user_id(current_user)
     async with get_db_context() as session:
-        prefs = await preferences_repository.get_by_user_id(session, current_user["id"])
+        prefs = await preferences_repository.get_by_user_id(session, str(user_id))
         if not prefs:
             raise HTTPException(status_code=404, detail="Preferences not found")
         await session.delete(prefs)
@@ -208,15 +194,18 @@ async def delete_user_preferences(current_user: dict = Depends(get_current_user)
 
 
 @router.post("/reset")
-async def reset_user_preferences(current_user: dict = Depends(get_current_user)):
+async def reset_user_preferences(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
+    user_id = _get_user_id(current_user)
     async with get_db_context() as session:
-        prefs = await preferences_repository.get_by_user_id(session, current_user["id"])
+        prefs = await preferences_repository.get_by_user_id(session, str(user_id))
         if prefs:
             await session.delete(prefs)
             await session.commit()
         prefs = await preferences_repository.upsert_for_user(
             session,
-            current_user["id"],
+            str(user_id),
             theme="light",
             language="en",
             notifications_enabled=True,

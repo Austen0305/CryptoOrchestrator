@@ -22,7 +22,30 @@ except ImportError:
         return True
 
     def validate_password_strength(pwd):
-        return {"valid": True}
+        """Mock password validation - should match real validation requirements"""
+        import re
+
+        if not pwd or len(pwd) < 12:
+            return {
+                "valid": False,
+                "message": "Password must be at least 12 characters long",
+            }
+        checks = {
+            "uppercase": bool(re.search(r"[A-Z]", pwd)),
+            "lowercase": bool(re.search(r"[a-z]", pwd)),
+            "numbers": bool(re.search(r"[0-9]", pwd)),
+            "special": bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', pwd)),
+            "no_spaces": " " not in pwd,
+        }
+        score = sum(checks.values())
+        if score < 4:
+            return {
+                "valid": False,
+                "message": "Password must contain uppercase, lowercase, numbers, and special characters",
+            }
+        if not checks["no_spaces"]:
+            return {"valid": False, "message": "Password cannot contain spaces"}
+        return {"valid": True, "strength": "strong" if score >= 5 else "medium"}
 
     def sanitize_input(inp):
         return inp
@@ -41,26 +64,69 @@ except ImportError:
     from datetime import datetime, timedelta
 
     class MockBcrypt:
+        # Store password -> hash mapping for mock verification
+        _password_hashes = {}
+        
+        @staticmethod
+        def gensalt(rounds=12):
+            """Generate mock salt for testing"""
+            import secrets
+            return secrets.token_bytes(16)
+
         @staticmethod
         def hashpw(password, salt):
-            return hashlib.sha256(password + salt).hexdigest().encode()
+            """Hash password with salt - stores mapping for checkpw"""
+            # Create hash using password + salt
+            hashed = hashlib.sha256(password + salt).hexdigest().encode()
+            # Store password -> hash mapping for verification (simplified mock approach)
+            password_str = password.decode() if isinstance(password, bytes) else password
+            MockBcrypt._password_hashes[password_str] = hashed
+            return hashed
 
         @staticmethod
         def checkpw(password, hashed):
-            return hashlib.sha256(password).hexdigest().encode() == hashed.decode()
+            """Check password against hash - uses stored mapping"""
+            try:
+                # Convert to bytes if needed
+                if isinstance(password, bytes):
+                    password_str = password.decode()
+                else:
+                    password_str = password
+                
+                if isinstance(hashed, bytes):
+                    hashed_bytes = hashed
+                else:
+                    hashed_bytes = hashed.encode() if isinstance(hashed, str) else hashed
+                
+                # Check if we have a stored hash for this password
+                stored_hash = MockBcrypt._password_hashes.get(password_str)
+                if stored_hash:
+                    return stored_hash == hashed_bytes
+                
+                # Fallback: try to re-hash (this won't work if salt is different)
+                # This is a limitation - for proper testing, use real bcrypt
+                return False
+            except Exception:
+                return False
 
     class MockJWT:
         @staticmethod
         def encode(payload, key, algorithm="HS256"):
             # Simple mock JWT
+            # Convert datetime objects to ISO strings for JSON serialization
+            def json_serial(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                raise TypeError(f"Type {type(obj)} not serializable")
+            
             header = {"alg": algorithm, "typ": "JWT"}
             encoded_header = (
-                base64.urlsafe_b64encode(json.dumps(header).encode())
+                base64.urlsafe_b64encode(json.dumps(header, default=json_serial).encode())
                 .decode()
                 .rstrip("=")
             )
             encoded_payload = (
-                base64.urlsafe_b64encode(json.dumps(payload).encode())
+                base64.urlsafe_b64encode(json.dumps(payload, default=json_serial).encode())
                 .decode()
                 .rstrip("=")
             )
@@ -96,7 +162,7 @@ except ImportError:
     speakeasy = MockSpeakeasy()
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Annotated
 import logging
 import json
 
@@ -133,23 +199,23 @@ class LoginRequest(SanitizedBaseModel):
 # Import auth services with relative imports
 try:
     from ..services.auth import AuthService, APIKeyService
-except ImportError:
-    # Fallback to mock services if import fails
+except ImportError as e:
+    # Only use mock as absolute last resort if import completely fails
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"CRITICAL: Failed to import AuthService: {e}")
+    logger.error("Authentication will not work properly. Check service imports.")
+    
+    # Minimal fallback that raises errors to force proper setup
     class MockAuthService:
-        def register(self, data):
-            return {
-                "user": {"id": 1, "email": data.get("email"), "name": data.get("name")}
-            }
-
-        def verifyEmail(self, token):
-            return {
-                "success": True,
-                "message": "Email verified successfully",
-                "user_id": 1,
-            }
-
-        def resendVerificationEmail(self, email):
-            return {"success": True, "message": "Verification email sent"}
+        def register(self, data, session=None):
+            raise RuntimeError("AuthService not available - check imports and database setup")
+        
+        def verifyEmail(self, token, session=None):
+            raise RuntimeError("AuthService not available - check imports and database setup")
+        
+        def resendVerificationEmail(self, email, session=None):
+            raise RuntimeError("AuthService not available - check imports and database setup")
 
     class MockAPIKeyService:
         pass
@@ -183,6 +249,8 @@ def _get_user_repository_lazy():
         logger.warning(f"User repository not available: {e}")
         return None
 
+
+from ..utils.route_helpers import _get_user_id
 
 router = APIRouter()
 security = HTTPBearer()
@@ -421,98 +489,31 @@ email_service = MockEmailService(SMTP_HOST, SMTP_USER, SMTP_PASS)
 sms_service = MockSMSService()
 
 
-# Mock auth service - replace with actual implementation
-class MockAuthService:
-    def register(self, data):
-        # Check if user exists (in-memory check - database check happens in route handler)
-        existing = storage.getUserByEmail(data["email"])
-        if existing:
-            raise HTTPException(status_code=400, detail="User already exists")
-
-        # Hash password - use simple hash for now to avoid blocking
-        # In production, use proper bcrypt with async wrapper
-        try:
-            # Try bcrypt first (fast on modern systems)
-            hashed = bcrypt.hashpw(data["password"].encode(), bcrypt.gensalt()).decode()
-        except Exception as e:
-            # Fallback to simple hash if bcrypt fails
-            logger.warning(f"Bcrypt failed, using fallback hash: {e}")
-            import hashlib
-
-            hashed = hashlib.sha256(data["password"].encode()).hexdigest()
-
-        # Create user in in-memory storage (for backward compatibility)
-        # The actual database save happens in the route handler
-        user = storage.createUser(
-            {"email": data["email"], "name": data["name"], "passwordHash": hashed}
-        )
-
-        return {"message": "User registered successfully", "user": user}
-
-    def verifyEmail(self, token: str):
-        try:
-            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            if decoded.get("type") != "email_verification":
-                return {"success": False, "message": "Invalid token type"}
-
-            user = storage.getUserById(decoded["id"])
-            if not user:
-                return {"success": False, "message": "User not found"}
-
-            # Check if already verified
-            if user.get("emailVerified"):
-                return {"success": False, "message": "Email already verified"}
-
-            storage.updateUser(user["id"], {"emailVerified": True})
-            return {
-                "success": True,
-                "message": "Email verified successfully",
-                "user_id": user["id"],
-            }
-        except jwt.ExpiredSignatureError:
-            return {"success": False, "message": "Verification token expired"}
-        except jwt.InvalidTokenError:
-            return {"success": False, "message": "Invalid verification token"}
-
-    def resendVerificationEmail(self, email: str):
-        user = storage.getUserByEmail(email)
-        if not user:
-            return {"success": False, "message": "User not found"}
-
-        # Check if email is already verified
-        if user.get("emailVerified"):
-            return {"success": False, "message": "Email already verified"}
-
-        # Generate verification token with expiration
-        token = jwt.encode(
-            {
-                "id": user["id"],
-                "type": "email_verification",
-                "exp": datetime.now(timezone.utc) + timedelta(hours=24),
-            },
-            JWT_SECRET,
-            algorithm="HS256",
-        )
-
-        # Send verification email using mock service
-        email_service.send_verification_email(email, token)
-
-        return {"success": True, "message": "Verification email sent"}
-
-
 # Initialize services
-# Use route-local MockAuthService to keep storage in sync for tests and dev.
-auth_service = MockAuthService()
+# Use real AuthService with database support
+try:
+    from ..services.auth import AuthService
+    auth_service = AuthService()
+    logger.info("AuthService initialized successfully with database support")
+except ImportError as e:
+    # Fallback to MockAuthService only if import completely fails
+    logger.error(f"CRITICAL: Failed to import AuthService: {e}")
+    logger.error("Authentication will not work properly. Check service imports.")
+    # Use the MockAuthService from the import fallback above
+    auth_service = AuthService()  # This will be MockAuthService if import failed
+
 api_key_service = APIKeyService()
 
 
 # Helper functions
 def generate_token(user: dict) -> str:
+    now = datetime.now(timezone.utc)
     return jwt.encode(
         {
             "id": user["id"],
             "email": user["email"],
-            "exp": datetime.now(timezone.utc) + timedelta(minutes=15),
+            "exp": int((now + timedelta(minutes=15)).timestamp()),
+            "iat": int(now.timestamp()),
         },
         JWT_SECRET,
         algorithm="HS256",
@@ -520,19 +521,22 @@ def generate_token(user: dict) -> str:
 
 
 def generate_refresh_token(user: dict) -> str:
+    now = datetime.now(timezone.utc)
     return jwt.encode(
         {
             "id": user["id"],
             "type": "refresh",
-            "exp": datetime.now(timezone.utc) + timedelta(days=7),
+            "exp": int((now + timedelta(days=7)).timestamp()),
+            "iat": int(now.timestamp()),
         },
         JWT_SECRET,
         algorithm="HS256",
     )
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+async def get_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    request: Request = None,
 ) -> dict:
     """
     Legacy get_current_user - kept for backward compatibility.
@@ -543,10 +547,33 @@ def get_current_user(
         from server_fastapi.dependencies.auth import (
             get_current_user as _get_current_user,
         )
+        from fastapi import Request as FastAPIRequest
 
-        return _get_current_user(credentials)
-    except ImportError:
+        # FastAPI will inject request automatically, but if not provided, create a minimal one
+        if request is None:
+            # Try to get from context (FastAPI should inject it)
+            # If that fails, use fallback implementation
+            try:
+                # The centralized version requires request, so we need to provide it
+                # Create a minimal request object for fallback
+                from starlette.requests import Request as StarletteRequest
+                from starlette.datastructures import Headers
+
+                request = StarletteRequest(
+                    scope={"type": "http", "headers": []}, receive=None
+                )
+            except:
+                pass
+
+        # Call the async centralized version with request
+        if request:
+            return await _get_current_user(credentials, request)
+        else:
+            # If we can't get request, fall through to legacy implementation
+            raise ImportError("Request not available")
+    except (ImportError, Exception) as e:
         # Fallback to legacy implementation
+        logger.warning(f"Using legacy auth fallback: {e}")
         try:
             payload = jwt.decode(
                 credentials.credentials, JWT_SECRET, algorithms=["HS256"]
@@ -626,13 +653,29 @@ async def register(payload: RegisterRequest, request: Request):
             # Fallback to email username part
             name = sanitize_input(payload.email.split("@")[0])
 
-        result = auth_service.register(
-            {
-                "email": sanitize_input(payload.email),
-                "password": payload.password,  # Password is hashed in service
-                "name": name,
-            }
-        )
+        # Use database session for registration
+        get_db_context = _get_db_context_lazy()
+        if get_db_context:
+            try:
+                async with get_db_context() as session:
+                    result = await auth_service.register(
+                        {
+                            "email": sanitize_input(payload.email),
+                            "password": payload.password,  # Password is hashed in service
+                            "name": name,
+                        },
+                        session=session,
+                    )
+            except Exception as db_error:
+                logger.error(f"Database registration failed: {db_error}")
+                raise HTTPException(
+                    status_code=503, detail="Database unavailable for registration"
+                )
+        else:
+            # No database available
+            raise HTTPException(
+                status_code=503, detail="Database unavailable for registration"
+            )
 
         # Extract user after registration
         user = result["user"]
@@ -697,13 +740,22 @@ async def login(payload: LoginRequest, request: Request):
     if payload.email:
         # Validate email format first
         from server_fastapi.middleware.validation import validate_email_format
-        email = payload.email.strip().lower() if isinstance(payload.email, str) else payload.email
+
+        email = (
+            payload.email.strip().lower()
+            if isinstance(payload.email, str)
+            else payload.email
+        )
         if not validate_email_format(email):
             logger.warning(f"Invalid email format during login: {payload.email}")
             raise HTTPException(status_code=422, detail="Invalid email format")
         login_identifier = email
     elif payload.username:
-        login_identifier = payload.username.strip().lower() if isinstance(payload.username, str) else payload.username
+        login_identifier = (
+            payload.username.strip().lower()
+            if isinstance(payload.username, str)
+            else payload.username
+        )
     else:
         login_identifier = ""
 
@@ -714,6 +766,13 @@ async def login(payload: LoginRequest, request: Request):
     # Try database lookup with timeout to prevent hanging
     try:
         import asyncio
+
+        # Get database context and user repository lazily
+        get_db_context = _get_db_context_lazy()
+        user_repository = _get_user_repository_lazy()
+
+        if not get_db_context or not user_repository:
+            raise ImportError("Database dependencies not available")
 
         # Use wait_for for Python 3.8+ compatibility, or timeout for 3.11+
         try:
@@ -757,44 +816,46 @@ async def login(payload: LoginRequest, request: Request):
                         }
         except AttributeError:
             # Fallback for Python < 3.11 - use wait_for
-            async with get_db_context() as session:
-                if payload.email:
-                    db_user = await asyncio.wait_for(
-                        user_repository.get_by_email(session, login_identifier),
-                        timeout=2.0,
-                    )
-                elif payload.username:
-                    db_user = await asyncio.wait_for(
-                        user_repository.get_by_username(session, login_identifier),
-                        timeout=2.0,
-                    )
+            get_db_context = _get_db_context_lazy()
+            if get_db_context:
+                async with get_db_context() as session:
+                    if payload.email:
+                        db_user = await asyncio.wait_for(
+                            user_repository.get_by_email(session, login_identifier),
+                            timeout=2.0,
+                        )
+                    elif payload.username:
+                        db_user = await asyncio.wait_for(
+                            user_repository.get_by_username(session, login_identifier),
+                            timeout=2.0,
+                        )
 
-                if db_user:
-                    # Convert database user to dict format
-                    user = {
-                        "id": db_user.id,
-                        "email": db_user.email,
-                        "username": db_user.username,
-                        "name": db_user.first_name or db_user.username,
-                        "passwordHash": db_user.password_hash,
-                        "emailVerified": db_user.is_email_verified,
-                        "mfaEnabled": db_user.mfa_enabled or False,
-                        "mfaSecret": db_user.mfa_secret,
-                        "mfaMethod": db_user.mfa_method,
-                        "mfaCode": db_user.mfa_code,
-                        "mfaCodeExpires": (
-                            db_user.mfa_code_expires_at.isoformat()
-                            if db_user.mfa_code_expires_at
-                            else None
-                        ),
-                        "phoneNumber": None,
-                        "mfaRecoveryCodes": [],
-                        "createdAt": (
-                            db_user.created_at.isoformat()
-                            if db_user.created_at
-                            else None
-                        ),
-                    }
+                    if db_user:
+                        # Convert database user to dict format
+                        user = {
+                            "id": db_user.id,
+                            "email": db_user.email,
+                            "username": db_user.username,
+                            "name": db_user.first_name or db_user.username,
+                            "passwordHash": db_user.password_hash,
+                            "emailVerified": db_user.is_email_verified,
+                            "mfaEnabled": db_user.mfa_enabled or False,
+                            "mfaSecret": db_user.mfa_secret,
+                            "mfaMethod": db_user.mfa_method,
+                            "mfaCode": db_user.mfa_code,
+                            "mfaCodeExpires": (
+                                db_user.mfa_code_expires_at.isoformat()
+                                if db_user.mfa_code_expires_at
+                                else None
+                            ),
+                            "phoneNumber": None,
+                            "mfaRecoveryCodes": [],
+                            "createdAt": (
+                                db_user.created_at.isoformat()
+                                if db_user.created_at
+                                else None
+                            ),
+                        }
     except (asyncio.TimeoutError, Exception) as e:
         logger.warning(
             f"Database lookup failed or timed out, falling back to in-memory storage: {e}"
@@ -813,16 +874,63 @@ async def login(payload: LoginRequest, request: Request):
         elif payload.username:
             user = storage.getUserByUsername(login_identifier)
 
+    # Check account lockout before authentication
+    from ..services.auth.account_lockout import get_account_lockout_service
+
+    lockout_service = get_account_lockout_service()
+
+    # Get client IP for lockout tracking
+    client_ip = (
+        request.client.host if hasattr(request, "client") and request.client else None
+    )
+
+    # Check lockout status
+    lockout_status = await lockout_service.get_lockout_status(login_identifier)
+    if lockout_status["locked"]:
+        remaining_seconds = lockout_status["lockout_duration"] or 0
+        raise HTTPException(
+            status_code=429,
+            detail=f"Account temporarily locked due to too many failed login attempts. "
+            f"Please try again in {remaining_seconds} seconds.",
+        )
+
     if not user or not user.get("passwordHash"):
         logger.warning(
             f"Login failed: User not found for {payload.email or payload.username} (normalized: {login_identifier})"
         )
+        # Record failed attempt
+        await lockout_service.record_failed_attempt(login_identifier, client_ip)
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Verify password
-    if not bcrypt.checkpw(payload.password.encode(), user["passwordHash"].encode()):
+    password_valid = bcrypt.checkpw(
+        payload.password.encode(), user["passwordHash"].encode()
+    )
+    if not password_valid:
         logger.warning(f"Login failed: Invalid password for user {user['id']}")
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        # Record failed attempt
+        lockout_result = await lockout_service.record_failed_attempt(
+            login_identifier, client_ip
+        )
+
+        # If account is now locked, return lockout message
+        if lockout_result["locked"]:
+            remaining_seconds = lockout_result["lockout_duration"] or 0
+            raise HTTPException(
+                status_code=429,
+                detail=f"Account temporarily locked due to too many failed login attempts. "
+                f"Please try again in {remaining_seconds} seconds.",
+            )
+
+        # Return remaining attempts info
+        remaining = lockout_result["remaining_attempts"]
+        raise HTTPException(
+            status_code=401,
+            detail=f"Invalid credentials. {remaining} attempt(s) remaining before account lockout.",
+        )
+
+    # Successful login - reset failed attempts
+    await lockout_service.reset_failed_attempts(login_identifier)
 
     # Update last login in database if user exists there
     if db_user:
@@ -942,7 +1050,8 @@ async def verify_mfa(payload: MFATokenRequest, request: Request):
 
 
 @router.post("/setup-mfa")
-async def setup_mfa(current_user: dict = Depends(get_current_user)):
+async def setup_mfa(current_user: Annotated[dict, Depends(get_current_user)]):
+    user_id = _get_user_id(current_user)
     secret = speakeasy.generate_secret(
         {
             "name": f"CryptoOrchestrator ({current_user['email']})",
@@ -950,9 +1059,7 @@ async def setup_mfa(current_user: dict = Depends(get_current_user)):
         }
     )
 
-    storage.updateUser(
-        current_user["id"], {"mfaSecret": secret["base32"], "mfaEnabled": False}
-    )
+    storage.updateUser(user_id, {"mfaSecret": secret["base32"], "mfaEnabled": False})
 
     return {"secret": secret["base32"], "otpauthUrl": secret["otpauth_url"]}
 
@@ -961,9 +1068,10 @@ async def setup_mfa(current_user: dict = Depends(get_current_user)):
 async def enable_mfa(
     payload: EnableMFARequest,
     request: Request,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    db_user = storage.getUserById(current_user["id"])
+    user_id = _get_user_id(current_user)
+    db_user = storage.getUserById(user_id)
     if not db_user or not db_user.get("mfaSecret"):
         raise HTTPException(status_code=400, detail="MFA not set up")
 
@@ -979,14 +1087,16 @@ async def enable_mfa(
     if not verified:
         raise HTTPException(status_code=401, detail="Invalid MFA token")
 
-    storage.updateUser(current_user["id"], {"mfaEnabled": True})
+    storage.updateUser(user_id, {"mfaEnabled": True})
     return {"message": "MFA enabled successfully"}
 
 
 @router.post("/setup-mfa-choice")
 async def setup_mfa_choice(
-    payload: SetupTwoFactorChoiceRequest, current_user: dict = Depends(get_current_user)
+    payload: SetupTwoFactorChoiceRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    user_id = _get_user_id(current_user)
     method = (payload.method or "").lower().strip()
     if method not in ("email", "sms"):
         raise HTTPException(status_code=400, detail="method must be 'email' or 'sms'")
@@ -1006,8 +1116,8 @@ async def setup_mfa_choice(
     updates["mfaCode"] = code
     updates["mfaCodeExpires"] = expires_at
 
-    storage.updateUser(current_user["id"], updates)
-    user = storage.getUserById(current_user["id"])
+    storage.updateUser(user_id, updates)
+    user = storage.getUserById(user_id)
     # Persist MFA setup data (method, phone, code & expiry) to DB
     try:
         async with get_db_context() as session:
@@ -1041,9 +1151,11 @@ async def setup_mfa_choice(
 
 @router.post("/verify-mfa-code")
 async def verify_mfa_code(
-    payload: VerifyTwoFactorCodeRequest, current_user: dict = Depends(get_current_user)
+    payload: VerifyTwoFactorCodeRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    user = storage.getUserById(current_user["id"])
+    user_id = _get_user_id(current_user)
+    user = storage.getUserById(user_id)
     if not user or not user.get("mfaMethod"):
         raise HTTPException(status_code=400, detail="2FA method not set up")
 
@@ -1092,11 +1204,14 @@ async def verify_mfa_code(
 
 
 @router.post("/mfa/recovery/generate", response_model=GenerateRecoveryCodesResponse)
-async def generate_recovery_codes(current_user: dict = Depends(get_current_user)):
+async def generate_recovery_codes(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Generate and persist a new set of MFA recovery codes.
     Codes are one-time use; previously issued codes are replaced.
     """
-    user = storage.getUserById(current_user["id"])
+    user_id = _get_user_id(current_user)
+    user = storage.getUserById(user_id)
     if not user or not user.get("mfaEnabled"):
         raise HTTPException(status_code=400, detail="MFA not enabled")
     import secrets, hashlib
@@ -1284,56 +1399,115 @@ async def reset_password(payload: ResetPasswordRequest, request: Request):
 
 
 @router.get("/profile")
-async def get_profile(current_user: dict = Depends(get_current_user)):
+async def get_profile(current_user: Annotated[dict, Depends(get_current_user)]):
+    user_id = _get_user_id(current_user)
     # Attempt to enrich profile from DB persistence
     db_data = {}
     try:
         user_email = current_user.get("email")
         if user_email:
-            async with get_db_context() as session:
-                db_user = await user_repository.get_by_email(session, user_email)
-                if db_user:
-                    db_data = {
-                        "username": db_user.username,
-                        "firstName": db_user.first_name,
-                        "lastName": db_user.last_name,
-                        "avatarUrl": db_user.avatar_url,
-                        "locale": db_user.locale,
-                        "timezone": db_user.timezone,
-                        "preferences": (
-                            json.loads(db_user.preferences_json)
-                            if db_user.preferences_json
-                            else None
-                        ),
-                    }
+            get_db_context = _get_db_context_lazy()
+            user_repository = _get_user_repository_lazy()
+            if get_db_context and user_repository:
+                async with get_db_context() as session:
+                    db_user = await user_repository.get_by_email(session, user_email)
+                    if db_user:
+                        db_data = {
+                            "username": db_user.username,
+                            "firstName": db_user.first_name,
+                            "lastName": db_user.last_name,
+                            "avatarUrl": db_user.avatar_url,
+                            "locale": db_user.locale,
+                            "timezone": db_user.timezone,
+                            "preferences": (
+                                json.loads(db_user.preferences_json)
+                                if db_user.preferences_json
+                                else None
+                            ),
+                        }
     except Exception as e:
         logger.warning(f"Profile DB enrichment failed: {e}", exc_info=True)
         # Continue with in-memory data only
-    
+
     # Return profile with fallback values
     return {
-        "id": current_user.get("id") or current_user.get("user_id") or "1",
+        "id": user_id,
         "email": current_user.get("email") or "",
         "name": current_user.get("name") or current_user.get("username") or "User",
-        "createdAt": current_user.get("createdAt") or datetime.now(timezone.utc).isoformat(),
+        "createdAt": current_user.get("createdAt")
+        or datetime.now(timezone.utc).isoformat(),
         "mfaEnabled": current_user.get("mfaEnabled", False),
         **db_data,
     }
 
 
+@router.get("/me")
+async def get_me(current_user: Annotated[dict, Depends(get_current_user)]):
+    """Get current user info - alias for /profile endpoint for compatibility with auth_saas.py"""
+    user_id = _get_user_id(current_user)
+    # Reuse the same logic as /profile
+    db_data = {}
+    try:
+        user_email = current_user.get("email")
+        if user_email:
+            get_db_context = _get_db_context_lazy()
+            user_repository = _get_user_repository_lazy()
+            if get_db_context and user_repository:
+                async with get_db_context() as session:
+                    db_user = await user_repository.get_by_email(session, user_email)
+                    if db_user:
+                        db_data = {
+                            "username": db_user.username,
+                            "firstName": db_user.first_name,
+                            "lastName": db_user.last_name,
+                            "avatarUrl": db_user.avatar_url,
+                            "locale": db_user.locale,
+                            "timezone": db_user.timezone,
+                            "preferences": (
+                                json.loads(db_user.preferences_json)
+                                if db_user.preferences_json
+                                else None
+                            ),
+                        }
+    except Exception as e:
+        logger.warning(f"Profile DB enrichment failed: {e}", exc_info=True)
+        # Continue with in-memory data only
+
+    # Return user info with fallback values (compatible with auth_saas.py format)
+    return {
+        "id": user_id,
+        "email": current_user.get("email") or "",
+        "username": current_user.get("username") or current_user.get("name") or "User",
+        "role": current_user.get("role", "user"),
+        "is_email_verified": current_user.get("emailVerified")
+        or current_user.get("is_email_verified", False),
+        "first_name": db_data.get("firstName") or current_user.get("first_name"),
+        "last_name": db_data.get("lastName") or current_user.get("last_name"),
+        "is_active": current_user.get("is_active", True),
+        **{k: v for k, v in db_data.items() if k not in ["firstName", "lastName"]},
+    }
+
+
 @router.patch("/profile")
 async def update_profile(
-    request: UpdateProfileRequest, current_user: dict = Depends(get_current_user)
+    request: UpdateProfileRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    user_id = _get_user_id(current_user)
     sanitized_name = sanitize_input(request.name)
-    storage.updateUser(current_user["id"], {"name": sanitized_name})
+    storage.updateUser(user_id, {"name": sanitized_name})
     # Persist name change
     try:
-        async with get_db_context() as session:
-            db_user = await user_repository.get_by_email(session, current_user["email"])
-            if db_user:
-                db_user.first_name = sanitized_name
-                await session.commit()
+        get_db_context = _get_db_context_lazy()
+        user_repository = _get_user_repository_lazy()
+        if get_db_context and user_repository:
+            async with get_db_context() as session:
+                db_user = await user_repository.get_by_email(
+                    session, current_user["email"]
+                )
+                if db_user:
+                    db_user.first_name = sanitized_name
+                    await session.commit()
     except Exception as e:
         logger.warning(f"DB profile update failed: {e}")
     return {"message": "Profile updated successfully"}
@@ -1372,16 +1546,30 @@ async def refresh_token(payload: RefreshTokenRequest, request: Request):
 
 @router.post("/logout")
 async def logout(
-    request: LogoutRequest, current_user: dict = Depends(get_current_user)
+    request: LogoutRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
+    user_id = _get_user_id(current_user)
     if request.refreshToken:
-        storage.removeRefreshToken(current_user["id"], request.refreshToken)
+        storage.removeRefreshToken(user_id, request.refreshToken)
     return {"message": "Logged out successfully"}
 
 
 @router.post("/verify-email")
 async def verify_email(payload: VerifyEmailRequest, request: Request):
-    result = auth_service.verifyEmail(payload.token)
+    # Use database session for email verification
+    get_db_context = _get_db_context_lazy()
+    if get_db_context:
+        try:
+            async with get_db_context() as session:
+                result = await auth_service.verifyEmail(payload.token, session=session)
+        except Exception as db_error:
+            logger.error(f"Database email verification failed: {db_error}")
+            raise HTTPException(status_code=503, detail="Database unavailable")
+    else:
+        # No database available
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
 
@@ -1399,7 +1587,22 @@ async def resend_verification(payload: ResendVerificationRequest, request: Reque
     payload.validate_email()
 
     sanitized_email = sanitize_input(payload.email)
-    result = auth_service.resendVerificationEmail(sanitized_email)
+    
+    # Use database session for resend verification
+    get_db_context = _get_db_context_lazy()
+    if get_db_context:
+        try:
+            async with get_db_context() as session:
+                result = await auth_service.resendVerificationEmail(
+                    sanitized_email, session=session
+                )
+        except Exception as db_error:
+            logger.error(f"Database resend verification failed: {db_error}")
+            raise HTTPException(status_code=503, detail="Database unavailable")
+    else:
+        # No database available
+        raise HTTPException(status_code=503, detail="Database unavailable")
+    
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
     return {"message": result["message"]}

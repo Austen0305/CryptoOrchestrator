@@ -40,7 +40,7 @@ class SMSService:
                 self.client = Client(account_sid, auth_token)
                 self.from_number = from_number
                 self.enabled = True
-                logger.info("✅ SMS service initialized with Twilio")
+                logger.info("[OK] SMS service initialized with Twilio")
             except Exception as e:
                 logger.error(f"Failed to initialize Twilio client: {e}")
                 self.enabled = False
@@ -83,7 +83,7 @@ class SMSService:
                 body=message, from_=self.from_number, to=to_number
             )
 
-            logger.info(f"✅ SMS sent successfully: {message_obj.sid} to {to_number}")
+            logger.info(f"[OK] SMS sent successfully: {message_obj.sid} to {to_number}")
 
             return {
                 "success": True,

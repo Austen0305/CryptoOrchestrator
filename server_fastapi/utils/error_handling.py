@@ -2,6 +2,7 @@
 Enhanced error messages and exception handling
 Provides user-friendly, actionable error messages
 """
+
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
 import logging
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class TradingError(Exception):
     """Base exception for trading-related errors"""
+
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         self.message = message
         self.details = details or {}
@@ -19,7 +21,10 @@ class TradingError(Exception):
 
 class InsufficientBalanceError(TradingError):
     """Raised when user has insufficient balance"""
-    def __init__(self, current_balance: float, required_amount: float, currency: str = "USD"):
+
+    def __init__(
+        self, current_balance: float, required_amount: float, currency: str = "USD"
+    ):
         message = (
             f"Insufficient balance: You have ${current_balance:.2f} {currency}, "
             f"but need ${required_amount:.2f} {currency} "
@@ -29,25 +34,27 @@ class InsufficientBalanceError(TradingError):
             "current_balance": current_balance,
             "required_amount": required_amount,
             "shortfall": required_amount - current_balance,
-            "currency": currency
+            "currency": currency,
         }
         super().__init__(message, details)
 
 
 class InvalidSymbolError(TradingError):
     """Raised when trading symbol is invalid"""
+
     def __init__(self, symbol: str, suggestion: Optional[str] = None):
         if suggestion:
             message = f"Symbol '{symbol}' not found. Did you mean '{suggestion}'?"
         else:
             message = f"Symbol '{symbol}' is not supported. Please check the symbol and try again."
-        
+
         details = {"symbol": symbol, "suggestion": suggestion}
         super().__init__(message, details)
 
 
 class OrderExecutionError(TradingError):
     """Raised when order execution fails"""
+
     def __init__(self, reason: str, order_details: Optional[Dict[str, Any]] = None):
         message = f"Order execution failed: {reason}"
         super().__init__(message, order_details or {})
@@ -55,6 +62,7 @@ class OrderExecutionError(TradingError):
 
 class BotCreationError(TradingError):
     """Raised when bot creation fails"""
+
     def __init__(self, reason: str):
         message = f"Failed to create bot: {reason}"
         super().__init__(message)
@@ -62,6 +70,7 @@ class BotCreationError(TradingError):
 
 class ConfigurationError(TradingError):
     """Raised when configuration is invalid"""
+
     def __init__(self, field: str, reason: str):
         message = f"Invalid configuration for '{field}': {reason}"
         details = {"field": field, "reason": reason}
@@ -69,93 +78,80 @@ class ConfigurationError(TradingError):
 
 
 def create_http_exception(
-    status_code: int,
-    message: str,
-    details: Optional[Dict[str, Any]] = None
+    status_code: int, message: str, details: Optional[Dict[str, Any]] = None
 ) -> HTTPException:
     """
     Create an HTTPException with enhanced error information.
-    
+
     Args:
         status_code: HTTP status code
         message: Human-readable error message
         details: Additional error details
-        
+
     Returns:
         HTTPException with formatted error
     """
     error_detail = {"message": message}
     if details:
         error_detail["details"] = details
-    
+
     return HTTPException(status_code=status_code, detail=error_detail)
 
 
-def handle_trading_error(error: Exception, default_message: str = "An error occurred") -> HTTPException:
+def handle_trading_error(
+    error: Exception, default_message: str = "An error occurred"
+) -> HTTPException:
     """
     Convert trading errors to appropriate HTTP exceptions.
-    
+
     Args:
         error: The error that occurred
         default_message: Default message if error type is unknown
-        
+
     Returns:
         HTTPException with appropriate status code and message
     """
     if isinstance(error, InsufficientBalanceError):
         logger.warning(f"Insufficient balance: {error.message}")
         return create_http_exception(
-            status.HTTP_400_BAD_REQUEST,
-            error.message,
-            error.details
+            status.HTTP_400_BAD_REQUEST, error.message, error.details
         )
-    
+
     elif isinstance(error, InvalidSymbolError):
         logger.warning(f"Invalid symbol: {error.message}")
         return create_http_exception(
-            status.HTTP_400_BAD_REQUEST,
-            error.message,
-            error.details
+            status.HTTP_400_BAD_REQUEST, error.message, error.details
         )
-    
+
     elif isinstance(error, OrderExecutionError):
         logger.error(f"Order execution error: {error.message}", exc_info=True)
         return create_http_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            error.message,
-            error.details
+            status.HTTP_500_INTERNAL_SERVER_ERROR, error.message, error.details
         )
-    
+
     elif isinstance(error, BotCreationError):
         logger.error(f"Bot creation error: {error.message}", exc_info=True)
         return create_http_exception(
-            status.HTTP_400_BAD_REQUEST,
-            error.message,
-            error.details
+            status.HTTP_400_BAD_REQUEST, error.message, error.details
         )
-    
+
     elif isinstance(error, ConfigurationError):
         logger.warning(f"Configuration error: {error.message}")
         return create_http_exception(
-            status.HTTP_400_BAD_REQUEST,
-            error.message,
-            error.details
+            status.HTTP_400_BAD_REQUEST, error.message, error.details
         )
-    
+
     elif isinstance(error, ValueError):
         logger.warning(f"Validation error: {str(error)}")
-        return create_http_exception(
-            status.HTTP_400_BAD_REQUEST,
-            str(error)
-        )
-    
+        return create_http_exception(status.HTTP_400_BAD_REQUEST, str(error))
+
     else:
         # Unknown error - log and return generic message
         logger.error(f"Unexpected error: {str(error)}", exc_info=True)
         return create_http_exception(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
             default_message,
-            {"error_type": type(error).__name__}
+            {"error_type": type(error).__name__},
         )
 
 
@@ -179,11 +175,11 @@ ERROR_MESSAGES = {
 def format_error_message(template_key: str, **kwargs) -> str:
     """
     Format an error message using a template.
-    
+
     Args:
         template_key: Key of the error template
         **kwargs: Values to interpolate into template
-        
+
     Returns:
         Formatted error message
     """

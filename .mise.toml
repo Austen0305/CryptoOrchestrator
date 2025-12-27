@@ -1,0 +1,11 @@
+# mise configuration for CryptoOrchestrator
+# This file pins the Go version for this project
+
+[tools]
+go = "1.25.5"
+
+# Auto-install packages when Go is installed
+[settings.go]
+default_packages = [
+    "github.com/nazar256/combine-mcp/cmd/combine-mcp@latest"
+]

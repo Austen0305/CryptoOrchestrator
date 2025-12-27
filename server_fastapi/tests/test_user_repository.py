@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server_fastapi.repositories.user_repository import UserRepository
 from server_fastapi.models.base import User
 
+
 @pytest.mark.asyncio
 class TestUserRepository:
     """Test cases for UserRepository"""
@@ -17,14 +18,17 @@ class TestUserRepository:
         hashed_password = "hashed_password_123"
 
         # Create user
-        user = await repo.create(db_session, {
-            "username": username,
-            "email": email,
-            "hashed_password": hashed_password,
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        user = await repo.create(
+            db_session,
+            {
+                "username": username,
+                "email": email,
+                "hashed_password": hashed_password,
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         assert user.id is not None
         assert user.username == username
@@ -39,14 +43,17 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create test user
-        await repo.create(db_session, {
-            "username": "testuser",
-            "email": "test@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Retrieve by username
         user = await repo.get_by_username(db_session, "testuser")
@@ -68,14 +75,17 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create test user
-        await repo.create(db_session, {
-            "username": "testuser",
-            "email": "test@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Retrieve by email
         user = await repo.get_by_email(db_session, "test@example.com")
@@ -97,14 +107,17 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create test user
-        user = await repo.create(db_session, {
-            "username": "testuser",
-            "email": "test@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        user = await repo.create(
+            db_session,
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         original_login_count = user.login_count or 0
 
@@ -120,24 +133,30 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create active user
-        await repo.create(db_session, {
-            "username": "active_user",
-            "email": "active@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "active_user",
+                "email": "active@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Create inactive user
-        await repo.create(db_session, {
-            "username": "inactive_user",
-            "email": "inactive@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": False,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "inactive_user",
+                "email": "inactive@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": False,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Get active users
         active_users = await repo.get_active_users(db_session)
@@ -150,23 +169,29 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create test users
-        await repo.create(db_session, {
-            "username": "john_doe",
-            "email": "john@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "john_doe",
+                "email": "john@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
-        await repo.create(db_session, {
-            "username": "jane_smith",
-            "email": "jane@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        await repo.create(
+            db_session,
+            {
+                "username": "jane_smith",
+                "email": "jane@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Search by username
         results = await repo.search_users(db_session, "john")
@@ -183,14 +208,17 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create unverified user
-        user = await repo.create(db_session, {
-            "username": "testuser",
-            "email": "test@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        user = await repo.create(
+            db_session,
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Verify user
         verified_user = await repo.verify_user(db_session, user.id)
@@ -203,14 +231,17 @@ class TestUserRepository:
         repo = UserRepository()
 
         # Create active user
-        user = await repo.create(db_session, {
-            "username": "testuser",
-            "email": "test@example.com",
-            "hashed_password": "hashed_password_123",
-            "is_active": True,
-            "is_verified": False,
-            "role": "user"
-        })
+        user = await repo.create(
+            db_session,
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "hashed_password": "hashed_password_123",
+                "is_active": True,
+                "is_verified": False,
+                "role": "user",
+            },
+        )
 
         # Deactivate user
         deactivated_user = await repo.deactivate_user(db_session, user.id)

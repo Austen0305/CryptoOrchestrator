@@ -21,6 +21,9 @@ interface IncomingMarketUpdate {
 
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 10;
   const [isConnected, setIsConnected] = useState(false);
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
@@ -33,12 +36,18 @@ export const useWebSocket = () => {
   useEffect(() => {
     // Only connect if authenticated
     if (!isAuthenticated) {
+      // Clean up reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
       // Close any existing connection
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
       setIsConnected(false);
+      reconnectAttemptsRef.current = 0; // Reset attempts on auth change
       return;
     }
     // Visibility-aware throttle state
@@ -56,26 +65,14 @@ export const useWebSocket = () => {
 
     const connectWebSocket = () => {
       // Type-safe access to window/import.meta properties
-      interface WindowWithGlobals extends Window {
-        __WS_BASE__?: string;
-        __API_BASE__?: string;
-      }
-      interface ImportMetaWithEnv extends ImportMeta {
-        env?: {
-          VITE_WS_BASE_URL?: string;
-          VITE_API_BASE_URL?: string;
-        };
-      }
-
-      const windowWithGlobals = typeof window !== 'undefined' ? window as WindowWithGlobals : null;
-      const importMetaWithEnv = import.meta as ImportMetaWithEnv;
+      // Window and ImportMeta types are now defined in client/src/types/global.d.ts
 
       const wsBase =
-        windowWithGlobals?.__WS_BASE__ ||
-        importMetaWithEnv?.env?.VITE_WS_BASE_URL ||
+        (typeof window !== 'undefined' ? window.__WS_BASE__ : undefined) ||
+        import.meta.env.VITE_WS_BASE_URL ||
         // derive from API_BASE if present
         (() => {
-          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_BASE_URL || '';
+          const api = (typeof window !== 'undefined' ? window.__API_BASE__ : undefined) || import.meta.env.VITE_API_BASE_URL || '';
           if (api.startsWith('http')) {
             return api.replace(/^http/, 'ws');
           }
@@ -103,6 +100,7 @@ export const useWebSocket = () => {
           if (data.type === 'auth_success') {
             logger.info('WebSocket authenticated');
             setIsConnected(true);
+            reconnectAttemptsRef.current = 0; // Reset on successful connection
             return; // Don't process further for auth confirmation
           }
           if (data.error === 'Authentication required') {
@@ -156,15 +154,39 @@ export const useWebSocket = () => {
         }
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         setIsConnected(false);
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-        if (token) {
-          logger.info("WebSocket disconnected; scheduling reconnect in 7s");
-          setTimeout(connectWebSocket, 7000);
-        } else {
+        
+        // Don't reconnect if:
+        // 1. No token (user logged out)
+        // 2. Maximum attempts reached
+        // 3. Closed normally (code 1000) and not from error
+        if (!token) {
           logger.debug("WebSocket disconnected; no token so not reconnecting");
+          reconnectAttemptsRef.current = 0;
+          return;
         }
+
+        // Check if we should reconnect
+        if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          logger.error("WebSocket: Maximum reconnection attempts reached");
+          reconnectAttemptsRef.current = 0;
+          return;
+        }
+
+        // Calculate exponential backoff delay with jitter
+        const baseDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000); // Max 30s
+        const jitter = Math.random() * 1000; // 0-1s jitter
+        const delay = baseDelay + jitter;
+        
+        reconnectAttemptsRef.current += 1;
+        logger.info(`WebSocket disconnected (code: ${event.code}); scheduling reconnect attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts} in ${Math.round(delay)}ms`);
+        
+        reconnectTimeoutRef.current = setTimeout(() => {
+          reconnectTimeoutRef.current = null;
+          connectWebSocket();
+        }, delay);
       };
 
       ws.onerror = (error) => {
@@ -177,9 +199,19 @@ export const useWebSocket = () => {
     connectWebSocket();
 
     return () => {
+      // Clean up reconnection timeout
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      // Close WebSocket connection
       if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
+      // Reset connection state
+      setIsConnected(false);
+      reconnectAttemptsRef.current = 0;
     };
   }, [queryClient, isAuthenticated]);
 

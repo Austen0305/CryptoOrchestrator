@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cryptoorchestrator
+  labels:
+    name: cryptoorchestrator
+    environment: production

@@ -145,3 +145,16 @@ def sentry_trace(func):
         return async_wrapper
     else:
         return sync_wrapper
+
+
+# Create a client-like interface for backward compatibility
+class SentryClient:
+    """Mock Sentry client interface for crash reporting"""
+    def capture_exception(self, exception: Exception, **kwargs):
+        capture_exception(exception, **kwargs)
+    
+    def capture_message(self, message: str, level: str = "info", **kwargs):
+        capture_message(message, level=level, **kwargs)
+
+
+sentry_client = SentryClient() if SENTRY_AVAILABLE else None

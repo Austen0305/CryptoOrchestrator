@@ -107,8 +107,8 @@ class SentimentAIService:
         self._transformer_loading_attempted = True
         try:
             # Try to load with offline mode if model not cached
-            os.environ['HF_HUB_OFFLINE'] = '1'  # Force offline mode if model not cached
-            
+            os.environ["HF_HUB_OFFLINE"] = "1"  # Force offline mode if model not cached
+
             self.transformer_pipeline = pipeline(
                 "sentiment-analysis",
                 model="distilbert-base-uncased-finetuned-sst-2-english",
@@ -116,7 +116,9 @@ class SentimentAIService:
             )
             logger.info("Transformer sentiment model loaded successfully")
         except Exception as e:
-            logger.warning(f"Failed to load transformer model (will use VADER/TextBlob instead): {e}")
+            logger.warning(
+                f"Failed to load transformer model (will use VADER/TextBlob instead): {e}"
+            )
 
     def analyze_text(self, text: str, method: str = "vader") -> SentimentScore:
         """Analyze sentiment of text"""
@@ -156,9 +158,12 @@ class SentimentAIService:
 
             elif method == "transformer":
                 # Lazy load transformer model
-                if not self.transformer_pipeline and not self._transformer_loading_attempted:
+                if (
+                    not self.transformer_pipeline
+                    and not self._transformer_loading_attempted
+                ):
                     self._load_transformer_model()
-                
+
                 if self.transformer_pipeline:
                     results = self.transformer_pipeline(text)
 

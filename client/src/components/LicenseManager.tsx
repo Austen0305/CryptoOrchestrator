@@ -320,12 +320,12 @@ export function LicenseManager() {
                       <div>
                         <div className="text-sm font-medium mb-2">Features:</div>
                         <ul className="text-sm text-muted-foreground space-y-1">
-                          {config.features.map((feature, idx) => (
+                          {config.features && Array.isArray(config.features) ? config.features.map((feature, idx) => (
                             <li key={idx} className="flex items-start gap-2">
                               <CheckCircle2 className="h-3 w-3 mt-0.5 text-green-500 flex-shrink-0" />
                               <span>{feature.replace('_', ' ')}</span>
                             </li>
-                          ))}
+                          )) : null}
                         </ul>
                       </div>
                     </div>

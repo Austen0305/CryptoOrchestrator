@@ -1,5 +1,20 @@
 # Troubleshooting Common Issues
 
+Complete troubleshooting guide for common development and production issues.
+
+## 📋 Table of Contents
+
+- [Bot Management Issues](#bot-management-issues)
+- [API Connectivity Issues](#api-connectivity-issues)
+- [Market Data Issues](#market-data-issues)
+- [Performance Issues](#performance-issues)
+- [Database Issues](#database-issues)
+- [Network and Connectivity Issues](#network-and-connectivity-issues)
+- [Development Environment Issues](#development-environment-issues)
+- [Emergency Procedures](#emergency-procedures)
+
+---
+
 ## Bot Management Issues
 
 ### Bot Won't Start
@@ -553,6 +568,495 @@
 3. Reconcile transactions
 4. Resume normal operations
 5. Document incident
+
+## Development Environment Issues
+
+### Python Environment Problems
+
+**Problem**: Python dependencies not installing or import errors.
+
+**Solutions:**
+
+1. **Virtual Environment**
+   ```bash
+   # Create virtual environment
+   python -m venv venv
+   
+   # Activate (Windows)
+   venv\Scripts\activate
+   
+   # Activate (Linux/Mac)
+   source venv/bin/activate
+   
+   # Install dependencies
+   pip install -r requirements.txt
+   ```
+
+2. **Python Version**
+   ```bash
+   # Check Python version
+   python --version  # Should be 3.12+
+   
+   # Install correct version if needed
+   # Use pyenv or download from python.org
+   ```
+
+3. **Dependency Conflicts**
+   ```bash
+   # Clear pip cache
+   pip cache purge
+   
+   # Reinstall dependencies
+   pip install --upgrade pip
+   pip install -r requirements.txt --force-reinstall
+   ```
+
+### Node.js Environment Problems
+
+**Problem**: npm install fails or package conflicts.
+
+**Solutions:**
+
+1. **Clear npm Cache**
+   ```bash
+   npm cache clean --force
+   rm -rf node_modules package-lock.json
+   npm install --legacy-peer-deps
+   ```
+
+2. **Node Version**
+   ```bash
+   # Check Node version
+   node --version  # Should be 18+
+   
+   # Use nvm to switch versions
+   nvm install 18
+   nvm use 18
+   ```
+
+3. **Peer Dependency Warnings**
+   ```bash
+   # Use --legacy-peer-deps (expected for this project)
+   npm install --legacy-peer-deps
+   ```
+
+### TypeScript Compilation Errors
+
+**Problem**: TypeScript errors preventing build.
+
+**Solutions:**
+
+1. **Type Errors**
+   ```bash
+   # Check TypeScript errors
+   npm run check
+   
+   # Fix common issues:
+   # - Add type annotations
+   # - Use 'unknown' instead of 'any'
+   # - Fix import paths
+   ```
+
+2. **Path Alias Issues**
+   ```typescript
+   // Ensure tsconfig.json has correct paths
+   {
+     "compilerOptions": {
+       "paths": {
+         "@/*": ["./src/*"],
+         "@shared/*": ["../shared/*"]
+       }
+     }
+   }
+   ```
+
+3. **Module Resolution**
+   ```bash
+   # Clear TypeScript cache
+   rm -rf node_modules/.cache
+   rm tsconfig.tsbuildinfo
+   npm run check
+   ```
+
+### FastAPI Startup Errors
+
+**Problem**: Backend won't start or crashes on startup.
+
+**Solutions:**
+
+1. **Port Already in Use**
+   ```bash
+   # Windows
+   netstat -ano | findstr :8000
+   taskkill /PID <PID> /F
+   
+   # Linux/Mac
+   lsof -i :8000
+   kill <PID>
+   ```
+
+2. **Database Connection**
+   ```bash
+   # Check DATABASE_URL in .env
+   # Verify database is accessible
+   # Test connection:
+   python -c "from server_fastapi.database import get_db_session; print('DB OK')"
+   ```
+
+3. **Import Errors**
+   ```bash
+   # Verify Python path
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+   
+   # Check imports
+   python -c "from server_fastapi.main import app; print('Imports OK')"
+   ```
+
+### React Development Server Issues
+
+**Problem**: Frontend dev server won't start or hot reload fails.
+
+**Solutions:**
+
+1. **Port Conflicts**
+   ```bash
+   # Change port in vite.config.ts
+   export default defineConfig({
+     server: {
+       port: 5174  # Use different port
+     }
+   })
+   ```
+
+2. **Hot Reload Not Working**
+   ```bash
+   # Clear Vite cache
+   rm -rf node_modules/.vite
+   npm run dev
+   ```
+
+3. **Build Errors**
+   ```bash
+   # Clear all caches
+   rm -rf node_modules .next dist
+   npm install --legacy-peer-deps
+   npm run build
+   ```
+
+### Database Migration Issues
+
+**Problem**: Migrations fail or database schema out of sync.
+
+**Solutions:**
+
+1. **Migration Conflicts**
+   ```bash
+   # Check migration status
+   alembic current
+   
+   # View migration history
+   alembic history
+   
+   # Resolve conflicts manually
+   # Edit migration file if needed
+   ```
+
+2. **Schema Drift**
+   ```bash
+   # Generate new migration
+   alembic revision --autogenerate -m "fix schema drift"
+   
+   # Review generated migration
+   # Apply carefully
+   alembic upgrade head
+   ```
+
+3. **Rollback Issues**
+   ```bash
+   # Rollback one migration
+   alembic downgrade -1
+   
+   # Rollback to specific version
+   alembic downgrade <revision>
+   ```
+
+### Celery Worker Issues
+
+**Problem**: Celery workers not processing tasks.
+
+**Solutions:**
+
+1. **Worker Not Starting**
+   ```bash
+   # Check Redis connection
+   redis-cli ping  # Should return PONG
+   
+   # Check Celery config
+   python -c "from server_fastapi.celery_app import celery_app; print(celery_app.conf)"
+   ```
+
+2. **Tasks Not Executing**
+   ```bash
+   # Check worker logs
+   tail -f logs/celery.log
+   
+   # Verify task registration
+   celery -A server_fastapi.celery_app inspect registered
+   ```
+
+3. **Redis Connection Errors**
+   ```bash
+   # App works without Redis (optional)
+   # Remove REDIS_URL from .env to disable
+   # Or fix Redis connection:
+   # - Check Redis is running
+   # - Verify REDIS_URL in .env
+   # - Test connection: redis-cli -u $REDIS_URL ping
+   ```
+
+### Test Failures
+
+**Problem**: Tests failing locally or in CI.
+
+**Solutions:**
+
+1. **Isolated Test Database**
+   ```bash
+   # Use separate test database
+   export DATABASE_URL=sqlite+aiosqlite:///./test.db
+   pytest server_fastapi/tests/ -v
+   ```
+
+2. **Fixture Issues**
+   ```bash
+   # Check test fixtures
+   pytest server_fastapi/tests/conftest.py
+   
+   # Run with verbose output
+   pytest -vv --tb=short
+   ```
+
+3. **Async Test Issues**
+   ```python
+   # Ensure async tests use pytest.mark.asyncio
+   import pytest
+   
+   @pytest.mark.asyncio
+   async def test_async_function():
+       # Test code
+       pass
+   ```
+
+### Linting and Formatting Issues
+
+**Problem**: Code fails linting or formatting checks.
+
+**Solutions:**
+
+1. **Python Formatting**
+   ```bash
+   # Auto-format with Black
+   npm run format:py
+   # or
+   python -m black server_fastapi/ tests/
+   ```
+
+2. **Python Linting**
+   ```bash
+   # Fix common issues
+   npm run lint:py
+   
+   # Common fixes:
+   # - Remove unused imports
+   # - Fix line length (88 chars)
+   # - Fix complexity (max 10)
+   ```
+
+3. **TypeScript Formatting**
+   ```bash
+   # Auto-format with Prettier
+   npm run format
+   ```
+
+4. **TypeScript Linting**
+   ```bash
+   # Fix linting issues
+   npm run lint
+   
+   # Common fixes:
+   # - Remove unused variables
+   # - Fix 'any' types
+   # - Add missing dependencies to useEffect
+   ```
+
+---
+
+## Emergency Procedures
+
+### System Down Emergency
+
+**Immediate Actions:**
+1. Stop all trading bots
+2. Notify affected users
+3. Switch to backup systems
+4. Begin root cause analysis
+
+**Recovery Steps:**
+1. Assess system damage
+2. Restore from backups
+3. Validate system integrity
+4. Gradually resume operations
+5. Communicate with stakeholders
+
+### Data Loss Emergency
+
+**Immediate Actions:**
+1. Stop all write operations
+2. Assess data loss scope
+3. Activate backup restoration
+4. Notify compliance team
+
+**Recovery Steps:**
+1. Restore from most recent backup
+2. Validate data integrity
+3. Reconcile transactions
+4. Resume normal operations
+5. Document incident
+
+### Security Incident
+
+**Immediate Actions:**
+1. Isolate affected systems
+2. Preserve logs and evidence
+3. Notify security team
+4. Assess impact
+
+**Recovery Steps:**
+1. Contain the threat
+2. Remove compromised access
+3. Patch vulnerabilities
+4. Restore from clean backups
+5. Document incident and lessons learned
+
+---
+
+## 🔍 Debugging Tools
+
+### Backend Debugging
+
+**Logs:**
+```bash
+# Application logs
+tail -f logs/fastapi.log
+
+# Error logs
+tail -f logs/errors.log
+
+# Audit logs
+tail -f logs/audit.log
+```
+
+**API Testing:**
+```bash
+# Interactive API docs
+http://localhost:8000/docs
+
+# Health check
+curl http://localhost:8000/api/health/
+
+# Detailed health
+curl http://localhost:8000/api/health/detailed
+```
+
+**Database Inspection:**
+```bash
+# SQLite
+sqlite3 crypto_orchestrator.db
+.tables
+SELECT * FROM bots LIMIT 10;
+
+# PostgreSQL
+psql $DATABASE_URL
+\dt
+SELECT * FROM bots LIMIT 10;
+```
+
+### Frontend Debugging
+
+**Browser DevTools:**
+- **Console:** JavaScript errors and warnings
+- **Network:** API calls and responses
+- **React DevTools:** Component tree and state
+- **React Query DevTools:** Query cache state
+
+**React Query Debug:**
+```typescript
+// Access query cache in console
+window.__REACT_QUERY_STATE__ = queryClient.getQueryCache();
+```
+
+**Performance Profiling:**
+```typescript
+// React DevTools Profiler
+// Record performance while using app
+// Identify slow components
+```
+
+### Database Performance
+
+**Query Analysis:**
+```bash
+# PostgreSQL query analysis
+# Enable query logging in .env
+LOG_QUERIES=true
+
+# Check slow queries
+SELECT * FROM pg_stat_statements 
+ORDER BY total_time DESC 
+LIMIT 10;
+```
+
+**Index Usage:**
+```bash
+# Use database performance API
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8000/api/database/indexes/usage?table_name=trades
+```
+
+---
+
+## 📞 Getting Additional Help
+
+### Support Channels
+
+- **Documentation:** [docs/](./)
+- **GitHub Issues:** Report bugs and request features
+- **Discord:** Developer community discussions
+- **Email:** support@cryptoorchestrator.com
+
+### Before Asking for Help
+
+1. **Check Documentation:**
+   - [Developer Onboarding](./DEVELOPER_ONBOARDING.md)
+   - [API Reference](./API_REFERENCE.md)
+   - [Architecture](./architecture.md)
+
+2. **Search Existing Issues:**
+   - GitHub Issues
+   - Discord history
+   - Documentation
+
+3. **Gather Information:**
+   - Error messages
+   - Log files
+   - Steps to reproduce
+   - Environment details
+
+4. **Try Common Solutions:**
+   - Restart services
+   - Clear caches
+   - Reinstall dependencies
+   - Check environment variables
 
 ---
 

@@ -106,7 +106,7 @@ export function lockScrollForAuthenticatedApp() {
 }
 
 // Prevent scroll events on HTML/body
-export function preventWindowScroll(e: Event) {
+export function preventWindowScroll(e: Event): void {
   const isLanding = document.body?.classList.contains('landing-page-active') ||
                    document.documentElement?.classList.contains('landing-page-active');
   
@@ -123,7 +123,7 @@ export function preventWindowScroll(e: Event) {
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
-    return false;
+    return;
   }
   
   // If scrolling would move the window, prevent it (but only if not in main-content)

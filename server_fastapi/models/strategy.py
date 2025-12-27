@@ -65,7 +65,7 @@ class Strategy(Base):
 
     # Relationships
     parent_strategy = relationship("Strategy", remote_side=[id], backref="versions")
-    user = relationship("User", backref="strategies")
+    user = relationship("User", back_populates="strategies")
 
 
 class StrategyVersion(Base):

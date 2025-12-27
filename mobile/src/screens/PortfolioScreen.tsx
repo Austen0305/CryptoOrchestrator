@@ -1,6 +1,6 @@
 /**
  * Portfolio Screen for Mobile App
- * Displays user portfolio with real-time updates
+ * Displays user portfolio with multi-chain wallet support and real-time updates
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,9 +11,15 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { apiService } from '../services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import OfflineIndicator from '../components/OfflineIndicator';
+import { useOffline } from '../hooks/useOffline';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
 
@@ -25,6 +31,20 @@ interface Position {
   totalValue: number;
   profitLoss: number;
   profitLossPercent: number;
+}
+
+interface Wallet {
+  id: string;
+  address: string;
+  chain_id: number;
+  chain_name: string;
+  balance: number;
+  balance_usd: number;
+  token_balances?: Array<{
+    symbol: string;
+    balance: number;
+    balance_usd: number;
+  }>;
 }
 
 interface Portfolio {
@@ -39,74 +59,76 @@ interface Portfolio {
   winRate?: number;
   averageWin?: number;
   averageLoss?: number;
+  wallets?: Wallet[];
 }
 
-export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | 'real' }) {
-  const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-  const [loading, setLoading] = useState(true);
+interface PortfolioScreenProps {
+  mode?: 'paper' | 'real' | 'live';
+}
+
+export default function PortfolioScreen({ mode = 'paper' }: PortfolioScreenProps) {
+  const { isOnline } = useOffline();
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<number | null>(null);
+
+  // Fetch portfolio data
+  const { data: portfolio, isLoading, refetch } = useQuery({
+    queryKey: ['portfolio', mode],
+    queryFn: async () => {
+      const normalizedMode = mode === 'live' ? 'real' : mode;
+      const response = await apiService.getPortfolio(normalizedMode);
+      return response.data as Portfolio;
+    },
+    refetchInterval: isOnline ? 30000 : false, // Only refresh when online
+    enabled: isOnline, // Only fetch when online
+  });
+
+  // Fetch wallets
+  const { data: wallets } = useQuery({
+    queryKey: ['wallets'],
+    queryFn: async () => {
+      const response = await apiService.getWallets();
+      return response.data as Wallet[];
+    },
+    enabled: isOnline, // Only fetch when online
+  });
 
   // WebSocket for real-time updates
-  const apiBaseUrl = API_BASE_URL;
-  const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-  const token = require('@react-native-async-storage/async-storage').default.getItem('auth_token');
-  const { isConnected, lastMessage } = useWebSocket(
-    token ? `${wsBaseUrl}/api/ws/portfolio?token=${token}` : undefined
-  );
-
+  const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
-    fetchPortfolio();
-  }, [mode]);
+    AsyncStorage.getItem('auth_token').then(setToken);
+  }, []);
+
+  const wsBaseUrl = API_BASE_URL.replace('http://', 'ws://').replace('https://', 'wss://');
+  const { isConnected, lastMessage } = useWebSocket(
+    token && isOnline ? `${wsBaseUrl}/api/ws/portfolio?token=${token}` : undefined
+  );
 
   useEffect(() => {
     if (lastMessage) {
       try {
         const data = JSON.parse(lastMessage);
         if (data.type === 'portfolio_update' && data.data) {
-          setPortfolio(data.data);
+          // Invalidate query to refetch
+          refetch();
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
       }
     }
-  }, [lastMessage]);
+  }, [lastMessage, refetch]);
 
-  const fetchPortfolio = async () => {
-    try {
-      setLoading(true);
-      const token = await require('@react-native-async-storage/async-storage').default.getItem('auth_token');
-      const normalizedMode = mode === 'live' ? 'real' : mode;
-      
-      const response = await fetch(`${API_BASE_URL}/api/portfolio/${normalizedMode}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch portfolio');
-      }
-
-      const data = await response.json();
-      setPortfolio(data);
-    } catch (error) {
-      console.error('Failed to fetch portfolio:', error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    fetchPortfolio();
+    await refetch();
+    setRefreshing(false);
   };
 
-  if (loading && !portfolio) {
+  if (isLoading && !portfolio) {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <MaterialCommunityIcons name="loading" size={48} color="#6b7280" />
+          <ActivityIndicator size="large" color="#3b82f6" />
           <Text style={styles.loadingText}>Loading portfolio...</Text>
         </View>
       </View>
@@ -119,7 +141,7 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
         <View style={styles.errorContainer}>
           <MaterialCommunityIcons name="alert-circle" size={48} color="#ef4444" />
           <Text style={styles.errorText}>Failed to load portfolio</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchPortfolio}>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -128,6 +150,10 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
   }
 
   const positions = Object.values(portfolio.positions || {});
+  const displayWallets = wallets || portfolio.wallets || [];
+  const uniqueChains = Array.from(
+    new Set(displayWallets.map((w) => w.chain_id))
+  ).sort();
 
   return (
     <ScrollView
@@ -152,27 +178,145 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
       <View style={styles.summaryCard}>
         <Text style={styles.summaryLabel}>Total Balance</Text>
         <Text style={styles.summaryValue}>
-          ${portfolio.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          ${portfolio.totalBalance.toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
         </Text>
-        
+
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryItemLabel}>Available</Text>
             <Text style={styles.summaryItemValue}>
-              ${portfolio.availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${portfolio.availableBalance.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryItemLabel}>24h P&L</Text>
-            <Text style={[styles.summaryItemValue, portfolio.profitLoss24h >= 0 ? styles.positive : styles.negative]}>
-              {portfolio.profitLoss24h >= 0 ? '+' : ''}${portfolio.profitLoss24h.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <Text
+              style={[
+                styles.summaryItemValue,
+                portfolio.profitLoss24h >= 0 ? styles.positive : styles.negative,
+              ]}
+            >
+              {portfolio.profitLoss24h >= 0 ? '+' : ''}
+              ${portfolio.profitLoss24h.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </Text>
           </View>
         </View>
       </View>
 
+      {/* Multi-Chain Wallets */}
+      {displayWallets.length > 0 && (
+        <View style={styles.walletsCard}>
+          <Text style={styles.cardTitle}>Multi-Chain Wallets</Text>
+
+          {/* Chain Filter */}
+          {uniqueChains.length > 1 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.chainFilter}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.chainChip,
+                  selectedChain === null && styles.chainChipActive,
+                ]}
+                onPress={() => setSelectedChain(null)}
+              >
+                <Text
+                  style={[
+                    styles.chainChipText,
+                    selectedChain === null && styles.chainChipTextActive,
+                  ]}
+                >
+                  All Chains
+                </Text>
+              </TouchableOpacity>
+              {uniqueChains.map((chainId) => {
+                const wallet = displayWallets.find((w) => w.chain_id === chainId);
+                return (
+                  <TouchableOpacity
+                    key={chainId}
+                    style={[
+                      styles.chainChip,
+                      selectedChain === chainId && styles.chainChipActive,
+                    ]}
+                    onPress={() => setSelectedChain(chainId)}
+                  >
+                    <Text
+                      style={[
+                        styles.chainChipText,
+                        selectedChain === chainId && styles.chainChipTextActive,
+                      ]}
+                    >
+                      {wallet?.chain_name || `Chain ${chainId}`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {/* Wallet List */}
+          {displayWallets
+            .filter((w) => selectedChain === null || w.chain_id === selectedChain)
+            .map((wallet) => (
+              <View key={wallet.id} style={styles.walletItem}>
+                <View style={styles.walletHeader}>
+                  <View style={styles.walletInfo}>
+                    <MaterialCommunityIcons
+                      name="wallet"
+                      size={24}
+                      color="#3b82f6"
+                    />
+                    <View style={styles.walletDetails}>
+                      <Text style={styles.walletChain}>{wallet.chain_name}</Text>
+                      <Text style={styles.walletAddress} numberOfLines={1}>
+                        {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.walletBalance}>
+                    <Text style={styles.walletBalanceValue}>
+                      ${wallet.balance_usd.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </Text>
+                    <Text style={styles.walletBalanceNative}>
+                      {wallet.balance.toFixed(4)} {wallet.chain_name === 'Ethereum' ? 'ETH' : 'Native'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Token Balances */}
+                {wallet.token_balances && wallet.token_balances.length > 0 && (
+                  <View style={styles.tokenBalances}>
+                    {wallet.token_balances.map((token, idx) => (
+                      <View key={idx} style={styles.tokenItem}>
+                        <Text style={styles.tokenSymbol}>{token.symbol}</Text>
+                        <Text style={styles.tokenBalance}>
+                          ${token.balance_usd.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+        </View>
+      )}
+
       {/* Trading Stats */}
-      {(portfolio.totalTrades !== undefined && portfolio.totalTrades > 0) && (
+      {portfolio.totalTrades !== undefined && portfolio.totalTrades > 0 && (
         <View style={styles.statsCard}>
           <Text style={styles.cardTitle}>Trading Stats</Text>
           <View style={styles.statsGrid}>
@@ -183,7 +327,9 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Win Rate</Text>
               <Text style={styles.statValue}>
-                {portfolio.winRate ? (portfolio.winRate * 100).toFixed(1) : '0'}%
+                {portfolio.winRate
+                  ? (portfolio.winRate * 100).toFixed(1)
+                  : '0'}%
               </Text>
             </View>
             <View style={styles.statItem}>
@@ -217,7 +363,10 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
                 <Text style={styles.positionAsset}>{position.asset}</Text>
                 <View style={styles.positionValue}>
                   <Text style={styles.positionValueText}>
-                    ${position.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${position.totalValue.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </Text>
                 </View>
               </View>
@@ -229,13 +378,19 @@ export default function PortfolioScreen({ mode = 'paper' }: { mode?: 'paper' | '
                 <View style={styles.positionDetailItem}>
                   <Text style={styles.positionDetailLabel}>Avg Price</Text>
                   <Text style={styles.positionDetailValue}>
-                    ${position.averagePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${position.averagePrice.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </Text>
                 </View>
                 <View style={styles.positionDetailItem}>
                   <Text style={styles.positionDetailLabel}>Current</Text>
                   <Text style={styles.positionDetailValue}>
-                    ${position.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${position.currentPrice.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </Text>
                 </View>
               </View>
@@ -293,7 +448,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#f7931a',
+    backgroundColor: '#3b82f6',
     borderRadius: 8,
   },
   retryButtonText: {
@@ -349,7 +504,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  statsCard: {
+  walletsCard: {
     backgroundColor: '#1e293b',
     margin: 16,
     marginTop: 0,
@@ -363,6 +518,102 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 16,
+  },
+  chainFilter: {
+    marginBottom: 16,
+  },
+  chainChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#334155',
+    marginRight: 8,
+  },
+  chainChipActive: {
+    backgroundColor: '#3b82f6',
+    borderColor: '#3b82f6',
+  },
+  chainChipText: {
+    color: '#9ca3af',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  chainChipTextActive: {
+    color: '#fff',
+  },
+  walletItem: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
+  walletHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  walletInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  walletDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  walletChain: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  walletAddress: {
+    color: '#9ca3af',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  walletBalance: {
+    alignItems: 'flex-end',
+  },
+  walletBalanceValue: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  walletBalanceNative: {
+    color: '#9ca3af',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  tokenBalances: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+  },
+  tokenItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  tokenSymbol: {
+    color: '#9ca3af',
+    fontSize: 14,
+  },
+  tokenBalance: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  statsCard: {
+    backgroundColor: '#1e293b',
+    margin: 16,
+    marginTop: 0,
+    padding: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   statsGrid: {
     flexDirection: 'row',
@@ -458,4 +709,3 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 });
-

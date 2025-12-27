@@ -86,7 +86,7 @@ export function Staking() {
       const zodError = error instanceof ZodError ? error : null;
       toast({
         title: "Validation Error",
-        description: zodError?.errors?.[0]?.message || "Invalid staking data",
+        description: zodError?.issues?.[0]?.message || "Invalid staking data",
         variant: "destructive"
       });
       return;
@@ -157,7 +157,7 @@ export function Staking() {
       const zodError = error instanceof ZodError ? error : null;
       toast({
         title: "Validation Error",
-        description: zodError?.errors?.[0]?.message || "Invalid unstaking data",
+        description: zodError?.issues?.[0]?.message || "Invalid unstaking data",
         variant: "destructive"
       });
       return;
@@ -221,11 +221,11 @@ export function Staking() {
                         <SelectValue placeholder="Select asset" />
                       </SelectTrigger>
                       <SelectContent>
-                        {options?.options?.map((opt: StakingOption) => (
+                        {options?.options && Array.isArray(options.options) ? options.options.map((opt: StakingOption) => (
                           <SelectItem key={opt.asset} value={opt.asset}>
                             {opt.asset} - {opt.apy}% APY
                           </SelectItem>
-                        ))}
+                        )) : null}
                       </SelectContent>
                     </Select>
                   </div>
@@ -272,7 +272,7 @@ export function Staking() {
             />
           ) : options?.options && options.options.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {options.options.map((option: StakingOption) => (
+              {options?.options && Array.isArray(options.options) ? options.options.map((option: StakingOption) => (
                 <Card key={option.asset}>
                   <CardHeader>
                     <CardTitle className="text-lg">{option.asset}</CardTitle>
@@ -291,7 +291,7 @@ export function Staking() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )) : null}
             </div>
           ) : (
             <EmptyState
@@ -397,7 +397,7 @@ export function Staking() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {myStakes.stakes.map((stake: Stake) => (
+                {myStakes?.stakes && Array.isArray(myStakes.stakes) ? myStakes.stakes.map((stake: Stake) => (
                   <TableRow key={stake.asset}>
                     <TableCell className="font-medium">{stake.asset}</TableCell>
                     <TableCell>{stake.staked_amount} {stake.asset}</TableCell>
@@ -410,7 +410,13 @@ export function Staking() {
                       {stake.rewards.yearly_rewards.toFixed(6)} {stake.asset}
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      No staked assets found
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           ) : (

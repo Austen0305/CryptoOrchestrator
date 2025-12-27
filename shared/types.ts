@@ -86,6 +86,6 @@ export interface TradingBot {
     stopLoss?: number;
     takeProfit?: number;
     maxPosition?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }

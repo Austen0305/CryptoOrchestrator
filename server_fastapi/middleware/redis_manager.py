@@ -5,6 +5,7 @@ Provides resilient caching with graceful degradation
 
 import json
 import logging
+import asyncio
 from typing import Optional, Any, Callable
 from functools import wraps
 from datetime import datetime, timedelta
@@ -39,16 +40,24 @@ class RedisCacheManager:
             return
 
         try:
+            # Increased timeouts to prevent connection errors
             self.client = await redis.from_url(
                 self.redis_url,
                 encoding="utf-8",
                 decode_responses=True,
-                socket_connect_timeout=5,
-                socket_timeout=5,
+                socket_connect_timeout=10,  # Increased from 5
+                socket_timeout=10,  # Increased from 5
+                socket_keepalive=True,  # Enable keepalive
+                socket_keepalive_options={},  # Default keepalive options
             )
-            await self.client.ping()
+            # Use asyncio.wait_for with increased timeout for ping
+            await asyncio.wait_for(self.client.ping(), timeout=3.0)
             self.available = True
-            logger.info("✅ Redis connected successfully")
+            logger.info("[OK] Redis connected successfully")
+        except asyncio.TimeoutError:
+            logger.warning("Redis connection timeout, using in-memory cache")
+            self.available = False
+            self.client = None
         except Exception as e:
             logger.warning(f"Redis connection failed, using in-memory cache: {e}")
             self.available = False

@@ -10,7 +10,7 @@ interface OptimisticUpdateOptions<TData, TVariables> {
   queryKey: string[];
   updateFn: (variables: TVariables) => Promise<TData>;
   onSuccess?: (data: TData, variables: TVariables) => void;
-  onError?: (error: Error, variables: TVariables, context: any) => void;
+  onError?: (error: Error, variables: TVariables, context: unknown) => void;
   successMessage?: string;
   errorMessage?: string;
   optimisticData?: (variables: TVariables) => TData;

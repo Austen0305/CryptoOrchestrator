@@ -6,13 +6,14 @@ Implements DCA bot functionality - buys at regular intervals to average out purc
 import logging
 import uuid
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.dca_bot import DCABot
 from ...repositories.dca_bot_repository import DCABotRepository
-from ...services.exchange_service import ExchangeService
+from ...services.coingecko_service import CoinGeckoService
+from ...services.trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...database import get_db_context
 from contextlib import asynccontextmanager
@@ -30,6 +31,8 @@ class DCATradingService:
         self.repository = DCABotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
+        self.coingecko = CoinGeckoService()
+        self.dex_service = DEXTradingService()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -101,6 +104,10 @@ class DCATradingService:
                 # Calculate next order time
                 next_order_at = datetime.utcnow() + timedelta(minutes=interval_minutes)
 
+                # Extract chain_id from exchange (temporary - exchange field stores chain_id as string)
+                # Default to Ethereum (1) if exchange is not a numeric chain_id
+                chain_id = int(exchange) if exchange.isdigit() else 1
+
                 # Create DCA bot
                 dca_bot = DCABot(
                     id=bot_id,
@@ -121,7 +128,7 @@ class DCATradingService:
                     active=False,
                     status="stopped",
                     next_order_at=next_order_at,
-                    config=json.dumps(config or {}),
+                    config=json.dumps((config or {}) | {"chain_id": chain_id}),
                 )
 
                 session.add(dca_bot)
@@ -374,14 +381,14 @@ class DCATradingService:
     ) -> Dict[str, Any]:
         """Place a DCA buy order."""
         try:
+            # Get current market price from CoinGecko
+            current_price = await self.coingecko.get_price(bot.symbol)
+
+            if not current_price:
+                return {"success": False, "error": "Could not get market price"}
+
             if bot.trading_mode == "paper":
                 # Paper trading - simulate order
-                exchange_service = ExchangeService(bot.exchange)
-                current_price = await exchange_service.get_market_price(bot.symbol)
-
-                if not current_price:
-                    return {"success": False, "error": "Could not get market price"}
-
                 return {
                     "success": True,
                     "order_id": f"paper-{uuid.uuid4().hex[:12]}",
@@ -389,25 +396,70 @@ class DCATradingService:
                     "amount": amount,
                 }
             else:
-                # Real trading - place actual order
-                exchange_service = ExchangeService(bot.exchange)
-                order = await exchange_service.place_order(
-                    pair=bot.symbol, side="buy", type_="market", amount=amount
+                # Real trading - execute DEX swap (buy base token with quote token)
+                # Get chain_id from bot config or exchange field (temporary)
+                chain_id = 1  # Default to Ethereum
+                if bot.config:
+                    config = (
+                        json.loads(bot.config)
+                        if isinstance(bot.config, str)
+                        else bot.config
+                    )
+                    chain_id = config.get(
+                        "chain_id", int(bot.exchange) if bot.exchange.isdigit() else 1
+                    )
+                elif bot.exchange and bot.exchange.isdigit():
+                    chain_id = int(bot.exchange)
+
+                # Convert symbol to token addresses using token registry
+                base_address, quote_address = await self._parse_symbol_to_tokens(
+                    bot.symbol, chain_id
                 )
 
-                if order:
+                # DCA buys base token with quote token
+                sell_token = quote_address  # Sell quote token (USDC)
+                buy_token = base_address  # Buy base token (ETH)
+                sell_amount = str(amount)  # Amount of quote token to sell
+
+                # Execute DEX swap
+                swap_result = await self.dex_service.execute_custodial_swap(
+                    user_id=bot.user_id,
+                    sell_token=sell_token,
+                    buy_token=buy_token,
+                    sell_amount=sell_amount,
+                    chain_id=chain_id,
+                    slippage_percentage=0.5,  # Default 0.5% slippage
+                    db=session,
+                    user_tier="free",  # Get from user profile
+                )
+
+                if swap_result and swap_result.get("success"):
+                    # Get actual execution price from swap result
+                    executed_price = swap_result.get("price", current_price)
                     return {
                         "success": True,
-                        "order_id": order.get("id"),
-                        "price": order.get("price", 0),
+                        "order_id": swap_result.get("transaction_hash"),
+                        "price": executed_price,
                         "amount": amount,
+                        "transaction_hash": swap_result.get("transaction_hash"),
                     }
                 else:
-                    return {"success": False, "error": "Order placement failed"}
-
+                    return {"success": False, "error": "DEX swap failed"}
         except Exception as e:
             logger.error(f"Error placing DCA order: {str(e)}", exc_info=True)
             return {"success": False, "error": str(e)}
+
+    async def _parse_symbol_to_tokens(
+        self, symbol: str, chain_id: int = 1
+    ) -> Tuple[str, str]:
+        """Parse trading symbol to token addresses using token registry."""
+        from ..blockchain.token_registry import get_token_registry
+
+        token_registry = get_token_registry()
+        base_address, quote_address = await token_registry.parse_symbol_to_tokens(
+            symbol, chain_id
+        )
+        return base_address, quote_address
 
     async def _calculate_average_price(
         self, bot: DCABot, new_price: float, new_amount: float
@@ -435,9 +487,8 @@ class DCATradingService:
         if bot.orders_executed == 0:
             return {"should_stop": False, "status": None, "reason": None}
 
-        # Get current market price
-        exchange_service = ExchangeService(bot.exchange)
-        current_price = await exchange_service.get_market_price(bot.symbol)
+        # Get current market price from CoinGecko
+        current_price = await self.coingecko.get_price(bot.symbol)
 
         if not current_price or bot.average_price == 0:
             return {"should_stop": False, "status": None, "reason": None}
@@ -479,17 +530,18 @@ class DCATradingService:
 
     async def list_user_dca_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """List all DCA bots for a user."""
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all DCA bots for a user with total count."""
         try:
             async with self._get_session() as session:
                 bots = await self.repository.get_user_dca_bots(
                     session, user_id, skip, limit
                 )
-                return [bot.to_dict() for bot in bots]
+                total = await self.repository.count_user_dca_bots(session, user_id)
+                return [bot.to_dict() for bot in bots], total
 
         except Exception as e:
             logger.error(
                 f"Error listing DCA bots for user {user_id}: {str(e)}", exc_info=True
             )
-            return []
+            return [], 0

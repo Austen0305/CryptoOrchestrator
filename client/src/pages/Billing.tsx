@@ -10,6 +10,7 @@ import { useLocation } from "wouter";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import logger from "@/lib/logger";
 
 interface Plan {
   plan: string;
@@ -82,7 +83,7 @@ export default function Billing() {
     },
     onError: (error: Error) => {
       // Error will be shown via toast if usePayments hook handles it
-      console.error('Failed to create checkout session:', error);
+      logger.error('Failed to create checkout session', { error });
     },
   });
 
@@ -96,7 +97,7 @@ export default function Billing() {
       }
     },
     onError: (error: Error) => {
-      console.error('Failed to open customer portal:', error);
+      logger.error('Failed to open customer portal', { error });
     },
   });
 
@@ -108,7 +109,7 @@ export default function Billing() {
       queryClient.invalidateQueries({ queryKey: ['billing-subscription'] });
     },
     onError: (error: Error) => {
-      console.error('Failed to cancel subscription:', error);
+      logger.error('Failed to cancel subscription', { error });
     },
   });
 

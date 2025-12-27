@@ -77,8 +77,9 @@ export function PricingPlans() {
     );
   }
 
-  const tiers = ['free', 'basic', 'pro', 'enterprise'];
-  const tierColors = {
+  const tiers = ['free', 'basic', 'pro', 'enterprise'] as const;
+  type Tier = typeof tiers[number];
+  const tierColors: Record<Tier, string> = {
     free: "border-gray-300",
     basic: "border-blue-300",
     pro: "border-purple-300 border-2",
@@ -96,7 +97,7 @@ export function PricingPlans() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {tiers.map((tier) => {
-          const plan = pricing?.pricing[tier];
+          const plan = pricing?.pricing[tier as keyof typeof pricing.pricing];
           if (!plan) return null;
 
           const isPopular = tier === 'pro';
@@ -105,7 +106,7 @@ export function PricingPlans() {
           return (
             <Card
               key={tier}
-              className={`relative ${tierColors[tier]} ${isPopular ? 'shadow-lg' : ''}`}
+              className={`relative ${tierColors[tier as Tier]} ${isPopular ? 'shadow-lg' : ''}`}
             >
               {isPopular && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">

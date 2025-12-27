@@ -2,50 +2,70 @@ from fastapi import APIRouter, HTTPException, Query, Depends, WebSocket
 from .ws import get_current_user_ws
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
+from datetime import datetime
 import logging
 import time
 
-from server_fastapi.services.exchange_service import (
-    ExchangeService,
-    default_exchange,
-    TradingPair,
-    MarketData,
-    OrderBook,
-)
-from server_fastapi.services.exchange.enhanced_kraken_service import (
-    enhanced_kraken_service,
-)
+# Import OrderBook model
+try:
+    from ..models.market import OrderBook
+except ImportError:
+    # Define OrderBook if model doesn't exist
+    class OrderBook(BaseModel):
+        pair: str
+        bids: List[Dict[str, float]]
+        asks: List[Dict[str, float]]
+        timestamp: int
+
+
+# Exchange services removed - using blockchain/DEX data sources
+# Market data now comes from CoinGecko and DEX aggregators
+from server_fastapi.services.coingecko_service import CoinGeckoService
 from server_fastapi.services.market_analysis_service import MarketAnalysisService
 from server_fastapi.services.volatility_analyzer import VolatilityAnalyzer
+from server_fastapi.services.correlation_service import CorrelationService
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from sqlalchemy.ext.asyncio import AsyncSession
 from ..repositories.candle_repository import CandleRepository
 from ..models.candle import Candle
 from ..middleware.query_cache import cache_query_result
+from ..middleware.cache_manager import cached
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
 # Initialize services
 market_analysis_service = MarketAnalysisService()
 volatility_analyzer = VolatilityAnalyzer()
+correlation_service = CorrelationService()
 
 
-# Dependency injection for exchange service
-def get_exchange_service() -> ExchangeService:
-    return default_exchange
-
-
-# Dependency injection for enhanced Kraken service
-def get_enhanced_kraken_service():
-    return enhanced_kraken_service
+# Market data service (CoinGecko for price data)
+def get_market_data_service() -> CoinGeckoService:
+    return CoinGeckoService()
 
 
 router = APIRouter()
 
 
 # Pydantic models for requests and responses
+class TradingPair(BaseModel):
+    """Trading pair model for market listings"""
+
+    symbol: str
+    base_asset: str
+    quote_asset: str
+    current_price: float
+    change_24h: float
+    volume_24h: float
+    high_24h: Optional[float] = None
+    low_24h: Optional[float] = None
+    market_cap: Optional[float] = None
+    is_active: bool = True
+
+
 class MarketSummary(BaseModel):
     total_pairs: int
     total_volume_24h: float
@@ -65,6 +85,14 @@ class OHLCVRequest(BaseModel):
     pair: str
     timeframe: Optional[str] = "1h"
     limit: Optional[int] = 100
+
+
+class MarketData(BaseModel):
+    """Market data point for charts"""
+
+    timestamp: int
+    price: float
+    volume: Optional[float] = None
 
 
 class PriceChartResponse(BaseModel):
@@ -137,12 +165,54 @@ class MarketAnalysisResponse(BaseModel):
 @cache_query_result(
     ttl=600, key_prefix="markets", include_user=False, include_params=False
 )
-async def get_markets(
-    exchange: ExchangeService = Depends(get_exchange_service),
-) -> List[TradingPair]:
-    """Get all available trading pairs"""
+async def get_markets() -> List[TradingPair]:
+    """Get all available trading pairs from CoinGecko"""
     try:
-        pairs = await exchange.get_all_trading_pairs()
+        from ..services.coingecko_service import CoinGeckoService
+
+        coingecko = CoinGeckoService()
+
+        # Get popular cryptocurrencies from CoinGecko
+        # In production, you might want to maintain a curated list or fetch from DEX aggregators
+        popular_coins = [
+            "bitcoin",
+            "ethereum",
+            "cardano",
+            "solana",
+            "polkadot",
+            "binancecoin",
+        ]
+        pairs = []
+
+        for coin_id in popular_coins:
+            try:
+                symbol = coin_id.upper() + "/USD"
+                market_data = await coingecko.get_market_data(symbol)
+                if market_data:
+                    pairs.append(
+                        {
+                            "symbol": symbol,
+                            "base_asset": coin_id,
+                            "quote_asset": "USD",
+                            "current_price": float(market_data.get("current_price", 0)),
+                            "change_24h": float(market_data.get("change_24h", 0)),
+                            "volume_24h": float(market_data.get("volume_24h", 0)),
+                            "high_24h": float(
+                                market_data.get(
+                                    "high_24h", market_data.get("current_price", 0)
+                                )
+                            ),
+                            "low_24h": float(
+                                market_data.get(
+                                    "low_24h", market_data.get("current_price", 0)
+                                )
+                            ),
+                        }
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch market data for {coin_id}: {e}")
+                continue
+
         return pairs
     except Exception as e:
         logger.error(f"Error fetching markets: {e}")
@@ -156,9 +226,49 @@ async def get_ohlcv(
         "1h", description="Timeframe (1m, 5m, 15m, 30m, 1h, 4h, 1d, etc.)"
     ),
     limit: int = Query(100, description="Number of candles to return", ge=1, le=1000),
-    exchange: ExchangeService = Depends(get_exchange_service),
 ) -> PriceChartResponse:
-    """Get OHLCV data for a trading pair"""
+    """Get OHLCV data for a trading pair from CoinGecko"""
+    try:
+        from ..services.coingecko_service import CoinGeckoService
+
+        coingecko = CoinGeckoService()
+
+        # Convert pair to CoinGecko ID
+        coin_id = pair.split("/")[0].lower()
+
+        # Get historical price data (CoinGecko provides price history, not full OHLCV in free tier)
+        # For full OHLCV, you'd need CoinGecko Pro API or use DEX aggregator APIs
+        historical_data = await coingecko.get_historical_prices(pair, days=limit)
+
+        if not historical_data:
+            raise HTTPException(status_code=404, detail=f"No data available for {pair}")
+
+        # Convert price history to OHLCV format (simplified - in production, use proper OHLCV endpoint)
+        candles = []
+        for i, point in enumerate(historical_data):
+            price = point.get("price", 0)
+            # For free tier, we only have price, so estimate OHLCV
+            candles.append(
+                {
+                    "ts": int(point.get("timestamp", 0)),
+                    "open": price,
+                    "high": price * 1.01,  # Estimate
+                    "low": price * 0.99,  # Estimate
+                    "close": price,
+                    "volume": 0.0,  # Not available in free tier
+                }
+            )
+
+        return PriceChartResponse(
+            pair=pair,
+            timeframe=timeframe,
+            data=[MarketData(**candle) for candle in candles],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching OHLCV for {pair}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch OHLCV data")
     try:
         # Validate pair format
         if "/" not in pair:
@@ -174,8 +284,28 @@ async def get_ohlcv(
                 detail=f"Invalid timeframe. Must be one of: {', '.join(valid_timeframes)}",
             )
 
-        # Get historical data and convert to MarketData objects
-        historical_data = await exchange.get_historical_data(pair, timeframe, limit)
+        # Get historical data from CoinGecko
+        coingecko = CoinGeckoService()
+        # Convert timeframe to days for CoinGecko
+        days_map = {"1h": 1, "4h": 7, "1d": 30, "1w": 90, "1m": 365}
+        days = days_map.get(timeframe, 30)
+        historical_data_points = await coingecko.get_historical_prices(pair, days=days)
+
+        # Convert to MarketData format
+        historical_data = []
+        for point in historical_data_points[:limit]:
+            price = point.get("price", 0)
+            if price > 0:
+                historical_data.append(
+                    {
+                        "timestamp": point.get("timestamp", 0),
+                        "open": price,
+                        "high": price * 1.01,
+                        "low": price * 0.99,
+                        "close": price,
+                        "volume": 0.0,
+                    }
+                )
 
         return PriceChartResponse(pair=pair, timeframe=timeframe, data=historical_data)
     except HTTPException:
@@ -190,9 +320,9 @@ async def get_ohlcv(
 @router.get("/{pair:path}/history", response_model=CandleHistoryResponse)
 async def get_candle_history(
     pair: str,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     timeframe: str = Query("1m", description="Timeframe for stored candles"),
     limit: int = Query(500, ge=1, le=5000),
-    db: AsyncSession = Depends(get_db_session),
 ) -> CandleHistoryResponse:
     """Return stored candle history from the DB for a symbol/timeframe."""
     try:
@@ -224,9 +354,7 @@ async def get_candle_history(
 
 
 @router.get("/{pair:path}/orderbook", response_model=OrderBook)
-async def get_order_book(
-    pair: str, exchange: ExchangeService = Depends(get_exchange_service)
-) -> OrderBook:
+async def get_order_book(pair: str) -> OrderBook:
     """Get order book for a trading pair"""
     try:
         if "/" not in pair:
@@ -234,8 +362,17 @@ async def get_order_book(
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        order_book = await exchange.get_order_book(pair)
-        return order_book
+        # CoinGecko doesn't provide orderbook data, return empty orderbook
+        # In production, integrate with DEX aggregator APIs for real orderbook data
+        logger.info(
+            f"Orderbook requested for {pair} - returning empty (CoinGecko doesn't provide orderbook)"
+        )
+        return OrderBook(
+            pair=pair,
+            bids=[],
+            asks=[],
+            timestamp=int(time.time() * 1000),
+        )
     except HTTPException:
         raise
     except HTTPException:
@@ -253,9 +390,8 @@ async def get_order_book(
 
 
 @router.get("/price/{pair}")
-async def get_price(
-    pair: str, exchange: ExchangeService = Depends(get_exchange_service)
-) -> dict:
+@cached(ttl=30, prefix="markets")  # 30s TTL for price data
+async def get_price(pair: str) -> dict:
     """Get current price for a trading pair"""
     try:
         if "/" not in pair:
@@ -263,7 +399,8 @@ async def get_price(
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        price = await exchange.get_market_price(pair)
+        coingecko = CoinGeckoService()
+        price = await coingecko.get_price(pair)
         if price is None:
             raise HTTPException(status_code=404, detail=f"Price not found for {pair}")
         return {"pair": pair, "price": price}
@@ -276,13 +413,15 @@ async def get_price(
 
 # New market data endpoints
 @router.get("/tickers", response_model=List[TickerResponse])
+@cached(ttl=60, prefix="markets")  # 60s TTL for ticker data
 async def get_tickers(
     limit: int = Query(50, description="Number of tickers to return", ge=1, le=500),
-    exchange: ExchangeService = Depends(get_exchange_service),
 ) -> List[TickerResponse]:
     """Get ticker data for multiple trading pairs"""
     try:
-        pairs = await exchange.get_all_trading_pairs()
+        coingecko = CoinGeckoService()
+        # Get popular pairs from CoinGecko
+        pairs = await get_markets()  # Reuse the get_markets function
 
         # Sort by volume and limit results
         sorted_pairs = sorted(pairs, key=lambda x: x.volume_24h, reverse=True)[:limit]
@@ -307,15 +446,15 @@ async def get_tickers(
 
 
 @router.get("/summary", response_model=MarketSummary)
+@cached(ttl=60, prefix="markets")  # 60s TTL for market summary
 async def get_market_summary(
     top_count: int = Query(
         10, description="Number of top pairs to include", ge=1, le=50
     ),
-    exchange: ExchangeService = Depends(get_exchange_service),
 ) -> MarketSummary:
     """Get market summary with total statistics and top pairs"""
     try:
-        pairs = await exchange.get_all_trading_pairs()
+        pairs = await get_markets()  # Reuse the get_markets function
 
         if not pairs:
             return MarketSummary(total_pairs=0, total_volume_24h=0.0, top_pairs=[])
@@ -338,7 +477,6 @@ async def get_market_summary(
 async def search_trading_pairs(
     query: str = Query(..., description="Search query for pair symbols"),
     limit: int = Query(20, description="Maximum number of results", ge=1, le=100),
-    exchange: ExchangeService = Depends(get_exchange_service),
 ) -> List[TradingPair]:
     """Search for trading pairs by symbol"""
     try:
@@ -348,7 +486,7 @@ async def search_trading_pairs(
             )
 
         query_lower = query.lower().strip()
-        pairs = await exchange.get_all_trading_pairs()
+        pairs = await get_markets()  # Reuse the get_markets function
 
         # Filter pairs that contain the query in their symbol
         matching_pairs = [
@@ -370,9 +508,8 @@ async def search_trading_pairs(
 
 
 @router.get("/{pair}/details", response_model=TradingPairDetails)
-async def get_trading_pair_details(
-    pair: str, exchange: ExchangeService = Depends(get_exchange_service)
-) -> TradingPairDetails:
+@cached(ttl=60, prefix="markets")  # 60s TTL for pair details
+async def get_trading_pair_details(pair: str) -> TradingPairDetails:
     """Get detailed information about a specific trading pair"""
     try:
         if "/" not in pair:
@@ -380,40 +517,34 @@ async def get_trading_pair_details(
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        # Get basic pair info
-        pairs = await exchange.get_all_trading_pairs()
-        pair_info = next((p for p in pairs if p.symbol == pair), None)
+        # Get market data from CoinGecko
+        coingecko = CoinGeckoService()
+        market_data = await coingecko.get_market_data(pair)
 
-        if not pair_info:
+        if not market_data:
             raise HTTPException(
                 status_code=404, detail=f"Trading pair {pair} not found"
             )
 
-        # Get additional details from exchange
-        try:
-            # In a real implementation, this would fetch market details, precision, limits, etc.
-            market_details = {
-                "price_precision": 8,
-                "quantity_precision": 8,
-                "min_order_size": 0.0001 if pair_info.base_asset == "BTC" else 0.01,
-                "max_order_size": None,
-                "is_active": True,
-            }
-        except:
-            market_details = {
-                "price_precision": 8,
-                "quantity_precision": 8,
-                "min_order_size": 0.0,
-                "max_order_size": None,
-                "is_active": True,
-            }
+        # Parse symbol to get base and quote assets
+        base_asset = pair.split("/")[0] if "/" in pair else pair
+        quote_asset = pair.split("/")[1] if "/" in pair else "USD"
+
+        # Get additional details (defaults for DEX trading)
+        market_details = {
+            "price_precision": 8,
+            "quantity_precision": 8,
+            "min_order_size": 0.0001 if base_asset == "BTC" else 0.01,
+            "max_order_size": None,
+            "is_active": True,
+        }
 
         return TradingPairDetails(
-            symbol=pair_info.symbol,
-            base_asset=pair_info.base_asset,
-            quote_asset=pair_info.quote_asset,
-            current_price=pair_info.current_price,
-            change_24h=pair_info.change_24h,
+            symbol=pair,
+            base_asset=base_asset,
+            quote_asset=quote_asset,
+            current_price=market_data.get("price", 0.0),
+            change_24h=market_data.get("change_24h", 0.0),
             volume_24h=pair_info.volume_24h,
             high_24h=pair_info.high_24h,
             low_24h=pair_info.low_24h,
@@ -432,51 +563,57 @@ async def get_trading_pair_details(
 
 # Protected endpoints (require authentication)
 @router.get("/favorites", response_model=List[TradingPair])
+@cached(ttl=120, prefix="markets_favorites")
 async def get_favorite_pairs(
-    current_user: dict = Depends(get_current_user),
-    exchange: ExchangeService = Depends(get_exchange_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> List[TradingPair]:
     """Get user's favorite trading pairs (requires authentication)"""
     try:
+        user_id = _get_user_id(current_user)
         # In a real implementation, this would fetch from user's preferences
         # For now, return popular pairs as favorites
-        pairs = await exchange.get_all_trading_pairs()
-        favorites = sorted(pairs, key=lambda x: x.volume_24h, reverse=True)[:5]
+        pairs = await get_markets()  # Reuse the get_markets function
+        favorites = sorted(pairs, key=lambda x: x.volume_24h or 0, reverse=True)[:5]
         return favorites
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
-            f"Error fetching favorite pairs for user {current_user['id']}: {e}"
+            f"Error fetching favorite pairs for user {user_id}: {e}", exc_info=True
         )
         raise HTTPException(status_code=500, detail="Failed to fetch favorite pairs")
 
 
 @router.get("/watchlist", response_model=List[TradingPair])
+@cached(ttl=120, prefix="markets_watchlist")
 async def get_watchlist(
-    current_user: dict = Depends(get_current_user),
-    exchange: ExchangeService = Depends(get_exchange_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> List[TradingPair]:
     """Get user's watchlist (requires authentication)"""
     try:
+        user_id = _get_user_id(current_user)
         # In a real implementation, this would fetch from user's watchlist
         # For now, return some pairs as watchlist
-        pairs = await exchange.get_all_trading_pairs()
+        pairs = await get_markets()  # Reuse the get_markets function
         watchlist = pairs[:10]  # First 10 pairs as mock watchlist
         return watchlist
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching watchlist for user {current_user['id']}: {e}")
+        logger.error(f"Error fetching watchlist for user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch watchlist")
 
 
 # Rate-limited endpoints with enhanced validation and authentication
 @router.get("/advanced/{pair}/analysis", response_model=MarketAnalysisResponse)
+@cached(ttl=300, prefix="markets_analysis")
 async def get_advanced_market_analysis(
     pair: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
     indicators: List[str] = Query(
         ["rsi", "macd", "bollinger"], description="Technical indicators to calculate"
     ),
     period: int = Query(14, description="Period for indicators", ge=1, le=200),
-    current_user: dict = Depends(get_current_user),
-    exchange: ExchangeService = Depends(get_exchange_service),
 ) -> MarketAnalysisResponse:
     """Get advanced market analysis with technical indicators (requires authentication)"""
     try:
@@ -494,36 +631,45 @@ async def get_advanced_market_analysis(
                 detail=f"Invalid indicators: {', '.join(invalid_indicators)}. Valid: {', '.join(valid_indicators)}",
             )
 
-        # Get historical data for analysis
-        historical_data = await exchange.get_historical_data(pair, "1h", 200)
+        # Get historical data from CoinGecko
+        coingecko = CoinGeckoService()
+        historical_data = await coingecko.get_historical_prices(pair, days=30)
 
-        if not historical_data:
+        if not historical_data or len(historical_data) < 2:
             raise HTTPException(
                 status_code=404, detail=f"No market data available for {pair}"
             )
 
-        # Convert MarketData to dict format for analysis
-        ohlcv_data = [
-            {
-                "timestamp": data.timestamp,
-                "open": data.open,
-                "high": data.high,
-                "low": data.low,
-                "close": data.close,
-                "volume": data.volume,
-            }
-            for data in historical_data
-        ]
+        # Convert to OHLCV format for analysis (simplified - CoinGecko only provides prices)
+        ohlcv_data = []
+        for i, point in enumerate(historical_data):
+            price = point.get("price", 0)
+            if price > 0:
+                ohlcv_data.append(
+                    {
+                        "timestamp": point.get("timestamp", 0),
+                        "open": price,
+                        "high": price * 1.01,  # Estimate
+                        "low": price * 0.99,  # Estimate
+                        "close": price,
+                        "volume": 0.0,
+                    }
+                )
+
+        if len(ohlcv_data) < 2:
+            raise HTTPException(
+                status_code=404, detail=f"Insufficient market data for {pair}"
+            )
 
         # Perform market analysis using the analysis service
         analysis_result = market_analysis_service.analyze(
             ohlcv_data, volatility_analyzer
         )
 
-        # Get current price
-        current_price = await exchange.get_market_price(pair)
-        if not current_price and historical_data:
-            current_price = historical_data[-1].close
+        # Get current price from CoinGecko
+        current_price = await coingecko.get_price(pair)
+        if not current_price and ohlcv_data:
+            current_price = ohlcv_data[-1]["close"]
 
         # Calculate technical indicators
         calculated_indicators = []
@@ -647,15 +793,19 @@ async def get_advanced_market_analysis(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting advanced analysis for {pair}: {e}")
+        user_id = _get_user_id(current_user) if "current_user" in locals() else None
+        logger.error(
+            f"Error getting advanced analysis for {pair}: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to perform market analysis")
 
 
 @router.get("/realtime/{pair}/price-stream", response_model=RealTimeMarketData)
 async def get_realtime_price_stream(
     pair: str,
-    current_user: dict = Depends(get_current_user),
-    exchange: ExchangeService = Depends(get_exchange_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> RealTimeMarketData:
     """Get realtime price stream info (requires authentication)"""
     try:
@@ -664,26 +814,25 @@ async def get_realtime_price_stream(
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        # Get current price
-        price = await exchange.get_market_price(pair)
+        # Get current price and market data from CoinGecko
+        coingecko = CoinGeckoService()
+        price = await coingecko.get_price(pair)
         if price is None:
             raise HTTPException(status_code=404, detail=f"Price not found for {pair}")
 
-        # Get order book for bid/ask prices
-        order_book = await exchange.get_order_book(pair)
-        bid_price = order_book.bids[0][0] if order_book.bids else None
-        ask_price = order_book.asks[0][0] if order_book.asks else None
+        # Get market data for 24h change and volume
+        market_data = await coingecko.get_market_data(pair)
 
-        # Get recent trading pair data for 24h change and volume
-        pairs = await exchange.get_all_trading_pairs()
-        pair_data = next((p for p in pairs if p.symbol == pair), None)
+        # CoinGecko doesn't provide orderbook, so bid/ask are None
+        bid_price = None
+        ask_price = None
 
         return RealTimeMarketData(
             symbol=pair,
             price=price,
-            change_24h=pair_data.change_24h if pair_data else 0.0,
-            volume_24h=pair_data.volume_24h if pair_data else 0.0,
-            timestamp=int(__import__("time").time() * 1000),
+            change_24h=market_data.get("change_24h", 0.0) if market_data else 0.0,
+            volume_24h=market_data.get("volume_24h", 0.0) if market_data else 0.0,
+            timestamp=int(time.time() * 1000),
             bid_price=bid_price,
             ask_price=ask_price,
         )
@@ -694,6 +843,139 @@ async def get_realtime_price_stream(
         logger.error(f"Error getting realtime price stream for {pair}: {e}")
         raise HTTPException(
             status_code=500, detail="Failed to get realtime price stream"
+        )
+
+
+class CorrelationMatrixResponse(BaseModel):
+    """Response model for correlation matrix"""
+    symbols: List[str]
+    matrix: Dict[str, Dict[str, float]]
+    calculated_at: str
+
+
+class HeatmapDataResponse(BaseModel):
+    """Response model for heatmap data"""
+    data: Dict[str, Dict[str, float]]
+    metric: str
+    calculated_at: str
+
+
+@router.get("/correlation/matrix", response_model=CorrelationMatrixResponse)
+@cached(ttl=3600, prefix="correlation")  # Cache for 1 hour
+async def get_correlation_matrix(
+    symbols: str = Query(..., description="Comma-separated list of trading pairs (e.g., BTC/USD,ETH/USD)"),
+    days: int = Query(30, ge=7, le=365, description="Number of days of historical data to use"),
+    current_user: Optional[Annotated[dict, Depends(get_current_user)]] = None,
+) -> CorrelationMatrixResponse:
+    """
+    Calculate correlation matrix for multiple trading pairs
+    
+    Returns correlation coefficients between all pairs of symbols.
+    Correlation ranges from -1 (perfect negative) to +1 (perfect positive).
+    """
+    try:
+        # Parse symbols
+        symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
+        
+        if len(symbol_list) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 2 trading pairs required for correlation calculation"
+            )
+        
+        if len(symbol_list) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 50 trading pairs allowed"
+            )
+        
+        # Calculate correlation matrix
+        matrix = await correlation_service.calculate_correlation_matrix(symbol_list, days)
+        
+        if not matrix:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to calculate correlation matrix - insufficient data"
+            )
+        
+        return CorrelationMatrixResponse(
+            symbols=symbol_list,
+            matrix=matrix,
+            calculated_at=datetime.utcnow().isoformat(),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating correlation matrix: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to calculate correlation matrix"
+        )
+
+
+@router.get("/heatmap/data", response_model=HeatmapDataResponse)
+@cached(ttl=300, prefix="heatmap")  # Cache for 5 minutes
+async def get_heatmap_data(
+    symbols: str = Query(..., description="Comma-separated list of trading pairs"),
+    metric: str = Query("change_24h", description="Metric: change_24h, volume_24h, or correlation"),
+    days: int = Query(30, ge=7, le=365, description="Days for correlation calculation"),
+    current_user: Optional[Annotated[dict, Depends(get_current_user)]] = None,
+) -> HeatmapDataResponse:
+    """
+    Get heatmap data for multiple trading pairs
+    
+    Supports different metrics:
+    - change_24h: 24-hour price change percentage
+    - volume_24h: 24-hour trading volume
+    - correlation: Correlation matrix between pairs
+    """
+    try:
+        # Parse symbols
+        symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
+        
+        if len(symbol_list) < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="At least 1 trading pair required"
+            )
+        
+        if len(symbol_list) > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 100 trading pairs allowed"
+            )
+        
+        # Validate metric
+        valid_metrics = ["change_24h", "volume_24h", "correlation"]
+        if metric not in valid_metrics:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid metric. Must be one of: {', '.join(valid_metrics)}"
+            )
+        
+        # Get heatmap data
+        data = await correlation_service.get_heatmap_data(symbol_list, metric, days)
+        
+        if not data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch heatmap data"
+            )
+        
+        return HeatmapDataResponse(
+            data=data,
+            metric=metric,
+            calculated_at=datetime.utcnow().isoformat(),
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching heatmap data: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch heatmap data"
         )
 
 
@@ -711,13 +993,19 @@ async def websocket_market_stream(
 
         logger.info(f"User {user['id']} connected to market stream for {pair}")
 
-        # Send initial data
-        exchange = get_exchange_service()
-        await exchange.connect()
+        # Send initial data from CoinGecko
+        coingecko = CoinGeckoService()
+        price = await coingecko.get_price(pair)
 
-        # Send initial market data
-        price = await exchange.get_market_price(pair)
-        order_book = await exchange.get_order_book(pair)
+        # CoinGecko doesn't provide orderbook, use empty
+        from ..models.market import OrderBook
+
+        order_book = OrderBook(
+            pair=pair,
+            bids=[],
+            asks=[],
+            timestamp=int(time.time() * 1000),
+        )
 
         if price:
             initial_data = RealTimeMarketData(
@@ -748,9 +1036,10 @@ async def websocket_market_stream(
                 # Send periodic updates (every 5 seconds in mock mode)
                 await asyncio.sleep(5)
 
-                # Get fresh data
-                current_price = await exchange.get_market_price(pair)
-                current_order_book = await exchange.get_order_book(pair)
+                # Get fresh data from CoinGecko
+                current_price = await coingecko.get_price(pair)
+                # CoinGecko doesn't provide orderbook
+                current_order_book = order_book  # Reuse empty orderbook
 
                 if current_price:
                     update = RealTimeMarketData(

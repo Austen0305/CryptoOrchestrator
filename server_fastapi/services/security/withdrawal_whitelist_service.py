@@ -133,7 +133,7 @@ class WithdrawalWhitelistService:
         await db.commit()
 
         logger.info(
-            f"✅ Withdrawal address {address} ({currency}) added to whitelist for user {user_id}. "
+            f"[OK] Withdrawal address {address} ({currency}) added to whitelist for user {user_id}. "
             f"Cooldown until {cooldown_until.isoformat()}"
         )
 
@@ -208,7 +208,7 @@ class WithdrawalWhitelistService:
         await db.commit()
 
         logger.info(
-            f"✅ Withdrawal address {address} ({currency}) removed from whitelist for user {user_id}"
+            f"[OK] Withdrawal address {address} ({currency}) removed from whitelist for user {user_id}"
         )
 
         return {

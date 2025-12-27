@@ -5,7 +5,7 @@ API endpoints for viewing platform revenue from deposit fees
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Annotated
 from datetime import datetime
 import logging
 
@@ -20,9 +20,9 @@ router = APIRouter(prefix="/api/platform-revenue", tags=["Platform Revenue"])
 
 @router.get("/total")
 async def get_total_revenue(
+    current_user: Annotated[dict, Depends(get_current_user)],
     start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
     end_date: Optional[str] = Query(None, description="End date (ISO format)"),
-    current_user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Get total platform revenue from deposit fees (admin only)"""
     try:
@@ -46,8 +46,8 @@ async def get_total_revenue(
 
 @router.get("/daily")
 async def get_daily_revenue(
+    current_user: Annotated[dict, Depends(get_current_user)],
     days: int = Query(30, ge=1, le=365, description="Number of days to retrieve"),
-    current_user: dict = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
     """Get daily revenue breakdown (admin only)"""
     try:

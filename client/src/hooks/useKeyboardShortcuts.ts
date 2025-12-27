@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 type KeyboardHandler = (event: KeyboardEvent) => void;
 
-interface ShortcutConfig {
+export interface ShortcutConfig {
   key: string;
   ctrl?: boolean;
   shift?: boolean;

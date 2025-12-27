@@ -117,18 +117,18 @@ export function StrategyTemplateLibrary({ onSelectTemplate }: StrategyTemplateLi
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Timeframe:</span>
-              <span className="font-medium">{template.config.timeframe || "N/A"}</span>
+              <span className="font-medium">{(template.config && typeof template.config === 'object' && 'timeframe' in template.config ? (template.config as any).timeframe : null) || "N/A"}</span>
             </div>
-            {template.config.stop_loss_pct && (
+            {template.config && typeof template.config === 'object' && 'stop_loss_pct' in template.config && (template.config as any).stop_loss_pct && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Stop Loss:</span>
-                <span className="font-medium">{template.config.stop_loss_pct}%</span>
+                <span className="font-medium">{(template.config as any).stop_loss_pct}%</span>
               </div>
             )}
-            {template.config.take_profit_pct && (
+            {template.config && typeof template.config === 'object' && 'take_profit_pct' in template.config && (template.config as any).take_profit_pct && (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Take Profit:</span>
-                <span className="font-medium">{template.config.take_profit_pct}%</span>
+                <span className="font-medium">{(template.config as any).take_profit_pct}%</span>
               </div>
             )}
             {onSelectTemplate && (

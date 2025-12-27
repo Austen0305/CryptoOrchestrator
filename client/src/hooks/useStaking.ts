@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface StakingOption {
   asset: string;
@@ -29,6 +30,7 @@ export interface UnstakeRequest {
 }
 
 export const useStakingOptions = () => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["staking", "options"],
     queryFn: async () => {
@@ -36,11 +38,13 @@ export const useStakingOptions = () => {
         method: "GET"
       });
     },
-    staleTime: 300000, // 5 minutes
+    enabled: isAuthenticated,
+    staleTime: 300000, // 5 minutes - options don't change often
   });
 };
 
 export const useMyStakes = () => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["staking", "my-stakes"],
     queryFn: async () => {
@@ -48,12 +52,14 @@ export const useMyStakes = () => {
         method: "GET"
       });
     },
+    enabled: isAuthenticated,
     staleTime: 60000, // 1 minute
-    refetchInterval: 300000, // 5 minutes
+    refetchInterval: isAuthenticated ? 300000 : false, // 5 minutes when authenticated
   });
 };
 
 export const useStakingRewards = (asset: string) => {
+  const { isAuthenticated } = useAuth();
   return useQuery({
     queryKey: ["staking", "rewards", asset],
     queryFn: async () => {
@@ -61,8 +67,9 @@ export const useStakingRewards = (asset: string) => {
         method: "GET"
       });
     },
-    staleTime: 60000,
-    refetchInterval: 300000,
+    enabled: isAuthenticated && !!asset,
+    staleTime: 60000, // 1 minute
+    refetchInterval: isAuthenticated ? 300000 : false, // 5 minutes when authenticated
   });
 };
 
@@ -76,7 +83,34 @@ export const useStake = () => {
         body: request,
       });
     },
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async (request) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["staking", "my-stakes"] });
+      await queryClient.cancelQueries({ queryKey: ["wallet"] });
+      
+      // Snapshot the previous values
+      const previousStakes = queryClient.getQueryData(["staking", "my-stakes"]);
+      const previousWallet = queryClient.getQueryData(["wallet"]);
+      
+      // Return a context object with the snapshotted values
+      return { previousStakes, previousWallet };
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staking"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, request, context) => {
+      if (context?.previousStakes) {
+        queryClient.setQueryData(["staking", "my-stakes"], context.previousStakes);
+      }
+      if (context?.previousWallet) {
+        queryClient.setQueryData(["wallet"], context.previousWallet);
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["staking"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
     },
@@ -93,7 +127,34 @@ export const useUnstake = () => {
         body: request,
       });
     },
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async (request) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["staking", "my-stakes"] });
+      await queryClient.cancelQueries({ queryKey: ["wallet"] });
+      
+      // Snapshot the previous values
+      const previousStakes = queryClient.getQueryData(["staking", "my-stakes"]);
+      const previousWallet = queryClient.getQueryData(["wallet"]);
+      
+      // Return a context object with the snapshotted values
+      return { previousStakes, previousWallet };
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["staking"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet"] });
+    },
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, request, context) => {
+      if (context?.previousStakes) {
+        queryClient.setQueryData(["staking", "my-stakes"], context.previousStakes);
+      }
+      if (context?.previousWallet) {
+        queryClient.setQueryData(["wallet"], context.previousWallet);
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["staking"] });
       queryClient.invalidateQueries({ queryKey: ["wallet"] });
     },

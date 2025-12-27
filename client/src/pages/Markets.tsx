@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo } from "react";
 import { useMarkets } from "@/hooks/useApi";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { OptimizedLoading } from "@/components/OptimizedLoading";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { EmptyState } from "@/components/EmptyState";
 import { TrendingUp } from "lucide-react";
@@ -16,7 +17,7 @@ export default function Markets() {
   
   // Transform TradingPair data to Market format expected by MarketDataTable
   const markets = useMemo(() => {
-    if (!marketsData) return [];
+    if (!marketsData || !Array.isArray(marketsData)) return [];
     // Handle both TradingPair schema (camelCase) and API response (snake_case)
     return marketsData.map((pair: { symbol?: string; pair?: string; current_price?: number; currentPrice?: number; price?: number; change_24h?: number; change24h?: number; volume_24h?: number; volume24h?: number }) => ({
       pair: pair.symbol || pair.pair || "",
@@ -29,17 +30,17 @@ export default function Markets() {
   return (
     <div className="space-y-6 w-full">
       <div>
-        <h1 className="text-3xl font-bold">Markets</h1>
-        <p className="text-muted-foreground mt-1">
-          Browse and trade cryptocurrency pairs
+        <h1 className="text-2xl sm:text-3xl font-bold" data-testid="markets-page">Markets</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+          Browse and trade cryptocurrency pairs on blockchain via DEX aggregators
         </p>
       </div>
 
       <Tabs defaultValue="watch" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="watch">Market Watch</TabsTrigger>
-          <TabsTrigger value="watchlist">Watchlist</TabsTrigger>
-          <TabsTrigger value="all">All Markets</TabsTrigger>
+        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+          <TabsTrigger value="watch" className="text-xs sm:text-sm">Market Watch</TabsTrigger>
+          <TabsTrigger value="watchlist" className="text-xs sm:text-sm">Watchlist</TabsTrigger>
+          <TabsTrigger value="all" className="text-xs sm:text-sm">All Markets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="watch">
@@ -53,12 +54,11 @@ export default function Markets() {
         <TabsContent value="all">
           {marketsLoading ? (
             <div className="space-y-4">
-              <LoadingSkeleton variant="table" count={10} className="h-16" />
+              <OptimizedLoading variant="skeleton" />
             </div>
           ) : marketsError ? (
             <ErrorRetry
               title="Failed to load markets"
-              message={marketsError instanceof Error ? marketsError.message : "Unable to fetch markets data. Please try again."}
               onRetry={() => refetchMarkets()}
               error={marketsError as Error}
             />

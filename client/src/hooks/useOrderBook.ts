@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { marketApi } from "@/lib/api";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface OrderBookEntry {
   price: number;
@@ -26,16 +27,17 @@ export function useOrderBook(
   autoRefresh: boolean = true,
   refreshInterval: number = 1000
 ) {
+  const { isAuthenticated } = useAuth();
   const [orderBookData, setOrderBookData] = useState<OrderBookData | null>(null);
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery<OrderBookData | null>({
     queryKey: ["orderbook", pair],
     queryFn: async () => {
       if (!pair) return null;
-      const data = await marketApi.getOrderBook(pair);
+      const orderBookResponse = await marketApi.getOrderBook(pair);
       
       // Transform API response to our format
-      const bids: OrderBookEntry[] = (data.bids || []).map((bid: [number, number], index: number) => {
+      const bids: OrderBookEntry[] = (orderBookResponse.bids || []).map((bid: [number, number], index: number) => {
         const price = bid[0];
         const amount = bid[1];
         const prevTotal = index > 0 ? orderBookData?.bids[index - 1]?.total || 0 : 0;
@@ -46,7 +48,7 @@ export function useOrderBook(
         };
       });
 
-      const asks: OrderBookEntry[] = (data.asks || []).map((ask: [number, number], index: number) => {
+      const asks: OrderBookEntry[] = (orderBookResponse.asks || []).map((ask: [number, number], index: number) => {
         const price = ask[0];
         const amount = ask[1];
         const prevTotal = index > 0 ? orderBookData?.asks[index - 1]?.total || 0 : 0;
@@ -58,8 +60,8 @@ export function useOrderBook(
       });
 
       // Calculate spread
-      const bestBid = bids[0]?.price || 0;
-      const bestAsk = asks[0]?.price || 0;
+      const bestBid = bids.length > 0 ? bids[0]?.price || 0 : 0;
+      const bestAsk = asks.length > 0 ? asks[0]?.price || 0 : 0;
       const spread = bestAsk > 0 && bestBid > 0 ? bestAsk - bestBid : 0;
 
       return {
@@ -69,9 +71,9 @@ export function useOrderBook(
         timestamp: Date.now(),
       } as OrderBookData;
     },
-    enabled: !!pair,
-    refetchInterval: autoRefresh ? refreshInterval : false,
-    staleTime: 500, // Consider data stale after 500ms
+    enabled: isAuthenticated && !!pair,
+    staleTime: 500, // 500ms for order book data (real-time)
+    refetchInterval: isAuthenticated && autoRefresh ? refreshInterval : false,
   });
 
   useEffect(() => {

@@ -3,7 +3,7 @@ AI Copilot Routes - Trade explanations, strategy generation, optimization, backt
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Annotated
 import logging
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -38,7 +38,8 @@ class TradeExplanationRequest(BaseModel):
 
 @router.post("/trade/explain", response_model=Dict)
 async def explain_trade(
-    request: TradeExplanationRequest, current_user: dict = Depends(get_current_user)
+    request: TradeExplanationRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Generate natural language explanation of a trade"""
     try:
@@ -58,7 +59,8 @@ async def explain_trade(
 
 @router.post("/strategy/generate", response_model=Dict)
 async def generate_strategy(
-    request: StrategyGenerationRequest, current_user: dict = Depends(get_current_user)
+    request: StrategyGenerationRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Generate trading strategy from natural language description"""
     try:
@@ -76,7 +78,8 @@ async def generate_strategy(
 
 @router.post("/strategy/optimize", response_model=Dict)
 async def optimize_strategy(
-    request: StrategyOptimizationRequest, current_user: dict = Depends(get_current_user)
+    request: StrategyOptimizationRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Generate strategy optimization recommendations"""
     try:
@@ -105,7 +108,7 @@ class BacktestSummaryRequestWrapper(BaseModel):
 @router.post("/backtest/summarize", response_model=Dict)
 async def summarize_backtest(
     request: BacktestSummaryRequestWrapper,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Generate AI summary of backtesting results"""
     try:

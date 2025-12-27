@@ -39,7 +39,10 @@ class InfinityGrid(BaseModel):
 
     # Trading configuration
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    exchange: Mapped[str] = mapped_column(String(50), nullable=False)
+    # exchange field removed - use chain_id instead (migration: 20251208_remove_exchange)
+    chain_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )  # Blockchain chain ID (1=Ethereum, 8453=Base, etc.)
     trading_mode: Mapped[str] = mapped_column(
         String(10), default="paper", nullable=False
     )  # paper, real

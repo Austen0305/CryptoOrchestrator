@@ -1,412 +1,362 @@
-# 🛠️ CryptoOrchestrator Developer Guide
+# CryptoOrchestrator - Developer Guide
 
-Complete guide for developers working on the CryptoOrchestrator project.
+**Complete guide for developers working on the CryptoOrchestrator project**
 
-## 📋 Table of Contents
+## 🚀 Quick Start
 
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
-- [Development Workflow](#development-workflow)
-- [Code Standards](#code-standards)
-- [Testing](#testing)
-- [API Development](#api-development)
-- [Frontend Development](#frontend-development)
-- [Database Management](#database-management)
-- [Deployment](#deployment)
-- [Troubleshooting](#troubleshooting)
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Python 3.8+**
-- **Node.js 18+**
-- **PostgreSQL** (optional, SQLite works for development)
-- **Redis** (optional, for caching and rate limiting)
-- **Git**
-
-### Quick Setup
+### Setup Development Environment
 
 ```bash
-# Clone the repository
+# 1. Clone repository
 git clone <repository-url>
 cd Crypto-Orchestrator
 
-# Run automated setup
-python scripts/dev_setup.py
+# 2. Quick setup
+npm run quick-start
 
-# Or manual setup:
-# 1. Install Python dependencies
-pip install -r requirements.txt
-
-# 2. Install Node.js dependencies
-npm install
-
-# 3. Copy environment file
-cp .env.example .env
-# Edit .env with your configuration
-
-# 4. Run database migrations
-alembic upgrade head
-
-# 5. Start development server
-npm run dev:fastapi
+# 3. Start development
+npm run start:all
 ```
 
----
+### Verify Setup
+
+```bash
+# Run comprehensive checks
+npm run check:all
+
+# Or individual checks
+npm run verify:startup
+npm run verify:features
+npm run analyze:performance
+npm run check:dependencies
+npm run check:quality
+```
 
 ## 📁 Project Structure
 
 ```
 Crypto-Orchestrator/
-├── server_fastapi/          # FastAPI backend
-│   ├── routes/              # API endpoints
-│   ├── services/            # Business logic
-│   ├── models/              # Database models
-│   ├── middleware/          # Request/response middleware
-│   ├── repositories/        # Data access layer
-│   └── main.py              # Application entry point
-├── client/                  # React frontend
+├── client/                 # React frontend
 │   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── hooks/           # React hooks
-│   │   ├── lib/             # Utilities
-│   │   └── pages/           # Page components
-├── shared/                  # Shared TypeScript types
-├── electron/                # Electron desktop app
-├── tests/                   # Test files
-├── scripts/                 # Utility scripts
-└── docs/                    # Documentation
+│   │   ├── components/    # React components
+│   │   ├── pages/         # Page components
+│   │   ├── hooks/         # Custom React hooks
+│   │   ├── lib/           # Utilities and configs
+│   │   └── types/         # TypeScript types
+│   └── vite.config.ts     # Vite configuration
+│
+├── server_fastapi/        # FastAPI backend
+│   ├── routes/            # API route handlers (660 routes)
+│   ├── services/          # Business logic services
+│   ├── models/            # Database models
+│   ├── repositories/      # Data access layer
+│   ├── middleware/        # Request/response middleware
+│   ├── dependencies/      # Dependency injection
+│   └── utils/             # Utility functions
+│
+├── scripts/               # Utility scripts
+│   ├── setup/            # Setup scripts
+│   ├── verification/     # Verification scripts
+│   ├── utilities/        # Development utilities
+│   └── monitoring/       # Performance monitoring
+│
+└── docs/                  # Documentation
 ```
 
----
+## 🛠️ Development Workflow
 
-## 🔄 Development Workflow
-
-### Starting Development
+### 1. Making Changes
 
 ```bash
-# Terminal 1: Backend
-npm run dev:fastapi
+# Start development servers
+npm run start:all
 
-# Terminal 2: Frontend
-cd client && npm run dev
-
-# Terminal 3: Celery Worker (if needed)
-npm run celery:worker
-
-# Terminal 4: Celery Beat (if needed)
-npm run celery:beat
+# Or individually:
+npm run dev:fastapi  # Backend (Terminal 1)
+npm run dev          # Frontend (Terminal 2)
 ```
 
-### Making Changes
+### 2. Code Quality
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
+```bash
+# Check code quality
+npm run check:quality
 
-2. **Make your changes**
-   - Follow code standards (see below)
-   - Write tests for new features
-   - Update documentation
+# Format code
+npm run format        # Frontend
+npm run format:py    # Backend (black)
 
-3. **Test your changes**
-   ```bash
-   # Run tests
-   npm run test
-   
-   # Check code quality
-   npm run lint:py
-   npm run check
-   ```
+# Lint code
+npm run lint         # Frontend
+npm run lint:py      # Backend (flake8)
+```
 
-4. **Commit your changes**
-   ```bash
-   git add .
-   git commit -m "feat: add your feature"
-   git push origin feature/your-feature-name
-   ```
+### 3. Testing
 
----
+```bash
+# Run tests
+npm test             # Backend tests
+npm run test:frontend # Frontend tests
+npm run test:e2e     # E2E tests
+```
+
+### 4. Verification
+
+```bash
+# Verify everything works
+npm run check:all
+
+# Individual verifications
+npm run verify:startup      # Startup verification
+npm run verify:features     # Feature verification
+npm run analyze:performance # Performance analysis
+npm run check:dependencies  # Dependency check
+```
 
 ## 📝 Code Standards
 
-### Python Code Style
+### Python (Backend)
 
-- **Formatter**: Black (88 char line length)
-- **Linter**: Flake8
-- **Type Checking**: MyPy (strict mode)
+- **Style**: Follow PEP 8, use Black for formatting
+- **Type Hints**: Use type hints for all functions
+- **Docstrings**: Include docstrings for all public functions/classes
+- **Error Handling**: Use try/except with proper logging
+- **Async**: Use async/await for I/O operations
 
-```bash
-# Format code
-npm run format:py
+### TypeScript (Frontend)
 
-# Lint code
-npm run lint:py
+- **Style**: Follow ESLint rules, use Prettier for formatting
+- **Types**: Use TypeScript strict mode
+- **Components**: Functional components with hooks
+- **Error Handling**: Use ErrorBoundary components
 
-# Type check
-python -m mypy server_fastapi/
+## 🔍 Common Tasks
+
+### Adding a New Route
+
+1. Create route file in `server_fastapi/routes/`
+2. Define router with `router = APIRouter()`
+3. Add route handlers with proper error handling
+4. Register in `server_fastapi/main.py` using `_safe_include()`
+
+Example:
+```python
+from fastapi import APIRouter, Depends
+from ..dependencies.auth import get_current_user
+from ..database import get_db_session
+
+router = APIRouter()
+
+@router.get("/example")
+async def get_example(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+):
+    try:
+        # Your logic here
+        return {"status": "ok"}
+    except Exception as e:
+        logger.error(f"Error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error")
 ```
 
-### TypeScript Code Style
+### Adding a New Service
 
-- **Formatter**: Prettier
-- **Linter**: ESLint
-- **Type Checking**: TypeScript strict mode
+1. Create service file in `server_fastapi/services/`
+2. Implement service class with async methods
+3. Add proper error handling and logging
+4. Use dependency injection in routes
 
-```bash
-# Format code
-npm run format
+### Adding Caching
 
-# Lint code
-npm run lint
+```python
+from ..middleware.cache_manager import cached
 
-# Type check
-npm run check
+@router.get("/data")
+@cached(ttl=60, prefix="data")  # Cache for 60 seconds
+async def get_data():
+    # Your logic
+    return data
 ```
 
-### Code Review Checklist
+### Adding Pagination
 
-- [ ] Code follows style guidelines
-- [ ] All tests pass
-- [ ] New features have tests
-- [ ] Documentation updated
-- [ ] No console.log/debug statements
-- [ ] Error handling implemented
-- [ ] Type hints/types added
+```python
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
----
+@router.get("/items")
+async def get_items(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+):
+    query = select(Item)
+    query = QueryOptimizer.paginate_query(query, page, page_size)
+    result = await db.execute(query)
+    items = result.scalars().all()
+    
+    return ResponseOptimizer.paginate_response(items, page, page_size)
+```
+
+## 🐛 Debugging
+
+### Backend Debugging
+
+```bash
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+npm run dev:fastapi
+
+# Check logs
+tail -f logs/fastapi.log
+
+# Database query logging
+export SQLALCHEMY_ECHO=true
+npm run dev:fastapi
+```
+
+### Frontend Debugging
+
+```bash
+# Start with dev tools
+npm run dev
+
+# Check browser console
+# Use React DevTools extension
+```
+
+### Performance Debugging
+
+```bash
+# Analyze performance
+npm run analyze:performance
+
+# Monitor performance
+npm run monitor:performance
+```
+
+## 📚 Useful Commands
+
+### Development
+- `npm run dev` - Start frontend dev server
+- `npm run dev:fastapi` - Start backend dev server
+- `npm run start:all` - Start all services
+
+### Verification
+- `npm run verify:startup` - Verify startup
+- `npm run verify:features` - Verify features
+- `npm run check:all` - Run all checks
+
+### Utilities
+- `npm run health:check` - Check service health
+- `npm run cache:clear` - Clear all caches
+- `npm run analyze:performance` - Analyze performance
+- `npm run check:dependencies` - Check dependencies
+- `npm run check:quality` - Check code quality
+- `npm run optimize:responses` - Analyze response optimization
+
+### Database
+- `npm run migrate` - Run migrations
+- `npm run migrate:create` - Create new migration
+- `npm run migrate:rollback` - Rollback last migration
+
+## 🎯 Best Practices
+
+### Error Handling
+
+Always use try/except with proper logging:
+
+```python
+try:
+    result = await service.do_something()
+    return result
+except HTTPException:
+    raise  # Let HTTPExceptions propagate
+except Exception as e:
+    logger.error(f"Error: {e}", exc_info=True, extra={"user_id": user_id})
+    raise HTTPException(status_code=500, detail="Internal error")
+```
+
+### Logging
+
+Use structured logging with context:
+
+```python
+logger.info(
+    "Operation completed",
+    extra={
+        "user_id": user_id,
+        "operation": "operation_name",
+        "duration_ms": duration,
+    }
+)
+```
+
+### Database Queries
+
+Always use eager loading to prevent N+1 queries:
+
+```python
+from sqlalchemy.orm import selectinload
+
+query = select(Model).options(selectinload(Model.relationship))
+```
+
+### Caching
+
+Add caching to frequently accessed data:
+
+```python
+@cached(ttl=60, prefix="data")
+async def get_data():
+    # Expensive operation
+    return data
+```
+
+## 🔐 Security
+
+- Always validate user input
+- Use dependency injection for authentication
+- Never log sensitive data (passwords, tokens, keys)
+- Use parameterized queries (SQLAlchemy handles this)
+- Follow security best practices in `docs/security/`
+
+## 📊 Performance
+
+- Use eager loading for relationships
+- Add caching to expensive operations
+- Use pagination for list endpoints
+- Monitor performance with `npm run analyze:performance`
 
 ## 🧪 Testing
 
-### Running Tests
+- Write unit tests for services
+- Write integration tests for routes
+- Use E2E tests for critical flows
+- Maintain test coverage > 80%
 
-```bash
-# All tests
-npm run test
+## 📖 Documentation
 
-# Backend tests only
-pytest server_fastapi/tests/ -v
+- Update README.md for major changes
+- Add docstrings to all public functions
+- Update API docs (auto-generated from FastAPI)
+- Document breaking changes in CHANGELOG.md
 
-# Frontend tests
-npm run test:frontend
+## 🆘 Getting Help
 
-# E2E tests
-npm run test:e2e
+- Check `docs/TROUBLESHOOTING_RUNTIME.md` for common issues
+- Run `npm run check:all` for diagnostics
+- Review logs in `logs/` directory
+- Check API docs at http://localhost:8000/docs
 
-# Watch mode
-npm run test:watch
-```
+## 🎓 Learning Resources
 
-### Writing Tests
-
-**Backend (pytest)**:
-```python
-import pytest
-from fastapi.testclient import TestClient
-
-def test_example(client: TestClient):
-    response = client.get("/api/health")
-    assert response.status_code == 200
-```
-
-**Frontend (Vitest)**:
-```typescript
-import { describe, it, expect } from 'vitest'
-
-describe('Component', () => {
-  it('should render', () => {
-    // Test code
-  })
-})
-```
+- FastAPI: https://fastapi.tiangolo.com/
+- React: https://react.dev/
+- SQLAlchemy: https://docs.sqlalchemy.org/
+- TypeScript: https://www.typescriptlang.org/
 
 ---
 
-## 🔌 API Development
-
-### Creating a New API Endpoint
-
-1. **Create the service** (`server_fastapi/services/your_service.py`):
-```python
-class YourService:
-    async def do_something(self, param: str) -> dict:
-        # Business logic
-        return {"result": "success"}
-```
-
-2. **Create the route** (`server_fastapi/routes/your_route.py`):
-```python
-from fastapi import APIRouter, Depends
-from ..services.your_service import YourService
-from ..dependencies.auth import get_current_user
-
-router = APIRouter(prefix="/api/your-route", tags=["Your Route"])
-
-@router.get("/endpoint")
-async def your_endpoint(
-    current_user: dict = Depends(get_current_user)
-):
-    service = YourService()
-    result = await service.do_something("param")
-    return result
-```
-
-3. **Register the route** (`server_fastapi/main.py`):
-```python
-from .routes.your_route import router
-app.include_router(router)
-```
-
-4. **Add tests** (`server_fastapi/tests/test_your_route.py`)
-
----
-
-## 🎨 Frontend Development
-
-### Creating a New Component
-
-1. **Create component** (`client/src/components/YourComponent.tsx`):
-```typescript
-import { useState } from 'react'
-
-export function YourComponent() {
-  const [state, setState] = useState('')
-  
-  return <div>{state}</div>
-}
-```
-
-2. **Create hook** (if needed) (`client/src/hooks/useYourHook.ts`):
-```typescript
-import { useQuery } from '@tanstack/react-query'
-import { yourApi } from '@/lib/api'
-
-export function useYourHook() {
-  return useQuery({
-    queryKey: ['your-key'],
-    queryFn: () => yourApi.getData()
-  })
-}
-```
-
-3. **Add to page** (`client/src/pages/YourPage.tsx`)
-
----
-
-## 🗄️ Database Management
-
-### Creating Migrations
-
-```bash
-# Create migration
-alembic revision --autogenerate -m "description"
-
-# Review generated migration
-# Edit if needed
-
-# Apply migration
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
-```
-
-### Database Models
-
-```python
-from sqlalchemy.orm import Mapped, mapped_column
-from .base import Base
-
-class YourModel(Base):
-    __tablename__ = "your_table"
-    
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100))
-```
-
----
-
-## 🚀 Deployment
-
-### Pre-Deployment Checklist
-
-- [ ] All tests pass
-- [ ] Environment variables configured
-- [ ] Database migrations applied
-- [ ] Security scan passed
-- [ ] Performance tested
-- [ ] Documentation updated
-
-### Deployment Steps
-
-```bash
-# Build application
-npm run build
-
-# Run tests
-npm run test
-
-# Deploy (see deployment guide)
-./scripts/deploy.sh
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Port already in use**:
-```bash
-# Find process
-netstat -ano | findstr :8000  # Windows
-lsof -i :8000                 # macOS/Linux
-
-# Kill process
-taskkill /PID <PID> /F         # Windows
-kill <PID>                     # macOS/Linux
-```
-
-**Database connection error**:
-- Check DATABASE_URL in .env
-- Ensure database is running
-- Verify credentials
-
-**Import errors**:
-- Activate virtual environment
-- Reinstall dependencies: `pip install -r requirements.txt`
-
-**Frontend build errors**:
-- Clear cache: `rm -rf node_modules .next`
-- Reinstall: `npm install`
-
----
-
-## 📚 Additional Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [React Documentation](https://react.dev/)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Project README](../README.md)
-- [API Documentation](http://localhost:8000/docs)
-
----
-
-## 💡 Tips
-
-1. **Use TypeScript** - Always type your code
-2. **Write Tests** - Test as you develop
-3. **Follow Patterns** - Use existing patterns as examples
-4. **Document Code** - Add docstrings and comments
-5. **Review Code** - Get code reviews before merging
-6. **Keep It Simple** - Prefer simple solutions
-7. **Error Handling** - Always handle errors gracefully
-
----
-
-*Last updated: January 2025*
+**Happy coding!** 🚀
 

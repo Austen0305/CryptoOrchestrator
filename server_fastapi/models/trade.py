@@ -67,7 +67,12 @@ class Trade(Base, TimestampMixin):
     futures_position: Mapped[Optional["FuturesPosition"]] = relationship(
         "FuturesPosition", back_populates="trades"
     )
-    exchange: Mapped[str] = mapped_column(String, nullable=False)
+    chain_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )  # Blockchain chain ID (1=Ethereum)
+    transaction_hash: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, index=True
+    )  # Blockchain transaction hash
     symbol: Mapped[str] = mapped_column(String, nullable=False, index=True)
     pair: Mapped[str] = mapped_column(
         String, nullable=False, index=True

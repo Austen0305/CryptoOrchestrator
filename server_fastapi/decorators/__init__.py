@@ -5,13 +5,13 @@ from .route_handlers import (
     require_trading_enabled,
     rate_limit,
     log_performance,
-    validate_request
+    validate_request,
 )
 
 __all__ = [
-    'handle_errors',
-    'require_trading_enabled',
-    'rate_limit',
-    'log_performance',
-    'validate_request'
+    "handle_errors",
+    "require_trading_enabled",
+    "rate_limit",
+    "log_performance",
+    "validate_request",
 ]

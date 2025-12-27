@@ -59,12 +59,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       } else {
         // Extract username from email (default) or use name if provided
         const trimmedName = formData.name?.trim() || '';
-        const username = trimmedName 
-          ? trimmedName.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') || formData.email.split('@')[0]
-          : formData.email.split('@')[0];
+        const emailUsername = formData.email.split('@')[0] || 'user';
+        const nameParts = trimmedName ? trimmedName.split(/\s+/) : [];
+        const firstPart = nameParts.length > 0 ? nameParts[0] : '';
+        const username = trimmedName && firstPart
+          ? firstPart.toLowerCase().replace(/[^a-z0-9]/g, '') || emailUsername
+          : emailUsername;
         
         // Split name into first and last name if provided
-        const nameParts = trimmedName ? trimmedName.split(/\s+/) : [];
         const firstName = nameParts.length > 0 ? nameParts[0] : undefined;
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : undefined;
         

@@ -92,7 +92,7 @@ export const NotificationCenter = () => {
                     error={error as Error}
                   />
                 </div>
-              ) : notifications.length === 0 ? (
+              ) : !notifications || notifications.length === 0 ? (
                 <div className="p-4">
                   <NotificationCenterEmpty />
                 </div>

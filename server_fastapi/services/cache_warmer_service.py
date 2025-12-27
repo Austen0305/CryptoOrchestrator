@@ -194,23 +194,27 @@ cache_warmer_service = CacheWarmerService()
 
 # Example warmup functions
 async def warmup_market_data():
-    """Warmup market data cache"""
+    """Warmup market data cache using CoinGecko"""
     try:
-        from ..services.exchange_service import ExchangeService
+        from ..services.coingecko_service import CoinGeckoService
 
-        exchange_service = ExchangeService()
+        coingecko = CoinGeckoService()
 
         # Warmup popular trading pairs
         popular_pairs = ["BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD"]
+        pairs_warmed = 0
         for pair in popular_pairs:
             try:
-                ticker = await exchange_service.get_ticker(pair)
-                cache_key = f"market_data:{pair}"
-                await cache_service.set(cache_key, ticker, ttl=60)
+                # Get market data from CoinGecko
+                market_data = await coingecko.get_market_data(pair)
+                if market_data:
+                    cache_key = f"market_data:{pair}"
+                    await cache_service.set(cache_key, market_data, ttl=60)
+                    pairs_warmed += 1
             except Exception as e:
                 logger.warning(f"Failed to warmup {pair}: {e}")
 
-        return {"pairs_warmed": len(popular_pairs)}
+        return {"pairs_warmed": pairs_warmed}
     except Exception as e:
         logger.error(f"Market data warmup failed: {e}")
         return {}
@@ -235,6 +239,138 @@ async def warmup_staking_options():
         return {}
 
 
+async def warmup_popular_token_prices():
+    """Warmup popular token prices from CoinGecko"""
+    try:
+        from ..services.coingecko_service import CoinGeckoService
+
+        coingecko = CoinGeckoService()
+
+        # Popular tokens for trading
+        popular_tokens = [
+            "BTC/USD",
+            "ETH/USD",
+            "SOL/USD",
+            "ADA/USD",
+            "DOT/USD",
+            "MATIC/USD",
+            "AVAX/USD",
+            "LINK/USD",
+            "UNI/USD",
+            "AAVE/USD",
+        ]
+
+        prices_warmed = 0
+        for pair in popular_tokens:
+            try:
+                price = await coingecko.get_price(pair)
+                if price is not None:
+                    cache_key = f"markets:get_price:{pair}"
+                    await cache_service.set(
+                        cache_key, {"pair": pair, "price": price}, ttl=30
+                    )
+                    prices_warmed += 1
+            except Exception as e:
+                logger.warning(f"Failed to warmup price for {pair}: {e}")
+
+        logger.info(f"Warmed up {prices_warmed} popular token prices")
+        return {"prices_warmed": prices_warmed}
+    except Exception as e:
+        logger.error(f"Popular token prices warmup failed: {e}")
+        return {}
+
+
+async def warmup_active_bot_statuses():
+    """Warmup active bot statuses for users with active bots"""
+    try:
+        from ..database import get_db_session
+        from ..repositories.bot_repository import BotRepository
+        from sqlalchemy import select
+        from ..models.bot import Bot
+
+        async with get_db_session() as db:
+            # Get all active bots
+            stmt = select(Bot).where(Bot.is_active == True).limit(100)
+            result = await db.execute(stmt)
+            active_bots = result.scalars().all()
+
+            bot_repo = BotRepository(db)
+            bots_warmed = 0
+
+            for bot in active_bots:
+                try:
+                    # Get bot config to warm cache
+                    bot_config = await bot_repo.get_by_id(db, bot.id)
+                    if bot_config:
+                        cache_key = f"bots:get_bot:{bot.id}"
+                        # Convert to dict for caching
+                        bot_dict = {
+                            "id": str(bot_config.id),
+                            "user_id": bot_config.user_id,
+                            "name": bot_config.name,
+                            "symbol": bot_config.symbol,
+                            "strategy": bot_config.strategy,
+                            "is_active": bot_config.is_active,
+                        }
+                        await cache_service.set(cache_key, bot_dict, ttl=120)
+                        bots_warmed += 1
+                except Exception as e:
+                    logger.warning(f"Failed to warmup bot {bot.id}: {e}")
+
+            logger.info(f"Warmed up {bots_warmed} active bot statuses")
+            return {"bots_warmed": bots_warmed}
+    except Exception as e:
+        logger.error(f"Active bot statuses warmup failed: {e}")
+        return {}
+
+
+async def warmup_user_portfolios():
+    """Warmup portfolios for active users"""
+    try:
+        from ..database import get_db_session
+        from ..repositories.user_repository import UserRepository
+        from sqlalchemy import select, func
+        from ..models.user import User
+        from ..models.trade import Trade
+
+        async with get_db_session() as db:
+            # Get users with recent trades (active users)
+            stmt = (
+                select(User.id, func.count(Trade.id).label("trade_count"))
+                .join(Trade, User.id == Trade.user_id)
+                .group_by(User.id)
+                .having(func.count(Trade.id) > 0)
+                .limit(50)  # Warm up top 50 active users
+            )
+            result = await db.execute(stmt)
+            active_users = result.all()
+
+            portfolios_warmed = 0
+            for user_row in active_users:
+                try:
+                    user_id = user_row.id
+                    # Warm up both paper and real portfolios
+                    for mode in ["paper", "real"]:
+                        cache_key = f"portfolio:get_portfolio:{mode}:{user_id}"
+                        # Set placeholder - actual portfolio will be computed on first request
+                        await cache_service.set(
+                            cache_key,
+                            {"user_id": user_id, "mode": mode, "warmed": True},
+                            ttl=300,
+                        )
+                    portfolios_warmed += 1
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to warmup portfolio for user {user_row.id}: {e}"
+                    )
+
+            logger.info(f"Warmed up {portfolios_warmed} user portfolios")
+            return {"portfolios_warmed": portfolios_warmed}
+    except Exception as e:
+        logger.error(f"User portfolios warmup failed: {e}")
+        return {}
+
+
 # Register default warmup tasks
 def register_default_warmup_tasks():
     """Register default cache warmup tasks"""
@@ -243,6 +379,27 @@ def register_default_warmup_tasks():
         function=warmup_market_data,
         ttl=60,  # 1 minute
         interval=30,  # Run every 30 seconds
+    )
+
+    cache_warmer_service.register_task(
+        name="popular_token_prices",
+        function=warmup_popular_token_prices,
+        ttl=30,  # 30 seconds (matches price endpoint TTL)
+        interval=20,  # Run every 20 seconds
+    )
+
+    cache_warmer_service.register_task(
+        name="active_bot_statuses",
+        function=warmup_active_bot_statuses,
+        ttl=120,  # 2 minutes (matches bot status endpoint TTL)
+        interval=60,  # Run every minute
+    )
+
+    cache_warmer_service.register_task(
+        name="user_portfolios",
+        function=warmup_user_portfolios,
+        ttl=300,  # 5 minutes (matches portfolio endpoint TTL)
+        interval=180,  # Run every 3 minutes
     )
 
     cache_warmer_service.register_task(

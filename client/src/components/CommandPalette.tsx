@@ -171,7 +171,7 @@ export function CommandPalette() {
       icon: FileDown,
       action: () => {
         // Will implement export functionality
-        console.log('Export trades');
+        // Note: This is a placeholder action, will be implemented later
         setOpen(false);
       },
       keywords: ['download', 'csv', 'data'],

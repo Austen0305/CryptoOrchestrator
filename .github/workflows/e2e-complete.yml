@@ -1,0 +1,171 @@
+name: Complete E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-complete:
+    name: Complete E2E Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: crypto_user
+          POSTGRES_PASSWORD: crypto_pass
+          POSTGRES_DB: cryptoorchestrator
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Node.js dependencies
+        run: npm ci
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Validate environment
+        run: npm run validate:env
+        env:
+          DATABASE_URL: postgresql+asyncpg://crypto_user:crypto_pass@localhost:5432/cryptoorchestrator
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-secret-for-ci-only' }}
+          NODE_ENV: test
+          TESTING: 'true'
+
+      - name: Pre-flight check
+        run: node scripts/preflight-check.js
+        env:
+          DATABASE_URL: postgresql+asyncpg://crypto_user:crypto_pass@localhost:5432/cryptoorchestrator
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-secret-for-ci-only' }}
+          NODE_ENV: test
+          TESTING: 'true'
+
+      - name: Run database migrations
+        run: npm run migrate
+        env:
+          DATABASE_URL: postgresql+asyncpg://crypto_user:crypto_pass@localhost:5432/cryptoorchestrator
+          TESTING: 'true'
+
+      - name: Run complete E2E test suite
+        run: npm run test:e2e:complete
+        env:
+          DATABASE_URL: postgresql+asyncpg://crypto_user:crypto_pass@localhost:5432/cryptoorchestrator
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'test-secret-for-ci-only' }}
+          NODE_ENV: test
+          TESTING: 'true'
+          CI: 'true'
+          HEADLESS: 'true'
+        continue-on-error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            test-results/
+            playwright-report/
+            tests/puppeteer/screenshots/
+          retention-days: 30
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test-results/combined-report.html
+            test-results/combined-results.json
+            test-results/puppeteer-results.json
+          retention-days: 30
+
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: E2E Test Results
+          path: test-results/combined-results.json
+          reporter: java-junit
+          fail-on-error: false
+
+  puppeteer-only:
+    name: Puppeteer Tests Only
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Puppeteer dependencies
+        run: npx puppeteer browsers install chrome
+
+      - name: Run Puppeteer tests
+        run: npm run test:puppeteer
+        env:
+          BASE_URL: http://localhost:5173
+          API_URL: http://localhost:8000
+          CI: 'true'
+          HEADLESS: 'true'
+
+      - name: Upload Puppeteer screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: puppeteer-screenshots
+          path: tests/puppeteer/screenshots/
+          retention-days: 7

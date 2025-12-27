@@ -75,8 +75,31 @@ def cached(ttl: int = 300, prefix: str = "", key_builder: Optional[Callable] = N
                 logger.debug(f"Cache miss: {full_key}")
                 result = await func(*args, **kwargs)
 
+                # Convert Pydantic models to dict for JSON serialization
+                if hasattr(result, "model_dump"):
+                    result_dict = result.model_dump()
+                elif hasattr(result, "dict"):
+                    result_dict = result.dict()
+                elif (
+                    isinstance(result, list)
+                    and result
+                    and hasattr(result[0], "model_dump")
+                ):
+                    result_dict = [
+                        (
+                            item.model_dump()
+                            if hasattr(item, "model_dump")
+                            else (item.dict() if hasattr(item, "dict") else item)
+                        )
+                        for item in result
+                    ]
+                else:
+                    result_dict = result
+
                 # Store in cache
-                await redis_client.setex(full_key, ttl, json.dumps(result, default=str))
+                await redis_client.setex(
+                    full_key, ttl, json.dumps(result_dict, default=str)
+                )
 
                 return result
 

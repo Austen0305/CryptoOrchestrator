@@ -206,7 +206,7 @@ export const TradingRecommendations = React.memo(function TradingRecommendations
             </div>
 
             <div className="space-y-3">
-              {recommendations.topPairs.map((pair, index) => (
+              {recommendations?.topPairs && Array.isArray(recommendations.topPairs) ? recommendations.topPairs.map((pair, index) => (
                 <Card key={pair.symbol} className="border-l-4 border-l-blue-500">
                   <CardContent className="pt-4">
                     <div className="flex justify-between items-start mb-3">
@@ -261,9 +261,9 @@ export const TradingRecommendations = React.memo(function TradingRecommendations
                     </div>
 
                     <div className="space-y-1 mb-3">
-                      {pair.reasoning.slice(0, 2).map((reason, idx) => (
+                      {pair.reasoning && Array.isArray(pair.reasoning) ? pair.reasoning.slice(0, 2).map((reason, idx) => (
                         <p key={idx} className="text-sm text-gray-600">• {reason}</p>
-                      ))}
+                      )) : null}
                     </div>
 
                     {onApplyRecommendation && (
@@ -284,7 +284,11 @@ export const TradingRecommendations = React.memo(function TradingRecommendations
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              )) : (
+                <div className="text-center text-muted-foreground py-8">
+                  No trading pairs available
+                </div>
+              )}
             </div>
           </TabsContent>
 

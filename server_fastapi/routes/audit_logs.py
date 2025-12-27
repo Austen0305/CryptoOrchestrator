@@ -6,13 +6,15 @@ Provides access to audit logs for compliance and security
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 import logging
 import os
 from datetime import datetime
 from pathlib import Path
 
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -44,20 +46,18 @@ class AuditLogResponse(BaseModel):
 
 
 @router.get("/", response_model=AuditLogResponse)
+@cached(ttl=60, prefix="audit_logs")  # 60s TTL for audit logs
 async def get_audit_logs(
+    current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     event_type: Optional[str] = None,
     status: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
 ):
     """Get audit logs for the current user (admin can see all logs)"""
     try:
-        user_id = current_user.get("sub") or current_user.get("user_id")
+        user_id = _get_user_id(current_user)
         user_role = current_user.get("role", "user")
-
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
 
         # Only admins can view audit logs
         if user_role != "admin":
@@ -203,16 +203,14 @@ async def get_audit_logs(
 
 
 @router.get("/stats")
+@cached(ttl=120, prefix="audit_log_stats")  # 120s TTL for audit log statistics
 async def get_audit_log_stats(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Get audit log statistics"""
     try:
-        user_id = current_user.get("sub") or current_user.get("user_id")
+        user_id = _get_user_id(current_user)
         user_role = current_user.get("role", "user")
-
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
 
         # Only admins can view audit log stats
         if user_role != "admin":

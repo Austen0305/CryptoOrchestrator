@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Annotated
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-from ..services.exchange_service import default_exchange
+from ..services.payments.trading_fee_service import TradingFeeService
 from ..dependencies.auth import get_current_user
+from ..dependencies.user import get_current_user_db
+from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +40,43 @@ class FeeInfo(BaseModel):
 
 @router.get("/", response_model=FeeInfo)
 async def get_fees(
-    volumeUSD: Optional[float] = None, current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    volumeUSD: Optional[float] = None,
 ):
-    """Get current fee information from exchange"""
+    """Get current fee information for DEX trading"""
     try:
         # Use real volume if provided, otherwise use mock volume for tier calculation
         volume = volumeUSD or 100000.0
 
-        # Get fees from exchange service
-        fees = default_exchange.get_fees(volume)
+        # Get fees from trading fee service (DEX trading fees)
+        fee_service = TradingFeeService()
+        fee_structure = fee_service.get_fee_structure()
+
+        # Get user tier from subscription (default to free tier)
+        user_id = _get_user_id(current_user)
+        user_tier = "free"  # Default
+
+        try:
+            from ..dependencies.user import get_current_user_db
+
+            user = await get_current_user_db(current_user, db)
+            if user.subscription and user.subscription.status == "active":
+                user_tier = user.subscription.plan  # Get tier from subscription plan
+        except Exception as e:
+            logger.warning(
+                f"Failed to get user subscription tier: {e}", extra={"user_id": user_id}
+            )
+            # Default to free tier if subscription lookup fails
+
+        tier_fees = fee_structure["tiers"].get(
+            user_tier, fee_structure["tiers"]["free"]
+        )
 
         fee_info = {
-            "makerFee": fees.maker,
-            "takerFee": fees.taker,
+            "makerFee": tier_fees["fee_bps"] / 100,  # Convert bps to percentage
+            "takerFee": tier_fees["fee_bps"]
+            / 100,  # DEX doesn't distinguish maker/taker, use same fee
             "volumeUSD": volume,
             "nextTierVolume": (
                 500000.0 if volume < 500000 else None
@@ -64,20 +93,47 @@ async def get_fees(
 
 @router.post("/calculate", response_model=FeeResponse)
 async def calculate_fees(
-    request: FeeCalculationRequest, current_user: dict = Depends(get_current_user)
+    request: FeeCalculationRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """Calculate trading fees for a specific trade using exchange service"""
+    """Calculate trading fees for a specific DEX trade"""
     try:
-        # Get current trading volume for fee tier calculation (mock for now)
-        volume_usd = 100000.0  # In production, get from user trading history
+        from decimal import Decimal
 
-        # Calculate fee using exchange service
-        fee_amount = default_exchange.calculate_fee(
-            amount=request.amount,
-            price=request.price,
-            is_maker=request.isMaker if request.isMaker is not None else False,
-            volume_usd=volume_usd,
+        user_id = _get_user_id(current_user)
+
+        # Get current trading volume for fee tier calculation
+        # In production, get from user trading history
+        volume_usd = 100000.0  # Default, will be calculated from database if available
+
+        # Get user tier and monthly volume from database
+        fee_service = TradingFeeService()
+        monthly_volume = await fee_service.get_user_monthly_volume(str(user_id), db)
+        if monthly_volume:
+            volume_usd = float(monthly_volume)
+
+        # Get user tier from subscription (default to free)
+        user_tier = "free"  # Default
+        try:
+            user = await get_current_user_db(current_user, db)
+            if user.subscription and user.subscription.status == "active":
+                user_tier = user.subscription.plan  # Get tier from subscription plan
+        except Exception as e:
+            logger.warning(
+                f"Failed to get user subscription tier: {e}", extra={"user_id": user_id}
+            )
+            # Default to free tier if subscription lookup fails
+
+        # Calculate fee using trading fee service (DEX trading)
+        trade_amount = Decimal(str(request.amount * request.price))
+        fee_amount_decimal = fee_service.calculate_fee(
+            trade_amount=trade_amount,
+            user_tier=user_tier,
+            is_custodial=True,  # Default to custodial
+            monthly_volume=Decimal(str(volume_usd)),
         )
+        fee_amount = float(fee_amount_decimal)
 
         total_amount = request.amount * request.price
         fee_percentage = fee_amount / total_amount

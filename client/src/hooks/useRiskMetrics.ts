@@ -17,7 +17,7 @@ export function useRiskMetrics(): RiskMetrics {
   const { data: trades } = useTrades();
 
   return useMemo(() => {
-    const tradeList = trades || [];
+    const tradeList = Array.isArray(trades) ? trades : [];
     const returns = computeReturns(tradeList);
     const vol = returns.length
       ? Math.sqrt(
@@ -25,7 +25,9 @@ export function useRiskMetrics(): RiskMetrics {
             Math.pow(returns.reduce((a, b) => a + b, 0) / returns.length, 2)
         )
       : 0;
-    const balance = portfolio?.totalBalance || 0;
+    const balance = portfolio && typeof portfolio === 'object' && 'totalBalance' in portfolio
+      ? (portfolio.totalBalance as number) ?? 0
+      : 0;
     return {
       var95: valueAtRisk(returns, 0.95) * balance,
       cvar95: conditionalVaR(returns, 0.95) * balance,

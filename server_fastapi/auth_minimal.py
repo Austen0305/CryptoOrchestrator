@@ -71,7 +71,9 @@ def _generate_token(user: User) -> str:
     payload = {
         "id": user.id,
         "email": user.email,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+        now = datetime.now(timezone.utc)
+        "exp": int((now + timedelta(hours=1)).timestamp()),
+        "iat": int(now.timestamp()),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
@@ -100,7 +102,12 @@ async def minimal_register(payload: RegisterRequest):
     _next_id += 1
 
     token = _generate_token(user)
-    return TokenResponse(access_token=token, refresh_token=None, user=user, message="Registered via minimal auth server")
+    return TokenResponse(
+        access_token=token,
+        refresh_token=None,
+        user=user,
+        message="Registered via minimal auth server",
+    )
 
 
 @app.post("/api/auth/login", response_model=TokenResponse)
@@ -111,6 +118,9 @@ async def minimal_login(payload: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     token = _generate_token(user)
-    return TokenResponse(access_token=token, refresh_token=None, user=user, message="Logged in via minimal auth server")
-
-
+    return TokenResponse(
+        access_token=token,
+        refresh_token=None,
+        user=user,
+        message="Logged in via minimal auth server",
+    )

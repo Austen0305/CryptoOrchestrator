@@ -46,4 +46,3 @@ async def test_risk_alert_persistence(client: AsyncClient, db_session):
     alerts = await db_session.execute(select(RiskAlertModel))
     alerts_list = alerts.scalars().all()
     assert len(alerts_list) >= 0
-

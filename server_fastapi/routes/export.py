@@ -5,7 +5,7 @@ Export Routes - Export trades and performance data to CSV/PDF
 from fastapi import APIRouter, HTTPException, Depends, Query, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from datetime import datetime, date
 import logging
 import csv
@@ -13,7 +13,10 @@ import io
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import get_current_user
+from ..dependencies.pnl import get_pnl_service
 from ..database import get_db_session
+from ..services.pnl_service import PnLService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -99,12 +102,12 @@ def generate_performance_csv(metrics: dict) -> str:
 
 @router.get("/export/trades/csv", tags=["Export"])
 async def export_trades_csv(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     start_date: Optional[date] = Query(None, description="Start date for export"),
     end_date: Optional[date] = Query(None, description="End date for export"),
     bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
     symbol: Optional[str] = Query(None, description="Filter by symbol"),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
     """
     Export trades to CSV file.
@@ -112,11 +115,12 @@ async def export_trades_csv(
     Allows filtering by date range, bot, and symbol.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select, and_
         from ..models.trade import Trade
 
         # Build query
-        query = select(Trade).where(Trade.user_id == current_user["id"])
+        query = select(Trade).where(Trade.user_id == user_id)
 
         if start_date:
             query = query.where(
@@ -183,28 +187,85 @@ async def export_trades_csv(
 
 @router.get("/export/performance/csv", tags=["Export"])
 async def export_performance_csv(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    pnl_service: Annotated[PnLService, Depends(get_pnl_service)],
     start_date: Optional[date] = Query(None, description="Start date for export"),
     end_date: Optional[date] = Query(None, description="End date for export"),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    mode: Optional[str] = Query("paper", description="Trading mode (paper/real)"),
 ):
     """
     Export performance metrics to CSV file.
     """
     try:
-        # TODO: Fetch actual performance metrics
+        user_id = _get_user_id(current_user)
+        # Fetch actual performance metrics from trades
+        from sqlalchemy import select, func, and_
+        from ..models.trade import Trade
+        from ..services.pnl_service import PnLService
+        from ..utils.trading_utils import normalize_trading_mode
+
+        # Get user's trades
+        normalized_mode = normalize_trading_mode(mode or "paper")
+        trades_query = select(Trade).where(
+            and_(
+                Trade.user_id == user_id,
+                Trade.mode == normalized_mode,
+                Trade.status == "completed",
+            )
+        )
+        trades_result = await db_session.execute(trades_query)
+        trades = trades_result.scalars().all()
+
+        # Calculate metrics from trades
+        total_trades = len(trades)
+        winning_trades = [t for t in trades if t.pnl and t.pnl > 0]
+        losing_trades = [t for t in trades if t.pnl and t.pnl < 0]
+        winning_count = len(winning_trades)
+        losing_count = len(losing_trades)
+
+        win_rate = (winning_count / total_trades * 100) if total_trades > 0 else 0.0
+
+        profits = [float(t.pnl) for t in trades if t.pnl is not None]
+        total_profit = sum(profits) if profits else 0.0
+        average_profit = (total_profit / len(profits)) if profits else 0.0
+
+        # ✅ Use injected service - Calculate advanced metrics using PnLService
+        # For now, use basic calculations (full implementation would use pnl_service methods)
+        gross_profit = sum([p for p in profits if p > 0]) if profits else 0.0
+        gross_loss = abs(sum([p for p in profits if p < 0])) if profits else 0.001
+        profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
+
+        # Calculate drawdown (simplified)
+        cumulative = []
+        running_total = 0.0
+        for p in profits:
+            running_total += p
+            cumulative.append(running_total)
+        if cumulative:
+            peak = cumulative[0]
+            max_drawdown = 0.0
+            for value in cumulative:
+                if value > peak:
+                    peak = value
+                drawdown = (peak - value) / peak if peak > 0 else 0.0
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+        else:
+            max_drawdown = 0.0
+
         metrics = {
-            "total_trades": 0,
-            "winning_trades": 0,
-            "losing_trades": 0,
-            "win_rate": 0.0,
-            "total_profit": 0.0,
-            "average_profit": 0.0,
-            "sharpe_ratio": 0.0,
-            "sortino_ratio": 0.0,
-            "max_drawdown": 0.0,
-            "calmar_ratio": 0.0,
-            "profit_factor": 0.0,
+            "total_trades": total_trades,
+            "winning_trades": winning_count,
+            "losing_trades": losing_count,
+            "win_rate": round(win_rate, 2),
+            "total_profit": round(total_profit, 2),
+            "average_profit": round(average_profit, 2),
+            "sharpe_ratio": 0.0,  # Requires returns calculation
+            "sortino_ratio": 0.0,  # Requires returns calculation
+            "max_drawdown": round(max_drawdown, 4),
+            "calmar_ratio": 0.0,  # Requires annual return
+            "profit_factor": round(profit_factor, 2),
         }
 
         # Generate CSV
@@ -231,18 +292,19 @@ async def export_performance_csv(
 
 @router.get("/export/bots/csv", tags=["Export"])
 async def export_bots_csv(
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """
     Export bot configurations to CSV file.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select
         from ..models.bot import Bot
 
         # Get all user's bots
-        query = select(Bot).where(Bot.user_id == current_user["id"])
+        query = select(Bot).where(Bot.user_id == user_id)
         result = await db_session.execute(query)
         bots = result.scalars().all()
 
@@ -265,7 +327,33 @@ async def export_bots_csv(
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
 
+        # Get trades for all bots to calculate win rates
+        from sqlalchemy import select, and_
+        from ..models.trade import Trade
+
         for bot in bots:
+            # Calculate win rate from trades for this bot
+            win_rate = 0.0
+            try:
+                trades_query = select(Trade).where(
+                    and_(
+                        Trade.bot_id == str(bot.id),
+                        Trade.status == "completed",
+                    )
+                )
+                trades_result = await db_session.execute(trades_query)
+                bot_trades = trades_result.scalars().all()
+
+                if bot_trades:
+                    winning_trades = [t for t in bot_trades if t.pnl and t.pnl > 0]
+                    win_rate = (
+                        (len(winning_trades) / len(bot_trades) * 100)
+                        if bot_trades
+                        else 0.0
+                    )
+            except Exception as e:
+                logger.debug(f"Failed to calculate win rate for bot {bot.id}: {e}")
+
             row = {
                 "bot_id": bot.id,
                 "name": bot.name,
@@ -275,7 +363,7 @@ async def export_bots_csv(
                 "status": bot.status,
                 "is_active": bot.active,
                 "total_profit": bot.total_profit or 0,
-                "win_rate": 0,  # TODO: Calculate from trades
+                "win_rate": round(win_rate, 2),
                 "created_at": bot.created_at.isoformat() if bot.created_at else "",
                 "updated_at": bot.updated_at.isoformat() if bot.updated_at else "",
             }

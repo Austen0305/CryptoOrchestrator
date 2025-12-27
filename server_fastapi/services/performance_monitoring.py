@@ -37,9 +37,10 @@ class MetricThreshold:
     comparison: str = "greater"  # "greater", "less", "equal"
 
 
-class PerformanceMonitor:
+class SystemPerformanceMonitor:
     """
-    Monitor application performance and trigger alerts
+    Monitor application system performance (CPU, memory, response times) and trigger alerts.
+    This is separate from TradingPerformanceMonitor which tracks trading metrics.
     """
 
     def __init__(self, alert_callback: Optional[Callable] = None):
@@ -190,7 +191,7 @@ class PerformanceMonitor:
 
 
 # Global performance monitor
-performance_monitor = PerformanceMonitor()
+performance_monitor = SystemPerformanceMonitor()
 
 
 async def send_alert_notification(alert: Alert):

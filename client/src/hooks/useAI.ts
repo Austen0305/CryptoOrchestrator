@@ -12,7 +12,8 @@ export const useBotAIAnalysis = (botId: string) => {
       return await apiRequest(`/api/ai-analysis/bot/${botId}`, { method: "GET" });
     },
     enabled: isAuthenticated && !!botId,
-    refetchInterval: isAuthenticated ? 60000 : false, // 1 minute
+    staleTime: 30000, // 30 seconds for AI analysis data
+    refetchInterval: isAuthenticated ? 60000 : false, // 1 minute when authenticated
   });
 };
 
@@ -24,7 +25,8 @@ export const useMarketSentiment = (symbol: string) => {
       return await apiRequest(`/api/ai-analysis/symbol/${symbol}/sentiment`, { method: "GET" });
     },
     enabled: isAuthenticated && !!symbol,
-    refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds
+    staleTime: 30000, // 30 seconds for sentiment data
+    refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds when authenticated
   });
 };
 

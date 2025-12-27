@@ -11,7 +11,9 @@ from server_fastapi.main import app
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 
 
-@pytest.mark.skip(reason="WS handshake requires integration environment; covered by E2E")
+@pytest.mark.skip(
+    reason="WS handshake requires integration environment; covered by E2E"
+)
 def test_ws_market_data_requires_auth():
     pass
 

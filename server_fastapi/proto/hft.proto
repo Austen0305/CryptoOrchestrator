@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package hft;
+
+// High-Frequency Trading gRPC Service
+service HFTService {
+  // Get order book snapshot
+  rpc GetOrderBookSnapshot(OrderBookRequest) returns (OrderBookSnapshot);
+  
+  // Get order book delta updates
+  rpc GetOrderBookDeltas(OrderBookDeltaRequest) returns (OrderBookDeltas);
+  
+  // Stream order book updates
+  rpc StreamOrderBook(OrderBookRequest) returns (stream OrderBookUpdate);
+  
+  // Get market microstructure data
+  rpc GetMicrostructure(MicrostructureRequest) returns (Microstructure);
+  
+  // Batch orders
+  rpc BatchOrders(BatchOrderRequest) returns (BatchOrderResponse);
+  
+  // Get latency statistics
+  rpc GetLatencyStats(LatencyRequest) returns (LatencyStats);
+}
+
+// Request messages
+message OrderBookRequest {
+  string pair = 1;
+}
+
+message OrderBookDeltaRequest {
+  string pair = 1;
+  int32 since_sequence = 2;
+  int32 limit = 3;
+}
+
+message MicrostructureRequest {
+  string pair = 1;
+}
+
+message BatchOrderRequest {
+  repeated Order orders = 1;
+  bool validate_only = 2;
+}
+
+message LatencyRequest {
+  string pair = 1;
+}
+
+// Response messages
+message OrderBookSnapshot {
+  string pair = 1;
+  repeated PriceLevel bids = 2;
+  repeated PriceLevel asks = 3;
+  int64 timestamp = 4;
+  int32 sequence = 5;
+}
+
+message PriceLevel {
+  double price = 1;
+  double quantity = 2;
+}
+
+message OrderBookDeltas {
+  repeated OrderBookDelta deltas = 1;
+}
+
+message OrderBookDelta {
+  string pair = 1;
+  int32 sequence = 2;
+  int64 timestamp = 3;
+  repeated PriceLevel bid_updates = 4;
+  repeated PriceLevel ask_updates = 5;
+}
+
+message OrderBookUpdate {
+  oneof update {
+    OrderBookSnapshot snapshot = 1;
+    OrderBookDelta delta = 2;
+  }
+}
+
+message Microstructure {
+  string pair = 1;
+  int64 timestamp = 2;
+  double bid_ask_spread = 3;
+  double mid_price = 4;
+  double weighted_mid_price = 5;
+  double bid_volume = 6;
+  double ask_volume = 7;
+  double volume_imbalance = 8;
+  double price_impact_1pct = 9;
+  double price_impact_5pct = 10;
+  double buy_volume = 11;
+  double sell_volume = 12;
+  double trade_flow_imbalance = 13;
+  double realized_volatility = 14;
+  double bid_ask_volatility = 15;
+  double market_depth = 16;
+  double effective_spread = 17;
+}
+
+message Order {
+  string pair = 1;
+  string side = 2;  // "buy" or "sell"
+  double amount = 3;
+  double price = 4;
+  string order_type = 5;  // "market" or "limit"
+}
+
+message BatchOrderResponse {
+  repeated OrderResult results = 1;
+  int32 total_count = 2;
+  int32 success_count = 3;
+  int32 failure_count = 4;
+  double latency_ms = 5;
+}
+
+message OrderResult {
+  Order order = 1;
+  string status = 2;  // "submitted", "validated", "failed"
+  string order_id = 3;
+  string error = 4;
+}
+
+message LatencyStats {
+  string pair = 1;
+  int32 count = 2;
+  double min_ms = 3;
+  double max_ms = 4;
+  double avg_ms = 5;
+  double p50_ms = 6;
+  double p95_ms = 7;
+  double p99_ms = 8;
+}

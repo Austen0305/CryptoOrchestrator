@@ -2,20 +2,10 @@
  * WebSocket Hook for Real-time Portfolio Updates
  */
 
-import { useEffect, useState, useRef } from 'react';
-import { useAuth } from './useAuth';
+import { useEffect, useState, useRef } from "react";
+import { useAuth } from "./useAuth";
 
-interface WindowWithGlobals extends Window {
-  __WS_BASE__?: string;
-  __API_BASE__?: string;
-  VITE_API_URL?: string;
-}
-interface ImportMetaWithEnv extends ImportMeta {
-  env?: {
-    VITE_API_BASE_URL?: string;
-    VITE_API_URL?: string;
-  };
-}
+// Window and ImportMeta types are now defined in client/src/types/global.d.ts
 
 interface PortfolioData {
   totalBalance: number;
@@ -37,12 +27,14 @@ interface PortfolioUpdate {
   data: PortfolioData;
 }
 
-export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
+export function usePortfolioWebSocket(mode: "paper" | "real" = "paper") {
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const maxReconnectAttempts = 10;
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -52,12 +44,15 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
 
     const connect = () => {
       try {
-        const baseUrl = (globalThis as WindowWithGlobals).VITE_API_URL || (import.meta as ImportMetaWithEnv)?.env?.VITE_API_BASE_URL || 'http://localhost:8000';
-        const wsUrl = baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
-        const token = localStorage.getItem('auth_token');
-        
+        const baseUrl =
+          (typeof window !== "undefined" ? window.__API_BASE__ : undefined) ||
+          import.meta.env.VITE_API_BASE_URL ||
+          "http://localhost:8000";
+        const wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://");
+        const token = localStorage.getItem("auth_token");
+
         if (!token) {
-          setError('No authentication token found');
+          setError("No authentication token found");
           return;
         }
 
@@ -69,34 +64,37 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
           // Backend will authenticate automatically
           setIsConnected(true);
           setError(null);
+          reconnectAttemptsRef.current = 0; // Reset on successful connection
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = (event: MessageEvent) => {
           try {
-            const message: PortfolioUpdate = JSON.parse(event.data);
-            
+            const message: PortfolioUpdate = JSON.parse(event.data as string);
+
             // Handle auth success message
-            if (message.type === 'auth_success') {
+            if (message.type === "auth_success") {
               setIsConnected(true);
               setError(null);
               return;
             }
-            
+
             // Handle error messages
-            if (message.type === 'error') {
-              const errorMsg = (message as any).error || message.data;
-              setError(typeof errorMsg === 'string' ? errorMsg : 'WebSocket error');
-              if (errorMsg === 'Authentication required') {
+            if (message.type === "error") {
+              const errorMsg =
+                ("error" in message ? (message as { error?: unknown }).error : null) ||
+                message.data;
+              setError(typeof errorMsg === "string" ? errorMsg : "WebSocket error");
+              if (errorMsg === "Authentication required") {
                 setIsConnected(false);
                 ws.close();
               }
               return;
             }
-            
+
             // Handle portfolio updates
-            if (message.type === 'portfolio_update' && message.data) {
+            if (message.type === "portfolio_update" && message.data) {
               setPortfolio(message.data as PortfolioData);
-            } else if (message.type === 'pong') {
+            } else if (message.type === "pong") {
               // Heartbeat response
             }
           } catch (e: unknown) {
@@ -107,24 +105,39 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
 
         ws.onerror = (error) => {
           // WebSocket error - handled by onerror
-          setError('WebSocket connection error');
+          setError("WebSocket connection error");
         };
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
           // WebSocket disconnected
           setIsConnected(false);
-          
-          // Attempt to reconnect after 3 seconds
+
+          // Don't reconnect if max attempts reached or no auth
+          if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+            setError("Maximum reconnection attempts reached. Please refresh the page.");
+            reconnectAttemptsRef.current = 0;
+            return;
+          }
+
+          // Calculate exponential backoff delay with jitter
+          const baseDelay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000); // Max 30s
+          const jitter = Math.random() * 1000; // 0-1s jitter
+          const delay = baseDelay + jitter;
+
+          reconnectAttemptsRef.current += 1;
+
+          // Attempt to reconnect with exponential backoff
           reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectTimeoutRef.current = null;
             connect();
-          }, 3000);
+          }, delay);
         };
 
         wsRef.current = ws;
       } catch (e: unknown) {
         const error = e instanceof Error ? e : new Error(String(e));
         // Failed to connect - error state already set
-        setError('Failed to establish WebSocket connection');
+        setError("Failed to establish WebSocket connection");
       }
     };
 
@@ -143,19 +156,23 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
 
   const requestPortfolio = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'get_portfolio',
-        mode: mode,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "get_portfolio",
+          mode: mode,
+        })
+      );
     }
   };
 
-  const subscribe = (mode: 'paper' | 'real') => {
+  const subscribe = (mode: "paper" | "real") => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'subscribe',
-        mode: mode,
-      }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: "subscribe",
+          mode: mode,
+        })
+      );
     }
   };
 
@@ -167,4 +184,3 @@ export function usePortfolioWebSocket(mode: 'paper' | 'real' = 'paper') {
     subscribe,
   };
 }
-

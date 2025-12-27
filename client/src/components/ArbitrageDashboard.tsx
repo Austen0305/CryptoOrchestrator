@@ -2,10 +2,33 @@ import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, Activity, Play, Square, Zap, DollarSign, Clock } from "lucide-react";
-import { useArbitrageStatus, useArbitrageOpportunities, useArbitrageStats, useStartArbitrage, useStopArbitrage, useExecuteArbitrage } from "@/hooks/useArbitrage";
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Play,
+  Square,
+  Zap,
+  DollarSign,
+  Clock,
+} from "lucide-react";
+import {
+  useArbitrageStatus,
+  useArbitrageOpportunities,
+  useArbitrageStats,
+  useStartArbitrage,
+  useStopArbitrage,
+  useExecuteArbitrage,
+} from "@/hooks/useArbitrage";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
@@ -37,11 +60,40 @@ interface ArbitrageOpportunity {
   timestamp?: string;
 }
 
+interface ArbitrageStatus {
+  isRunning: boolean;
+  lastScanTime: Date | string;
+  activeOpportunities: number;
+}
+
+interface ArbitrageStats {
+  totalOpportunities: number;
+  totalExecuted: number;
+  totalProfit: number;
+  successRate: number;
+  averageProfit: number;
+}
+
 export function ArbitrageDashboard() {
   const { isAuthenticated } = useAuth();
-  const { data: status, isLoading: statusLoading, error: statusError, refetch: refetchStatus } = useArbitrageStatus();
-  const { data: opportunities, isLoading: opportunitiesLoading, error: opportunitiesError, refetch: refetchOpportunities } = useArbitrageOpportunities();
-  const { data: stats, isLoading: statsLoading, error: statsError, refetch: refetchStats } = useArbitrageStats();
+  const {
+    data: status,
+    isLoading: statusLoading,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useArbitrageStatus();
+  const {
+    data: opportunities,
+    isLoading: opportunitiesLoading,
+    error: opportunitiesError,
+    refetch: refetchOpportunities,
+  } = useArbitrageOpportunities();
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats,
+  } = useArbitrageStats();
   const startArbitrage = useStartArbitrage();
   const stopArbitrage = useStopArbitrage();
   const executeArbitrage = useExecuteArbitrage();
@@ -49,14 +101,14 @@ export function ArbitrageDashboard() {
   const hasError = statusError || opportunitiesError || statsError;
   const error = statusError || opportunitiesError || statsError;
 
-  // Use real API data, with loading states
-  const statusData = status || {
+  // Use real API data, with loading states and proper typing
+  const statusData: ArbitrageStatus = (status as ArbitrageStatus) || {
     isRunning: false,
     lastScanTime: new Date(),
     activeOpportunities: 0,
   };
-  const opportunitiesData = opportunities || [];
-  const statsData = stats || {
+  const opportunitiesData: ArbitrageOpportunity[] = (opportunities as ArbitrageOpportunity[]) || [];
+  const statsData: ArbitrageStats = (stats as ArbitrageStats) || {
     totalOpportunities: 0,
     totalExecuted: 0,
     totalProfit: 0,
@@ -93,7 +145,7 @@ export function ArbitrageDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-yellow-500" />
-            Multi-Exchange Arbitrage
+            Cross-DEX Arbitrage
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -114,7 +166,7 @@ export function ArbitrageDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-yellow-500" />
-            Multi-Exchange Arbitrage
+            Cross-DEX Arbitrage
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -138,23 +190,19 @@ export function ArbitrageDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-yellow-500" />
-            Multi-Exchange Arbitrage
+            Cross-DEX Arbitrage
           </CardTitle>
-          <CardDescription>
-            Real-time arbitrage opportunities across exchanges
-          </CardDescription>
+          <CardDescription>Real-time arbitrage opportunities across exchanges</CardDescription>
         </CardHeader>
         <CardContent>
           <EmptyState
             icon={Zap}
             title="No Arbitrage Opportunities"
-            description="Start the arbitrage scanner to find opportunities across exchanges"
-            action={
-              <Button onClick={handleStart} disabled={startArbitrage.isPending}>
-                <Play className="h-4 w-4 mr-2" />
-                Start Scanner
-              </Button>
-            }
+            description="Start the arbitrage scanner to find opportunities across DEX aggregators"
+            action={{
+              label: "Start Scanner",
+              onClick: handleStart,
+            }}
           />
         </CardContent>
       </Card>
@@ -168,10 +216,10 @@ export function ArbitrageDashboard() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-yellow-500" />
-              Multi-Exchange Arbitrage
+              Cross-DEX Arbitrage
             </CardTitle>
             <CardDescription>
-              Real-time arbitrage opportunities across exchanges
+              Real-time arbitrage opportunities across DEX aggregators
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -179,12 +227,22 @@ export function ArbitrageDashboard() {
               {statusData.isRunning ? "Running" : "Stopped"}
             </Badge>
             {statusData.isRunning ? (
-              <Button variant="destructive" size="sm" onClick={handleStop} disabled={stopArbitrage.isPending}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleStop}
+                disabled={stopArbitrage.isPending}
+              >
                 <Square className="h-4 w-4 mr-2" />
                 Stop
               </Button>
             ) : (
-              <Button variant="default" size="sm" onClick={handleStart} disabled={startArbitrage.isPending}>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleStart}
+                disabled={startArbitrage.isPending}
+              >
                 <Play className="h-4 w-4 mr-2" />
                 Start
               </Button>
@@ -205,7 +263,9 @@ export function ArbitrageDashboard() {
           </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-sm font-medium text-muted-foreground">Total Profit</div>
-            <div className="text-2xl font-bold text-green-500">{formatCurrency(statsData.totalProfit)}</div>
+            <div className="text-2xl font-bold text-green-500">
+              {formatCurrency(statsData.totalProfit)}
+            </div>
           </div>
           <div className="rounded-lg border bg-card p-4">
             <div className="text-sm font-medium text-muted-foreground">Success Rate</div>
@@ -234,8 +294,8 @@ export function ArbitrageDashboard() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Pair</TableHead>
-                      <TableHead>Exchange A</TableHead>
-                      <TableHead>Exchange B</TableHead>
+                      <TableHead>DEX A</TableHead>
+                      <TableHead>DEX B</TableHead>
                       <TableHead>Spread</TableHead>
                       <TableHead>Profit</TableHead>
                       <TableHead>Volume</TableHead>
@@ -250,33 +310,44 @@ export function ArbitrageDashboard() {
                       const sellExchange = opp.exchangeB || opp.sell_exchange || "N/A";
                       const buyPrice = opp.priceA || opp.buy_price || 0;
                       const sellPrice = opp.priceB || opp.sell_price || 0;
-                      const spread = opp.spread ?? (sellPrice - buyPrice);
-                      const spreadPercent = opp.spreadPercent || opp.spread_percent || ((spread / buyPrice) * 100);
+                      const spread = opp.spread ?? sellPrice - buyPrice;
+                      const spreadPercent =
+                        opp.spreadPercent || opp.spread_percent || (spread / buyPrice) * 100;
                       const estimatedProfit = opp.estimatedProfit || opp.estimated_profit_usd || 0;
-                      const volume = opp.volume || (opp.volume_available ? `${opp.volume_available}` : "N/A");
+                      const volume =
+                        opp.volume || (opp.volume_available ? `${opp.volume_available}` : "N/A");
 
                       return (
                         <TableRow key={opportunityId}>
                           <TableCell className="font-medium">{pair}</TableCell>
                           <TableCell>
                             <div className="text-sm">{buyExchange}</div>
-                            <div className="text-xs text-muted-foreground">{formatCurrency(buyPrice)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatCurrency(buyPrice)}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="text-sm">{sellExchange}</div>
-                            <div className="text-xs text-muted-foreground">{formatCurrency(sellPrice)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatCurrency(sellPrice)}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <div className={cn(
-                                "font-medium",
-                                spread > 0 ? "text-green-500" : "text-red-500"
-                              )}>
+                              <div
+                                className={cn(
+                                  "font-medium",
+                                  spread > 0 ? "text-green-500" : "text-red-500"
+                                )}
+                              >
                                 {formatCurrency(spread)}
                               </div>
-                              <Badge variant="outline" className={cn(
-                                spreadPercent > 0.3 ? "border-green-500 text-green-500" : ""
-                              )}>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  spreadPercent > 0.3 ? "border-green-500 text-green-500" : ""
+                                )}
+                              >
                                 {formatPercentage(spreadPercent)}
                               </Badge>
                             </div>
@@ -286,9 +357,7 @@ export function ArbitrageDashboard() {
                               {formatCurrency(estimatedProfit)}
                             </div>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {volume}
-                          </TableCell>
+                          <TableCell className="text-muted-foreground">{volume}</TableCell>
                           <TableCell>
                             <Button
                               size="sm"
@@ -319,7 +388,9 @@ export function ArbitrageDashboard() {
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Total Profit</span>
-                    <span className="font-bold text-green-500">{formatCurrency(statsData.totalProfit)}</span>
+                    <span className="font-bold text-green-500">
+                      {formatCurrency(statsData.totalProfit)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Average Profit</span>
@@ -362,4 +433,3 @@ export function ArbitrageDashboard() {
     </Card>
   );
 }
-

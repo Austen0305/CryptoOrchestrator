@@ -1,532 +1,428 @@
 """
-Automated Database Backup Service
-Provides scheduled, encrypted backups with verification and cloud storage
+Backup Service
+Automated database backups and point-in-time recovery
 """
 
 import logging
-import asyncio
 import subprocess
-import os
+import gzip
+import hashlib
+from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-
-from ..config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 
 class BackupService:
-    """Service for automated database backups"""
-
-    def __init__(self):
-        self.settings = get_settings()
-        self.backup_dir = Path("backups")
-        self.backup_dir.mkdir(exist_ok=True)
-        self.retention_days = 30  # Keep backups for 30 days
-        self.encryption_enabled = True
-
-    async def create_backup(
-        self, backup_type: str = "full", encrypt: bool = True
-    ) -> Dict[str, Any]:
+    """
+    Service for managing database backups
+    
+    Features:
+    - Automated database backups
+    - Backup compression
+    - Backup verification
+    - Retention policy management
+    - Point-in-time recovery support
+    """
+    
+    def __init__(
+        self,
+        db_url: str,
+        backup_dir: str = "./backups",
+        retention_days: int = 7,
+        retention_weeks: int = 4,
+        retention_months: int = 12,
+        secondary_storage: Optional[str] = None,  # Cloud storage path
+    ):
         """
-        Create a database backup
-
+        Initialize backup service
+        
         Args:
-            backup_type: Type of backup ('full', 'incremental')
-            encrypt: Whether to encrypt the backup
-
-        Returns:
-            Dict with backup details
+            db_url: Database URL
+            backup_dir: Backup directory path
+            retention_days: Days to keep daily backups
+            retention_weeks: Weeks to keep weekly backups
+            retention_months: Months to keep monthly backups
         """
-        try:
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            backup_filename = f"backup_{backup_type}_{timestamp}.sql"
-            backup_path = self.backup_dir / backup_filename
-
-            # Get database URL
-            db_url = self.settings.database_url
-
-            # Determine backup method based on database type
-            if "sqlite" in db_url.lower():
-                # SQLite backup
-                success = await self._backup_sqlite(db_url, backup_path)
-            elif "postgresql" in db_url.lower() or "postgres" in db_url.lower():
-                # PostgreSQL backup
-                success = await self._backup_postgresql(db_url, backup_path)
-            else:
-                raise ValueError(f"Unsupported database type: {db_url}")
-
-            if not success:
-                raise Exception("Backup creation failed")
-
-            # Encrypt backup if requested
-            if encrypt and self.encryption_enabled:
-                encrypted_path = await self._encrypt_backup(backup_path)
-                if encrypted_path:
-                    # Remove unencrypted backup
-                    backup_path.unlink()
-                    backup_path = encrypted_path
-                    backup_filename = encrypted_path.name
-
-            # Verify backup
-            backup_size = backup_path.stat().st_size
-            is_valid = await self._verify_backup(backup_path)
-
-            if not is_valid:
-                raise Exception("Backup verification failed")
-
-            # Upload to cloud storage (if configured)
-            cloud_url = None
-            try:
-                cloud_url = await self._upload_to_cloud(backup_path)
-            except Exception as e:
-                logger.warning(f"Cloud upload failed: {e}")
-
-            backup_info = {
-                "backup_id": f"backup_{timestamp}",
-                "filename": backup_filename,
-                "path": str(backup_path),
-                "size_bytes": backup_size,
-                "size_mb": round(backup_size / (1024 * 1024), 2),
-                "type": backup_type,
-                "encrypted": encrypt and self.encryption_enabled,
-                "timestamp": timestamp,
-                "verified": is_valid,
-                "cloud_url": cloud_url,
-                "status": "success",
-            }
-
-            logger.info(
-                f"✅ Backup created successfully: {backup_filename} ({backup_info['size_mb']} MB)"
-            )
-
-            # Clean up old backups
-            await self._cleanup_old_backups()
-
-            return backup_info
-
-        except Exception as e:
-            logger.error(f"Error creating backup: {e}", exc_info=True)
-            return {
-                "status": "failed",
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
-            }
-
-    async def _backup_sqlite(self, db_url: str, backup_path: Path) -> bool:
-        """Backup SQLite database"""
-        try:
-            # Extract database path from URL
-            if db_url.startswith("sqlite+aiosqlite:///"):
-                db_path = db_url.replace("sqlite+aiosqlite:///", "")
-            elif db_url.startswith("sqlite:///"):
-                db_path = db_url.replace("sqlite:///", "")
-            else:
-                db_path = db_url.replace("sqlite+aiosqlite://", "").replace(
-                    "sqlite://", ""
-                )
-
-            # Use SQLite backup API
-            import sqlite3
-
-            source_conn = sqlite3.connect(db_path)
-            backup_conn = sqlite3.connect(str(backup_path))
-
-            source_conn.backup(backup_conn)
-            source_conn.close()
-            backup_conn.close()
-
-            return True
-        except Exception as e:
-            logger.error(f"SQLite backup failed: {e}", exc_info=True)
-            return False
-
-    async def _backup_postgresql(self, db_url: str, backup_path: Path) -> bool:
-        """Backup PostgreSQL database using pg_dump"""
-        try:
-            # Extract connection details from URL
-            # Format: postgresql://user:password@host:port/database
-            import urllib.parse as urlparse
-
-            parsed = urlparse.urlparse(
-                db_url.replace("postgresql+asyncpg://", "postgresql://")
-            )
-
-            # Build pg_dump command
-            cmd = [
-                "pg_dump",
-                "-h",
-                parsed.hostname or "localhost",
-                "-p",
-                str(parsed.port or 5432),
-                "-U",
-                parsed.username or "postgres",
-                "-d",
-                parsed.path.lstrip("/") or "postgres",
-                "-F",
-                "c",  # Custom format
-                "-f",
-                str(backup_path),
-            ]
-
-            # Set password via environment
-            env = os.environ.copy()
-            if parsed.password:
-                env["PGPASSWORD"] = parsed.password
-
-            # Run pg_dump
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                logger.error(f"pg_dump failed: {stderr.decode()}")
-                return False
-
-            return True
-        except FileNotFoundError:
-            logger.warning("pg_dump not found, PostgreSQL backup unavailable")
-            return False
-        except Exception as e:
-            logger.error(f"PostgreSQL backup failed: {e}", exc_info=True)
-            return False
-
-    async def _encrypt_backup(self, backup_path: Path) -> Optional[Path]:
-        """Encrypt backup file using GPG"""
-        try:
-            encrypted_path = backup_path.with_suffix(backup_path.suffix + ".gpg")
-
-            # Get encryption key from settings or environment
-            encryption_key = os.getenv("BACKUP_ENCRYPTION_KEY")
-            if not encryption_key:
-                logger.warning("No encryption key found, skipping encryption")
-                return None
-
-            # Use GPG to encrypt
-            cmd = [
-                "gpg",
-                "--symmetric",
-                "--cipher-algo",
-                "AES256",
-                "--batch",
-                "--passphrase",
-                encryption_key,
-                "--output",
-                str(encrypted_path),
-                str(backup_path),
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                logger.error(f"Encryption failed: {stderr.decode()}")
-                return None
-
-            return encrypted_path
-        except FileNotFoundError:
-            logger.warning("GPG not found, encryption unavailable")
-            return None
-        except Exception as e:
-            logger.error(f"Encryption failed: {e}", exc_info=True)
-            return None
-
-    async def _verify_backup(self, backup_path: Path) -> bool:
-        """Verify backup file integrity"""
-        try:
-            # Check file exists and has content
-            if not backup_path.exists():
-                return False
-
-            if backup_path.stat().st_size == 0:
-                return False
-
-            # For SQLite, try to open and verify
-            if backup_path.suffix == ".sql" or backup_path.suffix == ".db":
-                try:
-                    import sqlite3
-
-                    conn = sqlite3.connect(str(backup_path))
-                    conn.execute("SELECT 1")
-                    conn.close()
-                    return True
-                except:
-                    # Not SQLite or corrupted, but might be valid PostgreSQL backup
-                    return True
-
-            # For encrypted backups, just check size
-            if backup_path.suffix == ".gpg":
-                return backup_path.stat().st_size > 0
-
-            return True
-        except Exception as e:
-            logger.error(f"Backup verification failed: {e}")
-            return False
-
-    async def _upload_to_cloud(self, backup_path: Path) -> Optional[str]:
-        """Upload backup to cloud storage (S3, etc.)"""
-        try:
-            # Check if cloud storage is configured
-            s3_bucket = os.getenv("BACKUP_S3_BUCKET")
-            if not s3_bucket:
-                return None
-
-            # Use boto3 for S3 upload
-            try:
-                import boto3
-                from botocore.exceptions import ClientError
-
-                s3_client = boto3.client("s3")
-                s3_key = f"backups/{backup_path.name}"
-
-                s3_client.upload_file(
-                    str(backup_path),
-                    s3_bucket,
-                    s3_key,
-                    ExtraArgs={"ServerSideEncryption": "AES256"},
-                )
-
-                return f"s3://{s3_bucket}/{s3_key}"
-            except ImportError:
-                logger.warning("boto3 not installed, S3 upload unavailable")
-                return None
-        except Exception as e:
-            logger.warning(f"Cloud upload failed: {e}")
-            return None
-
-    async def _cleanup_old_backups(self) -> int:
-        """Remove backups older than retention period"""
-        try:
-            cutoff_date = datetime.utcnow() - timedelta(days=self.retention_days)
-            deleted_count = 0
-
-            for backup_file in self.backup_dir.glob("backup_*"):
-                try:
-                    file_time = datetime.fromtimestamp(backup_file.stat().st_mtime)
-                    if file_time < cutoff_date:
-                        backup_file.unlink()
-                        deleted_count += 1
-                        logger.info(f"Deleted old backup: {backup_file.name}")
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to delete old backup {backup_file.name}: {e}"
-                    )
-
-            if deleted_count > 0:
-                logger.info(f"Cleaned up {deleted_count} old backups")
-
-            return deleted_count
-        except Exception as e:
-            logger.error(f"Error cleaning up old backups: {e}")
-            return 0
-
-    async def list_backups(self) -> List[Dict[str, Any]]:
-        """List all available backups"""
-        try:
-            backups = []
-
-            for backup_file in sorted(self.backup_dir.glob("backup_*"), reverse=True):
-                try:
-                    stat = backup_file.stat()
-                    backups.append(
-                        {
-                            "filename": backup_file.name,
-                            "path": str(backup_file),
-                            "size_bytes": stat.st_size,
-                            "size_mb": round(stat.st_size / (1024 * 1024), 2),
-                            "created_at": datetime.fromtimestamp(
-                                stat.st_mtime
-                            ).isoformat(),
-                            "encrypted": backup_file.suffix == ".gpg",
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Error reading backup info for {backup_file.name}: {e}"
-                    )
-
-            return backups
-        except Exception as e:
-            logger.error(f"Error listing backups: {e}")
-            return []
-
-    async def restore_backup(
-        self, backup_filename: str, verify_only: bool = False
+        self.db_url = db_url
+        self.backup_dir = Path(backup_dir)
+        self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.retention_days = retention_days
+        self.retention_weeks = retention_weeks
+        self.retention_months = retention_months
+        self.secondary_storage = secondary_storage  # Optional cloud storage
+    
+    def create_backup(
+        self,
+        backup_type: str = "full",
+        compress: bool = True,
     ) -> Dict[str, Any]:
+        """
+        Create database backup
+        
+        Args:
+            backup_type: Backup type ("full", "incremental")
+            compress: Whether to compress backup
+        
+        Returns:
+            Backup metadata
+        """
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"backup_{backup_type}_{timestamp}.sql"
+        backup_path = self.backup_dir / backup_filename
+        
+        try:
+            # Determine database type and create backup
+            if "postgresql" in self.db_url or "postgres" in self.db_url:
+                # PostgreSQL backup
+                backup_path = self._backup_postgresql(backup_path)
+            elif "sqlite" in self.db_url:
+                # SQLite backup
+                backup_path = self._backup_sqlite(backup_path)
+            else:
+                raise ValueError(f"Unsupported database type: {self.db_url}")
+            
+            # Compress if requested
+            if compress:
+                backup_path = self._compress_backup(backup_path)
+            
+            # Calculate checksum
+            checksum = self._calculate_checksum(backup_path)
+            
+            # Get file size
+            file_size = backup_path.stat().st_size
+            
+            # Replicate to secondary storage if configured
+            secondary_path = None
+            if self.secondary_storage:
+                try:
+                    secondary_path = self._replicate_to_secondary(backup_path)
+                    logger.info(f"Backup replicated to secondary storage: {secondary_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to replicate to secondary storage: {e}")
+
+            backup_metadata = {
+                "backup_id": f"{backup_type}_{timestamp}",
+                "backup_type": backup_type,
+                "file_path": str(backup_path),
+                "secondary_path": secondary_path,
+                "file_size": file_size,
+                "checksum": checksum,
+                "created_at": datetime.utcnow().isoformat(),
+                "compressed": compress,
+            }
+            
+            logger.info(f"Backup created: {backup_path} ({file_size} bytes)")
+            
+            return backup_metadata
+            
+        except Exception as e:
+            logger.error(f"Failed to create backup: {e}", exc_info=True)
+            raise
+    
+    def _backup_postgresql(self, backup_path: Path) -> Path:
+        """Create PostgreSQL backup using pg_dump"""
+        # Extract connection details from URL
+        # Format: postgresql://user:password@host:port/database
+        import re
+        match = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)", self.db_url)
+        if not match:
+            raise ValueError("Invalid PostgreSQL URL format")
+        
+        user, password, host, port, database = match.groups()
+        
+        # Set PGPASSWORD environment variable
+        env = os.environ.copy()
+        env["PGPASSWORD"] = password
+        
+        # Run pg_dump
+        cmd = [
+            "pg_dump",
+            "-h", host,
+            "-p", port,
+            "-U", user,
+            "-d", database,
+            "-F", "c",  # Custom format
+            "-f", str(backup_path),
+        ]
+        
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise RuntimeError(f"pg_dump failed: {result.stderr}")
+        
+        return backup_path
+    
+    def _backup_sqlite(self, backup_path: Path) -> Path:
+        """Create SQLite backup"""
+        # Extract database path from URL
+        # Format: sqlite:///path/to/database.db
+        db_path = self.db_url.replace("sqlite:///", "").replace("sqlite+aiosqlite:///", "")
+        
+        if not os.path.exists(db_path):
+            raise FileNotFoundError(f"Database file not found: {db_path}")
+        
+        # Copy database file
+        import shutil
+        shutil.copy2(db_path, backup_path)
+        
+        return backup_path
+    
+    def _compress_backup(self, backup_path: Path) -> Path:
+        """Compress backup file"""
+        compressed_path = backup_path.with_suffix(backup_path.suffix + ".gz")
+        
+        with open(backup_path, "rb") as f_in:
+            with gzip.open(compressed_path, "wb") as f_out:
+                f_out.writelines(f_in)
+        
+        # Remove original
+        backup_path.unlink()
+        
+        return compressed_path
+    
+    def _calculate_checksum(self, file_path: Path) -> str:
+        """Calculate SHA-256 checksum of backup file"""
+        sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                sha256.update(chunk)
+        return sha256.hexdigest()
+    
+    def verify_backup(
+        self,
+        backup_path: str,
+        expected_checksum: Optional[str] = None,
+    ) -> bool:
+        """
+        Verify backup integrity
+        
+        Args:
+            backup_path: Path to backup file
+            expected_checksum: Expected checksum (optional)
+        
+        Returns:
+            True if backup is valid
+        """
+        backup_file = Path(backup_path)
+        
+        if not backup_file.exists():
+            logger.error(f"Backup file not found: {backup_path}")
+            return False
+        
+        # Verify checksum if provided
+        if expected_checksum:
+            actual_checksum = self._calculate_checksum(backup_file)
+            if actual_checksum != expected_checksum:
+                logger.error(f"Checksum mismatch for {backup_path}")
+                return False
+        
+        # Try to decompress and verify structure (for compressed backups)
+        if backup_file.suffix == ".gz":
+            try:
+                with gzip.open(backup_file, "rb") as f:
+                    # Try to read first few bytes
+                    f.read(1024)
+            except Exception as e:
+                logger.error(f"Failed to decompress backup: {e}")
+                return False
+        
+        logger.info(f"Backup verified: {backup_path}")
+        return True
+    
+    def list_backups(
+        self,
+        backup_type: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        List all backups
+        
+        Args:
+            backup_type: Filter by backup type
+        
+        Returns:
+            List of backup metadata
+        """
+        backups = []
+        
+        for backup_file in self.backup_dir.glob("backup_*.sql*"):
+            try:
+                stat = backup_file.stat()
+                backups.append({
+                    "file_path": str(backup_file),
+                    "file_size": stat.st_size,
+                    "created_at": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    "compressed": backup_file.suffix == ".gz",
+                })
+            except Exception as e:
+                logger.warning(f"Failed to get metadata for {backup_file}: {e}")
+        
+        # Sort by creation time (newest first)
+        backups.sort(key=lambda x: x["created_at"], reverse=True)
+        
+        return backups
+    
+    def cleanup_old_backups(self) -> Dict[str, int]:
+        """
+        Clean up old backups based on retention policy
+        
+        Returns:
+            Dictionary with cleanup statistics
+        """
+        now = datetime.utcnow()
+        deleted_daily = 0
+        deleted_weekly = 0
+        deleted_monthly = 0
+        
+        for backup_file in self.backup_dir.glob("backup_*.sql*"):
+            try:
+                file_time = datetime.fromtimestamp(backup_file.stat().st_mtime)
+                age = now - file_time
+                
+                # Determine backup type from filename
+                if "daily" in backup_file.name or age.days < 7:
+                    if age.days > self.retention_days:
+                        backup_file.unlink()
+                        deleted_daily += 1
+                elif "weekly" in backup_file.name or (age.days >= 7 and age.days < 30):
+                    if age.days > (self.retention_weeks * 7):
+                        backup_file.unlink()
+                        deleted_weekly += 1
+                elif "monthly" in backup_file.name or age.days >= 30:
+                    if age.days > (self.retention_months * 30):
+                        backup_file.unlink()
+                        deleted_monthly += 1
+                        
+            except Exception as e:
+                logger.warning(f"Failed to process {backup_file}: {e}")
+        
+        logger.info(
+            f"Backup cleanup completed: {deleted_daily} daily, "
+            f"{deleted_weekly} weekly, {deleted_monthly} monthly backups deleted"
+        )
+        
+        return {
+            "deleted_daily": deleted_daily,
+            "deleted_weekly": deleted_weekly,
+            "deleted_monthly": deleted_monthly,
+        }
+    
+    def _replicate_to_secondary(self, backup_path: Path) -> Optional[str]:
+        """
+        Replicate backup to secondary storage location
+        
+        Args:
+            backup_path: Path to backup file
+        
+        Returns:
+            Secondary storage path if successful, None otherwise
+        """
+        if not self.secondary_storage:
+            return None
+        
+        try:
+            # For cloud storage, would use boto3 (S3) or backblaze SDK
+            # For now, support local secondary directory
+            secondary_dir = Path(self.secondary_storage)
+            secondary_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Copy backup to secondary location
+            import shutil
+            secondary_path = secondary_dir / backup_path.name
+            shutil.copy2(backup_path, secondary_path)
+            
+            logger.info(f"Backup replicated to secondary: {secondary_path}")
+            return str(secondary_path)
+            
+        except Exception as e:
+            logger.error(f"Failed to replicate backup: {e}", exc_info=True)
+            return None
+    
+    def restore_backup(
+        self,
+        backup_path: str,
+        verify: bool = True,
+    ) -> bool:
         """
         Restore database from backup
-
+        
         Args:
-            backup_filename: Name of backup file to restore
-            verify_only: If True, only verify backup without restoring
-
+            backup_path: Path to backup file
+            verify: Whether to verify backup before restoring
+        
         Returns:
-            Dict with restore status
+            True if restore successful
         """
+        backup_file = Path(backup_path)
+        
+        if not backup_file.exists():
+            raise FileNotFoundError(f"Backup file not found: {backup_path}")
+        
+        # Verify backup if requested
+        if verify:
+            if not self.verify_backup(backup_path):
+                raise ValueError("Backup verification failed")
+        
         try:
-            backup_path = self.backup_dir / backup_filename
-
-            if not backup_path.exists():
-                raise FileNotFoundError(f"Backup file not found: {backup_filename}")
-
-            # Decrypt if needed
-            if backup_path.suffix == ".gpg":
-                decrypted_path = await self._decrypt_backup(backup_path)
-                if not decrypted_path:
-                    raise Exception("Failed to decrypt backup")
-                backup_path = decrypted_path
-
-            # Verify backup before restore
-            is_valid = await self._verify_backup(backup_path)
-            if not is_valid:
-                raise Exception("Backup verification failed")
-
-            if verify_only:
-                return {
-                    "status": "verified",
-                    "backup_file": backup_filename,
-                    "message": "Backup verified successfully",
-                }
-
-            # Perform restore based on database type
-            db_url = self.settings.database_url
-            if "sqlite" in db_url.lower():
-                success = await self._restore_sqlite(db_url, backup_path)
-            elif "postgresql" in db_url.lower() or "postgres" in db_url.lower():
-                success = await self._restore_postgresql(db_url, backup_path)
+            # Decompress if needed
+            if backup_file.suffix == ".gz":
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".sql") as tmp:
+                    with gzip.open(backup_file, "rb") as f_in:
+                        tmp.write(f_in.read())
+                    restore_path = tmp.name
             else:
-                raise ValueError(f"Unsupported database type: {db_url}")
-
-            if not success:
-                raise Exception("Restore failed")
-
-            return {
-                "status": "success",
-                "backup_file": backup_filename,
-                "message": "Database restored successfully",
-            }
-
+                restore_path = str(backup_file)
+            
+            # Restore based on database type
+            if "postgresql" in self.db_url:
+                self._restore_postgresql(restore_path)
+            elif "sqlite" in self.db_url:
+                self._restore_sqlite(restore_path)
+            else:
+                raise ValueError(f"Unsupported database type: {self.db_url}")
+            
+            logger.info(f"Database restored from: {backup_path}")
+            return True
+            
         except Exception as e:
-            logger.error(f"Error restoring backup: {e}", exc_info=True)
-            return {"status": "failed", "error": str(e), "backup_file": backup_filename}
-
-    async def _decrypt_backup(self, encrypted_path: Path) -> Optional[Path]:
-        """Decrypt backup file"""
-        try:
-            decrypted_path = encrypted_path.with_suffix("")
-
-            encryption_key = os.getenv("BACKUP_ENCRYPTION_KEY")
-            if not encryption_key:
-                raise ValueError("No encryption key found")
-
-            cmd = [
-                "gpg",
-                "--decrypt",
-                "--batch",
-                "--passphrase",
-                encryption_key,
-                "--output",
-                str(decrypted_path),
-                str(encrypted_path),
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                logger.error(f"Decryption failed: {stderr.decode()}")
-                return None
-
-            return decrypted_path
-        except Exception as e:
-            logger.error(f"Decryption failed: {e}")
-            return None
-
-    async def _restore_sqlite(self, db_url: str, backup_path: Path) -> bool:
+            logger.error(f"Failed to restore backup: {e}", exc_info=True)
+            raise
+    
+    def _restore_postgresql(self, backup_path: str) -> None:
+        """Restore PostgreSQL database"""
+        import re
+        match = re.match(r"postgresql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)", self.db_url)
+        if not match:
+            raise ValueError("Invalid PostgreSQL URL format")
+        
+        user, password, host, port, database = match.groups()
+        
+        env = os.environ.copy()
+        env["PGPASSWORD"] = password
+        
+        cmd = [
+            "pg_restore",
+            "-h", host,
+            "-p", port,
+            "-U", user,
+            "-d", database,
+            "-c",  # Clean (drop) before restore
+            backup_path,
+        ]
+        
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        
+        if result.returncode != 0:
+            raise RuntimeError(f"pg_restore failed: {result.stderr}")
+    
+    def _restore_sqlite(self, backup_path: str) -> None:
         """Restore SQLite database"""
-        try:
-            # Extract database path
-            if db_url.startswith("sqlite+aiosqlite:///"):
-                db_path = db_url.replace("sqlite+aiosqlite:///", "")
-            else:
-                db_path = (
-                    db_url.replace("sqlite:///", "")
-                    .replace("sqlite+aiosqlite://", "")
-                    .replace("sqlite://", "")
-                )
-
-            # Copy backup to database location
-            import shutil
-
-            shutil.copy2(backup_path, db_path)
-
-            return True
-        except Exception as e:
-            logger.error(f"SQLite restore failed: {e}", exc_info=True)
-            return False
-
-    async def _restore_postgresql(self, db_url: str, backup_path: Path) -> bool:
-        """Restore PostgreSQL database using pg_restore"""
-        try:
-            import urllib.parse as urlparse
-
-            parsed = urlparse.urlparse(
-                db_url.replace("postgresql+asyncpg://", "postgresql://")
-            )
-
-            cmd = [
-                "pg_restore",
-                "-h",
-                parsed.hostname or "localhost",
-                "-p",
-                str(parsed.port or 5432),
-                "-U",
-                parsed.username or "postgres",
-                "-d",
-                parsed.path.lstrip("/") or "postgres",
-                "-c",  # Clean (drop) existing objects
-                str(backup_path),
-            ]
-
-            env = os.environ.copy()
-            if parsed.password:
-                env["PGPASSWORD"] = parsed.password
-
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                env=env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                logger.error(f"pg_restore failed: {stderr.decode()}")
-                return False
-
-            return True
-        except FileNotFoundError:
-            logger.warning("pg_restore not found, PostgreSQL restore unavailable")
-            return False
-        except Exception as e:
-            logger.error(f"PostgreSQL restore failed: {e}", exc_info=True)
-            return False
-
-
-# Global instance
-backup_service = BackupService()
+        db_path = self.db_url.replace("sqlite:///", "").replace("sqlite+aiosqlite:///", "")
+        
+        import shutil
+        shutil.copy2(backup_path, db_path)

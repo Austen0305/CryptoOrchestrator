@@ -4,28 +4,47 @@ Handles crypto transfers from external platforms and wallets
 """
 
 import logging
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..repositories.wallet_balance_repository import WalletBalanceRepository
+    from ..repositories.transaction_repository import TransactionRepository
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
-from ..models.wallet import (
-    Wallet,
-    WalletTransaction,
-    TransactionType,
-    TransactionStatus,
-)
-from ..services.exchange_service import ExchangeService
+from ..models.wallet import TransactionType, TransactionStatus
+from ..repositories.wallet_balance_repository import WalletBalanceRepository
+from ..repositories.transaction_repository import TransactionRepository
 
 logger = logging.getLogger(__name__)
+
+# Try to import exchange_service (deprecated - platform uses DEX-only trading)
+try:
+    from ..services.exchange_service import ExchangeService
+
+    EXCHANGE_SERVICE_AVAILABLE = True
+except ImportError:
+    EXCHANGE_SERVICE_AVAILABLE = False
+    ExchangeService = None
+    logger.warning("Exchange service not available (platform uses DEX-only trading)")
 
 
 class CryptoTransferService:
     """Service for transferring crypto from external platforms"""
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
-        self.exchange_service = ExchangeService()
+    def __init__(
+        self,
+        db: AsyncSession,
+        wallet_repository: Optional[WalletBalanceRepository] = None,
+        transaction_repository: Optional[TransactionRepository] = None,
+    ):
+        # ✅ Repository injected via dependency injection (Service Layer Pattern)
+        self.wallet_repository = wallet_repository or WalletBalanceRepository()
+        self.transaction_repository = transaction_repository or TransactionRepository()
+        self.db = db  # Keep db for transaction handling
+        self.exchange_service = (
+            ExchangeService() if EXCHANGE_SERVICE_AVAILABLE else None
+        )
 
     async def initiate_crypto_transfer(
         self,
@@ -45,12 +64,9 @@ class CryptoTransferService:
             Dict with transfer details and instructions
         """
         try:
-            # Get or create wallet
-            from ..services.wallet_service import WalletService
-
-            wallet_service = WalletService(self.db)
-            wallet = await wallet_service.get_or_create_wallet(
-                user_id, currency, "trading"
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_or_create_wallet(
+                self.db, user_id, currency, "trading"
             )
 
             # Generate deposit address if not provided
@@ -59,29 +75,30 @@ class CryptoTransferService:
                     currency, network
                 )
 
-            # Create pending transaction
-            transaction = WalletTransaction(
-                wallet_id=wallet.id,
-                user_id=user_id,
-                transaction_type=TransactionType.DEPOSIT.value,
-                status=TransactionStatus.PENDING.value,
-                amount=amount,
-                currency=currency,
-                fee=0.0,
-                net_amount=amount,
-                description=f"Crypto transfer from {source_platform}",
-                reference_id=f"{source_platform}_{datetime.utcnow().timestamp()}",
-                metadata={
-                    "source_platform": source_platform,
-                    "source_address": source_address,
-                    "destination_address": destination_address,
-                    "network": network,
-                    "memo": memo,
+            # ✅ Business logic: Create pending transaction
+            # ✅ Data access delegated to repository
+            transaction = await self.transaction_repository.create_transaction(
+                self.db,
+                {
+                    "wallet_id": wallet.id,
+                    "user_id": user_id,
+                    "transaction_type": TransactionType.DEPOSIT.value,
+                    "status": TransactionStatus.PENDING.value,
+                    "amount": amount,
+                    "currency": currency,
+                    "fee": 0.0,
+                    "net_amount": amount,
+                    "description": f"Crypto transfer from {source_platform}",
+                    "reference_id": f"{source_platform}_{datetime.utcnow().timestamp()}",
+                    "transaction_metadata": {
+                        "source_platform": source_platform,
+                        "source_address": source_address,
+                        "destination_address": destination_address,
+                        "network": network,
+                        "memo": memo,
+                    },
                 },
             )
-            self.db.add(transaction)
-            await self.db.commit()
-            await self.db.refresh(transaction)
 
             # Get transfer instructions based on source platform
             instructions = await self._get_transfer_instructions(
@@ -89,7 +106,13 @@ class CryptoTransferService:
             )
 
             logger.info(
-                f"Crypto transfer initiated: user {user_id}, {amount} {currency} from {source_platform}"
+                f"Crypto transfer initiated: user {user_id}, {amount} {currency} from {source_platform}",
+                extra={
+                    "user_id": user_id,
+                    "currency": currency,
+                    "amount": amount,
+                    "source_platform": source_platform,
+                },
             )
 
             return {
@@ -125,11 +148,10 @@ class CryptoTransferService:
             True if confirmed successfully
         """
         try:
-            stmt = select(WalletTransaction).where(
-                WalletTransaction.id == transaction_id
+            # ✅ Data access delegated to repository
+            transaction = await self.transaction_repository.get_by_id(
+                self.db, transaction_id
             )
-            result = await self.db.execute(stmt)
-            transaction = result.scalar_one_or_none()
 
             if not transaction:
                 return False
@@ -137,85 +159,108 @@ class CryptoTransferService:
             if transaction.status == TransactionStatus.COMPLETED.value:
                 return True  # Already confirmed
 
-            # Check if we have enough confirmations
+            # ✅ Business logic: Check if we have enough confirmations
+            transaction_metadata = transaction.transaction_metadata or {}
             required_confirmations = self._get_required_confirmations(
                 transaction.currency,
-                transaction.metadata.get("network") if transaction.metadata else None,
+                transaction_metadata.get("network"),
             )
 
             if confirmations < required_confirmations:
-                # Update transaction with tx_hash but keep as pending
-                if transaction.metadata:
-                    transaction.metadata["tx_hash"] = tx_hash
-                    transaction.metadata["confirmations"] = confirmations
-                else:
-                    transaction.metadata = {
-                        "tx_hash": tx_hash,
-                        "confirmations": confirmations,
-                    }
-                await self.db.commit()
+                # ✅ Data access delegated to repository
+                transaction_metadata["tx_hash"] = tx_hash
+                transaction_metadata["confirmations"] = confirmations
+                await self.transaction_repository.update(
+                    self.db,
+                    transaction_id,
+                    {"transaction_metadata": transaction_metadata},
+                )
                 return False  # Not enough confirmations yet
 
-            # Verify transaction on blockchain
+            # ✅ Business logic: Verify transaction on blockchain
             verified = await self._verify_blockchain_transaction(
                 tx_hash,
                 transaction.currency,
-                transaction.metadata.get("network") if transaction.metadata else None,
-                (
-                    transaction.destination_address
-                    if hasattr(transaction, "destination_address")
-                    else None
-                ),
+                transaction_metadata.get("network"),
+                transaction_metadata.get("destination_address"),
                 transaction.amount,
             )
 
             if not verified:
                 logger.warning(
-                    f"Blockchain verification failed for transaction {transaction_id}"
+                    f"Blockchain verification failed for transaction {transaction_id}",
+                    extra={"transaction_id": transaction_id, "tx_hash": tx_hash},
                 )
-                transaction.status = TransactionStatus.FAILED.value
-                await self.db.commit()
+                # ✅ Data access delegated to repository
+                await self.transaction_repository.update_status(
+                    self.db, transaction_id, TransactionStatus.FAILED.value
+                )
                 return False
 
-            # Update wallet balance
-            wallet_stmt = select(Wallet).where(Wallet.id == transaction.wallet_id)
-            wallet_result = await self.db.execute(wallet_stmt)
-            wallet = wallet_result.scalar_one_or_none()
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_by_id(
+                self.db, transaction.wallet_id
+            )
 
             if wallet:
-                wallet.balance += transaction.net_amount
-                wallet.available_balance += transaction.net_amount
-                wallet.total_deposited += transaction.net_amount
+                # ✅ Business logic: Update wallet balance
+                # ✅ Data access delegated to repository
+                await self.wallet_repository.update_balance(
+                    self.db,
+                    wallet.id,
+                    balance=wallet.balance + transaction.net_amount,
+                    available_balance=wallet.available_balance + transaction.net_amount,
+                    total_deposited=wallet.total_deposited + transaction.net_amount,
+                )
 
-                transaction.status = TransactionStatus.COMPLETED.value
-                transaction.processed_at = datetime.utcnow()
-                if transaction.metadata:
-                    transaction.metadata["tx_hash"] = tx_hash
-                    transaction.metadata["confirmations"] = confirmations
-                    transaction.metadata["verified_at"] = datetime.utcnow().isoformat()
-
-                await self.db.commit()
+                # ✅ Data access delegated to repository
+                transaction_metadata["tx_hash"] = tx_hash
+                transaction_metadata["confirmations"] = confirmations
+                transaction_metadata["verified_at"] = datetime.utcnow().isoformat()
+                await self.transaction_repository.update_status(
+                    self.db,
+                    transaction_id,
+                    TransactionStatus.COMPLETED.value,
+                    processed_at=datetime.utcnow(),
+                )
+                await self.transaction_repository.update(
+                    self.db,
+                    transaction_id,
+                    {"transaction_metadata": transaction_metadata},
+                )
 
                 # Broadcast wallet update
                 try:
                     from ..services.wallet_broadcast import broadcast_wallet_update
-                    from ..services.wallet_service import WalletService
 
-                    wallet_service = WalletService(self.db)
-                    balance = await wallet_service.get_wallet_balance(
-                        wallet.user_id, wallet.currency
-                    )
+                    # ✅ Use wallet balance directly (internal Wallet model)
+                    balance = {
+                        "currency": wallet.currency,
+                        "balance": wallet.balance,
+                        "available_balance": wallet.available_balance,
+                        "locked_balance": wallet.locked_balance,
+                    }
                     await broadcast_wallet_update(wallet.user_id, balance)
                 except Exception as e:
-                    logger.warning(f"Failed to broadcast wallet update: {e}")
+                    logger.warning(
+                        f"Failed to broadcast wallet update: {e}",
+                        extra={"user_id": wallet.user_id},
+                    )
 
-                logger.info(f"Crypto transfer confirmed: transaction {transaction_id}")
+                logger.info(
+                    f"Crypto transfer confirmed: transaction {transaction_id}",
+                    extra={"transaction_id": transaction_id, "tx_hash": tx_hash},
+                )
                 return True
 
             return False
 
         except Exception as e:
-            logger.error(f"Error confirming crypto transfer: {e}", exc_info=True)
+            logger.error(
+                f"Error confirming crypto transfer: {e}",
+                exc_info=True,
+                extra={"transaction_id": transaction_id, "tx_hash": tx_hash},
+            )
             await self.db.rollback()
             return False
 
@@ -235,12 +280,9 @@ class CryptoTransferService:
             Dict with withdrawal details
         """
         try:
-            from ..services.wallet_service import WalletService
-
-            wallet_service = WalletService(self.db)
-
-            wallet = await wallet_service.get_or_create_wallet(
-                user_id, currency, "trading"
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_or_create_wallet(
+                self.db, user_id, currency, "trading"
             )
 
             # Check balance
@@ -263,39 +305,53 @@ class CryptoTransferService:
             if not is_valid:
                 raise ValueError(f"Invalid destination address for {currency}")
 
-            # Lock funds
-            wallet.available_balance -= total_deduction
-            wallet.locked_balance += total_deduction
+            # ✅ Business logic: Lock funds
+            # ✅ Data access delegated to repository
+            await self.wallet_repository.update_balance(
+                self.db,
+                wallet.id,
+                available_balance=wallet.available_balance - total_deduction,
+                locked_balance=wallet.locked_balance + total_deduction,
+            )
 
-            # Create withdrawal transaction
-            transaction = WalletTransaction(
-                wallet_id=wallet.id,
-                user_id=user_id,
-                transaction_type=TransactionType.WITHDRAWAL.value,
-                status=TransactionStatus.PENDING.value,
-                amount=amount,
-                currency=currency,
-                fee=fee,
-                net_amount=amount,
-                description=f"Withdrawal to {destination_address[:10]}...",
-                reference_id=f"withdraw_{datetime.utcnow().timestamp()}",
-                metadata={
-                    "destination_address": destination_address,
-                    "network": network,
-                    "memo": memo,
+            # ✅ Business logic: Create withdrawal transaction
+            # ✅ Data access delegated to repository
+            transaction = await self.transaction_repository.create_transaction(
+                self.db,
+                {
+                    "wallet_id": wallet.id,
+                    "user_id": user_id,
+                    "transaction_type": TransactionType.WITHDRAWAL.value,
+                    "status": TransactionStatus.PENDING.value,
+                    "amount": amount,
+                    "currency": currency,
+                    "fee": fee,
+                    "net_amount": amount,
+                    "description": f"Withdrawal to {destination_address[:10]}...",
+                    "reference_id": f"withdraw_{datetime.utcnow().timestamp()}",
+                    "transaction_metadata": {
+                        "destination_address": destination_address,
+                        "network": network,
+                        "memo": memo,
+                    },
                 },
             )
-            self.db.add(transaction)
-            await self.db.commit()
-            await self.db.refresh(transaction)
 
-            # Execute withdrawal (would integrate with exchange API or blockchain)
+            # ✅ Business logic: Execute withdrawal (would integrate with exchange API or blockchain)
             # For now, mark as processing
-            transaction.status = TransactionStatus.PROCESSING.value
-            await self.db.commit()
+            # ✅ Data access delegated to repository
+            await self.transaction_repository.update_status(
+                self.db, transaction.id, TransactionStatus.PROCESSING.value
+            )
 
             logger.info(
-                f"Crypto withdrawal initiated: user {user_id}, {amount} {currency} to {destination_address[:10]}..."
+                f"Crypto withdrawal initiated: user {user_id}, {amount} {currency} to {destination_address[:10]}...",
+                extra={
+                    "user_id": user_id,
+                    "currency": currency,
+                    "amount": amount,
+                    "destination_address": destination_address[:10],
+                },
             )
 
             return {

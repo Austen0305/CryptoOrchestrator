@@ -94,6 +94,39 @@ except ImportError:
 import logging
 from contextlib import asynccontextmanager
 
+# Suppress logging errors during testing to avoid file lock issues
+_is_testing = os.getenv("TESTING", "false").lower() == "true"
+if _is_testing:
+    # Override the logging error handler to suppress PermissionErrors during testing
+    # This prevents file locking errors from crashing the application during tests
+    _original_handle_error = logging.Handler.handleError
+    def _suppress_file_lock_errors(self, record):
+        """Suppress PermissionErrors (file locks) during testing"""
+        try:
+            _original_handle_error(self, record)
+        except (PermissionError, OSError) as e:
+            # Suppress file locking errors during testing - these are non-critical
+            if "WinError 32" in str(e) or "being used by another process" in str(e):
+                pass  # Silently ignore file lock errors during testing
+            else:
+                raise
+    logging.Handler.handleError = _suppress_file_lock_errors
+    
+    # Also override the root logger's callHandlers to catch errors there
+    _original_call_handlers = logging.Logger.callHandlers
+    def _call_handlers_safe(self, record):
+        """Safely call handlers, suppressing file lock errors during testing"""
+        try:
+            _original_call_handlers(self, record)
+        except (PermissionError, OSError) as e:
+            # Suppress file locking errors - log to console instead
+            if "WinError 32" in str(e) or "being used by another process" in str(e):
+                import sys
+                sys.stderr.write(f"[Warning] Log file locked, using console only: {e}\n")
+            else:
+                raise
+    logging.Logger.callHandlers = _call_handlers_safe
+
 # Do NOT modify sys.path here. Running with `server_fastapi.main:app` ensures
 # proper package context for relative imports within the `server_fastapi` package.
 
@@ -113,25 +146,32 @@ try:
     from .config.settings import get_settings
 
     settings = get_settings()
+    # Disable file logging during testing to avoid file locking issues
+    is_testing = os.getenv("TESTING", "false").lower() == "true"
+    # Construct log file path from log_dir
+    log_file_path = (
+        os.path.join(settings.log_dir, "app.log") if settings.log_dir and not is_testing else None
+    )
     setup_logging(
         log_level=settings.log_level,
         log_format=settings.log_format,
-        log_dir=settings.log_dir,
-        max_bytes=settings.log_max_bytes,
-        backup_count=settings.log_backup_count,
+        log_file=log_file_path,
+        enable_file=not is_testing,  # Disable file logging during tests
     )
-    logging.info("✅ Comprehensive logging configured")
+    logging.info("[OK] Comprehensive logging configured")
 except Exception as e:
     # Fallback to basic logging
-    # Ensure logs directory exists
-    os.makedirs("logs", exist_ok=True)
+    # Disable file logging during testing to avoid file locking issues
+    is_testing = os.getenv("TESTING", "false").lower() == "true"
+    handlers = [logging.StreamHandler(sys.stdout)]  # Console logging always enabled
+    if not is_testing:
+        # Ensure logs directory exists only if not testing
+        os.makedirs("logs", exist_ok=True)
+        handlers.append(logging.FileHandler("logs/fastapi.log", mode="a"))
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(sys.stdout),  # Console logging
-            logging.FileHandler("logs/fastapi.log", mode="a"),
-        ],
+        handlers=handlers,
         force=True,  # Override any existing configuration
     )
     logging.warning(f"Comprehensive logging not available, using basic: {e}")
@@ -150,19 +190,32 @@ uvicorn_access.setLevel(logging.INFO)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting FastAPI server...")
+    
+    # Setup graceful shutdown
+    try:
+        from .middleware.graceful_shutdown import setup_graceful_shutdown
+        graceful_shutdown = setup_graceful_shutdown(app, shutdown_timeout=30)
+        app.state.graceful_shutdown = graceful_shutdown
+        logger.info("Graceful shutdown handler configured")
+    except Exception as e:
+        logger.warning(f"Failed to setup graceful shutdown: {e}")
 
     # Validate environment variables
     try:
         from .config.env_validator import validate_all
 
-        validate_all(exit_on_error=True)
+        # In test mode, don't exit on validation errors (just warn)
+        exit_on_error = (
+            os.getenv("TESTING") != "true" and os.getenv("NODE_ENV") == "production"
+        )
+        validate_all(exit_on_error=exit_on_error)
         logger.info("Environment variables validated")
     except SystemExit:
         raise
     except Exception as e:
         logger.warning(f"Environment validation failed: {e}")
-        # Continue in development, but should fail in production
-        if os.getenv("NODE_ENV") == "production":
+        # Continue in development/test, but should fail in production
+        if os.getenv("NODE_ENV") == "production" and os.getenv("TESTING") != "true":
             logger.error("Environment validation failed in production - exiting")
             sys.exit(1)
 
@@ -192,20 +245,25 @@ async def lifespan(app: FastAPI):
                 instrument_fastapi(app)
                 instrument_sqlalchemy()
                 instrument_requests()
-                logger.info("OpenTelemetry instrumentation complete")
+                logger.info("[OK] OpenTelemetry instrumentation complete")
+
     except Exception as e:
         logger.warning(f"OpenTelemetry initialization failed: {e}")
 
-    # Initialize distributed rate limiter
-    try:
-        from .middleware.distributed_rate_limiter import get_rate_limiter
+    # Initialize distributed rate limiter (skip in test mode)
+    if os.getenv("ENABLE_DISTRIBUTED_RATE_LIMIT", "false").lower() == "true":
+        try:
+            from .middleware.distributed_rate_limiter import get_rate_limiter
 
-        rate_limiter = get_rate_limiter()
-        await rate_limiter.connect()
-        app.state.rate_limiter = rate_limiter
-        logger.info("Distributed rate limiter initialized")
-    except Exception as e:
-        logger.warning(f"Distributed rate limiter initialization failed: {e}")
+            rate_limiter = get_rate_limiter()
+            await rate_limiter.connect()
+            app.state.rate_limiter = rate_limiter
+            logger.info("Distributed rate limiter initialized")
+        except Exception as e:
+            logger.warning(f"Distributed rate limiter initialization failed: {e}")
+            app.state.rate_limiter = None
+    else:
+        logger.info("Distributed rate limiter disabled (test mode or not configured)")
         app.state.rate_limiter = None
 
     # Initialize Redis cache manager with fallback
@@ -217,7 +275,7 @@ async def lifespan(app: FastAPI):
             if cache_manager.available:
                 logger.info(f"Redis cache initialized at {redis_url}")
             else:
-                logger.info("⚠️  Redis unavailable, using in-memory cache fallback")
+                logger.info("[WARN] Redis unavailable, using in-memory cache fallback")
         except Exception as e:
             logger.warning(f"Redis initialization failed, using in-memory cache: {e}")
 
@@ -225,12 +283,14 @@ async def lifespan(app: FastAPI):
     if redis_available and init_redis:
         try:
             redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-            # Add timeout to prevent blocking startup
+            # Increased timeout to prevent connection errors (5.0s connection, 2.0s ping)
             redis_client = await asyncio.wait_for(
                 aioredis.from_url(redis_url, encoding="utf-8", decode_responses=True),
-                timeout=2.0,
+                timeout=5.0,  # Increased from 2.0 to prevent connection errors
             )
-            await asyncio.wait_for(redis_client.ping(), timeout=1.0)
+            await asyncio.wait_for(
+                redis_client.ping(), timeout=2.0
+            )  # Increased from 1.0
             init_redis(redis_client)
             logger.info(f"Redis cache initialized at {redis_url}")
         except asyncio.TimeoutError:
@@ -238,19 +298,23 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Redis not available, caching disabled: {e}")
 
-    # Initialize cache warmer service
-    try:
-        from .services.cache_warmer_service import (
-            cache_warmer_service,
-            register_default_warmup_tasks,
-        )
+    # Initialize cache warmer service (skip in test mode to speed up startup)
+    if os.getenv("TESTING") != "true":
+        try:
+            from .services.cache_warmer_service import (
+                cache_warmer_service,
+                register_default_warmup_tasks,
+            )
 
-        register_default_warmup_tasks()
-        await cache_warmer_service.start()
-        app.state.cache_warmer = cache_warmer_service
-        logger.info("Cache warmer service started")
-    except Exception as e:
-        logger.warning(f"Cache warmer service initialization failed: {e}")
+            register_default_warmup_tasks()
+            await cache_warmer_service.start()
+            app.state.cache_warmer = cache_warmer_service
+            logger.info("Cache warmer service started")
+        except Exception as e:
+            logger.warning(f"Cache warmer service initialization failed: {e}")
+            app.state.cache_warmer = None
+    else:
+        logger.info("Cache warmer service disabled in test mode")
         app.state.cache_warmer = None
 
     # Initialize database connection pool if available
@@ -261,8 +325,82 @@ async def lifespan(app: FastAPI):
             )
             db_pool.initialize(database_url)
             logger.info("Database connection pool initialized")
+
+            # Initialize pool monitor
+            from .database.pool_monitoring import get_pool_monitor
+
+            monitor = get_pool_monitor(db_pool.engine)
+            app.state.pool_monitor = monitor
+            logger.info("Connection pool monitor initialized")
+
+            # Setup query profiling if OpenTelemetry enabled
+            if os.getenv("ENABLE_OPENTELEMETRY", "false").lower() == "true":
+                try:
+                    from .services.monitoring.performance_profiler import (
+                        setup_query_profiling,
+                    )
+
+                    # Access sync engine from async engine for profiling
+                    if hasattr(db_pool.engine, "sync_engine"):
+                        setup_query_profiling(db_pool.engine.sync_engine)
+                        logger.info("[OK] Query profiling enabled")
+                except Exception as e:
+                    logger.warning(f"Query profiling setup failed: {e}")
         except Exception as e:
             logger.error(f"Failed to initialize database connection pool: {e}")
+
+    # Initialize AsyncPG pool for high-performance queries (PostgreSQL only)
+    try:
+        from .config.settings import settings
+        from .database.asyncpg_pool import AsyncPGPool
+
+        database_url = settings.database_url
+        # Only initialize for PostgreSQL databases
+        if database_url.startswith("postgresql"):
+            try:
+                await AsyncPGPool.create_pool(
+                    database_url=database_url,
+                    min_size=5,
+                    max_size=20,
+                    command_timeout=30,
+                )
+                app.state.asyncpg_pool = AsyncPGPool
+                logger.info(
+                    "AsyncPG connection pool initialized for high-performance queries"
+                )
+            except ImportError:
+                logger.warning(
+                    "asyncpg not installed - skipping AsyncPG pool initialization"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"AsyncPG pool initialization failed (non-critical): {e}"
+                )
+        else:
+            logger.info("AsyncPG pool skipped (not PostgreSQL database)")
+    except Exception as e:
+        logger.warning(f"AsyncPG pool setup failed (non-critical): {e}")
+
+    # Initialize read replicas if enabled
+    try:
+        from .config.settings import settings
+        from .database.read_replica import read_replica_manager
+
+        if settings.enable_read_replicas and settings.db_read_replica_urls:
+            read_urls = [
+                url.strip() for url in settings.db_read_replica_urls.split(",")
+            ]
+            read_replica_manager.initialize(
+                write_url=settings.database_url, read_urls=read_urls
+            )
+            app.state.read_replica_manager = read_replica_manager
+            logger.info(
+                f"Read replica manager initialized with {len(read_urls)} replicas"
+            )
+        else:
+            logger.info("Read replicas not enabled or not configured")
+    except Exception as e:
+        logger.warning(f"Read replica initialization failed: {e}")
 
     # Initialize database tables (persistent) even if connection pool abstraction unavailable
     if init_database:
@@ -281,10 +419,10 @@ async def lifespan(app: FastAPI):
                 if init_sentry(dsn=sentry_dsn, environment=environment):
                     logger.info(f"Sentry error tracking initialized for {environment}")
                 else:
-                    logger.warning("⚠️  Sentry initialization failed")
+                    logger.warning("[WARN] Sentry initialization failed")
             else:
                 logger.info(
-                    "⚠️  SENTRY_DSN not provided, error tracking disabled (set SENTRY_DSN env var to enable)"
+                    "[WARN] SENTRY_DSN not provided, error tracking disabled (set SENTRY_DSN env var to enable)"
                 )
         except Exception as e:
             logger.warning(f"Sentry initialization failed: {e}")
@@ -297,17 +435,44 @@ async def lifespan(app: FastAPI):
     except ImportError:
         logger.warning("Advanced health checks not available")
 
-    # Start market data streaming service
+    # Run startup validation
     try:
-        from .services.websocket_manager import connection_manager
-        from .services.market_streamer import get_market_streamer
-
-        streamer = get_market_streamer(connection_manager)
-        streamer.start()
-        app.state.market_streamer = streamer
-        logger.info("Market data streaming service started")
+        from .utils.startup_validation import startup_validator
+        
+        validation_results = await startup_validator.validate_all()
+        startup_validator.log_results(validation_results)
+        
+        if not validation_results["valid"]:
+            logger.error("Startup validation failed - some errors may cause issues")
+        else:
+            logger.info("Startup validation passed successfully")
     except Exception as e:
-        logger.warning(f"Market data streaming not available: {e}")
+        logger.warning(f"Startup validation failed: {e}")
+
+    # Setup enhanced API documentation
+    try:
+        from .middleware.api_documentation_enhanced import setup_enhanced_documentation
+        
+        setup_enhanced_documentation(app)
+        logger.info("Enhanced API documentation configured")
+    except Exception as e:
+        logger.warning(f"Enhanced API documentation not available: {e}")
+
+    # Start market data streaming service (skip in test mode)
+    if os.getenv("TESTING") != "true":
+        try:
+            from .services.websocket_manager import connection_manager
+            from .services.market_streamer import get_market_streamer
+
+            streamer = get_market_streamer(connection_manager)
+            streamer.start()
+            app.state.market_streamer = streamer
+            logger.info("Market data streaming service started")
+        except Exception as e:
+            logger.warning(f"Market data streaming not available: {e}")
+    else:
+        logger.info("Market data streaming disabled in test mode")
+        app.state.market_streamer = None
 
     # Export OpenAPI JSON schema to docs/openapi.json
     try:
@@ -323,6 +488,22 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down FastAPI server...")
+
+    # Stop monitoring system
+    try:
+        monitoring_system = getattr(app.state, "monitoring_system", None)
+        if monitoring_system:
+            await monitoring_system.stop_monitoring()
+            logger.info("Monitoring system stopped")
+    except Exception as e:
+        logger.warning(f"Error stopping monitoring system: {e}")
+    
+    # Trigger graceful shutdown if configured
+    if hasattr(app.state, "graceful_shutdown"):
+        try:
+            await app.state.graceful_shutdown.shutdown()
+        except Exception as e:
+            logger.error(f"Error during graceful shutdown: {e}")
 
     # Stop market data streaming service
     if hasattr(app.state, "market_streamer") and app.state.market_streamer:
@@ -372,6 +553,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Error closing database pool: {e}")
 
+    # Close AsyncPG pool
+    try:
+        from .database.asyncpg_pool import AsyncPGPool
+
+        await AsyncPGPool.close()
+        logger.info("AsyncPG pool closed")
+    except Exception as e:
+        logger.warning(f"Error closing AsyncPG pool: {e}")
+
 
 # Create FastAPI app - optimized for desktop app performance
 # Enhanced OpenAPI documentation
@@ -403,43 +593,23 @@ except Exception as e:
         redoc_url="/redoc" if os.getenv("NODE_ENV") == "development" else None,
     )
 
-# Add rate limiting middleware unless running under pytest (disable for tests)
-if limiter and not os.getenv("PYTEST_CURRENT_TEST"):
+# Rate limiting is now handled in middleware.setup module
+# Keep limiter state for backward compatibility
+if limiter:
     app.state.limiter = limiter
-    app.add_middleware(SlowAPIMiddleware)
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Add distributed rate limiter middleware (optional, controlled by env var)
-if os.getenv("ENABLE_DISTRIBUTED_RATE_LIMIT", "false").lower() == "true":
-    try:
-        from .middleware.rate_limit_middleware import RateLimitMiddleware
-
-        # Rate limiter will be available after lifespan startup
-        app.add_middleware(RateLimitMiddleware, rate_limiter=None)
-        logger.info("Distributed rate limiting middleware enabled")
-    except Exception as e:
-        logger.warning(f"Could not enable distributed rate limiting: {e}")
-
-# Enhanced security headers middleware
+# Setup all middleware using centralized configuration
 try:
-    from .middleware.enhanced_security_headers import SecurityHeadersMiddleware
-
-    app.add_middleware(SecurityHeadersMiddleware)
-
-    # IP Whitelist Middleware (optional, can be enabled via env var)
-    if os.getenv("ENABLE_IP_WHITELIST", "false").lower() == "true":
-        try:
-            from .middleware.ip_whitelist_middleware import IPWhitelistMiddleware
-
-            app.add_middleware(IPWhitelistMiddleware, enabled=True)
-            logger.info("IP whitelist middleware enabled")
-        except Exception as e:
-            logger.warning(f"IP whitelist middleware not available: {e}")
-    logger.info("Enhanced security headers middleware enabled")
-except ImportError:
-    # Fallback to basic security headers
-    logger.warning("Enhanced security headers not available, using basic headers")
-
+    from .middleware.setup import setup_all_middleware
+    
+    middleware_stats = setup_all_middleware(app)
+    logger.info(
+        f"Middleware setup complete: {middleware_stats['registered']}/{middleware_stats['total']} "
+        f"registered, {middleware_stats['failed']} failed"
+    )
+except Exception as e:
+    logger.error(f"Failed to setup middleware: {e}", exc_info=True)
+    # Fallback to basic security headers if setup fails
     @app.middleware("http")
     async def add_basic_security_headers(request: Request, call_next):
         response = await call_next(request)
@@ -450,346 +620,35 @@ except ImportError:
         return response
 
 
-# Add monitoring middleware (behind feature flag)
-if ENABLE_HEAVY_MIDDLEWARE:
-    if MonitoringMiddleware:
-        app.add_middleware(MonitoringMiddleware)
-
-    # Add performance monitoring middleware
-    try:
-        from .middleware.performance_monitor import (
-            PerformanceMonitoringMiddleware,
-            performance_monitor,
-        )
-
-        app.add_middleware(PerformanceMonitoringMiddleware)
-        app.state.performance_monitor = performance_monitor
-        logger.info("Performance monitoring middleware enabled")
-    except ImportError:
-        logger.warning("Performance monitoring middleware not available")
-
-    # Add input validation + request validation + enhanced error handlers
-    if InputValidationMiddleware:
-        app.add_middleware(InputValidationMiddleware)
-
-        try:
-            from .middleware.request_validator import RequestValidatorMiddleware
-
-            app.add_middleware(RequestValidatorMiddleware)
-            logger.info("Request validation middleware enabled")
-        except ImportError:
-            try:
-                from .middleware.request_validation import RequestValidationMiddleware
-
-                app.add_middleware(RequestValidationMiddleware)
-                logger.info("Request validation middleware enabled (legacy)")
-            except ImportError:
-                logger.warning("Request validation middleware not available")
-
-        try:
-            from .middleware.error_handler import setup_error_handlers
-
-            setup_error_handlers(app)
-        except ImportError as e:
-            logger.warning(f"Enhanced error handlers not available: {e}")
-
-    # Add audit logging middleware
-    try:
-        from .middleware.audit_logger import AuditLoggerMiddleware
-
-        app.add_middleware(AuditLoggerMiddleware)
-        logger.info("Audit logging middleware enabled")
-    except ImportError:
-        logger.warning("Audit logging middleware not available")
-
-    # Add request ID middleware for request tracking
-    try:
-        from .middleware.request_id import RequestIDMiddleware
-
-        app.add_middleware(RequestIDMiddleware)
-        logger.info("Request ID middleware enabled")
-    except ImportError:
-        logger.warning("Request ID middleware not available")
-
-    # Add query monitoring middleware
-    try:
-        from .middleware.query_monitoring import QueryMonitoringMiddleware
-
-        app.add_middleware(QueryMonitoringMiddleware)
-        logger.info("Query monitoring middleware enabled")
-    except Exception as e:
-        logger.warning(f"Query monitoring middleware not available: {e}")
-
-    # Compression middleware
-    try:
-        from .middleware.compression import CompressionMiddleware
-
-        app.add_middleware(CompressionMiddleware, minimum_size=1024, compress_level=6)
-        logger.info("Compression middleware enabled")
-    except Exception as e:
-        logger.warning(f"Compression middleware not available: {e}")
-
-    # Advanced rate limiting (Redis-backed)
-    try:
-        from .middleware.advanced_rate_limit import AdvancedRateLimitMiddleware
-
-        # Try to get Redis client if available
-        redis_client = None
-        if redis_available:
-            try:
-                redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-                import redis.asyncio as redis_async
-
-                redis_client = redis_async.from_url(redis_url)
-            except Exception:
-                redis_client = None
-        app.add_middleware(AdvancedRateLimitMiddleware, redis_client=redis_client)
-        logger.info("Advanced rate limiting enabled")
-    except Exception as e:
-        logger.warning(f"Advanced rate limiting not available: {e}")
-
-    # Add enhanced error handling middleware
-    try:
-        from .middleware.error_handling import setup_error_handling
-
-        setup_error_handling(app)
-        logger.info("Enhanced error handling middleware enabled")
-    except ImportError as e:
-        logger.warning(f"Enhanced error handling not available: {e}")
-
-# Enhanced security headers middleware (already added above)
-
-
-# CORS middleware - optimized for desktop app usage with proper origin validation
-def validate_origin(origin: str) -> bool:
-    """Validate CORS origins for security"""
-    allowed_origins = [
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:8000",  # FastAPI server
-        "http://127.0.0.1:3000",  # Alternative localhost
-        "http://127.0.0.1:5173",  # Alternative localhost
-        "http://127.0.0.1:8000",  # Alternative localhost
-        "file://",  # Electron file protocol
-        "null",  # Electron null origin
-        # Mobile app origins (for physical devices)
-        "exp://",  # Expo dev server
-        "http://192.168.1.1:8000",  # Common local network
-        "http://10.0.2.2:8000",  # Android emulator
-    ]
-
-    # Additional production origins from environment
-    production_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-    if production_origins:
-        allowed_origins.extend(
-            [origin.strip() for origin in production_origins if origin.strip()]
-        )
-
-    return origin in allowed_origins
-
-
-def add_cors_headers(response: JSONResponse, request: Request, allowed_origins: list) -> JSONResponse:
-    """Add CORS headers to a response if origin is allowed"""
-    if not allowed_origins:
-        # Fallback to default origins if not provided
-        allowed_origins = [
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "http://localhost:8000",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:8000",
-            "file://",
-            "null",
-        ]
-    
-    origin = request.headers.get("origin")
-    if origin:
-        # Check if origin is in allowed list or matches regex patterns
-        origin_allowed = origin in allowed_origins
-        # Also check regex patterns for Render/production domains
-        import re
-        if not origin_allowed:
-            origin_allowed = bool(re.match(
-                r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
-                origin
-            ))
-        
-        if origin_allowed:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
-    return response
-
-
-# Get allowed origins from environment or use defaults
-cors_origins = None  # Initialize variable
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
-if allowed_origins_env:
-    # Parse comma-separated origins from environment with validation
-    parsed_origins = [
-        origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()
-    ]
-    # Validate origins to ensure they're properly formatted URLs
-    cors_origins = []
-    for origin in parsed_origins:
-        if origin in ["null", "file://", "exp://"]:  # Special development origins
-            cors_origins.append(origin)
-        elif origin.startswith(("http://", "https://")):  # Valid URL protocols
-            cors_origins.append(origin)
-        else:
-            logger.warning(f"Skipping invalid CORS origin from environment: {origin}")
-    if not cors_origins:
-        logger.warning("No valid CORS origins found in environment, using defaults")
-        cors_origins = None  # Will use defaults below
-if not cors_origins:
-    # Default origins including Render domains
-    cors_origins = [
-        "http://localhost:3000",  # React dev server
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:8000",  # FastAPI server
-        "http://127.0.0.1:5173",  # Vite alternative
-        "http://127.0.0.1:8000",  # FastAPI alternative
-        "exp://",  # Expo dev server
-        "http://10.0.2.2:8000",  # Android emulator
-        "http://127.0.0.1:3000",  # Alternative localhost
-        "http://127.0.0.1:5173",  # Alternative localhost
-        "http://127.0.0.1:8000",  # Alternative localhost
-        "file://",  # Electron file protocol
-        "null",  # Electron null origin
-    ]
-
-# Additional CORS middleware to ensure all responses (including errors) have CORS headers
-# This runs AFTER CORS middleware on responses (added before CORS so it runs later)
-@app.middleware("http")
-async def cors_headers_middleware(request: Request, call_next):
-    """Ensure all responses have CORS headers, even error responses that might bypass CORS middleware"""
-    try:
-        response = await call_next(request)
-        # If response doesn't have CORS headers, add them
-        origin = request.headers.get("origin")
-        if origin and "Access-Control-Allow-Origin" not in response.headers:
-            origin_allowed = origin in cors_origins
-            if not origin_allowed:
-                import re
-                origin_allowed = bool(re.match(
-                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
-                    origin
-                ))
-            if origin_allowed:
-                response.headers["Access-Control-Allow-Origin"] = origin
-                response.headers["Access-Control-Allow-Credentials"] = "true"
-                response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
-        return response
-    except Exception as e:
-        # Handle exceptions that occur during request processing - ensure CORS headers are added
-        logger.error(f"Exception in CORS middleware: {e}", exc_info=True)
-        origin = request.headers.get("origin")
-        origin_allowed = False
-        if origin:
-            origin_allowed = origin in cors_origins
-            if not origin_allowed:
-                import re
-                origin_allowed = bool(re.match(
-                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
-                    origin
-                ))
-        
-        response = JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error"},
-        )
-        
-        if origin_allowed:
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
-        
-        return response
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",  # Render and production domains
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=[
-        "Authorization",
-        "Content-Type",
-        "X-Requested-With",
-        "Accept",
-        "Origin",
-    ],
-    max_age=86400,  # Cache preflight for 24 hours
-)
-
-# Trusted host middleware (for production)
-if os.getenv("NODE_ENV") == "production":
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["localhost", "127.0.0.1"])
-
-# Register structured error handlers
+# CORS utility functions (used by registration shim)
+# Import from middleware setup module
 try:
-    from .middleware.error_handler import register_error_handlers
-
-    register_error_handlers(app)
-    logger.info("Structured error handlers registered")
+    from .middleware.setup import add_cors_headers, get_cors_origins
+    cors_origins = get_cors_origins()
 except ImportError:
-    logger.warning("Structured error handlers not available, using default")
+    # Fallback if middleware setup not available
+    def add_cors_headers(response: JSONResponse, request: Request, allowed_origins: list) -> JSONResponse:
+        """Fallback CORS headers function"""
+        origin = request.headers.get("origin")
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+        return response
+    
+    # Default origins
+    cors_origins = [
+        "http://localhost:3000", "http://localhost:5173", "http://localhost:8000",
+        "http://127.0.0.1:3000", "http://127.0.0.1:5173", "http://127.0.0.1:8000",
+        "file://", "null", "exp://", "http://10.0.2.2:8000"
+    ]
 
 
-# Keep default exception handler as fallback
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    # This will be caught by structured error handler if available
-    logger.error(f"Unhandled error: {exc}", exc_info=True)
-    
-    # Get origin from request for CORS
-    origin = request.headers.get("origin")
-    origin_allowed = False
-    if origin:
-        origin_allowed = origin in cors_origins or bool(
-            __import__("re").match(
-                r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
-                origin
-            )
-        )
-    
-    # Return more detailed error info in development
-    if os.getenv("NODE_ENV") == "development":
-        response = JSONResponse(
-            status_code=500,
-            content={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Internal server error",
-                    "status_code": 500,
-                    "details": {"error": str(exc), "type": type(exc).__name__},
-                }
-            },
-        )
-    else:
-        response = JSONResponse(
-            status_code=500,
-            content={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Internal server error",
-                    "status_code": 500,
-                }
-            },
-        )
-    
-    # Add CORS headers to error response
-    if origin_allowed:
-        response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With, Accept, Origin"
-    
-    return response
+# CORS middleware is now handled in middleware.setup module
+
+# Note: Error handlers and timeout middleware are now registered via setup_all_middleware above
+# Trusted host middleware is also handled in middleware setup
 
 
 # Health check endpoint with database status
@@ -843,7 +702,7 @@ async def registration_shim(request: Request, call_next):
     # Allow OPTIONS requests (CORS preflight) to pass through
     if request.method.upper() == "OPTIONS":
         return await call_next(request)
-    
+
     # Only intercept the registration endpoint for POST requests
     if request.url.path == "/api/auth/register" and request.method.upper() == "POST":
         try:
@@ -886,9 +745,39 @@ async def registration_shim(request: Request, call_next):
             if email_validator and not email_validator(email):
                 response = JSONResponse(
                     status_code=422,
-                    content={"detail": "Invalid email format. Please check your email address."},
+                    content={
+                        "detail": "Invalid email format. Please check your email address."
+                    },
                 )
                 return add_cors_headers(response, request, cors_origins)
+
+            # Validate password strength BEFORE processing
+            try:
+                from server_fastapi.middleware.validation import (
+                    validate_password_strength,
+                )
+
+                password_validation = validate_password_strength(password)
+                if not password_validation.get("valid", False):
+                    response = JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": password_validation.get(
+                                "message", "Password does not meet requirements"
+                            )
+                        },
+                    )
+                    return add_cors_headers(response, request, cors_origins)
+            except ImportError:
+                # Fallback: basic password length check if validation module not available
+                if not password or len(password) < 8:
+                    response = JSONResponse(
+                        status_code=422,
+                        content={
+                            "detail": "Password must be at least 8 characters long"
+                        },
+                    )
+                    return add_cors_headers(response, request, cors_origins)
 
             # Use shared in‑memory storage from auth module
             storage = getattr(auth_module, "storage", None)
@@ -907,27 +796,39 @@ async def registration_shim(request: Request, call_next):
             if existing:
                 response = JSONResponse(
                     status_code=400,
-                    content={"detail": f"A user with email {email} already exists. Please try logging in instead."},
+                    content={
+                        "detail": f"A user with email {email} already exists. Please try logging in instead."
+                    },
                 )
                 return add_cors_headers(response, request, cors_origins)
 
-            # Delegate to MockAuthService for password hashing + user creation
+            # Use AuthService for password hashing + user creation
             # Use normalized email (not sanitized - sanitization breaks emails)
             try:
-                result = auth_service.register(
-                    {
-                        "email": email,
-                        "password": password,
-                        "name": username,
-                    }
-                )
+                # Get database session for registration
+                from server_fastapi.database import get_db_context
+                
+                async with get_db_context() as session:
+                    result = await auth_service.register(
+                        {
+                            "email": email,
+                            "password": password,
+                            "name": username or (first_name + " " + last_name if first_name and last_name else email.split("@")[0]),
+                        },
+                        session=session
+                    )
             except ValueError as e:
                 # Handle duplicate email or validation errors from auth service
                 error_msg = str(e)
-                if "already exists" in error_msg.lower() or "duplicate" in error_msg.lower():
+                if (
+                    "already exists" in error_msg.lower()
+                    or "duplicate" in error_msg.lower()
+                ):
                     response = JSONResponse(
                         status_code=400,
-                        content={"detail": f"A user with email {email} already exists. Please try logging in instead."},
+                        content={
+                            "detail": f"A user with email {email} already exists. Please try logging in instead."
+                        },
                     )
                 else:
                     response = JSONResponse(
@@ -967,7 +868,11 @@ async def registration_shim(request: Request, call_next):
         except ValueError as e:
             # Handle validation errors with clear messages
             error_msg = str(e)
-            status_code = 422 if "required" in error_msg.lower() or "invalid" in error_msg.lower() else 400
+            status_code = (
+                422
+                if "required" in error_msg.lower() or "invalid" in error_msg.lower()
+                else 400
+            )
             response = JSONResponse(
                 status_code=status_code,
                 content={"detail": f"Registration error: {error_msg}"},
@@ -978,7 +883,9 @@ async def registration_shim(request: Request, call_next):
             logger.error(f"Registration shim error: {e}", exc_info=True)
             response = JSONResponse(
                 status_code=500,
-                content={"detail": f"Registration failed: {str(e)}. Please try again or contact support if the problem persists."},
+                content={
+                    "detail": f"Registration failed: {str(e)}. Please try again or contact support if the problem persists."
+                },
             )
             return add_cors_headers(response, request, cors_origins)
 
@@ -1022,12 +929,13 @@ def _safe_include(module: str, attr: str, prefix: str, tags: list[str]):
 logger.info("Loading routers with resilient strategy...")
 
 _safe_include("server_fastapi.routes.auth", "router", "/api/auth", ["Authentication"])
-_safe_include("server_fastapi.routes.auth_saas", "router", "/api", ["Authentication"])
+# NOTE: auth_saas.py router removed to eliminate duplicate Operation IDs
+# All endpoints from auth_saas.py are now available in auth.py (including /me endpoint)
+# _safe_include("server_fastapi.routes.auth_saas", "router", "/api", ["Authentication"])
+# NOTE: exchange_keys.py removed - platform uses blockchain/DEX trading exclusively
+# _safe_include("server_fastapi.routes.exchange_keys", "router", "/api", ["Exchange Keys"])
 _safe_include("server_fastapi.routes.billing", "router", "/api", ["Billing"])
 _safe_include("server_fastapi.routes.admin", "router", "/api", ["Admin"])
-_safe_include(
-    "server_fastapi.routes.exchange_keys_saas", "router", "/api", ["Exchange Keys"]
-)
 _safe_include("server_fastapi.routes.bots", "router", "/api/bots", ["Bots"])
 _safe_include("server_fastapi.routes.bot_learning", "router", "", ["Bot Learning"])
 _safe_include("server_fastapi.routes.grid_trading", "router", "/api", ["Grid Trading"])
@@ -1040,6 +948,9 @@ _safe_include(
     "server_fastapi.routes.futures_trading", "router", "/api", ["Futures Trading"]
 )
 _safe_include(
+    "server_fastapi.routes.crash_reports", "router", "/api", ["Crash Reports"]
+)
+_safe_include(
     "server_fastapi.routes.trading_safety",
     "router",
     "/api/trading-safety",
@@ -1048,18 +959,23 @@ _safe_include(
 _safe_include(
     "server_fastapi.routes.sl_tp", "router", "/api/sl-tp", ["Stop Loss / Take Profit"]
 )
-_safe_include(
-    "server_fastapi.routes.binance_testnet",
-    "router",
-    "/api/testnet",
-    ["Binance Testnet"],
-)
 _safe_include("server_fastapi.routes.ml_training", "router", "/api/ml", ["ML Training"])
 _safe_include("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"])
 _safe_include("server_fastapi.routes.trades", "router", "/api/trades", ["Trades"])
+_safe_include(
+    "server_fastapi.routes.advanced_orders",
+    "router",
+    "/api/advanced-orders",
+    ["Advanced Orders"],
+)
 _safe_include("server_fastapi.routes.sentiment", "router", "", ["Sentiment"])
-_safe_include("server_fastapi.routes.logs", "router", "", ["Logs"])
-_safe_include("server_fastapi.routes.price_alerts", "router", "/api/price-alerts", ["Price Alerts"])
+_safe_include("server_fastapi.routes.logs", "router", "/api/logs", ["Logs"])
+_safe_include(
+    "server_fastapi.routes.price_alerts",
+    "router",
+    "/api/price-alerts",
+    ["Price Alerts"],
+)
 _safe_include(
     "server_fastapi.routes.analytics", "router", "/api/analytics", ["Analytics"]
 )
@@ -1122,31 +1038,16 @@ _safe_include(
     ["Recommendations"],
 )
 _safe_include(
-    "server_fastapi.routes.exchange_keys",
-    "router",
-    "/api/exchange-keys",
-    ["Exchange Keys"],
-)
-_safe_include(
-    "server_fastapi.routes.exchange_status",
-    "router",
-    "/api/exchange-status",
-    ["Exchange Status"],
-)
-_safe_include(
     "server_fastapi.routes.trading_mode", "router", "/api/trading", ["Trading Mode"]
 )
 _safe_include(
     "server_fastapi.routes.audit_logs", "router", "/api/audit-logs", ["Audit Logs"]
 )
+_safe_include("server_fastapi.routes.audit", "router", "", ["Audit Logs"])
 _safe_include("server_fastapi.routes.fees", "router", "/api/fees", ["Fees"])
-_safe_include("server_fastapi.routes.health", "router", "/api/health", ["Health"])
-_safe_include("server_fastapi.routes.health_comprehensive", "router", "", ["Health"])
+# Health routes consolidated into health_advanced.py (registered below)
 _safe_include("server_fastapi.routes.status", "router", "/api/status", ["Status"])
 _safe_include("server_fastapi.routes.ws", "router", "", ["WebSocket"])
-_safe_include(
-    "server_fastapi.routes.websocket_enhanced", "router", "", ["WebSocket Enhanced"]
-)
 _safe_include(
     "server_fastapi.routes.websocket_portfolio",
     "router",
@@ -1164,6 +1065,36 @@ _safe_include("server_fastapi.routes.cache_warmer", "router", "", ["Cache Warmer
 _safe_include(
     "server_fastapi.routes.metrics_monitoring", "router", "", ["Metrics & Monitoring"]
 )
+_safe_include(
+    "server_fastapi.routes.business_metrics",
+    "router",
+    "/api/business-metrics",
+    ["Business Metrics"],
+)
+_safe_include(
+    "server_fastapi.routes.platform_health",
+    "router",
+    "",
+    ["Platform Health"],
+)
+_safe_include(
+    "server_fastapi.routes.nps_tracking",
+    "router",
+    "",
+    ["NPS Tracking"],
+)
+_safe_include(
+    "server_fastapi.routes.performance_profiling",
+    "router",
+    "/api/performance-profiling",
+    ["Performance Profiling"],
+)
+_safe_include(
+    "server_fastapi.routes.transaction_monitoring",
+    "router",
+    "",
+    ["Transaction Monitoring"],
+)
 _safe_include("server_fastapi.routes.metrics", "router", "", ["Prometheus Metrics"])
 _safe_include(
     "server_fastapi.routes.portfolio_rebalance", "router", "", ["Portfolio Rebalancing"]
@@ -1171,9 +1102,17 @@ _safe_include(
 _safe_include(
     "server_fastapi.routes.backtesting_enhanced", "router", "", ["Enhanced Backtesting"]
 )
-_safe_include("server_fastapi.routes.marketplace", "router", "", ["API Marketplace"])
+_safe_include("server_fastapi.routes.marketplace", "router", "/api/marketplace", ["API Marketplace"])
+# NOTE: arbitrage.py route file removed - functionality consolidated into dex_trading.py
+# _safe_include(
+#     "server_fastapi.routes.arbitrage", "router", "", ["Multi-Exchange Arbitrage"]
+# )
+_safe_include("server_fastapi.routes.export", "router", "/api/export", ["Export"])
 _safe_include(
-    "server_fastapi.routes.arbitrage", "router", "", ["Multi-Exchange Arbitrage"]
+    "server_fastapi.routes.advanced_risk", "router", "/api/risk", ["Advanced Risk"]
+)
+_safe_include(
+    "server_fastapi.routes.favorites", "router", "/api/favorites", ["Favorites"]
 )
 _safe_include(
     "server_fastapi.routes.performance", "router", "/api/performance", ["Performance"]
@@ -1183,7 +1122,6 @@ _safe_include("server_fastapi.routes.payments", "router", "", ["Payments"])
 _safe_include("server_fastapi.routes.licensing", "router", "", ["Licensing"])
 _safe_include("server_fastapi.routes.demo_mode", "router", "", ["Demo Mode"])
 _safe_include("server_fastapi.routes.ml_v2", "router", "", ["ML V2"])
-_safe_include("server_fastapi.routes.exchanges", "router", "", ["Exchanges"])
 _safe_include("server_fastapi.routes.ai_copilot", "router", "", ["AI Copilot"])
 _safe_include("server_fastapi.routes.automation", "router", "", ["Automation"])
 _safe_include(
@@ -1193,10 +1131,19 @@ _safe_include(
     ["Copy Trading"],
 )
 _safe_include(
-    "server_fastapi.routes.leaderboard", "router", "/api/leaderboard", ["Leaderboard"]
+    "server_fastapi.routes.marketplace",
+    "router",
+    "/api/marketplace",
+    ["Marketplace"],
 )
 _safe_include(
-    "server_fastapi.routes.websocket_orderbook", "router", "", ["WebSocket Order Book"]
+    "server_fastapi.routes.indicators",
+    "router",
+    "/api/indicators",
+    ["Indicators"],
+)
+_safe_include(
+    "server_fastapi.routes.leaderboard", "router", "/api/leaderboard", ["Leaderboard"]
 )
 _safe_include(
     "server_fastapi.routes.two_factor",
@@ -1206,11 +1153,10 @@ _safe_include(
 )
 _safe_include("server_fastapi.routes.kyc", "router", "/api/kyc", ["KYC Verification"])
 _safe_include("server_fastapi.routes.wallet", "router", "/api/wallet", ["Wallet"])
+_safe_include("server_fastapi.routes.institutional_wallets", "router", "/api/institutional-wallets", ["Institutional Wallets"])
 _safe_include("server_fastapi.routes.staking", "router", "/api/staking", ["Staking"])
 _safe_include("server_fastapi.routes.websocket_wallet", "router", "", ["WebSocket"])
-_safe_include(
-    "server_fastapi.routes.health_wallet", "router", "/api/health", ["Health"]
-)
+# Health wallet routes consolidated into health_advanced.py
 _safe_include(
     "server_fastapi.routes.payment_methods", "router", "", ["Payment Methods"]
 )
@@ -1230,19 +1176,167 @@ _safe_include(
     "server_fastapi.routes.platform_revenue", "router", "", ["Platform Revenue"]
 )
 _safe_include("server_fastapi.routes.backups", "router", "", ["Backups"])
+_safe_include("server_fastapi.routes.onboarding", "router", "", ["Onboarding"])
+_safe_include("server_fastapi.routes.user_analytics", "router", "", ["User Analytics"])
+_safe_include("server_fastapi.routes.disaster_recovery", "router", "", ["Disaster Recovery"])
+_safe_include("server_fastapi.routes.social", "router", "", ["Social & Community"])
+_safe_include("server_fastapi.routes.yield_farming", "router", "", ["Yield Farming"])
+_safe_include("server_fastapi.routes.security_monitoring", "router", "", ["Security Monitoring"])
+_safe_include("server_fastapi.routes.feature_flags", "router", "", ["Feature Flags"])
+_safe_include("server_fastapi.routes.gdpr", "router", "", ["GDPR Compliance"])
+_safe_include("server_fastapi.routes.webhooks", "router", "", ["Webhooks"])
+_safe_include("server_fastapi.routes.api_keys", "router", "", ["API Keys"])
+_safe_include("server_fastapi.services.wal_archiving_service", "WALArchivingService", "", [])
+_safe_include("server_fastapi.routes.tax_reporting", "router", "", ["Tax Reporting"])
 _safe_include(
     "server_fastapi.routes.security_whitelists", "router", "", ["Security Whitelists"]
 )
 _safe_include(
     "server_fastapi.routes.fraud_detection", "router", "", ["Fraud Detection"]
 )
+_safe_include(
+    "server_fastapi.routes.dex_trading", "router", "/api/dex", ["DEX Trading"]
+)
+_safe_include("server_fastapi.routes.dex_positions", "router", "", ["DEX Positions"])
+_safe_include("server_fastapi.routes.mev_protection", "router", "", ["MEV Protection"])
+_safe_include("server_fastapi.routes.wallets", "router", "/api/wallets", ["Wallets"])
+# institutional_wallets already included above (line 1509)
+_safe_include("server_fastapi.routes.hft", "router", "", ["HFT"])
+_safe_include("server_fastapi.routes.tax_reporting", "router", "", ["Tax Reporting"])
+_safe_include("server_fastapi.routes.onboarding", "router", "", ["Onboarding"])
+_safe_include("server_fastapi.routes.batch_api", "router", "", ["Batch API"])
+_safe_include("server_fastapi.routes.observability", "router", "", ["Observability"])
+_safe_include("server_fastapi.routes.treasury", "router", "", ["Treasury"])
+_safe_include("server_fastapi.routes.security_auth", "router", "", ["Security Authentication"])
+_safe_include("server_fastapi.routes.zkp", "router", "", ["Zero-Knowledge Proofs"])
+_safe_include("server_fastapi.routes.mpc_tecdsa", "router", "", ["MPC & TECDSA"])
+_safe_include("server_fastapi.routes.biometric_did", "router", "", ["Biometric & DID"])
+_safe_include("server_fastapi.routes.hardware_wallet", "router", "", ["Hardware Wallet"])
+_safe_include(
+    "server_fastapi.routes.withdrawals", "router", "/api/withdrawals", ["Withdrawals"]
+)
+_safe_include(
+    "server_fastapi.routes.security_audit",
+    "router",
+    "/api/security",
+    ["Security Audit"],
+)
+_safe_include(
+    "server_fastapi.routes.security_compliance",
+    "router",
+    "/api/security",
+    ["Security Compliance"],
+)
+_safe_include("server_fastapi.routes.alerting", "router", "", ["Alerting"])
+_safe_include(
+    "server_fastapi.routes.database_performance", "router", "", ["Database Performance"]
+)
+_safe_include(
+    "server_fastapi.routes.cache_management", "router", "", ["Cache Management"]
+)
 
+# Consolidated health check routes (includes all health checks from health.py, health_comprehensive.py, health_wallet.py)
 try:
     from server_fastapi.routes.health_advanced import router as health_advanced_router
 
     app.include_router(health_advanced_router, prefix="", tags=["Health"])
-except Exception:
-    logger.info("Advanced health checks not loaded")
+    logger.info("Consolidated health check routes loaded")
+except Exception as e:
+    logger.warning(f"Health check routes not loaded: {e}")
+
+# Add middleware health check routes
+try:
+    from .middleware.health_check import router as middleware_health_router
+    
+    app.include_router(middleware_health_router, tags=["Middleware Health"])
+    logger.info("Middleware health check routes loaded")
+except Exception as e:
+    logger.warning(f"Middleware health check routes not loaded: {e}")
+
+# Add middleware monitoring routes
+try:
+    from .routes.middleware_health import router as middleware_stats_router
+    
+    app.include_router(middleware_stats_router, tags=["Middleware Monitoring"])
+    logger.info("Middleware monitoring routes loaded")
+except Exception as e:
+    logger.warning(f"Middleware monitoring routes not loaded: {e}")
+
+# Add API analytics routes
+try:
+    from .routes.api_analytics import router as api_analytics_router
+    
+    app.include_router(api_analytics_router, tags=["API Analytics"])
+    logger.info("API analytics routes loaded")
+except Exception as e:
+    logger.warning(f"API analytics routes not loaded: {e}")
+
+# Add webhook management routes
+try:
+    from .routes.webhooks import router as webhooks_router
+    
+    app.include_router(webhooks_router)
+    logger.info("Webhook management routes loaded")
+except Exception as e:
+    logger.warning(f"Webhook routes not loaded: {e}")
+
+# Add feature flag routes
+try:
+    from .routes.feature_flags import router as feature_flags_router
+    
+    app.include_router(feature_flags_router)
+    logger.info("Feature flag routes loaded")
+except Exception as e:
+    logger.warning(f"Feature flag routes not loaded: {e}")
+
+# Add error recovery routes
+try:
+    from .routes.error_recovery import router as error_recovery_router
+    
+    app.include_router(error_recovery_router)
+    logger.info("Error recovery routes loaded")
+except Exception as e:
+    logger.warning(f"Error recovery routes not loaded: {e}")
+
+# Add monitoring routes
+try:
+    from .routes.monitoring import router as monitoring_router
+    
+    app.include_router(monitoring_router)
+    logger.info("Monitoring routes loaded")
+except Exception as e:
+    logger.warning(f"Monitoring routes not loaded: {e}")
+
+# Add security audit routes
+try:
+    from .routes.security_audit import router as security_audit_router
+    
+    app.include_router(security_audit_router)
+    logger.info("Security audit routes loaded")
+except Exception as e:
+    logger.warning(f"Security audit routes not loaded: {e}")
+
+# Add logging routes
+try:
+    from .routes.logging import router as logging_router
+    
+    app.include_router(logging_router)
+    logger.info("Logging routes loaded")
+except Exception as e:
+    logger.warning(f"Logging routes not loaded: {e}")
+
+# Add Prometheus metrics endpoint
+try:
+    from .middleware.prometheus_metrics import get_metrics_response
+    
+    @app.get("/metrics", tags=["Monitoring"])
+    async def metrics():
+        """Prometheus metrics endpoint"""
+        return get_metrics_response()
+    
+    logger.info("Prometheus metrics endpoint loaded")
+except Exception as e:
+    logger.warning(f"Prometheus metrics not available: {e}")
 
 try:
     from server_fastapi.routes.api_versioning import router_v1, router_v2

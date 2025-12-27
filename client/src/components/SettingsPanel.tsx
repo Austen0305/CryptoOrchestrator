@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../i18n';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { ErrorRetry } from './ErrorRetry';
+import logger from '@/lib/logger';
 
 export function SettingsPanel() {
   const { preferences, updatePreferences, resetPreferences, loading, error, refetch } = usePreferences();
@@ -24,7 +25,7 @@ export function SettingsPanel() {
     try {
       await setTheme(newTheme);
     } catch (error) {
-      console.error('Failed to update theme:', error);
+      logger.error('Failed to update theme', { error });
     }
   };
 
@@ -39,7 +40,7 @@ export function SettingsPanel() {
         }
       });
     } catch (error) {
-      console.error('Failed to update notifications:', error);
+      logger.error('Failed to update notifications', { error });
     }
   };
 
@@ -54,7 +55,7 @@ export function SettingsPanel() {
         }
       });
     } catch (error) {
-      console.error('Failed to update UI settings:', error);
+      logger.error('Failed to update UI settings', { error });
     }
   };
 
@@ -69,7 +70,7 @@ export function SettingsPanel() {
         }
       });
     } catch (error) {
-      console.error('Failed to update trading settings:', error);
+      logger.error('Failed to update trading settings', { error });
     }
   };
 
@@ -86,7 +87,7 @@ export function SettingsPanel() {
         });
       }
     } catch (error) {
-      console.error('Failed to change language:', error);
+      logger.error('Failed to change language', { error });
     }
   };
 
@@ -95,7 +96,7 @@ export function SettingsPanel() {
       try {
         await resetPreferences();
       } catch (error) {
-        console.error('Failed to reset preferences:', error);
+        logger.error('Failed to reset preferences', { error });
       }
     }
   };
@@ -226,7 +227,7 @@ export function SettingsPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {Object.entries(preferences.notifications).map(([type, enabled]) => (
+          {preferences?.notifications && typeof preferences.notifications === 'object' ? Object.entries(preferences.notifications).map(([type, enabled]) => (
             <div key={type} className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="capitalize">{type.replace('_', ' ')}</Label>
@@ -239,7 +240,9 @@ export function SettingsPanel() {
                 onCheckedChange={(checked) => handleNotificationChange(type as keyof typeof preferences.notifications, checked)}
               />
             </div>
-          ))}
+          )) : (
+            <div className="text-sm text-muted-foreground py-4">No notification preferences available</div>
+          )}
         </CardContent>
       </Card>
 

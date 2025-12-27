@@ -4,18 +4,17 @@ Handles staking rewards for supported cryptocurrencies.
 """
 
 import logging
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from typing import Dict, List, Optional, TYPE_CHECKING
 
-from ..models.wallet import (
-    Wallet,
-    WalletTransaction,
-    TransactionType,
-    TransactionStatus,
-)
-from ..models.user import User
+if TYPE_CHECKING:
+    from ..repositories.wallet_balance_repository import WalletBalanceRepository
+    from ..repositories.transaction_repository import TransactionRepository
+from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.wallet import TransactionType, TransactionStatus
+from ..repositories.wallet_balance_repository import WalletBalanceRepository
+from ..repositories.transaction_repository import TransactionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +22,16 @@ logger = logging.getLogger(__name__)
 class StakingService:
     """Service for staking rewards"""
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(
+        self,
+        db: AsyncSession,
+        wallet_repository: Optional[WalletBalanceRepository] = None,
+        transaction_repository: Optional[TransactionRepository] = None,
+    ):
+        # ✅ Repository injected via dependency injection (Service Layer Pattern)
+        self.wallet_repository = wallet_repository or WalletBalanceRepository()
+        self.transaction_repository = transaction_repository or TransactionRepository()
+        self.db = db  # Keep db for transaction handling
 
     # Supported staking assets and their APY
     STAKING_ASSETS = {
@@ -72,50 +79,60 @@ class StakingService:
                     f"Minimum staking amount is {staking_info['min_amount']} {asset}"
                 )
 
-            # Get or create staking wallet
-            wallet = await self._get_or_create_staking_wallet(user_id, asset)
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_or_create_wallet(
+                self.db, user_id, asset, "staking"
+            )
 
-            # Check available balance
-            trading_wallet_stmt = select(Wallet).where(
-                and_(
-                    Wallet.user_id == user_id,
-                    Wallet.currency == asset,
-                    Wallet.wallet_type == "trading",
+            # ✅ Data access delegated to repository
+            trading_wallet = (
+                await self.wallet_repository.get_by_user_and_currency_and_type(
+                    self.db, user_id, asset, "trading"
                 )
             )
-            trading_wallet_result = await self.db.execute(trading_wallet_stmt)
-            trading_wallet = trading_wallet_result.scalar_one_or_none()
 
             if not trading_wallet or trading_wallet.available_balance < amount:
                 raise ValueError(
                     f"Insufficient balance. Available: {trading_wallet.available_balance if trading_wallet else 0} {asset}"
                 )
 
-            # Transfer from trading to staking wallet
-            trading_wallet.available_balance -= amount
-            wallet.balance += amount
-            wallet.available_balance += amount
-
-            # Create transaction
-            transaction = WalletTransaction(
-                wallet_id=wallet.id,
-                user_id=user_id,
-                transaction_type=TransactionType.TRANSFER.value,
-                status=TransactionStatus.COMPLETED.value,
-                amount=amount,
-                currency=asset,
-                fee=0.0,
-                net_amount=amount,
-                description=f"Staked {amount} {asset}",
-                processed_at=datetime.utcnow(),
+            # ✅ Business logic: Transfer from trading to staking wallet
+            # ✅ Data access delegated to repository
+            await self.wallet_repository.update_balance(
+                self.db,
+                trading_wallet.id,
+                available_balance=trading_wallet.available_balance - amount,
             )
-            self.db.add(transaction)
 
-            await self.db.commit()
-            await self.db.refresh(wallet)
-            await self.db.refresh(transaction)
+            await self.wallet_repository.update_balance(
+                self.db,
+                wallet.id,
+                balance=wallet.balance + amount,
+                available_balance=wallet.available_balance + amount,
+            )
 
-            logger.info(f"User {user_id} staked {amount} {asset}")
+            # ✅ Business logic: Create transaction
+            # ✅ Data access delegated to repository
+            transaction = await self.transaction_repository.create_transaction(
+                self.db,
+                {
+                    "wallet_id": wallet.id,
+                    "user_id": user_id,
+                    "transaction_type": TransactionType.TRANSFER.value,
+                    "status": TransactionStatus.COMPLETED.value,
+                    "amount": amount,
+                    "currency": asset,
+                    "fee": 0.0,
+                    "net_amount": amount,
+                    "description": f"Staked {amount} {asset}",
+                    "processed_at": datetime.utcnow(),
+                },
+            )
+
+            logger.info(
+                f"User {user_id} staked {amount} {asset}",
+                extra={"user_id": user_id, "asset": asset, "amount": amount},
+            )
 
             return {
                 "staking_id": transaction.id,
@@ -129,58 +146,70 @@ class StakingService:
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error staking assets: {e}", exc_info=True)
+            logger.error(
+                f"Error staking assets: {e}",
+                exc_info=True,
+                extra={"user_id": user_id, "asset": asset, "amount": amount},
+            )
             await self.db.rollback()
             raise
 
     async def unstake_assets(self, user_id: int, asset: str, amount: float) -> Dict:
         """Unstake assets"""
         try:
-            # Get staking wallet
-            wallet_stmt = select(Wallet).where(
-                and_(
-                    Wallet.user_id == user_id,
-                    Wallet.currency == asset,
-                    Wallet.wallet_type == "staking",
-                )
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_by_user_and_currency_and_type(
+                self.db, user_id, asset, "staking"
             )
-            wallet_result = await self.db.execute(wallet_stmt)
-            wallet = wallet_result.scalar_one_or_none()
 
             if not wallet or wallet.available_balance < amount:
                 raise ValueError(
                     f"Insufficient staked balance. Available: {wallet.available_balance if wallet else 0} {asset}"
                 )
 
-            # Get trading wallet
-            trading_wallet = await self._get_or_create_staking_wallet(
-                user_id, asset, "trading"
+            # ✅ Data access delegated to repository
+            trading_wallet = await self.wallet_repository.get_or_create_wallet(
+                self.db, user_id, asset, "trading"
             )
 
-            # Transfer back
-            wallet.available_balance -= amount
-            wallet.balance -= amount
-            trading_wallet.available_balance += amount
-            trading_wallet.balance += amount
-
-            # Create transaction
-            transaction = WalletTransaction(
-                wallet_id=wallet.id,
-                user_id=user_id,
-                transaction_type=TransactionType.TRANSFER.value,
-                status=TransactionStatus.COMPLETED.value,
-                amount=amount,
-                currency=asset,
-                fee=0.0,
-                net_amount=amount,
-                description=f"Unstaked {amount} {asset}",
-                processed_at=datetime.utcnow(),
+            # ✅ Business logic: Transfer back
+            # ✅ Data access delegated to repository
+            await self.wallet_repository.update_balance(
+                self.db,
+                wallet.id,
+                balance=wallet.balance - amount,
+                available_balance=wallet.available_balance - amount,
             )
-            self.db.add(transaction)
 
-            await self.db.commit()
+            await self.wallet_repository.update_balance(
+                self.db,
+                trading_wallet.id,
+                balance=trading_wallet.balance + amount,
+                available_balance=trading_wallet.available_balance + amount,
+            )
 
-            logger.info(f"User {user_id} unstaked {amount} {asset}")
+            # ✅ Business logic: Create transaction
+            # ✅ Data access delegated to repository
+            transaction = await self.transaction_repository.create_transaction(
+                self.db,
+                {
+                    "wallet_id": wallet.id,
+                    "user_id": user_id,
+                    "transaction_type": TransactionType.TRANSFER.value,
+                    "status": TransactionStatus.COMPLETED.value,
+                    "amount": amount,
+                    "currency": asset,
+                    "fee": 0.0,
+                    "net_amount": amount,
+                    "description": f"Unstaked {amount} {asset}",
+                    "processed_at": datetime.utcnow(),
+                },
+            )
+
+            logger.info(
+                f"User {user_id} unstaked {amount} {asset}",
+                extra={"user_id": user_id, "asset": asset, "amount": amount},
+            )
 
             return {
                 "transaction_id": transaction.id,
@@ -192,22 +221,21 @@ class StakingService:
         except ValueError:
             raise
         except Exception as e:
-            logger.error(f"Error unstaking assets: {e}", exc_info=True)
+            logger.error(
+                f"Error unstaking assets: {e}",
+                exc_info=True,
+                extra={"user_id": user_id, "asset": asset, "amount": amount},
+            )
             await self.db.rollback()
             raise
 
     async def calculate_staking_rewards(self, user_id: int, asset: str) -> Dict:
         """Calculate staking rewards for a user"""
         try:
-            wallet_stmt = select(Wallet).where(
-                and_(
-                    Wallet.user_id == user_id,
-                    Wallet.currency == asset,
-                    Wallet.wallet_type == "staking",
-                )
+            # ✅ Data access delegated to repository
+            wallet = await self.wallet_repository.get_by_user_and_currency_and_type(
+                self.db, user_id, asset, "staking"
             )
-            wallet_result = await self.db.execute(wallet_stmt)
-            wallet = wallet_result.scalar_one_or_none()
 
             if not wallet or wallet.balance == 0:
                 return {
@@ -219,6 +247,7 @@ class StakingService:
                     "yearly_rewards": 0.0,
                 }
 
+            # ✅ Business logic: Calculate rewards
             staking_info = self.STAKING_ASSETS.get(asset, {"apy": 0.0})
             apy = staking_info["apy"]
 
@@ -236,7 +265,11 @@ class StakingService:
             }
 
         except Exception as e:
-            logger.error(f"Error calculating staking rewards: {e}", exc_info=True)
+            logger.error(
+                f"Error calculating staking rewards: {e}",
+                exc_info=True,
+                extra={"user_id": user_id, "asset": asset},
+            )
             return {
                 "asset": asset,
                 "staked_amount": 0.0,
@@ -249,10 +282,8 @@ class StakingService:
     async def distribute_staking_rewards(self):
         """Distribute daily staking rewards (called by scheduled task)"""
         try:
-            # Get all staking wallets
-            wallets_stmt = select(Wallet).where(Wallet.wallet_type == "staking")
-            wallets_result = await self.db.execute(wallets_stmt)
-            wallets = wallets_result.scalars().all()
+            # ✅ Data access delegated to repository
+            wallets = await self.wallet_repository.get_by_type(self.db, "staking")
 
             distributed = 0
             for wallet in wallets:
@@ -261,33 +292,42 @@ class StakingService:
                         wallet.currency, {"apy": 0.0}
                     )
                     if staking_info["apy"] > 0:
-                        # Calculate daily reward
+                        # ✅ Business logic: Calculate daily reward
                         daily_reward = (
                             wallet.balance * (staking_info["apy"] / 100) / 365
                         )
 
-                        # Add to wallet
-                        wallet.balance += daily_reward
-                        wallet.available_balance += daily_reward
-
-                        # Create transaction
-                        transaction = WalletTransaction(
-                            wallet_id=wallet.id,
-                            user_id=wallet.user_id,
-                            transaction_type=TransactionType.STAKING_REWARD.value,
-                            status=TransactionStatus.COMPLETED.value,
-                            amount=daily_reward,
-                            currency=wallet.currency,
-                            fee=0.0,
-                            net_amount=daily_reward,
-                            description=f"Daily staking reward for {wallet.currency}",
-                            processed_at=datetime.utcnow(),
+                        # ✅ Data access delegated to repository
+                        await self.wallet_repository.update_balance(
+                            self.db,
+                            wallet.id,
+                            balance=wallet.balance + daily_reward,
+                            available_balance=wallet.available_balance + daily_reward,
                         )
-                        self.db.add(transaction)
+
+                        # ✅ Business logic: Create transaction
+                        # ✅ Data access delegated to repository
+                        await self.transaction_repository.create_transaction(
+                            self.db,
+                            {
+                                "wallet_id": wallet.id,
+                                "user_id": wallet.user_id,
+                                "transaction_type": TransactionType.STAKING_REWARD.value,
+                                "status": TransactionStatus.COMPLETED.value,
+                                "amount": daily_reward,
+                                "currency": wallet.currency,
+                                "fee": 0.0,
+                                "net_amount": daily_reward,
+                                "description": f"Daily staking reward for {wallet.currency}",
+                                "processed_at": datetime.utcnow(),
+                            },
+                        )
                         distributed += 1
 
-            await self.db.commit()
-            logger.info(f"Distributed staking rewards to {distributed} wallets")
+            logger.info(
+                f"Distributed staking rewards to {distributed} wallets",
+                extra={"distributed_count": distributed},
+            )
 
         except Exception as e:
             logger.error(f"Error distributing staking rewards: {e}", exc_info=True)
@@ -295,29 +335,9 @@ class StakingService:
 
     async def _get_or_create_staking_wallet(
         self, user_id: int, currency: str, wallet_type: str = "staking"
-    ) -> Wallet:
-        """Get or create a staking wallet"""
-        stmt = select(Wallet).where(
-            and_(
-                Wallet.user_id == user_id,
-                Wallet.currency == currency,
-                Wallet.wallet_type == wallet_type,
-            )
+    ):
+        """Get or create a staking wallet (delegates to repository)"""
+        # ✅ Data access delegated to repository
+        return await self.wallet_repository.get_or_create_wallet(
+            self.db, user_id, currency, wallet_type
         )
-        result = await self.db.execute(stmt)
-        wallet = result.scalar_one_or_none()
-
-        if not wallet:
-            wallet = Wallet(
-                user_id=user_id,
-                currency=currency,
-                wallet_type=wallet_type,
-                balance=0.0,
-                available_balance=0.0,
-                locked_balance=0.0,
-            )
-            self.db.add(wallet)
-            await self.db.commit()
-            await self.db.refresh(wallet)
-
-        return wallet

@@ -3,6 +3,10 @@ node_modules/
 .pnp
 .pnp.js
 
+# Removed/unused stacks (to be manually deleted)
+frontend-svelte/
+backend-rust/
+
 # Testing
 coverage/
 .nyc_output
@@ -103,6 +107,9 @@ dist/
 dist-electron/
 build/
 *.local
+stats.html
+jwt_validation_results.json
+test_report_*.json
 
 # AI-generated reports and status files (should go in docs/archive/)
 *_REPORT.md
@@ -118,10 +125,69 @@ build/
 !END_TO_END_FIX_SUMMARY.md
 !LIMITATIONS_FIXED_SUMMARY.md
 !CONTINUED_IMPROVEMENTS.md
-!FINAL_STATUS_REPORT.md
 !COMPLETE_FIX_SUMMARY.md
 Master-Todo-List*
 comprehensive_feature_validation.py
 test_real_money_trading.py
 file:pytest_*
 requirements-minimal.txt
+
+# Temporary session files
+*_NOW.md
+*_READY.md
+*_FIXED*.md
+*_CHECKPOINT*.md
+*_SESSION*.md
+*_UPDATE*.md
+*_DISCOVERED*.md
+*_INVENTORY*.md
+*_FIXES*.md
+
+# Temporary setup/configuration files
+*_SETUP*.md
+!docs/setup/*.md
+!docs/guides/*SETUP*.md
+ENV_FILE_*.md
+KOYEB_*.md
+ADD_UPSTASH*.md
+CHECK_UPSTASH*.md
+FIND_UPSTASH*.md
+BUILD_DOCKER*.md
+CREATE_ENV*.md
+CREATE-ENV*.md
+DEPLOY_NOW.md
+NEXT_STEP.md
+NEXT-step.md
+
+# Temporary status and summary files (should be in docs/archive/)
+*_ADDED.md
+*_CONFIGURED.md
+*_SUMMARY.md
+*_FIX_SUMMARY.md
+*_STATUS_REPORT.md
+*_OVERVIEW.md
+*_DIAGRAM.md
+*_GUIDE.md
+!CHANGELOG.md
+!README.md
+!TODO.md
+
+# Temporary scripts
+*.ps1.bak
+*.bat.bak
+*_OLD.ps1
+*_OLD.bat
+*_BACKUP.ps1
+*_BACKUP.bat
+
+# Cursor temporary files (keep rules and plans)
+.cursor/*.md
+.cursor/*.ps1
+.cursor/*.bat
+.cursor/*.py
+!.cursor/rules/*.mdc
+!.cursor/rules/*.md
+!.cursor/plans/*.md
+!.cursor/scripts/README_SCRIPTS.md
+!.cursor/scripts/*.ps1
+!.cursor/scripts/*.bat

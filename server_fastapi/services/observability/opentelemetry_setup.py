@@ -89,13 +89,13 @@ def setup_opentelemetry(
             # OTLP exporter (for Jaeger, Tempo, etc.)
             otlp_exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
             trace_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-            logger.info(f"✅ OpenTelemetry OTLP exporter configured: {otlp_endpoint}")
+            logger.info(f"[OK] OpenTelemetry OTLP exporter configured: {otlp_endpoint}")
 
         if enable_console_exporter:
             # Console exporter for debugging
             console_exporter = ConsoleSpanExporter()
             trace_provider.add_span_processor(BatchSpanProcessor(console_exporter))
-            logger.info("✅ OpenTelemetry console exporter enabled")
+            logger.info("[OK] OpenTelemetry console exporter enabled")
 
         trace.set_tracer_provider(trace_provider)
         global tracer
@@ -118,7 +118,7 @@ def setup_opentelemetry(
                 metric_readers.append(
                     PeriodicExportingMetricReader(prometheus_exporter)
                 )
-                logger.info("✅ Prometheus metrics exporter enabled")
+                logger.info("[OK] Prometheus metrics exporter enabled")
             except ImportError:
                 logger.warning("Prometheus exporter not available")
 
@@ -130,7 +130,7 @@ def setup_opentelemetry(
             global meter
             meter = metrics.get_meter(__name__)
 
-        logger.info("✅ OpenTelemetry setup complete")
+        logger.info("[OK] OpenTelemetry setup complete")
         return True
 
     except Exception as e:
@@ -153,7 +153,7 @@ def instrument_fastapi(app) -> bool:
 
     try:
         FastAPIInstrumentor.instrument_app(app)
-        logger.info("✅ FastAPI instrumented with OpenTelemetry")
+        logger.info("[OK] FastAPI instrumented with OpenTelemetry")
         return True
     except Exception as e:
         logger.error(f"Failed to instrument FastAPI: {e}", exc_info=True)
@@ -172,7 +172,7 @@ def instrument_sqlalchemy() -> bool:
 
     try:
         SQLAlchemyInstrumentor().instrument()
-        logger.info("✅ SQLAlchemy instrumented with OpenTelemetry")
+        logger.info("[OK] SQLAlchemy instrumented with OpenTelemetry")
         return True
     except Exception as e:
         logger.error(f"Failed to instrument SQLAlchemy: {e}", exc_info=True)
@@ -191,7 +191,7 @@ def instrument_requests() -> bool:
 
     try:
         RequestsInstrumentor().instrument()
-        logger.info("✅ Requests library instrumented with OpenTelemetry")
+        logger.info("[OK] Requests library instrumented with OpenTelemetry")
         return True
     except Exception as e:
         logger.error(f"Failed to instrument requests: {e}", exc_info=True)
@@ -264,7 +264,61 @@ def record_metric(
         counter.add(value, attributes or {})
 
 
+def record_gauge(
+    name: str, value: float, unit: str = "", attributes: Optional[dict] = None
+):
+    """
+    Record a gauge metric value
+
+    Args:
+        name: Metric name
+        value: Current gauge value
+        unit: Unit of measurement
+        attributes: Additional attributes
+    """
+    if not OTEL_AVAILABLE:
+        return
+
+    meter = get_meter()
+    if meter:
+        gauge = meter.create_up_down_counter(
+            name=name, description=f"Gauge for {name}", unit=unit
+        )
+        gauge.add(value, attributes or {})
+
+
+def record_histogram(
+    name: str, value: float, unit: str = "", attributes: Optional[dict] = None
+):
+    """
+    Record a histogram metric value
+
+    Args:
+        name: Metric name
+        value: Histogram value
+        unit: Unit of measurement
+        attributes: Additional attributes
+    """
+    if not OTEL_AVAILABLE:
+        return
+
+    meter = get_meter()
+    if meter:
+        histogram = meter.create_histogram(
+            name=name, description=f"Histogram for {name}", unit=unit
+        )
+        histogram.record(value, attributes or {})
+
+
 # Initialize on import if enabled
+# Enhanced trace correlation support
+try:
+    from ..monitoring.trace_correlation import get_trace_correlation_service
+
+    trace_correlation = get_trace_correlation_service()
+except ImportError:
+    trace_correlation = None
+
 if os.getenv("ENABLE_OPENTELEMETRY", "false").lower() == "true":
     setup_opentelemetry(
         service_name=os.getenv("OTEL_SERVICE_NAME", "cryptoorchestrator"),

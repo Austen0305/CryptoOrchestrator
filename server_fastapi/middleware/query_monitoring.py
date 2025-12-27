@@ -1,49 +1,67 @@
 """
-Query Monitoring Middleware
-Monitors database query performance and provides insights
+Database Query Performance Monitoring Middleware
+Logs slow queries (> 100ms) and tracks query performance.
 """
 
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 import logging
 import time
+from typing import Callable
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 
-from ..services.query_optimizer import query_optimizer
+from ..services.monitoring.performance_profiler import get_performance_profiler
 
 logger = logging.getLogger(__name__)
 
 
 class QueryMonitoringMiddleware(BaseHTTPMiddleware):
-    """Middleware to monitor database query performance"""
+    """Middleware for monitoring database query performance"""
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app):
         super().__init__(app)
+        self.profiler = get_performance_profiler()
+        self._setup_query_listeners()
 
-    async def dispatch(self, request: Request, call_next):
-        # Track request start time
-        start_time = time.time()
+    def _setup_query_listeners(self):
+        """Setup SQLAlchemy event listeners for query monitoring"""
+        try:
+            from ..database import engine
 
-        # Process request
+            if engine:
+                # Setup query profiling on engine
+                from ..services.monitoring.performance_profiler import (
+                    setup_query_profiling,
+                )
+
+                setup_query_profiling(engine.sync_engine)
+        except Exception as e:
+            logger.warning(f"Could not setup query listeners: {e}")
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Monitor request and query performance"""
         response = await call_next(request)
-
-        # Calculate request duration
-        duration = time.time() - start_time
-
-        # Log slow requests with query context
-        if duration > 2.0:  # 2 seconds threshold
-            request_id = getattr(request.state, "request_id", "unknown")
-            logger.warning(
-                f"Slow request detected: {request.method} {request.url.path} "
-                f"took {duration:.3f}s (request_id: {request_id})"
-            )
-
-        # Add query performance header if available
-        query_stats = await query_optimizer.get_query_statistics()
-        if query_stats.get("total_queries", 0) > 0:
-            response.headers["X-Query-Count"] = str(query_stats["total_queries"])
-            response.headers["X-Avg-Query-Time-Ms"] = str(
-                query_stats.get("avg_time_per_query_ms", 0)
-            )
-
         return response
+
+
+# SQLAlchemy event listener setup
+def setup_query_monitoring(engine: Engine) -> None:
+    """Setup SQLAlchemy query monitoring"""
+    profiler = get_performance_profiler()
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def before_cursor_execute(
+        conn, cursor, statement, parameters, context, executemany
+    ):
+        conn.info.setdefault("query_start_time", []).append(time.time())
+
+    @event.listens_for(engine, "after_cursor_execute")
+    def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        total = time.time() - conn.info["query_start_time"].pop(-1)
+        duration_ms = total * 1000
+
+        # Record query performance
+        profiler.record_query(
+            query=statement, duration_ms=duration_ms, params=parameters
+        )

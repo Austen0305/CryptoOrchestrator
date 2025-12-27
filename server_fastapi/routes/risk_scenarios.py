@@ -1,41 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 from ..services.risk_scenarios import risk_scenario_service
 from ..services.notification_service import NotificationService, NotificationCategory
-from ..database import get_db_session
-import jwt
-import os
+from ..dependencies.notifications import get_notification_service
+from ..dependencies.auth import get_optional_user
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-security = HTTPBearer(auto_error=False)
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-
-
-def get_notification_service(db: AsyncSession = Depends(get_db_session)) -> NotificationService:
-    """Dependency to get NotificationService instance"""
-    return NotificationService(db)
-
-
-def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-) -> Optional[dict]:
-    """Optionally decode current user from JWT; returns None if no credentials provided."""
-    if not credentials:
-        return None
-    try:
-        token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        user_id = payload.get("id")
-        if not user_id:
-            return None
-        return {"id": user_id, "email": f"user{user_id}@example.com"}
-    except Exception:
-        return None
 
 
 class ScenarioRequest(BaseModel):
@@ -53,8 +29,8 @@ class ScenarioRequest(BaseModel):
         1.0, ge=0, le=5, description="Correlation amplification factor"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "portfolio_value": 100000,
                 "baseline_var": 2500,
@@ -63,6 +39,7 @@ class ScenarioRequest(BaseModel):
                 "correlation_factor": 1.2,
             }
         }
+    )
 
 
 class ScenarioResponse(BaseModel):
@@ -81,16 +58,19 @@ class ScenarioResponse(BaseModel):
 @router.post("/simulate", response_model=ScenarioResponse)
 async def simulate_scenario(
     req: ScenarioRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
-    notification_service: NotificationService = Depends(get_notification_service),
+    notification_service: Annotated[
+        NotificationService, Depends(get_notification_service)
+    ],
+    current_user: Annotated[Optional[dict], Depends(get_optional_user)] = None,
 ):
     try:
 
         async def notify_fn(event: dict):
             if not current_user:
                 return
+            user_id = _get_user_id(current_user)
             await notification_service.create_notification(
-                user_id=current_user["id"],
+                user_id=user_id,
                 message="Risk scenario computed",
                 level="info",
                 title="Risk Scenario",

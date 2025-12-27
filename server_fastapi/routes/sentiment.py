@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/sentiment", tags=["Sentiment"])
 
 class MarketSentiment(BaseModel):
     """Market sentiment analysis"""
+
     sentiment: str  # "bullish", "bearish", "neutral"
     confidence: float
     indicators: Dict[str, float]
@@ -25,7 +26,7 @@ class MarketSentiment(BaseModel):
 async def get_symbol_sentiment(symbol: str):
     """
     Get AI-powered market sentiment analysis for a trading pair
-    
+
     Analyzes:
     - Technical indicators
     - Volume trends
@@ -37,19 +38,21 @@ async def get_symbol_sentiment(symbol: str):
         # Try to use the existing ai_analysis sentiment function
         try:
             from ..routes.ai_analysis import _analyze_market_sentiment
+
             sentiment_data = await _analyze_market_sentiment(symbol)
         except Exception:
             # Fallback to simple stub if ai_analysis is not available
             import random
+
             sentiment_score = random.uniform(-1, 1)
-            
+
             if sentiment_score > 0.3:
                 sentiment = "bullish"
             elif sentiment_score < -0.3:
                 sentiment = "bearish"
             else:
                 sentiment = "neutral"
-            
+
             sentiment_data = {
                 "sentiment": sentiment,
                 "confidence": abs(sentiment_score),
@@ -77,4 +80,3 @@ async def get_symbol_sentiment(symbol: str):
             indicators={},
             news_sentiment=None,
         )
-

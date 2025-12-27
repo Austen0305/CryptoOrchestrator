@@ -2,16 +2,18 @@
 OpenAPI/Swagger Documentation Configuration
 Enhanced API documentation with examples and better descriptions
 """
+
 from typing import Dict, Any
 import os
 
+
 def get_openapi_config() -> Dict[str, Any]:
     """Get enhanced OpenAPI configuration"""
-    
+
     # Get environment info
     environment = os.getenv("NODE_ENV", "development")
     version = os.getenv("API_VERSION", "1.0.0")
-    
+
     # Base OpenAPI info
     openapi_config = {
         "title": "CryptoOrchestrator API",
@@ -71,63 +73,42 @@ CryptoOrchestrator is an enterprise-grade trading automation platform featuring:
         "contact": {
             "name": "CryptoOrchestrator Support",
             "email": "support@cryptoorchestrator.com",
-            "url": "https://support.cryptoorchestrator.com"
+            "url": "https://support.cryptoorchestrator.com",
         },
-        "license_info": {
-            "name": "MIT",
-            "url": "https://opensource.org/licenses/MIT"
-        },
+        "license_info": {"name": "MIT", "url": "https://opensource.org/licenses/MIT"},
         "servers": [
-            {
-                "url": "http://localhost:8000",
-                "description": "Development server"
-            },
+            {"url": "http://localhost:8000", "description": "Development server"},
             {
                 "url": "https://api.cryptoorchestrator.com",
-                "description": "Production server"
-            }
+                "description": "Production server",
+            },
         ],
         "tags": [
             {
                 "name": "Authentication",
-                "description": "User authentication and authorization endpoints"
+                "description": "User authentication and authorization endpoints",
             },
             {
                 "name": "Trading",
-                "description": "Trading operations, orders, and execution"
+                "description": "Trading operations, orders, and execution",
             },
-            {
-                "name": "Bots",
-                "description": "Trading bot management and configuration"
-            },
-            {
-                "name": "Portfolio",
-                "description": "Portfolio tracking and analytics"
-            },
+            {"name": "Bots", "description": "Trading bot management and configuration"},
+            {"name": "Portfolio", "description": "Portfolio tracking and analytics"},
             {
                 "name": "Wallet",
-                "description": "Wallet management, deposits, and withdrawals"
+                "description": "Wallet management, deposits, and withdrawals",
             },
-            {
-                "name": "Staking",
-                "description": "Staking rewards and management"
-            },
+            {"name": "Staking", "description": "Staking rewards and management"},
             {
                 "name": "Cold Storage",
-                "description": "Cold storage transfers for high-value assets"
+                "description": "Cold storage transfers for high-value assets",
             },
-            {
-                "name": "Health",
-                "description": "Health checks and system status"
-            },
+            {"name": "Health", "description": "Health checks and system status"},
             {
                 "name": "Query Optimization",
-                "description": "Database query optimization and monitoring"
+                "description": "Database query optimization and monitoring",
             },
-            {
-                "name": "Cache Warmer",
-                "description": "Cache warming and management"
-            }
+            {"name": "Cache Warmer", "description": "Cache warming and management"},
         ],
         "components": {
             "securitySchemes": {
@@ -135,34 +116,49 @@ CryptoOrchestrator is an enterprise-grade trading automation platform featuring:
                     "type": "http",
                     "scheme": "bearer",
                     "bearerFormat": "JWT",
-                    "description": "JWT token obtained from /api/auth/login"
+                    "description": "JWT token obtained from /api/auth/login",
                 },
                 "ApiKeyAuth": {
                     "type": "apiKey",
                     "in": "header",
                     "name": "X-API-Key",
-                    "description": "API key for programmatic access"
+                    "description": "API key for programmatic access",
+                },
+            }
+            ,
+            "responses": {
+                "GatewayTimeout": {
+                    "description": "Request processing exceeded the configured timeout and was cancelled.",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "detail": {"type": "string"},
+                                    "request_id": {"type": "string", "description": "Request ID for tracing"}
+                                },
+                                "required": ["detail"]
+                            }
+                        }
+                    }
                 }
             }
-        }
+        },
     }
-    
+
     # Add environment-specific info
     if environment == "production":
         openapi_config["servers"] = [
             {
                 "url": "https://api.cryptoorchestrator.com",
-                "description": "Production server"
+                "description": "Production server",
             }
         ]
     else:
         openapi_config["servers"] = [
-            {
-                "url": "http://localhost:8000",
-                "description": "Development server"
-            }
+            {"url": "http://localhost:8000", "description": "Development server"}
         ]
-    
+
     return openapi_config
 
 
@@ -170,35 +166,37 @@ def custom_openapi(app) -> Dict[str, Any]:
     """Custom OpenAPI schema generator with enhancements"""
     if app.openapi_schema:
         return app.openapi_schema
-    
+
     from fastapi.openapi.utils import get_openapi
-    
+
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
         description=app.description,
         routes=app.routes,
     )
-    
+
     # Add custom enhancements
     config = get_openapi_config()
-    
+
     # Update schema with custom config
-    openapi_schema["info"].update({
-        "description": config["description"],
-        "termsOfService": config.get("terms_of_service"),
-        "contact": config.get("contact"),
-        "license": config.get("license_info")
-    })
-    
+    openapi_schema["info"].update(
+        {
+            "description": config["description"],
+            "termsOfService": config.get("terms_of_service"),
+            "contact": config.get("contact"),
+            "license": config.get("license_info"),
+        }
+    )
+
     # Add servers
     if "servers" in config:
         openapi_schema["servers"] = config["servers"]
-    
+
     # Add tags
     if "tags" in config:
         openapi_schema["tags"] = config["tags"]
-    
+
     # Add security schemes
     if "components" in config and "securitySchemes" in config["components"]:
         if "components" not in openapi_schema:
@@ -208,7 +206,16 @@ def custom_openapi(app) -> Dict[str, Any]:
         openapi_schema["components"]["securitySchemes"].update(
             config["components"]["securitySchemes"]
         )
-    
+
+    # Add reusable responses (e.g., GatewayTimeout -> 504)
+    if "components" in config and "responses" in config["components"]:
+        if "components" not in openapi_schema:
+            openapi_schema["components"] = {}
+        if "responses" not in openapi_schema["components"]:
+            openapi_schema["components"]["responses"] = {}
+        openapi_schema["components"]["responses"].update(
+            config["components"]["responses"]
+        )
+
     app.openapi_schema = openapi_schema
     return openapi_schema
-

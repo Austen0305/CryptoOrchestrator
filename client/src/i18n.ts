@@ -1,4 +1,5 @@
 import i18n from 'i18next';
+import logger from './lib/logger';
 import { initReactI18next } from 'react-i18next';
 
 // Import translation files
@@ -58,7 +59,7 @@ export const changeLanguage = async (lng: string) => {
       localStorage.setItem('language', lng);
     }
   } catch (error) {
-    console.error('Failed to change language:', error);
+    logger.error('Failed to change language:', error);
   }
 };
 

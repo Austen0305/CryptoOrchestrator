@@ -85,8 +85,8 @@ class BotCreationService:
 
     async def update_bot(
         self, bot_id: str, user_id: int, updates: Dict[str, Any]
-    ) -> bool:
-        """Update an existing bot"""
+    ) -> Optional[Dict[str, Any]]:
+        """Update an existing bot and return the updated bot configuration"""
         try:
             async with self._get_session() as session:
                 # First check if bot exists and belongs to user
@@ -95,7 +95,7 @@ class BotCreationService:
                 )
                 if not existing_bot:
                     logger.warning(f"Bot {bot_id} not found for user {user_id}")
-                    return False
+                    return None
 
                 # Map API fields to DB fields
                 db_updates = {}
@@ -114,11 +114,16 @@ class BotCreationService:
                     session, bot_id, user_id, db_updates
                 )
                 if updated_bot:
+                    # Commit the transaction to ensure changes are persisted
+                    await session.commit()
+                    # Refresh the bot to ensure we have the latest data
+                    await session.refresh(updated_bot)
                     logger.info(f"Updated bot {bot_id} for user {user_id}")
-                    return True
+                    # Return the updated bot as a dict
+                    return updated_bot.to_dict()
                 else:
                     logger.error(f"Failed to update bot {bot_id}")
-                    return False
+                    return None
 
         except Exception as e:
             logger.error(f"Error updating bot {bot_id}: {str(e)}")
@@ -168,6 +173,11 @@ class BotCreationService:
                 return bot.to_dict()
 
         except Exception as e:
+            error_str = str(e).lower()
+            # If it's a relationship/mapper error or bot not found, return None instead of raising
+            if "mapper" in error_str or "relationship" in error_str or "not found" in error_str:
+                logger.warning(f"Bot config not available for {bot_id}: {e}")
+                return None
             logger.error(f"Error getting bot config for {bot_id}: {str(e)}")
             raise
 

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApi } from "@/hooks/useApi";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import {
   LineChart,
   Line,
@@ -32,9 +33,13 @@ interface PerformanceMetrics {
 }
 
 export default function PerformanceDashboard() {
-  const { data: performance, isLoading } = useApi<PerformanceMetrics>({
-    endpoint: '/api/performance/metrics',
-    queryKey: ['performance'],
+  const { data: performance, isLoading } = useQuery<PerformanceMetrics>({
+    queryKey: ['performance', 'metrics'],
+    queryFn: async () => {
+      return await apiRequest<PerformanceMetrics>('/api/performance/metrics', {
+        method: 'GET',
+      });
+    },
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 
@@ -61,13 +66,13 @@ export default function PerformanceDashboard() {
   const metrics = performance.metrics;
 
   // Prepare daily P&L chart data
-  const dailyPnlData = performance.daily_pnl.map((pnl, index) => ({
+  const dailyPnlData = performance.daily_pnl.map((pnl: number, index: number) => ({
     day: `Day ${index + 1}`,
     pnl: pnl,
   }));
 
   // Prepare cumulative returns chart data
-  const cumulativeData = performance.cumulative_returns.map((ret, index) => ({
+  const cumulativeData = performance.cumulative_returns.map((ret: number, index: number) => ({
     day: `Day ${index + 1}`,
     returns: ret * 100, // Convert to percentage
   }));
@@ -79,7 +84,7 @@ export default function PerformanceDashboard() {
   ];
 
   // Prepare recent trades data
-  const recentTrades = performance.trades.slice(-20).map((trade) => ({
+  const recentTrades = performance.trades.slice(-20).map((trade: any) => ({
     symbol: trade.symbol,
     pnl: trade.pnl,
     date: new Date(trade.timestamp).toLocaleDateString(),
@@ -88,7 +93,7 @@ export default function PerformanceDashboard() {
   return (
     <div className="space-y-6 w-full">
       <div>
-        <h1 className="text-3xl font-bold">Performance Dashboard</h1>
+        <h1 className="text-3xl font-bold" data-testid="performance-dashboard">Performance Dashboard</h1>
         <p className="text-muted-foreground mt-1">
           Real-time trading performance metrics and analytics
         </p>
@@ -267,7 +272,7 @@ export default function PerformanceDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {recentTrades.map((trade, index) => (
+              {recentTrades.map((trade: any, index: number) => (
                 <div
                   key={index}
                   className="flex justify-between items-center p-2 rounded-lg hover:bg-muted/50 transition-colors"

@@ -5,11 +5,12 @@ API endpoints for KYC verification.
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Annotated
 import logging
 
 from ..services.kyc_service import kyc_service, KYCStatus
 from ..dependencies.auth import get_current_user, require_permission
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,12 @@ class KYCStatusUpdateRequest(BaseModel):
 
 @router.post("/submit")
 async def submit_kyc(
-    request: KYCSubmissionRequest, current_user: dict = Depends(get_current_user)
+    request: KYCSubmissionRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Submit KYC information"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         email = current_user.get("email", "")
 
         result = await kyc_service.initiate_kyc(
@@ -58,10 +60,12 @@ async def submit_kyc(
 
 
 @router.get("/status")
-async def get_kyc_status(current_user: dict = Depends(get_current_user)):
+async def get_kyc_status(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get KYC status for current user"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         kyc_record = await kyc_service.get_kyc_status(user_id)
 
         if kyc_record:
@@ -81,11 +85,11 @@ async def get_kyc_status(current_user: dict = Depends(get_current_user)):
 @router.post("/update-status")
 async def update_kyc_status(
     request: KYCStatusUpdateRequest,
-    current_user: dict = Depends(require_permission("admin:kyc")),
+    current_user: Annotated[dict, Depends(require_permission("admin:kyc"))],
 ):
     """Update KYC status (admin only)"""
     try:
-        reviewer_id = current_user.get("id")
+        reviewer_id = _get_user_id(current_user)
 
         try:
             status = KYCStatus(request.status)

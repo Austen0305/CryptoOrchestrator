@@ -1,11 +1,11 @@
-import axios from 'axios';
+import axios from "axios";
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
-export async function getPortfolio(type: 'paper' | 'live') {
+export async function getPortfolio(type: "paper" | "live") {
   let retries = 0;
-  
+
   while (retries < MAX_RETRIES) {
     try {
       const response = await axios.get(`/api/portfolio/${type}`);
@@ -14,7 +14,7 @@ export async function getPortfolio(type: 'paper' | 'live') {
       if (retries === MAX_RETRIES - 1) {
         throw error;
       }
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY));
       retries++;
     }
   }

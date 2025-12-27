@@ -95,6 +95,38 @@ export function PriceAlerts() {
     },
   });
 
+  const saveAlertMutation = useMutation({
+    mutationFn: async (alert: PriceAlert | Omit<PriceAlert, 'id' | 'createdAt'>) => {
+      if ('id' in alert && alert.id) {
+        return await apiRequest(`/api/price-alerts/${alert.id}`, {
+          method: 'PUT',
+          body: alert,
+        });
+      } else {
+        return await apiRequest('/api/price-alerts', {
+          method: 'POST',
+          body: alert,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['price-alerts'] });
+      setIsDialogOpen(false);
+      setEditingAlert(null);
+      toast({
+        title: 'Success',
+        description: editingAlert ? 'Alert updated successfully' : 'Alert created successfully',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save alert',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const activeAlerts = alerts.filter(a => a.isActive && !a.triggered);
   const triggeredAlerts = alerts.filter(a => a.triggered);
   const inactiveAlerts = alerts.filter(a => !a.isActive && !a.triggered);
@@ -170,13 +202,11 @@ export function PriceAlerts() {
               <AlertForm
                 alert={editingAlert}
                 onSave={(alert) => {
-                  if (editingAlert) {
-                    setAlerts(alerts.map(a => a.id === editingAlert.id ? alert : a));
-                  } else {
-                    setAlerts([...alerts, { ...alert, id: Date.now().toString(), createdAt: new Date() }]);
-                  }
-                  setIsDialogOpen(false);
-                  setEditingAlert(null);
+                  saveAlertMutation.mutate(
+                    editingAlert
+                      ? { ...alert, id: editingAlert.id, createdAt: editingAlert.createdAt }
+                      : { ...alert, id: Date.now().toString(), createdAt: new Date() } as PriceAlert
+                  );
                 }}
                 onCancel={() => {
                   setIsDialogOpen(false);
@@ -421,12 +451,10 @@ export function PriceAlerts() {
             icon={Bell}
             title="No alerts set up yet"
             description="Create your first price alert to stay informed about market movements."
-            action={
-              <Button onClick={() => setIsDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Alert
-              </Button>
-            }
+            action={{
+              label: "Create Alert",
+              onClick: () => setIsDialogOpen(true)
+            }}
           />
         ) : null}
       </CardContent>
@@ -460,7 +488,7 @@ function AlertForm({ alert, onSave, onCancel }: { alert: PriceAlert | null; onSa
     });
   };
 
-  const toggleChannel = (channel: string) => {
+  const toggleChannel = (channel: "push" | "email" | "sms" | "telegram" | "discord") => {
     setChannels(prev =>
       prev.includes(channel)
         ? prev.filter(c => c !== channel)
@@ -539,7 +567,7 @@ function AlertForm({ alert, onSave, onCancel }: { alert: PriceAlert | null; onSa
       <div>
         <Label>Notification Channels</Label>
         <div className="flex flex-wrap gap-2 mt-2">
-          {["push", "email", "sms", "telegram", "discord"].map(channel => (
+          {(["push", "email", "sms", "telegram", "discord"] as const).map(channel => (
             <Badge
               key={channel}
               variant={channels.includes(channel) ? "default" : "outline"}

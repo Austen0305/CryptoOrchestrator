@@ -2,6 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import logger from "@/lib/logger";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -57,107 +58,27 @@ interface PerformanceAttributionResponse {
   factorAnalysis: FactorAnalysis[];
 }
 
-// Mock data fallback (will be replaced when API endpoint is available)
-const MOCK_ATTRIBUTION_DATA: PerformanceAttributionResponse = {
-  attribution: [
-    {
-      strategy: "ML Enhanced",
-      alpha: 8.5,
-      beta: 1.2,
-      sharpe: 2.1,
-      informationRatio: 1.8,
-      contribution: 45,
-      trades: 120,
-      winRate: 68,
-      avgReturn: 3.2,
-    },
-    {
-      strategy: "Smart Adaptive",
-      alpha: 6.2,
-      beta: 0.9,
-      sharpe: 1.8,
-      informationRatio: 1.5,
-      contribution: 30,
-      trades: 85,
-      winRate: 65,
-      avgReturn: 2.8,
-    },
-    {
-      strategy: "Mean Reversion",
-      alpha: 4.1,
-      beta: 0.6,
-      sharpe: 1.5,
-      informationRatio: 1.2,
-      contribution: 15,
-      trades: 150,
-      winRate: 58,
-      avgReturn: 2.1,
-    },
-    {
-      strategy: "Trend Following",
-      alpha: 2.8,
-      beta: 1.1,
-      sharpe: 1.3,
-      informationRatio: 1.0,
-      contribution: 10,
-      trades: 95,
-      winRate: 62,
-      avgReturn: 1.9,
-    },
-  ],
-  cumulativeReturns: [
-    { month: "Jan", returns: 0, benchmark: 0, alpha: 0 },
-    { month: "Feb", returns: 2.5, benchmark: 1.8, alpha: 0.7 },
-    { month: "Mar", returns: 5.2, benchmark: 3.5, alpha: 1.7 },
-    { month: "Apr", returns: 8.7, benchmark: 6.2, alpha: 2.5 },
-    { month: "May", returns: 12.3, benchmark: 9.1, alpha: 3.2 },
-    { month: "Jun", returns: 15.8, benchmark: 12.5, alpha: 3.3 },
-    { month: "Jul", returns: 18.4, benchmark: 15.2, alpha: 3.2 },
-    { month: "Aug", returns: 22.1, benchmark: 18.5, alpha: 3.6 },
-    { month: "Sep", returns: 24.5, benchmark: 21.2, alpha: 3.3 },
-    { month: "Oct", returns: 27.8, benchmark: 23.8, alpha: 4.0 },
-    { month: "Nov", returns: 30.2, benchmark: 26.1, alpha: 4.1 },
-    { month: "Dec", returns: 32.5, benchmark: 28.5, alpha: 4.0 },
-  ],
-  factorAnalysis: [
-    { factor: "Momentum", exposure: 0.65, contribution: 12.5, color: "#8884d8" },
-    { factor: "Value", exposure: 0.45, contribution: 8.2, color: "#82ca9d" },
-    { factor: "Size", exposure: 0.25, contribution: 4.5, color: "#ffc658" },
-    { factor: "Volatility", exposure: -0.15, contribution: -2.1, color: "#ff7c7c" },
-    { factor: "Quality", exposure: 0.35, contribution: 6.8, color: "#8dd1e1" },
-  ],
-};
-
 export function PerformanceAttribution() {
   const { isAuthenticated } = useAuth();
 
-  // Note: API endpoint /api/analytics/performance/attribution doesn't exist yet
-  // Using mock data as fallback. When endpoint is available, remove the mock fallback.
   const { data, isLoading, error, refetch } = useQuery<PerformanceAttributionResponse>({
     queryKey: ['performance-attribution'],
     queryFn: async () => {
-      try {
-        // Try to fetch from API (will fail until endpoint is created)
-        const response = await apiRequest<PerformanceAttributionResponse>(
-          '/api/analytics/performance/attribution',
-          { method: 'GET' }
-        );
-        return response;
-      } catch (err) {
-        // Fallback to mock data until API endpoint is available
-        console.warn('Performance Attribution API endpoint not available, using mock data:', err);
-        return MOCK_ATTRIBUTION_DATA;
-      }
+      const response = await apiRequest<PerformanceAttributionResponse>(
+        '/api/analytics/performance/attribution',
+        { method: 'GET' }
+      );
+      return response;
     },
     enabled: isAuthenticated,
     staleTime: 30000, // 30 seconds
-    retry: false, // Don't retry since we have mock fallback
+    retry: 2, // Retry on failure
   });
 
-  // Use data or fallback to mock
-  const attributionData = data?.attribution || MOCK_ATTRIBUTION_DATA.attribution;
-  const cumulativeReturns = data?.cumulativeReturns || MOCK_ATTRIBUTION_DATA.cumulativeReturns;
-  const factorAnalysis = data?.factorAnalysis || MOCK_ATTRIBUTION_DATA.factorAnalysis;
+  // Use data from API
+  const attributionData = data?.attribution || [];
+  const cumulativeReturns = data?.cumulativeReturns || [];
+  const factorAnalysis = data?.factorAnalysis || [];
 
   const totalAlpha = attributionData.reduce((sum, d) => sum + d.alpha * (d.contribution / 100), 0);
   const totalBeta = attributionData.reduce((sum, d) => sum + d.beta * (d.contribution / 100), 0);
@@ -283,7 +204,7 @@ export function PerformanceAttribution() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attributionData.map((item) => (
+                  {attributionData && Array.isArray(attributionData) && attributionData.length > 0 ? attributionData.map((item) => (
                     <TableRow key={item.strategy}>
                       <TableCell className="font-medium">{item.strategy}</TableCell>
                       <TableCell>
@@ -312,7 +233,13 @@ export function PerformanceAttribution() {
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        No attribution data available
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -348,7 +275,7 @@ export function PerformanceAttribution() {
             </Card>
 
             <div className="space-y-2">
-              {factorAnalysis.map((factor) => (
+              {factorAnalysis && Array.isArray(factorAnalysis) ? factorAnalysis.map((factor) => (
                 <Card key={factor.factor}>
                   <CardContent className="pt-4">
                     <div className="flex items-center justify-between">
@@ -371,7 +298,7 @@ export function PerformanceAttribution() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )) : null}
             </div>
           </TabsContent>
 
@@ -437,7 +364,7 @@ export function PerformanceAttribution() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {attributionData.map((item) => (
+                  {attributionData && Array.isArray(attributionData) && attributionData.length > 0 ? attributionData.map((item) => (
                     <div key={item.strategy} className="flex items-center justify-between p-3 rounded-md border">
                       <div>
                         <div className="font-medium">{item.strategy}</div>
@@ -456,7 +383,11 @@ export function PerformanceAttribution() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-center text-muted-foreground py-8">
+                      No attribution data available
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               <Card>
@@ -467,7 +398,7 @@ export function PerformanceAttribution() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {attributionData.map((item) => (
+                  {attributionData && Array.isArray(attributionData) && attributionData.length > 0 ? attributionData.map((item) => (
                     <div key={item.strategy} className="p-3 rounded-md border">
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium">{item.strategy}</div>
@@ -489,7 +420,7 @@ export function PerformanceAttribution() {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  )) : null}
                 </CardContent>
               </Card>
             </div>

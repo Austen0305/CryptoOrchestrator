@@ -4,7 +4,7 @@ Demo Mode Routes - Feature flags and demo mode management
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Annotated
 import logging
 
 from ..services.licensing.demo_mode import demo_mode_service
@@ -17,7 +17,9 @@ router = APIRouter(prefix="/api/demo-mode", tags=["Demo Mode"])
 
 
 @router.get("/status", response_model=Dict)
-async def get_demo_status(current_user: dict = Depends(get_current_user)):
+async def get_demo_status(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get demo mode status and feature availability"""
     try:
         return demo_mode_service.get_demo_info()
@@ -27,7 +29,9 @@ async def get_demo_status(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/features", response_model=Dict)
-async def get_available_features(current_user: dict = Depends(get_current_user)):
+async def get_available_features(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get list of available features"""
     try:
         return {
@@ -41,7 +45,8 @@ async def get_available_features(current_user: dict = Depends(get_current_user))
 
 @router.get("/features/{feature_name}", response_model=Dict)
 async def check_feature(
-    feature_name: str, current_user: dict = Depends(get_current_user)
+    feature_name: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Check if a specific feature is available"""
     try:
@@ -53,7 +58,8 @@ async def check_feature(
 
 @router.post("/update-license", response_model=Dict)
 async def update_license_status(
-    license_key: str, current_user: dict = Depends(get_current_user)
+    license_key: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Update license status from license key"""
     try:

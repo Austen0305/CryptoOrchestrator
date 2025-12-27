@@ -4,6 +4,8 @@ import { TradingJournal } from "@/components/TradingJournal";
 import { PortfolioPieChart } from "@/components/PortfolioPieChart";
 import { ProfitCalendar } from "@/components/ProfitCalendar";
 import { PerformanceAttribution } from "@/components/PerformanceAttribution";
+import { EnhancedErrorBoundary } from "@/components/EnhancedErrorBoundary";
+import logger from "@/lib/logger";
 import {
   LineChart,
   Line,
@@ -21,7 +23,7 @@ import {
 import { TrendingUp, Target, Percent, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export default function Analytics() {
+function AnalyticsContent() {
   const performanceData = [
     { date: "Mon", profit: 450 },
     { date: "Tue", profit: 680 },
@@ -42,7 +44,7 @@ export default function Analytics() {
   return (
     <div className="space-y-6 w-full">
       <div>
-        <h1 className="text-3xl font-bold">Analytics</h1>
+        <h1 className="text-3xl font-bold" data-testid="analytics-page">Analytics</h1>
         <p className="text-muted-foreground mt-1">
           Track your trading performance and insights
         </p>
@@ -208,5 +210,17 @@ export default function Analytics() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function Analytics() {
+  return (
+    <EnhancedErrorBoundary
+      onError={(error, errorInfo) => {
+        logger.error("Analytics page error", { error, errorInfo });
+      }}
+    >
+      <AnalyticsContent />
+    </EnhancedErrorBoundary>
   );
 }

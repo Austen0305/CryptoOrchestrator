@@ -382,7 +382,7 @@ export function RiskManagement() {
           </TabsContent>
 
           <TabsContent value="alerts" className="space-y-4">
-            {riskAlerts.length === 0 ? (
+            {!riskAlerts || riskAlerts.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <AlertCircle className="w-8 h-8 mx-auto mb-4" />
                 <p className="text-lg">No Risk Alerts</p>

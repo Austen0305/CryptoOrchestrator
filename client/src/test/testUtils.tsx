@@ -17,7 +17,7 @@ export function createTestQueryClient() {
     defaultOptions: {
       queries: {
         retry: false,
-        cacheTime: 0,
+        gcTime: 0, // gcTime replaces cacheTime in React Query v5
       },
       mutations: {
         retry: false,
@@ -41,7 +41,7 @@ export function renderWithProviders(
     return (
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider attribute="class" defaultTheme="dark">
+          <ThemeProvider defaultTheme="dark">
             {children}
           </ThemeProvider>
         </QueryClientProvider>

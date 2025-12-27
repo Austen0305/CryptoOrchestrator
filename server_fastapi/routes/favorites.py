@@ -3,15 +3,19 @@ Favorites/Watchlist API Routes
 Allows users to favorite trading pairs for quick access
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query, Body
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from datetime import datetime
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -57,27 +61,45 @@ class WatchlistSummary(BaseModel):
 
 
 @router.get("/favorites", response_model=List[FavoriteResponse], tags=["Favorites"])
+@cached(ttl=120, prefix="favorites")  # 120s TTL for favorites list
 async def get_favorites(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     exchange: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
     """
-    Get user's favorite trading pairs.
+    Get user's favorite trading pairs with pagination.
 
     Optionally filter by exchange.
     """
     try:
-        from sqlalchemy import select, and_
+        user_id = _get_user_id(current_user)
+        from sqlalchemy import select, and_, func
         from ..models.favorite import Favorite
 
         # Build query
-        query = select(Favorite).where(Favorite.user_id == current_user["id"])
+        query = select(Favorite).where(Favorite.user_id == user_id)
 
         if exchange:
             query = query.where(Favorite.exchange == exchange)
 
         query = query.order_by(Favorite.created_at.desc())
+
+        # Get total count
+        count_query = (
+            select(func.count())
+            .select_from(Favorite)
+            .where(Favorite.user_id == user_id)
+        )
+        if exchange:
+            count_query = count_query.where(Favorite.exchange == exchange)
+        total_result = await db_session.execute(count_query)
+        total = total_result.scalar() or 0
+
+        # Apply pagination
+        query = QueryOptimizer.paginate_query(query, page=page, page_size=page_size)
 
         # Execute query
         result = await db_session.execute(query)
@@ -85,7 +107,38 @@ async def get_favorites(
 
         # Enrich with current market data
         enriched_favorites = []
+        # Fetch market data for favorites
+        from ..services.market_data import MarketDataService
+        from ..services.coingecko_service import get_coingecko_service
+
+        market_data_service = MarketDataService()
+        coingecko = get_coingecko_service()
+
         for fav in favorites:
+            # Fetch current price and 24h change
+            current_price = None
+            price_change_24h = None
+
+            try:
+                # Try to get price from market data service
+                symbol_key = f"{fav.symbol.replace('/', '')}"
+                price = await market_data_service.get_price_with_fallback(fav.symbol)
+                if price:
+                    current_price = float(price)
+
+                # Try to get 24h change from CoinGecko
+                if coingecko:
+                    try:
+                        ticker_data = await coingecko.get_ticker(fav.symbol)
+                        if ticker_data and "price_change_percentage_24h" in ticker_data:
+                            price_change_24h = float(
+                                ticker_data["price_change_percentage_24h"]
+                            )
+                    except Exception:
+                        pass  # Fallback if CoinGecko fails
+            except Exception as e:
+                logger.debug(f"Failed to fetch market data for {fav.symbol}: {e}")
+
             fav_dict = {
                 "id": fav.id,
                 "user_id": fav.user_id,
@@ -94,8 +147,8 @@ async def get_favorites(
                 "notes": fav.notes,
                 "created_at": fav.created_at,
                 "last_viewed_at": fav.last_viewed_at,
-                "current_price": None,  # TODO: Fetch from market data
-                "price_change_24h": None,  # TODO: Fetch from market data
+                "current_price": current_price,
+                "price_change_24h": price_change_24h,
             }
             enriched_favorites.append(fav_dict)
 
@@ -117,20 +170,21 @@ async def get_favorites(
 )
 async def add_favorite(
     request: AddFavoriteRequest,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """
     Add a trading pair to favorites.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select
         from ..models.favorite import Favorite
 
         # Check if already favorited
         query = select(Favorite).where(
             and_(
-                Favorite.user_id == current_user["id"],
+                Favorite.user_id == user_id,
                 Favorite.symbol == request.symbol,
                 Favorite.exchange == request.exchange,
             )
@@ -146,7 +200,7 @@ async def add_favorite(
 
         # Create new favorite
         favorite = Favorite(
-            user_id=current_user["id"],
+            user_id=user_id,
             symbol=request.symbol,
             exchange=request.exchange,
             notes=request.notes,
@@ -187,19 +241,20 @@ async def add_favorite(
 )
 async def remove_favorite(
     favorite_id: int,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """
     Remove a trading pair from favorites.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select, and_, delete
         from ..models.favorite import Favorite
 
         # Verify ownership and existence
         query = select(Favorite).where(
-            and_(Favorite.id == favorite_id, Favorite.user_id == current_user["id"])
+            and_(Favorite.id == favorite_id, Favorite.user_id == user_id)
         )
         result = await db_session.execute(query)
         favorite = result.scalar_one_or_none()
@@ -233,20 +288,21 @@ async def remove_favorite(
 )
 async def update_favorite_notes(
     favorite_id: int,
-    notes: str = Field(..., max_length=500),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    notes: str = Body(..., max_length=500, description="Notes to update"),
 ):
     """
     Update notes for a favorite.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select, and_
         from ..models.favorite import Favorite
 
         # Get favorite
         query = select(Favorite).where(
-            and_(Favorite.id == favorite_id, Favorite.user_id == current_user["id"])
+            and_(Favorite.id == favorite_id, Favorite.user_id == user_id)
         )
         result = await db_session.execute(query)
         favorite = result.scalar_one_or_none()
@@ -285,36 +341,56 @@ async def update_favorite_notes(
 
 
 @router.get("/favorites/summary", response_model=WatchlistSummary, tags=["Favorites"])
+@cached(ttl=120, prefix="watchlist_summary")  # 120s TTL for watchlist summary
 async def get_watchlist_summary(
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """
     Get summary statistics for user's watchlist.
     """
     try:
+        user_id = _get_user_id(current_user)
         from sqlalchemy import select, func
         from ..models.favorite import Favorite
 
         # Count total favorites
-        count_query = select(func.count(Favorite.id)).where(
-            Favorite.user_id == current_user["id"]
-        )
+        count_query = select(func.count(Favorite.id)).where(Favorite.user_id == user_id)
         count_result = await db_session.execute(count_query)
         total = count_result.scalar() or 0
 
         # Get unique exchanges
         exchanges_query = (
-            select(Favorite.exchange)
-            .where(Favorite.user_id == current_user["id"])
-            .distinct()
+            select(Favorite.exchange).where(Favorite.user_id == user_id).distinct()
         )
         exchanges_result = await db_session.execute(exchanges_query)
         exchanges = [row[0] for row in exchanges_result.all()]
 
-        # TODO: Fetch actual market data for top gainers/losers
+        # Fetch actual market data for top gainers/losers
+        from ..services.coingecko_service import get_coingecko_service
+
         top_gainers = []
         top_losers = []
+
+        try:
+            coingecko = get_coingecko_service()
+            if coingecko:
+                # Get trending coins (top gainers/losers)
+                trending = await coingecko.get_trending()
+                if trending:
+                    # Sort by 24h change
+                    sorted_coins = sorted(
+                        trending.get("coins", []),
+                        key=lambda x: x.get("price_change_percentage_24h", 0),
+                        reverse=True,
+                    )
+                    top_gainers = sorted_coins[:5]  # Top 5 gainers
+                    top_losers = (
+                        sorted_coins[-5:] if len(sorted_coins) >= 5 else []
+                    )  # Top 5 losers
+        except Exception as e:
+            logger.debug(f"Failed to fetch trending data: {e}")
+            # Keep empty arrays if fetch fails
 
         return WatchlistSummary(
             total_favorites=total,

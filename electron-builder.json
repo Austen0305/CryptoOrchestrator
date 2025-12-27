@@ -2,7 +2,8 @@
   "appId": "com.cryptoorchestrator.app",
   "productName": "CryptoOrchestrator",
   "directories": {
-    "output": "dist-electron"
+    "output": "dist-electron",
+    "buildResources": "build"
   },
   "files": [
     "dist/**/*",
@@ -11,18 +12,19 @@
     "package.json"
   ],
   "extraFiles": [
-    "server_fastapi/**/*",
-    "shared/**/*",
-    "requirements.txt",
     {
-      "from": "python/",
-      "to": "python/",
+      "from": "server_fastapi/**/*",
+      "to": "server_fastapi/",
       "filter": ["**/*"]
     },
     {
-      "from": ".venv/",
-      "to": ".venv/",
+      "from": "shared/**/*",
+      "to": "shared/",
       "filter": ["**/*"]
+    },
+    {
+      "from": "requirements.txt",
+      "to": "requirements.txt"
     }
   ],
   "extraResources": [
@@ -38,36 +40,42 @@
       {
         "target": "dmg",
         "arch": ["x64", "arm64"]
-      }
-    ],
-    "extraResources": [
+      },
       {
-        "from": "python-runtime/",
-        "to": "python-runtime/",
-        "filter": ["**/*"]
+        "target": "zip",
+        "arch": ["x64", "arm64"]
       }
     ],
     "hardenedRuntime": true,
     "gatekeeperAssess": false,
     "entitlements": "build/entitlements.mac.plist",
-    "entitlementsInherit": "build/entitlements.mac.plist"
+    "entitlementsInherit": "build/entitlements.mac.inherit.plist",
+    "identity": null,
+    "signIgnore": [
+      "python-runtime/**/*"
+    ],
+    "notarize": {
+      "teamId": "${APPLE_TEAM_ID}"
+    }
   },
   "win": {
     "target": [
       {
         "target": "nsis",
-        "arch": ["x64", "ia32"]
-      }
-    ],
-    "extraResources": [
+        "arch": ["x64"]
+      },
       {
-        "from": "python-runtime/",
-        "to": "python-runtime/",
-        "filter": ["**/*"]
+        "target": "portable",
+        "arch": ["x64"]
       }
     ],
-    "signAndEditExecutable": false,
-    "verifyUpdateCodeSignature": false
+    "signingHashAlgorithms": ["sha256"],
+    "sign": "${WIN_CERT_PATH}",
+    "certificateFile": "${WIN_CERT_FILE}",
+    "certificatePassword": "${WIN_CERT_PASSWORD}",
+    "signAndEditExecutable": true,
+    "verifyUpdateCodeSignature": true,
+    "publisherName": "CryptoOrchestrator, Inc."
   },
   "linux": {
     "target": [
@@ -78,15 +86,15 @@
       {
         "target": "deb",
         "arch": ["x64"]
+      },
+      {
+        "target": "rpm",
+        "arch": ["x64"]
       }
     ],
-    "extraResources": [
-      {
-        "from": "python-runtime/",
-        "to": "python-runtime/",
-        "filter": ["**/*"]
-      }
-    ]
+    "category": "Finance",
+    "vendor": "CryptoOrchestrator",
+    "maintainer": "support@cryptoorchestrator.com"
   },
   "nsis": {
     "oneClick": false,
@@ -95,12 +103,42 @@
     "deleteAppDataOnUninstall": false,
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true,
-    "shortcutName": "CryptoOrchestrator"
+    "shortcutName": "CryptoOrchestrator",
+    "installerIcon": "build/icon.ico",
+    "uninstallerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico",
+    "include": "build/installer.nsh",
+    "script": "build/installer.nsh"
+  },
+  "dmg": {
+    "title": "CryptoOrchestrator ${version}",
+    "icon": "build/icon.icns",
+    "background": "build/dmg-background.png",
+    "contents": [
+      {
+        "x": 130,
+        "y": 220
+      },
+      {
+        "x": 410,
+        "y": 220,
+        "type": "link",
+        "path": "/Applications"
+      }
+    ],
+    "window": {
+      "width": 540,
+      "height": 380
+    }
   },
   "publish": {
     "provider": "github",
-    "owner": "yourusername",
-    "repo": "Crypto-Orchestrator",
-    "releaseType": "release"
-  }
+    "owner": "${GITHUB_OWNER}",
+    "repo": "${GITHUB_REPO}",
+    "releaseType": "release",
+    "private": false,
+    "token": "${GITHUB_TOKEN}"
+  },
+  "afterSign": "scripts/notarize.js",
+  "afterPack": "scripts/after-pack.js"
 }

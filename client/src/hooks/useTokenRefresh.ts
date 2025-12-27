@@ -26,7 +26,18 @@ export function useTokenRefresh() {
     if (!token) return;
 
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) {
+        throw new Error('Invalid token format');
+      }
+      const decoded = atob(tokenParts[1] || '');
+      if (!decoded) {
+        throw new Error('Failed to decode token');
+      }
+      const payload = JSON.parse(decoded);
+      if (!payload || typeof payload.exp !== 'number') {
+        throw new Error('Invalid token payload');
+      }
       const expirationTime = payload.exp * 1000; // Convert to milliseconds
       const now = Date.now();
       const timeUntilExpiration = expirationTime - now;
@@ -53,7 +64,18 @@ export function useTokenRefresh() {
           }
 
           try {
-            const currentPayload = JSON.parse(atob(currentToken.split('.')[1]));
+            const tokenParts = currentToken.split('.');
+            if (tokenParts.length !== 3) {
+              throw new Error('Invalid token format');
+            }
+            const decoded = atob(tokenParts[1] || '');
+            if (!decoded) {
+              throw new Error('Failed to decode token');
+            }
+            const currentPayload = JSON.parse(decoded);
+            if (!currentPayload || typeof currentPayload.exp !== 'number') {
+              throw new Error('Invalid token payload');
+            }
             const currentExpiration = currentPayload.exp * 1000;
             const timeLeft = currentExpiration - Date.now();
 

@@ -110,7 +110,7 @@ class IPWhitelistService:
 
         await db.commit()
 
-        logger.info(f"✅ IP {ip_address_str} added to whitelist for user {user_id}")
+        logger.info(f"[OK] IP {ip_address_str} added to whitelist for user {user_id}")
 
         return {
             "success": True,
@@ -172,7 +172,9 @@ class IPWhitelistService:
 
         await db.commit()
 
-        logger.info(f"✅ IP {ip_address_str} removed from whitelist for user {user_id}")
+        logger.info(
+            f"[OK] IP {ip_address_str} removed from whitelist for user {user_id}"
+        )
 
         return {
             "success": True,

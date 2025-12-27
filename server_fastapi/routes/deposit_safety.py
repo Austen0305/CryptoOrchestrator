@@ -5,13 +5,14 @@ Endpoints for deposit safety checks and reconciliation
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Annotated
 import logging
 
 from ..dependencies.auth import get_current_user
 from ..services.deposit_safety import deposit_safety_service
 from ..services.deposit_protection import deposit_protection_service
 from ..database import get_db_context
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +27,11 @@ class ReconcileDepositRequest(BaseModel):
 
 @router.get("/consistency-check")
 async def check_deposit_consistency(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Check deposit consistency for current user"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await deposit_protection_service.check_deposit_consistency(
@@ -48,13 +47,12 @@ async def check_deposit_consistency(
 
 @router.post("/reconcile")
 async def reconcile_deposit(
-    request: ReconcileDepositRequest, current_user: dict = Depends(get_current_user)
+    request: ReconcileDepositRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Reconcile a specific deposit"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await deposit_protection_service.reconcile_deposit(

@@ -5,85 +5,67 @@
 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, HelpCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatError } from "@/lib/errorMessages";
 
 interface ErrorRetryProps {
-  error: Error | string;
+  error: Error | string | unknown;
   onRetry?: () => void;
   title?: string;
+  message?: string; // Deprecated: use title instead
   className?: string;
   variant?: "default" | "destructive" | "warning";
-}
-
-// Helper function to make error messages more user-friendly
-function getUserFriendlyErrorMessage(error: Error | string): string {
-  const rawMessage = typeof error === "string" ? error : error.message;
-  
-  // Map technical errors to user-friendly messages
-  if (rawMessage.includes('Failed to fetch') || rawMessage.includes('NetworkError') || rawMessage.includes('Network request failed')) {
-    return "Unable to connect to our servers. Please check your internet connection and try again.";
-  }
-  
-  if (rawMessage.includes('timeout') || rawMessage.includes('timed out')) {
-    return "The request took too long. Please check your connection and try again.";
-  }
-  
-  if (rawMessage.includes('HTTP 401') || rawMessage.includes('Unauthorized')) {
-    return "Your session has expired. Please refresh the page and log in again.";
-  }
-  
-  if (rawMessage.includes('HTTP 403') || rawMessage.includes('Forbidden')) {
-    return "You don't have permission to perform this action.";
-  }
-  
-  if (rawMessage.includes('HTTP 404') || rawMessage.includes('Not Found')) {
-    return "The requested resource could not be found.";
-  }
-  
-  if (rawMessage.includes('HTTP 429') || rawMessage.includes('rate limit')) {
-    return "Too many requests. Please wait a moment and try again.";
-  }
-  
-  if (rawMessage.includes('HTTP 500') || rawMessage.includes('HTTP 503') || rawMessage.includes('Internal Server Error')) {
-    return "Our servers are temporarily unavailable. Please try again in a few moments.";
-  }
-  
-  // If the message is already user-friendly (short and doesn't contain technical jargon), use it
-  if (rawMessage.length < 200 && !rawMessage.includes('Error:') && !rawMessage.includes('TypeError')) {
-    return rawMessage;
-  }
-  
-  // Default user-friendly message
-  return "Something went wrong. Please try again, and if the problem persists, contact support.";
+  showRecoveryAction?: boolean;
 }
 
 export function ErrorRetry({
   error,
   onRetry,
-  title = "Something went wrong",
+  title,
+  message,
   className,
   variant = "destructive",
+  showRecoveryAction = true,
 }: ErrorRetryProps) {
-  const errorMessage = getUserFriendlyErrorMessage(error);
+  const errorInfo = formatError(error);
+  const displayTitle = title || message || errorInfo.message;
+  // Map "warning" to "default" since Alert doesn't support warning
+  const alertVariant = variant === "warning" ? "default" : variant;
 
   return (
-    <Alert variant={variant} className={cn("my-4", className)}>
+    <Alert variant={alertVariant} className={cn("my-4", className)}>
       <AlertCircle className="h-4 w-4" />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription className="flex items-center justify-between gap-4">
-        <span className="flex-1">{errorMessage}</span>
-        {onRetry && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onRetry}
-            className="shrink-0"
-            aria-label="Retry the operation"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+      <AlertTitle>{displayTitle}</AlertTitle>
+      <AlertDescription className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex-1">{errorInfo.message}</span>
+          {onRetry && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRetry}
+              className="shrink-0"
+              aria-label="Retry the operation"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          )}
+        </div>
+        {showRecoveryAction && errorInfo.recoveryAction && (
+          <div className="flex items-start gap-2 pt-2 border-t">
+            <HelpCircle className="h-4 w-4 mt-0.5 text-muted-foreground" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-muted-foreground">What you can do:</p>
+              <p className="text-sm text-muted-foreground">{errorInfo.recoveryAction}</p>
+            </div>
+          </div>
+        )}
+        {errorInfo.supportContact && (
+          <div className="text-xs text-muted-foreground pt-1">
+            Need help? Contact support for assistance.
+          </div>
         )}
       </AlertDescription>
     </Alert>

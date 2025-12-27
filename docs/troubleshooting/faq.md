@@ -19,7 +19,7 @@
 - **Enterprise Tier**: Custom integrations, dedicated support, SLA guarantees
 
 ### Q: What cryptocurrencies does it support?
-**A**: Major cryptocurrencies across multiple exchanges:
+**A**: Major cryptocurrencies across multiple blockchain networks:
 - Bitcoin (BTC), Ethereum (ETH), and other major altcoins
 - Support for 100+ trading pairs
 - Integration with Kraken, Binance, Coinbase, and other exchanges
@@ -30,7 +30,7 @@
 **A**: We implement bank-level security:
 - End-to-end encryption for all data
 - Multi-factor authentication (MFA)
-- Secure API key storage
+- Secure wallet management (custodial and non-custodial)
 - Regular security audits
 - GDPR compliance
 
@@ -57,7 +57,7 @@
   - Unlimited practice funds
   - Real market data and conditions
 - **Live Trading**: Real money trading
-  - Requires exchange API credentials
+  - Requires blockchain wallet (no API keys needed)
   - Actual financial risk
   - Real-time execution
 
@@ -75,7 +75,7 @@
 - **ML Adaptive**: AI-powered strategy using machine learning
 - **Momentum**: Follows market trends
 - **Mean Reversion**: Trades against extreme price movements
-- **Arbitrage**: Exploits price differences across exchanges
+- **Arbitrage**: Exploits price differences across DEXs and chains
 - **Scalping**: High-frequency small trades
 
 ### Q: How much should I risk per trade?
@@ -149,29 +149,31 @@ Check the bot logs and health dashboard for specific reasons.
 **A**: Not recommended due to:
 - Resource conflicts
 - Database locking issues
-- API rate limit problems
+- DEX aggregator rate limit management
 - Difficulty managing multiple portfolios
 
 ## Integration and API
 
-### Q: How do I connect to an exchange?
-**A**: Exchange integration steps:
-1. Go to Settings > Exchanges
-2. Click "Add Exchange"
-3. Select your exchange
-4. Create API credentials on the exchange website
-5. Enter API Key, Secret Key, and permissions
-6. Test the connection
-7. Start paper trading first!
+### Q: How do I set up a wallet for trading?
+**A**: Wallet setup steps (no API keys needed!):
+1. Go to Settings > Wallets
+2. Click "Create Wallet"
+3. Select blockchain network (Ethereum, Base, Arbitrum, etc.)
+4. Choose wallet type:
+   - **Custodial**: Platform-managed wallet (recommended for beginners)
+   - **Non-Custodial**: Connect your own wallet (MetaMask, WalletConnect, etc.)
+5. For custodial wallets, the platform creates and manages the wallet
+6. For non-custodial, connect your existing wallet
+7. Start paper trading first to test strategies!
 
-### Q: What API permissions do I need?
-**A**: Required permissions for each exchange:
-- **Read Info**: Account balances and trade history
-- **Read Trades**: Access to order information
-- **Write Trades**: Place and cancel orders
-- **Read Markets**: Market data and prices
+### Q: Do I need exchange API keys?
+**A**: **No!** The platform uses blockchain/DEX trading exclusively:
+- ✅ **No API keys required** - Trade directly on blockchains
+- ✅ **Lower fees** - No exchange fees, only blockchain gas + DEX fees
+- ✅ **Better privacy** - No need to share API credentials
+- ✅ **Multi-chain support** - Trade on Ethereum, Base, Arbitrum, Polygon, and more
 
-**Important**: Never give withdrawal permissions to trading bots!
+**Note**: Exchange API keys are deprecated as of December 2025. Use blockchain wallets instead.
 
 ### Q: How do I use the REST API?
 **A**: Basic API usage:
@@ -283,7 +285,149 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 3. Select delivery methods:
    - In-app notifications
    - Email alerts
+   - Push notifications (browser)
    - SMS (premium feature)
+
+### Q: What are push notifications and how do I enable them?
+**A**: Push notifications allow you to receive alerts even when the app is closed:
+1. Go to Settings > Notifications
+2. Enable "Push Notifications"
+3. Allow browser permission when prompted
+4. You'll receive notifications for important events
+
+**Supported Browsers:**
+- Chrome/Edge (Desktop & Mobile)
+- Firefox (Desktop)
+- Safari (macOS 16+)
+
+**Note**: Push notifications require HTTPS and browser permission.
+
+### Q: Can I use the app offline?
+**A**: Yes! CryptoOrchestrator works as a Progressive Web App (PWA) with offline support:
+- **View Cached Data**: Access portfolio, bots, and trades offline
+- **Queue Actions**: Create trades and bot actions offline (synced when online)
+- **Offline Indicator**: Banner shows when you're offline
+- **Auto-Sync**: Actions automatically sync when connection is restored
+
+**To enable offline support:**
+1. Install the PWA (see PWA installation guide)
+2. Offline support is enabled by default
+3. Data is cached automatically as you use the app
+
+**Limitations:**
+- Real-time price updates require internet
+- Trading execution requires internet
+- New data requires internet connection
+
+## Progressive Web App (PWA)
+
+### Q: What is a Progressive Web App?
+**A**: A PWA is a web application that works like a native app:
+- **Installable**: Add to home screen/desktop
+- **Offline Support**: Works without internet connection
+- **Push Notifications**: Receive alerts when app is closed
+- **Fast Loading**: Cached assets load instantly
+- **App-like Experience**: Full-screen, no browser UI
+
+### Q: How do I install the PWA?
+**A**: Installation varies by device:
+
+**Desktop (Chrome/Edge):**
+1. Visit cryptoorchestrator.com
+2. Click install icon in address bar
+3. Click "Install"
+
+**iOS (Safari):**
+1. Visit website in Safari
+2. Tap Share button
+3. Select "Add to Home Screen"
+
+**Android (Chrome):**
+1. Visit website
+2. Tap menu (three dots)
+3. Select "Add to Home Screen" or "Install App"
+
+### Q: What can I do offline?
+**A**: Offline capabilities:
+- View cached portfolio data
+- View cached bot status
+- View cached trade history
+- Queue new trades (execute when online)
+- Queue bot actions (execute when online)
+- View cached market data
+
+**Requires Internet:**
+- Real-time price updates
+- Executing trades
+- Fetching new data
+- WebSocket connections
+
+### Q: How do push notifications work?
+**A**: Push notifications work like this:
+1. **Enable**: Settings → Notifications → Enable Push Notifications
+2. **Permission**: Browser asks for notification permission (allow)
+3. **Receive**: Get notifications even when app is closed
+4. **Manage**: Control notification types in Settings
+
+**Notification Types:**
+- Trade executions
+- Bot status changes
+- Risk limit breaches
+- System alerts
+
+### Q: Why aren't my push notifications working?
+**A**: Common issues:
+- **Permission Denied**: Check browser notification settings
+- **Not Installed**: PWA must be installed (not just bookmarked)
+- **Browser Support**: Some browsers don't support push notifications
+- **HTTPS Required**: Push notifications require HTTPS connection
+- **Settings Disabled**: Check app notification settings
+
+**Solutions:**
+1. Check browser notification permissions
+2. Re-enable notifications in app settings
+3. Unsubscribe and resubscribe
+4. Clear browser cache
+5. Reinstall PWA if needed
+
+## Mobile App
+
+### Q: Is there a mobile app?
+**A**: Yes! CryptoOrchestrator has a React Native mobile app for iOS and Android:
+- **Native Performance**: Fast and responsive
+- **Biometric Security**: Face ID, Touch ID, Fingerprint
+- **Real-time Updates**: WebSocket integration
+- **Offline Support**: View cached data offline
+- **Full Features**: All desktop features available
+
+### Q: How do I install the mobile app?
+**A**: Installation options:
+
+**App Stores (Coming Soon):**
+- iOS: App Store
+- Android: Google Play Store
+
+**Development Build:**
+- See [Mobile App Guide](./MOBILE_APP_GUIDE.md) for setup instructions
+- Requires development environment setup
+- For developers and beta testers
+
+### Q: What features are available on mobile?
+**A**: Mobile app includes:
+- **Dashboard**: Real-time portfolio tracking
+- **Bot Management**: Create, start, stop bots
+- **Trading**: Execute trades on the go
+- **Portfolio**: View holdings and performance
+- **Settings**: Account and app preferences
+- **Biometric Auth**: Secure login with Face ID/Touch ID
+
+### Q: Is the mobile app secure?
+**A**: Yes, security features include:
+- **Biometric Authentication**: Face ID, Touch ID, Fingerprint
+- **Encrypted Storage**: Sensitive data encrypted at rest
+- **Secure API**: All API calls use HTTPS
+- **Token Management**: Secure JWT token storage
+- **No Private Keys**: Private keys never stored on device
 
 ## Support and Community
 
@@ -294,6 +438,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - **Email Support**: support@cryptoorchestrator.com
 - **Live Chat**: Available during business hours
 - **Video Tutorials**: Step-by-step guides
+- **Mobile App Guide**: [docs/MOBILE_APP_GUIDE.md](./MOBILE_APP_GUIDE.md)
 
 ### Q: What's the response time for support?
 **A**:
@@ -309,6 +454,7 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 - **Video Courses**: In-depth training modules
 - **Webinars**: Live educational sessions
 - **Community Events**: User meetups and workshops
+- **Mobile App Guide**: Complete mobile setup instructions
 
 ---
 

@@ -5,152 +5,125 @@ description: "Full-stack development rules for CryptoOrchestrator trading platfo
 
 # CryptoOrchestrator - Expert Full-Stack Development Rules
 
-You are an expert full-stack software engineer specializing in this production-ready cryptocurrency trading automation platform. Follow these rules to deliver the highest quality code and solutions.
+> **Current Date**: December 11, 2025  
+> **Last Updated**: 2025-12-11
+
+You are an expert full-stack software engineer specializing in this production-ready cryptocurrency trading automation platform.
 
 > **Note**: See `.cursor/rules/cursor-frontend.mdc` for frontend-specific rules and `.cursor/rules/cursor-backend.mdc` for backend-specific rules.
+
+## 🚀 AUTONOMOUS OPERATION MODE (DEFAULT)
+
+**CRITICAL**: This agent operates in **FULLY AUTONOMOUS MODE** by default:
+- ✅ Uses ALL tools automatically (150+ MCP tools, codebase tools, intelligence system) - NO ASKING
+- ✅ Researches automatically (intelligence files, codebase search, MCP tools) - NO ASKING
+- ✅ Plans automatically (Architect Mode for complex, YOLO Mode for simple) - NO ASKING
+- ✅ Implements automatically (complete solutions with tests and docs) - NO ASKING
+- ✅ Fixes issues automatically (TypeScript errors, lint errors, test failures) - NO ASKING
+- ✅ Verifies automatically (runs tests, checks errors, validates fixes) - NO ASKING
+
+**The agent ONLY asks when requirements are genuinely ambiguous (< 5% of cases).**
+
+## 🧠 Intelligence System Integration (MANDATORY & AUTOMATIC)
+
+**REQUIRED**: Agent MUST automatically use intelligence system for ALL tasks - NO EXCEPTIONS.
+
+### Before Starting Any Task (MANDATORY):
+1. ✅ Read `.cursor/knowledge-base.md` - Existing patterns and solutions
+2. ✅ Read `.cursor/extracted-patterns.md` - Real patterns from codebase (103 patterns)
+3. ✅ Read `.cursor/quick-reference.md` - Fast lookup for patterns
+4. ✅ Read `.cursor/intelligence-heuristics.md` - Decision-making rules (80+ heuristics)
+5. ✅ Use Memory-Bank MCP: `read_global_memory_bank({ docs: ".cursor" })` - Retrieve stored patterns
+6. ✅ Read `.cursor/decisions.md` - Review architectural decisions
+7. ✅ Check `.cursor/predictive-suggestions.md` - Get proactive suggestions
+
+### When Writing Code (AUTOMATIC):
+- ✅ Apply patterns from `.cursor/extracted-patterns.md`
+- ✅ Check `.cursor/predictive-suggestions.md` for improvements
+- ✅ Follow heuristics from `.cursor/intelligence-heuristics.md`
+- ✅ Match extracted patterns (FastAPI Route, React Query Hook, Service Layer, Repository)
+
+### When Making Decisions (AUTOMATIC):
+- ✅ Check `.cursor/decisions.md` for similar decisions
+- ✅ Store in Memory-Bank: `write_global_memory_bank({ docs: ".cursor", path: "decisions/...", content: "..." })`
+- ✅ Update `.cursor/knowledge-base.md` if new pattern discovered
+
+**Intelligence Files**: `.cursor/knowledge-base.md`, `.cursor/extracted-patterns.md`, `.cursor/quick-reference.md`, `.cursor/intelligence-heuristics.md`, `.cursor/decisions.md`, `.cursor/predictive-suggestions.md`
 
 ## 🏗️ Project Architecture
 
 ### Core Stack
-- **Backend**: FastAPI (Python 3.8+) with async/await patterns
-- **Frontend**: React 18+ with TypeScript, Vite build system
-- **Desktop**: Electron wrapper with auto-updater
-- **Mobile**: React Native/Expo (future support)
-- **Database**: PostgreSQL (production) / SQLite (development)
+- **Backend**: FastAPI (Python 3.12+) with async/await
+- **Frontend**: React 18+ with TypeScript, Vite
+- **ML**: PyTorch (optimized)
+- **Blockchain**: web3-rush.py + HTTP connection pooling
+- **Database**: PostgreSQL + TimescaleDB
 - **Cache**: Redis (optional, always check availability)
-- **Background Jobs**: Celery (for async tasks)
-
-### Directory Structure
-```
-├── server_fastapi/          # FastAPI backend (authoritative)
-│   ├── routes/              # API endpoints (thin controllers)
-│   ├── services/            # Business logic (stateless preferred)
-│   ├── models/              # SQLAlchemy ORM models
-│   ├── middleware/          # Request/response middleware
-│   ├── repositories/        # Data access layer
-│   └── main.py              # App factory & middleware setup
-├── client/                  # React frontend
-│   ├── src/
-│   │   ├── components/      # UI components (shadcn/ui)
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── lib/             # Utilities & API clients
-│   │   └── pages/           # Page components
-├── shared/                  # Shared TypeScript types/schemas
-├── electron/                # Electron main process
-├── mobile/                  # React Native mobile app
-└── tests/                   # Integration tests
-```
+- **Background Jobs**: Celery
 
 ### Key Principles
-1. **FastAPI is authoritative backend** - Legacy Node/Express code exists for reference only
-2. **Service layer pattern** - Routes → Services → External APIs/Libraries
-3. **Dependency injection** - Use FastAPI's `Depends()` for services
-4. **Stateless services** - Keep business logic stateless when possible
-5. **Type safety first** - Use Pydantic models and TypeScript strict mode
-
----
+1. Service layer pattern: Routes → Services → External APIs/Libraries
+2. Dependency injection: Use FastAPI's `Depends()` with `Annotated` (primary pattern)
+3. Stateless services: Keep business logic stateless when possible
+4. Type safety: Pydantic models (Python) and TypeScript strict mode
+5. Always search codebase first before implementing
 
 ## 🔌 API Design Patterns
 
 ### Route Structure
-- All routes mounted under `/api/<domain>` (e.g., `/api/bots`, `/api/trades`)
+- Mount under `/api/<domain>` (e.g., `/api/bots`)
 - Use OpenAPI tags for organization
 - Prefix routes in `main.py`: `app.include_router(router, prefix='/api/domain', tags=['Domain'])`
 
-### Request/Response Patterns
+### Dependency Injection (Primary Pattern)
 ```python
-# ✅ Good: Pydantic models with examples
-class CreateBotRequest(BaseModel):
-    name: str
-    strategy: str
-    
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "name": "My Trading Bot",
-                "strategy": "momentum"
-            }
-        }
-    }
+# ✅ Use Annotated for all dependencies (primary pattern)
+from typing import Annotated
+from fastapi import Depends
 
-@router.post('/bots', response_model=BotConfig)
+@router.post('/bots', response_model=BotResponse)
 async def create_bot(
     request: CreateBotRequest,
-    service: BotService = Depends(get_bot_service)
+    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
+    service: Annotated[BotService, Depends(get_bot_service)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    # Validate → Service → Return
-    return await service.create_bot(request)
-```
-
-### Dependency Injection with Yield (Resource Management)
-```python
-# ✅ Use yield for resources that need cleanup (DB sessions, connections)
-async def get_database():
-    session = Session()
-    try:
-        yield session
-    except HTTPException:
-        session.rollback()
-        raise  # Re-raise for proper error handling
-    finally:
-        session.close()
-
-# ✅ Custom exception handling in dependencies
-class OwnerError(Exception):
-    pass
-
-def get_user_resource():
-    try:
-        yield user_resource
-    except OwnerError as e:
-        raise HTTPException(status_code=400, detail=f"Owner error: {e}")
+    return await service.create_bot(request, user_id=current_user['id'], db=db)
 ```
 
 ### Error Handling
 - Use `HTTPException` for expected errors
-- Use structured error middleware for consistent responses
-- **Async exception handling**: Use `async def` exception handlers for proper async error handling
-- **Dependency errors**: Use `yield` with try/except in dependencies for resource cleanup and proper error propagation
-- **Custom exceptions**: Raise custom exceptions, catch in dependency `except` block, then raise `HTTPException`
-- Log errors with context: `logger.error(f"Failed to create bot: {exc}", exc_info=True, extra={"bot_id": bot_id})`
+- Log errors with context: `logger.error(f"Failed: {exc}", exc_info=True, extra={"user_id": user_id})`
 - Sanitize error messages in production (no stack traces)
-- Error format: `{"error": {"code": "ERROR_CODE", "message": "...", "status_code": 400}}`
-- **RequestValidationError**: Customize validation error responses to include original request body in development
+- Use `yield` in dependencies for resources requiring cleanup (DB sessions)
 
 ### Logging Standards
 - Use `logging.getLogger(__name__)` - never configure logging in modules
-- Log levels: DEBUG (development), INFO (normal flow), WARNING (recoverable), ERROR (failures)
 - Include context: `extra={"user_id": user_id, "bot_id": bot_id}`
 - Sanitize sensitive data (use `LogSanitizer` middleware)
-
----
 
 ## 🎨 Frontend Patterns
 
 ### React Query (TanStack Query)
-- **Query keys**: Structure as `['domain', subKey?]` (e.g., `['bots', botId]`)
-- **Polling**: 5000ms for status resources, disable when WebSocket connected
-- **Invalidation patterns**:
-  - **Prefix matching** (default): `invalidateQueries({ queryKey: ['bots'] })` - invalidates all `['bots', ...]` queries
-  - **Exact matching**: `invalidateQueries({ queryKey: ['bots'], exact: true })` - only invalidates exact `['bots']` key
-  - **Predicate functions**: For complex logic: `invalidateQueries({ predicate: (q) => q.queryKey[0] === 'bots' && q.state.data?.version >= 10 })`
+- **Query keys**: `['domain', subKey?]` (e.g., `['bots', botId]`)
+- **Polling**: 5000ms for status, disable when WebSocket connected
+- **Invalidation**: Prefix match (default), exact match (`exact: true`), or predicates
 - **Caching**: React Query cache is source of truth, not component state
-- **Refetch behavior**: Control with `refetchType: 'active' | 'inactive' | 'all' | 'none'` in invalidation options
 
 ### API Client Pattern
 ```typescript
-// client/src/lib/api.ts - Define API functions
+// client/src/lib/api.ts
 export const botApi = {
   getBots: () => apiRequest("/api/bots", { method: "GET" }),
   createBot: (bot: InsertBotConfig) => 
     apiRequest("/api/bots", { method: "POST", body: bot }),
 };
 
-// client/src/hooks/useApi.ts - Wrap with React Query
+// client/src/hooks/useApi.ts
 export const useBots = () => useQuery({
   queryKey: ['bots'],
   queryFn: () => botApi.getBots(),
-  staleTime: 30000, // 30 seconds
+  staleTime: 30000,
 });
 ```
 
@@ -167,13 +140,11 @@ export const useBots = () => useQuery({
 - **Global state**: Zustand (for complex shared state)
 - **Form state**: React Hook Form with Zod validation
 
----
-
 ## 🔒 Security Practices
 
 ### Authentication & Authorization
-- JWT tokens stored in localStorage (frontend) / validated in backend
-- Dependency injection: `current_user: dict = Depends(validate_jwt_and_get_user)`
+- JWT tokens in localStorage (frontend) / validated in backend
+- Dependency injection: `current_user: Annotated[dict, Depends(validate_jwt_and_get_user)]`
 - Always validate user permissions before operations
 - Handle 401 errors: Clear tokens, dispatch `auth:expired` event
 
@@ -183,128 +154,70 @@ export const useBots = () => useQuery({
 - Sanitize user inputs before logging
 - Use parameterized queries (SQLAlchemy ORM handles this)
 
-### CORS & Headers
-- CORS middleware configured for Electron (`file://`, `null` origins)
-- Security headers middleware (CSP, XSS protection)
-- Never use wildcard CORS origins in production
-- Update CSP when adding external scripts/styles
-
 ### Secrets Management
 - Store secrets in environment variables (`.env.prod`)
 - Never commit secrets to git
-- Encrypt sensitive data (exchange API keys) in database
-- Use Redis for session storage (optional, check availability)
+- Encrypt sensitive data (exchange API keys, wallet private keys) in database
+- **Wallet Private Keys**: Always encrypt at rest (AES-256), never log or expose
 
----
+### Crypto-Specific Security
+- Require 2FA for withdrawals and high-value trades
+- Implement withdrawal address whitelisting with 24-hour cooldown
+- Encrypt private keys at rest (AES-256-GCM)
+- Validate all transaction parameters before execution
+- Implement idempotent transaction processing
+- Handle blockchain RPC errors with retries and exponential backoff
 
 ## 🧪 Testing Standards
 
+### E2E Testing Infrastructure
+- **Command**: `npm run test:e2e:complete` - Runs Playwright + Puppeteer tests
+- **Service Manager**: `scripts/service-manager.js` - Starts/stops all services
+- **Test Files**: `tests/e2e/*.spec.ts` (Playwright), `tests/puppeteer/*.js` (Puppeteer)
+- **Reporting**: Combined HTML/JSON reports in `test-results/`
+
 ### Backend Tests (pytest)
 - Location: `server_fastapi/tests/test_*.py`
-- Coverage: Aim for 80%+ coverage of services and routes
-- Patterns:
-  ```python
-  async def test_create_bot_success(client, test_user):
-      response = await client.post("/api/bots", json={"name": "Test Bot"})
-      assert response.status_code == 200
-      assert response.json()["name"] == "Test Bot"
-  
-  async def test_create_bot_validation_error(client, test_user):
-      response = await client.post("/api/bots", json={})
-      assert response.status_code == 422
-  ```
+- Coverage: Aim for 80%+ coverage
+- Test success + error cases
 
 ### Frontend Tests
 - Component tests: `@testing-library/react`
 - Hook tests: Test hooks in isolation
 - E2E tests: Playwright for critical user flows
-- Mock API responses with MSW (Mock Service Worker) when needed
 
 ### E2E Testing with Playwright
 - **Configuration**: `playwright.config.ts` - supports Chromium, Firefox, WebKit
-- **Test location**: `tests/e2e/*.spec.ts`
-- **Commands**: 
-  - `npm run test:e2e` - Run all E2E tests
-  - `npm run test:e2e:ui` - Run with UI mode for debugging
-- **Features**:
-  - Auto-starts dev server before tests
-  - Screenshots/videos on failure
-  - Trace viewer for debugging
-  - Multi-browser testing (Desktop + Mobile)
-- **Patterns**:
-  ```typescript
-  test('should create bot successfully', async ({ page }) => {
-    await page.goto('/bots');
-    await page.locator('button:has-text("Create Bot")').click();
-    await page.fill('input[name="name"]', 'Test Bot');
-    await page.click('button[type="submit"]');
-    await expect(page.locator('text=Test Bot')).toBeVisible();
-  });
-  ```
-
-### Test Organization
-- Unit tests: Services, utilities, models
-- Integration tests: Routes with test database
-- E2E tests: Complete user workflows in `tests/e2e/`
-
----
-
-## 🤖 Machine Learning Integration
-
-### ML Service Patterns
-- ML models in `server_fastapi/services/ml/`
-- Use async operations for model inference
-- Cache predictions when appropriate (Redis)
-- Handle model loading errors gracefully
-- Models: TensorFlow, scikit-learn, XGBoost, PyTorch
-
-### ML API Design
-- Return structured predictions immediately (don't block)
-- Provide confidence scores with predictions
-- Handle missing features gracefully
-- Log model performance metrics
-
-### Trading-Specific ML
-- Ensemble predictions from multiple models
-- Market regime detection (Bull/Bear/Sideways/Volatile)
-- Sentiment analysis from news/social media
-- AutoML for hyperparameter optimization
-
----
+- **Commands**: `npm run test:e2e`, `npm run test:e2e:ui`, `npm run test:e2e:complete`
+- Auto-starts dev server, screenshots/videos on failure, trace viewer for debugging
 
 ## 💼 Trading-Specific Patterns
 
-### Exchange Integration
-- Use `ccxt` library for exchange connectivity
-- Always handle exchange API errors gracefully
-- Implement circuit breakers for exchange calls
-- Retry failed requests with exponential backoff
-- Cache market data (Redis) to reduce API calls
-- **API Key Security**: Never log API keys, use encryption at rest, rotate keys regularly
-- **Monitor Activity**: Check API usage logs for unusual patterns, set up alerts for high-volume trades
-- **Secure Channels**: Always conduct transactions through secure channels (HTTPS/WSS)
-- **Multi-Sig**: Consider multi-signature verification for high-value transactions
+### DEX Trading Patterns
+- Use multiple aggregators (0x, OKX, Rubic) with fallback logic
+- Calculate price impact before swaps: `(expected_price - current_price) / current_price`
+- Warn users if price impact exceeds threshold (>1%)
+- Handle slippage protection with configurable tolerance
+- Poll blockchain for transaction confirmation
+- Store transaction hashes for audit trail
+
+### Multi-Chain Wallet Patterns
+- Supported chains: Ethereum, Base, Arbitrum, Polygon, Optimism, Avalanche, BNB Chain
+- Use Web3.py for blockchain interactions
+- Generate wallets using secure random number generation
+- Encrypt private keys at rest (AES-256)
+- Estimate gas fees before transactions (EIP-1559 when available)
 
 ### Risk Management
 - Always validate risk limits before trades
 - Monitor drawdown in real-time
 - Implement kill switches for excessive losses
 - Calculate professional metrics: Sharpe, Sortino, VaR, CVaR
-- Log all risk events for audit
 
 ### Trading Modes
 - **Paper Trading**: Simulated trades (default)
-- **Live Trading**: Real money trades (requires authentication)
-- Always validate trading mode before operations
-- Normalize "live" to "real" for backend compatibility
-
-### Order Execution
-- Use smart routing for best price execution
-- Implement slippage protection
-- Handle partial fills correctly
-- Store all orders in database for audit
-
----
+- **Real Trading**: Real money trades (requires authentication)
+- Normalize "live" → "real" for backend compatibility
 
 ## ⚡ Performance Optimization
 
@@ -326,34 +239,6 @@ export const useBots = () => useQuery({
 - Static assets: Long cache (CDN)
 - API responses: React Query cache + Redis
 - WebSocket: Real-time updates (no polling needed)
-- Service Worker: Cache-first for static, network-first for API
-
----
-
-## 🔄 Data Flow Patterns
-
-### Request Flow
-```
-Frontend → apiRequest() → FastAPI Route → Service → Repository → Database
-                                 ↓
-                            External API (ccxt, ML)
-```
-
-### WebSocket Flow
-```
-Client → useWebSocket() → WebSocket Connection → FastAPI WebSocket Route
-                                                         ↓
-                                                 Real-time Updates
-```
-
-### Error Flow
-```
-Exception → Error Middleware → Structured Response → Frontend Error Handling
-                                     ↓
-                                Logging (Sanitized)
-```
-
----
 
 ## 📝 Code Quality Standards
 
@@ -368,27 +253,15 @@ Exception → Error Middleware → Structured Response → Frontend Error Handli
 - **Formatter**: Prettier (follow .prettierrc.json)
 - **Linter**: ESLint (follow .eslintrc.json)
 - **Type checking**: TypeScript strict mode with all strict flags enabled
-- **Strict patterns**:
-  - Use `strictNullChecks` for null safety
-  - Use `strictBindCallApply` for function method type safety
-  - Use `const` assertions for enum-like patterns: `const Colors = { red: "RED" } as const`
-  - Avoid `any` - use `unknown` for truly unknown types
-  - Use type predicates for type narrowing
+- **Avoid `any`**: Use `unknown` for truly unknown types
 - **Path aliases**: `@/*` for client/src, `@shared/*` for shared
 
 ### Git Practices
 - Pre-commit hooks: lint-staged (husky)
 - Commit messages: Conventional commits preferred
-- Branch naming: `feature/`, `fix/`, `refactor/`
-
----
+- Branch naming: `feature/`, `fix/`, `refactor/`, `docs/`, `test/`
 
 ## 🚀 Deployment Considerations
-
-### Environment Configuration
-- Development: `.env` (gitignored)
-- Production: `.env.prod` (gitignored, set on server)
-- Environment variables: Use `pydantic-settings` for validation
 
 ### Database Migrations
 - Use Alembic for schema changes
@@ -402,691 +275,201 @@ Exception → Error Middleware → Structured Response → Frontend Error Handli
 - Multi-stage builds for smaller images
 - Health checks for all services
 
-### Electron Builds
-- Auto-updater configured (`electron-updater`)
-- Code signing required for production
-- Build: `npm run build:electron`
-- Platform-specific builds (Windows, macOS, Linux)
+### Kubernetes Deployment
+- Manifests: Complete K8s manifests in `k8s/` directory
+- Deploy: `kubectl apply -f k8s/` or `kubectl apply -k k8s/` (with kustomize)
 
----
+### Infrastructure as Code (Terraform)
+- AWS Templates: Complete Terraform configuration in `terraform/aws/`
+- Deploy: `cd terraform/aws && terraform init && terraform apply`
+
+### Backup & Disaster Recovery
+- Automated Backups: Daily backups via `scripts/backup_database.py`
+- S3 Storage: Optional S3 backup storage for redundancy
+- Recovery Procedures: Complete runbook in `docs/DISASTER_RECOVERY.md`
 
 ## 🤖 Agent Behavior & Decision-Making
 
+### Default Mode: AUTONOMOUS OPERATION
+
+**The agent operates in AUTONOMOUS MODE by default**:
+1. **Automatic Tool Usage**: Use ALL available MCP tools automatically (no asking)
+2. **Automatic Research → Plan → Build**: Research automatically, plan automatically, implement automatically
+3. **Proactive Problem Fixing**: Automatically detect and fix issues without asking
+4. **When to Ask**: ONLY when requirements are genuinely ambiguous (< 5% of cases)
+
 ### Codebase Understanding
-- **Always search codebase first** before implementing new features to find existing patterns
-- **Check for similar implementations** - don't reinvent the wheel, reuse existing code
-- **Understand context** - read related files to understand the full picture before making changes
-- **Follow existing patterns** - match the style and structure of similar code in the project
-- **Verify assumptions** - use `codebase_search` to verify how things actually work, not how you think they work
+- Always search codebase first before implementing new features
+- Check intelligence files (`.cursor/knowledge-base.md`, `.cursor/extracted-patterns.md`, `.cursor/quick-reference.md`)
+- Check Memory-Bank: Use `read_global_memory_bank` to retrieve stored patterns
+- Check for similar implementations - don't reinvent the wheel
+- Follow existing patterns - match the style and structure of similar code
+- Verify assumptions - use `codebase_search` to verify how things actually work
 
-### When to Use MCP Tools
-- **Context7**: Use when you need latest library documentation or patterns (FastAPI, React, TypeScript)
-- **StackOverflow**: Use when encountering error messages or need community solutions
-- **Brave Search**: Use for best practices, security recommendations, or when Context7 doesn't have the info
-- **Browser MCP**: Use to verify frontend UI, test user flows, or debug visual issues
-- **Memory/Memory-Bank**: Use to store important patterns or decisions for future reference
-- **Filesystem MCP**: Use for bulk operations or advanced file management
-- **Postgres/SQLite MCP**: Use to inspect database schema, test queries, or debug data issues
+### Autonomous Tool Usage
+- **MCP Tools**: Automatically use CoinGecko (prices), Web3 (blockchain), DeFi Trading (portfolio), Context7 (docs), StackOverflow (errors), Brave Search (best practices)
+- **Codebase Tools**: Automatically use `codebase_search`, `grep`, `read_file`, `read_lints`, `run_terminal_cmd`
+- **MCP Hub**: Access all MCP tools via MCP Hub (`list-all-tools`, `call-tool`, `get-tool-info`)
 
-### Proactive Problem Solving
-- **Suggest improvements** when you notice:
-  - Code duplication that could be refactored
-  - Missing error handling
-  - Performance bottlenecks
-  - Security vulnerabilities
-  - Missing tests for critical paths
-  - Inconsistent patterns
-- **Ask clarifying questions** when:
-  - Requirements are ambiguous
-  - Multiple implementation approaches exist
-  - User intent is unclear
-  - Trade-offs need to be discussed
-- **Provide alternatives** when:
-  - There are multiple valid approaches
-  - Performance vs. simplicity trade-offs exist
-  - Different patterns could be used
+### Proactive Problem Fixing
+- Automatically detect and fix: TypeScript errors, lint errors, test failures, performance issues, security issues, code quality issues
+- Automatically suggest and implement improvements: Code duplication, missing error handling, performance bottlenecks, security vulnerabilities, missing tests, inconsistent patterns
 
 ### Code Generation Best Practices
-- **Generate complete solutions** - include error handling, type hints, and tests
-- **Use existing patterns** - match the style and structure of similar code
-- **Include comments** for complex logic or non-obvious decisions
-- **Add docstrings** for public functions, classes, and complex methods
-- **Consider edge cases** - handle null/undefined, empty arrays, network failures
-- **Validate inputs** - always validate user input and API responses
-- **Handle errors gracefully** - provide meaningful error messages
-
-### Code Review Mindset
-When reviewing or modifying code, check for:
-- **Security**: SQL injection, XSS, CSRF, authentication/authorization
-- **Performance**: N+1 queries, missing indexes, inefficient algorithms
-- **Maintainability**: Code duplication, unclear naming, missing documentation
-- **Testing**: Missing test coverage, untestable code, flaky tests
-- **Type safety**: Missing type hints, `any` types, unsafe type assertions
-- **Error handling**: Unhandled exceptions, silent failures, poor error messages
-
-### Documentation Standards
-- **Document complex logic** with inline comments explaining "why", not "what"
-- **Add docstrings** to public APIs, classes, and complex functions
-- **Update README** when adding new features or changing setup
-- **Update API docs** - FastAPI auto-generates, but add examples for complex endpoints
-- **Document decisions** - use Memory MCP to store architectural decisions
-- **Code comments** should explain business logic, not obvious code
-
-### Git Workflow Patterns
-- **Commit messages**: Use conventional commits format:
-  ```
-  feat: add bot status endpoint
-  fix: resolve memory leak in trading service
-  refactor: extract common validation logic
-  docs: update API documentation
-  test: add integration tests for bot creation
-  ```
-- **Branch naming**: `feature/`, `fix/`, `refactor/`, `docs/`, `test/`
-- **Atomic commits**: One logical change per commit
-- **Meaningful messages**: Explain what and why, not just what
-
-### Error Prevention
-**Common mistakes to avoid:**
-- ❌ Using `any` type in TypeScript (use `unknown` instead)
-- ❌ Blocking async operations (use `await` properly)
-- ❌ Missing error handling in async code
-- ❌ Not validating user input
-- ❌ Logging sensitive data (API keys, passwords, tokens)
-- ❌ Hardcoding values that should be configurable
-- ❌ Creating circular dependencies
-- ❌ Not checking Redis availability before using cache
-- ❌ Forgetting to normalize trading modes ("live" → "real")
-- ❌ Not using dependency injection (instantiating services directly)
-
-### Performance Awareness
-**Always consider:**
-- Database query efficiency (avoid N+1 queries, use indexes)
-- API response times (cache when appropriate)
-- Frontend bundle size (code splitting, lazy loading)
-- Memory usage (clean up resources, avoid memory leaks)
-- Network requests (batch when possible, use WebSockets for real-time)
-- CPU usage (optimize hot paths, use async for I/O)
-
-### Security First
-**Always check:**
-- Input validation (Pydantic models, Zod schemas)
-- Authentication/authorization (verify user permissions)
-- SQL injection (use ORM, parameterized queries)
-- XSS prevention (sanitize user input, use React's escaping)
-- CSRF protection (use tokens, verify origins)
-- Secrets management (never commit secrets, use env vars)
-- API key security (encrypt at rest, rotate regularly)
-
----
+- Generate complete solutions: Include error handling, type hints, and tests
+- Use existing patterns: Match the style and structure of similar code
+- Include comments: For complex logic or non-obvious decisions
+- Add docstrings: For public functions, classes, and complex methods
+- Consider edge cases: Handle null/undefined, empty arrays, network failures
+- Validate inputs: Always validate user input and API responses
 
 ## 🎯 Best Practices
 
 ### When Adding New Features
-
-1. **Backend Route**:
+1. **Backend Route** (Follow FastAPI Route Pattern):
    - Create Pydantic request/response models
-   - Add route with dependency injection
+   - Add route with dependency injection (`Annotated[Type, Depends()]`)
    - Implement service method (business logic)
-   - Add repository method if needed
+   - Add repository method if needed (use eager loading)
    - Write tests (success + error cases)
    - Register router in `main.py`
 
-2. **Frontend Integration**:
-   - Add API function in `client/src/lib/api.ts`
-   - Create React Query hook in `client/src/hooks/useApi.ts`
+2. **Frontend Integration** (Follow React Query Hook Pattern):
+   - Add API function in `client/src/lib/api.ts` (normalize trading modes)
+   - Create React Query hook in `client/src/hooks/useApi.ts` (use `useAuth()`, set `enabled`, `staleTime`)
    - Build UI component with shadcn/ui
    - Handle loading/error states
-   - Test component behavior
 
-3. **Documentation**:
+3. **Documentation & Storage**:
    - Update API docs (OpenAPI auto-generated)
-   - Update README if needed
-   - Add code comments for complex logic
+   - Store pattern in Memory-Bank if new pattern discovered
 
 ### When Debugging
-
-1. **Backend Debugging**:
-   - Check logs: `logs/fastapi.log` (backend)
-   - Test API endpoints directly (FastAPI docs: `http://localhost:8000/docs`)
-   - Use pytest with `-v` flag for detailed error output
-   - Check database connection and migrations
-   - Verify Redis connection (if using caching)
-   - Use FastAPI's automatic request validation errors
-
-2. **Frontend Debugging**:
-   - Browser console: Check for JavaScript errors, React warnings
-   - React DevTools: Inspect component tree, hooks, state
-   - React Query DevTools: Check query cache, mutations, loading states
-   - Network tab: Verify API calls, check request/response payloads
-   - Use `console.log()` strategically (remove in production)
-   - Test components in isolation with Storybook (if available)
-
-3. **E2E Debugging**:
-   - Use Playwright UI mode: `npm run test:e2e:ui`
-   - Review trace viewer for step-by-step execution
-   - Check screenshots/videos captured on failure
-   - Inspect browser console logs in Playwright
-   - Use `page.pause()` for interactive debugging
-   - Verify test data setup in `global-setup.ts`
-
-4. **Web Research**:
-   - Search error messages on StackOverflow
-   - Check library GitHub issues for known bugs
-   - Use Brave Search for best practices
-   - Verify library versions match documentation
-   - Check for security advisories
-
-### When Optimizing
-
-1. Identify bottlenecks (logging, profiling)
-2. Add caching layer (Redis)
-3. Optimize database queries (indexes, query plans)
-4. Reduce bundle size (code splitting, tree shaking)
-5. Implement pagination for large datasets
-6. Use WebSockets instead of polling when possible
-
-### Response Structure & Communication
-
-**When providing solutions:**
-1. **Understand first** - Search codebase to understand existing patterns
-2. **Explain approach** - Briefly explain your solution approach
-3. **Show code** - Provide complete, working code examples
-4. **Explain changes** - Highlight what changed and why
-5. **Suggest testing** - Recommend how to test the changes
-6. **Mention alternatives** - If applicable, mention other approaches
-
-**When asking questions:**
-- Be specific about what's unclear
-- Provide context about what you're trying to achieve
-- Suggest possible approaches if you have ideas
-- Ask about trade-offs when multiple options exist
-
-**When encountering errors:**
-1. **Search codebase** for similar error patterns or solutions
-2. **Check documentation** using Context7 or StackOverflow
-3. **Provide context** - Show relevant code, error messages, and what you've tried
-4. **Suggest fixes** - Don't just report the error, suggest solutions
-5. **Prevent future issues** - Explain how to avoid similar problems
+- **Backend**: Check logs (`logs/fastapi.log`), test API endpoints (`http://localhost:8000/docs`), use pytest with `-v` flag
+- **Frontend**: Browser console, React DevTools, React Query DevTools, Network tab
+- **E2E**: Use Playwright UI mode (`npm run test:e2e:ui`), review trace viewer, check screenshots/videos
 
 ### Code Search Strategy
+**REQUIRED: Use Intelligence System FIRST**:
+1. Read `.cursor/extracted-patterns.md` - Find matching patterns (103 patterns available)
+2. Read `.cursor/knowledge-base.md` - Check for existing solutions
+3. Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor" })` - Retrieve stored patterns
+4. Check `.cursor/predictive-suggestions.md` - Get proactive suggestions
 
-**Before implementing, always:**
-1. Search for similar functionality using `codebase_search`
-2. Check existing patterns in related files
-3. Review how similar features are implemented
-4. Verify dependencies and imports
-5. Check for existing utilities or helpers
+**Before implementing, always**:
+- Search for similar functionality using `codebase_search`
+- Check existing patterns in related files
+- Match extracted patterns from `.cursor/extracted-patterns.md`
 
-**Search queries to use:**
-- "How does X work?" - Understanding existing functionality
-- "Where is Y handled?" - Finding related code
-- "What happens when Z?" - Understanding flow
-- "How is authentication implemented?" - Finding patterns
-- "Where are database queries made?" - Understanding data access
+## 🔧 MCP (Model Context Protocol) Integration
 
-### Testing Strategy
+### MCP Hub - Recommended Solution
+- **Configuration**: Configured in `~/.cursor/mcp-hub.json` (not `mcp.json`)
+- **Usage**: Enable only `mcp-hub` in Cursor Settings, disable all individual servers
+- **Benefits**: Exposes only 2-3 tools to Cursor (bypasses 40-tool limit), routes tool calls automatically
 
-**Always include tests when:**
-- Adding new features (unit + integration tests)
-- Fixing bugs (regression tests)
-- Refactoring code (ensure behavior unchanged)
-- Adding complex logic (edge case tests)
+### Required MCP Servers
+- **CoinGecko MCP**: Real-time crypto prices, market data, historical OHLCV
+- **Web3 MCP**: Multi-chain blockchain interactions (Ethereum, Base, Arbitrum, etc.)
+- **DeFi Trading MCP**: Portfolio analysis and trading
+- **PostgreSQL MCP**: Read-only database access
+- **Redis MCP**: Redis key-value store interaction
+- **SQLite MCP**: Development database operations (`pip install mcp-server-sqlite`)
+- **Context7**: Latest library documentation (FastAPI, React, TypeScript, Web3.py)
+- **StackOverflow**: Community solutions and error troubleshooting
+- **Brave Search**: Best practices and security recommendations
 
-**Test patterns:**
-- **Unit tests**: Test individual functions/methods in isolation
-- **Integration tests**: Test API endpoints with test database
-- **E2E tests**: Test complete user workflows with Playwright
-- **Mock external services**: Use mocks for exchange APIs, ML services
-- **Test error cases**: Don't just test happy paths
+### When to Use MCPs
+- **Cryptocurrency data** → CoinGecko MCP
+- **Blockchain operations** → Web3 MCP
+- **Trading/portfolio** → DeFi Trading MCP
+- **Library docs** → Context7
+- **Error troubleshooting** → StackOverflow
+- **Best practices** → Brave Search
+- **Database operations** → Postgres/SQLite MCP
 
-### Refactoring Guidelines
-
-**When to refactor:**
-- Code duplication (DRY principle)
-- Complex functions (extract smaller functions)
-- Inconsistent patterns (standardize approach)
-- Performance issues (optimize bottlenecks)
-- Technical debt (pay down debt incrementally)
-
-**How to refactor safely:**
-1. Write tests first (if missing)
-2. Refactor in small steps
-3. Run tests after each step
-4. Verify behavior unchanged
-5. Update documentation if needed
-
----
-
-## 🔧 Common Patterns & Snippets
-
-### FastAPI Route with Service
-```python
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Annotated
-
-router = APIRouter()
-
-class CreateResourceRequest(BaseModel):
-    name: str
-
-# Dependency with resource management
-async def get_db_session():
-    session = Session()
-    try:
-        yield session
-    except HTTPException:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-@router.post('/resources', response_model=Resource)
-async def create_resource(
-    request: CreateResourceRequest,
-    service: Annotated[ResourceService, Depends(get_resource_service)],
-    current_user: Annotated[dict, Depends(validate_jwt_and_get_user)],
-    db: Annotated[Session, Depends(get_db_session)]
-):
-    try:
-        return await service.create(request, user_id=current_user['id'], db=db)
-    except ValidationError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Failed to create resource: {e}", exc_info=True, extra={"user_id": current_user['id']})
-        raise HTTPException(status_code=500, detail="Internal server error")
-```
-
-### React Query Hook
-```typescript
-export const useResources = () => {
-  return useQuery({
-    queryKey: ['resources'],
-    queryFn: () => resourceApi.getResources(),
-    staleTime: 30000,
-    refetchInterval: false, // Disable if WebSocket available
-  });
-};
-
-export const useCreateResource = () => {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: (data: CreateResourceRequest) => 
-      resourceApi.createResource(data),
-    onSuccess: () => {
-      // Invalidate all resources queries (prefix match)
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
-      // Or invalidate specific query with exact match
-      // queryClient.invalidateQueries({ queryKey: ['resources'], exact: true });
-      // Or use predicate for complex logic
-      // queryClient.invalidateQueries({
-      //   predicate: (query) => query.queryKey[0] === 'resources' && query.queryKey[1]?.version >= 10
-      // });
-    },
-  });
-};
-```
-
-### Error Boundary
-```typescript
-<ErrorBoundary
-  fallback={<ErrorFallback />}
-  onError={(error, errorInfo) => {
-    logger.error('Component error', { error, errorInfo });
-  }}
->
-  <YourComponent />
-</ErrorBoundary>
-```
-
----
-
-## 🔍 Proactive Code Quality Checks
-
-### Before Submitting Code
-
-**Always verify:**
-- ✅ Type hints/types are complete (no `any` in TypeScript, no missing hints in Python)
-- ✅ Error handling is comprehensive (try/catch, error boundaries, validation)
-- ✅ Tests are included (unit tests for logic, integration tests for APIs)
-- ✅ Documentation is updated (docstrings, comments, README if needed)
-- ✅ Security is considered (input validation, auth checks, no secrets in code)
-- ✅ Performance is acceptable (no obvious bottlenecks, efficient queries)
-- ✅ Code follows project patterns (matches existing style, uses established patterns)
-- ✅ Dependencies are correct (imports are valid, no circular dependencies)
-- ✅ Edge cases are handled (null checks, empty arrays, network failures)
-
-### Code Smell Detection
-
-**Flag these issues when you see them:**
-- 🔴 **Code duplication** - Suggest extracting to shared function/component
-- 🔴 **Long functions** - Suggest breaking into smaller, focused functions
-- 🔴 **Deep nesting** - Suggest early returns or guard clauses
-- 🔴 **Magic numbers** - Suggest named constants
-- 🔴 **Unclear naming** - Suggest more descriptive names
-- 🔴 **Missing error handling** - Suggest adding try/catch or validation
-- 🔴 **Hardcoded values** - Suggest configuration or environment variables
-- 🔴 **Missing type safety** - Suggest adding types/type hints
-- 🔴 **Inconsistent patterns** - Suggest standardizing approach
-- 🔴 **Missing tests** - Suggest adding test coverage
-
-### Improvement Suggestions
-
-**When you notice opportunities, suggest:**
-- Performance optimizations (caching, query optimization, code splitting)
-- Security enhancements (input validation, auth improvements, encryption)
-- Code quality improvements (refactoring, better patterns, documentation)
-- Testing improvements (more coverage, better test structure)
-- User experience improvements (loading states, error messages, accessibility)
-- Maintainability improvements (better organization, clearer code)
-
-**Be helpful but not pushy:**
-- Suggest improvements when relevant to the current task
-- Don't overwhelm with suggestions - prioritize the most important
-- Explain the benefit of suggested improvements
-- Offer to implement improvements if the user wants
-
----
+### MCP Troubleshooting
+- **High tool count**: Disable individual servers in Cursor Settings, enable only `mcp-hub`
+- **Server not appearing**: Check `mcp-hub.json` configuration and environment variables
+- **Python module errors**: Verify `mcp-server-sqlite` and `arxiv-search-mcp` are installed correctly
 
 ## 🚨 Critical Rules
 
-1. **Never expose sensitive data** in logs or error messages (API keys, passwords, tokens)
+1. **Never expose sensitive data** in logs or error messages (API keys, passwords, tokens, private keys)
 2. **Always validate user input** before processing (Pydantic models, Zod schemas)
 3. **Use type hints** (Python) and TypeScript types (frontend) - strict mode enabled
 4. **Handle errors gracefully** with user-friendly messages and structured error responses
-5. **Test before deploying** - run tests locally first, check coverage
+5. **Test before deploying** - run tests locally first, check coverage (85%+ required)
 6. **Follow existing patterns** - don't reinvent the wheel, check similar implementations
 7. **Keep routes thin** - business logic in services, routes handle HTTP concerns only
-8. **Use dependency injection** - don't instantiate services directly, use `Depends()`
+8. **Use dependency injection with Annotated** - don't instantiate services directly, use `Depends()` with `Annotated` type hints
 9. **Check Redis availability** before using cache features (optional dependency)
 10. **Normalize trading modes** - "live" → "real" for backend compatibility
 11. **Use `yield` in dependencies** for resources requiring cleanup (DB sessions, connections)
 12. **Async/await properly** - use `async def` for I/O operations, don't block event loop
-13. **Invalidate queries strategically** - use exact match, prefix match, or predicates as needed
-14. **Monitor API usage** - track unusual patterns, set up alerts for suspicious activity
-15. **Encrypt sensitive data** - API keys, credentials should be encrypted at rest
-16. **Search codebase first** - understand existing patterns before implementing new features
-17. **Provide complete solutions** - include error handling, types, and tests
-18. **Suggest improvements proactively** - flag code smells and optimization opportunities
-19. **Document complex logic** - explain "why", not just "what"
-20. **Verify assumptions** - use codebase search to confirm how things actually work
-
----
-
-## 🧠 Context Awareness & Decision Making
-
-### Understanding User Intent
-
-**When the user asks to:**
-- **"Create X"** → Implement a complete, production-ready solution with tests
-- **"Fix Y"** → Identify the root cause, fix it, and add regression tests
-- **"Refactor Z"** → Improve code quality while maintaining behavior (add tests first)
-- **"Add feature A"** → Follow the feature addition workflow (backend → frontend → tests)
-- **"How does B work?"** → Search codebase, explain the flow, show relevant code
-- **"Why is C broken?"** → Debug systematically, identify cause, suggest fix
-
-### When to Ask vs. When to Proceed
-
-**Ask clarifying questions when:**
-- Requirements are ambiguous or incomplete
-- Multiple valid approaches exist and trade-offs matter
-- User intent is unclear (e.g., "make it better" - better how?)
-- Security or performance implications need discussion
-- Breaking changes might affect other parts of the system
-
-**Proceed with best judgment when:**
-- The task is clear and follows established patterns
-- The approach is obvious from existing code patterns
-- Small improvements or fixes are needed
-- Following project conventions leads to one clear solution
-
-**Always inform when:**
-- Making assumptions about requirements
-- Choosing one approach over another (explain why)
-- Suggesting improvements beyond the immediate request
-- Encountering potential issues or edge cases
-
-### Working with Existing Code
-
-**When modifying existing code:**
-1. **Read the full context** - understand the function/file purpose
-2. **Check related files** - see how it's used elsewhere
-3. **Maintain consistency** - match existing style and patterns
-4. **Preserve behavior** - don't change functionality unless asked
-5. **Update tests** - ensure tests still pass, update if behavior changes
-6. **Document changes** - add comments for non-obvious modifications
-
-**When adding new code:**
-1. **Follow project structure** - place files in correct directories
-2. **Match existing patterns** - use similar code style and organization
-3. **Use existing utilities** - don't duplicate helper functions
-4. **Follow naming conventions** - match existing naming patterns
-5. **Add to appropriate layer** - routes → services → repositories
-6. **Include tests** - add unit and integration tests
-
-### Multi-File Changes
-
-**When changes span multiple files:**
-1. **Explain the full scope** - list all files that need changes
-2. **Show the relationships** - explain how files connect
-3. **Provide complete solution** - don't leave partial implementations
-4. **Suggest testing strategy** - how to test the full feature
-5. **Mention dependencies** - any new dependencies or setup needed
-
-**Common multi-file patterns:**
-- **Backend feature**: Route → Service → Repository → Model → Migration → Tests
-- **Frontend feature**: API function → React Query hook → Component → Tests
-- **Full-stack feature**: Backend (all layers) → Frontend (API + UI) → E2E tests
-
----
-
-## 🌐 Browser Tools & Web Research
-
-### Browser Automation & Testing
-- **Playwright**: Primary E2E testing framework configured in `playwright.config.ts`
-- **Browser MCP Tools**: Use browser automation for frontend verification
-- **Testing workflows**:
-  - Use Playwright UI mode (`npm run test:e2e:ui`) for interactive debugging
-  - Take screenshots/videos automatically on test failures
-  - Use trace viewer for step-by-step debugging
-  - Test across multiple browsers (Chrome, Firefox, Safari) and mobile viewports
-
-### Browser Debugging Tools
-
-#### React DevTools
-- **Install**: `npm install -g react-devtools` for standalone tool
-- **Usage**: Launch `react-devtools` and connect to running app
-- **Features**:
-  - Inspect component hierarchy
-  - Debug hooks and state
-  - Profile performance
-  - Check React Query cache
-- **For Safari**: Use standalone tool or connect via script tag:
-  ```html
-  <script src="http://localhost:8097"></script>
-  ```
-
-#### Browser Console Debugging
-```typescript
-// Debug useEffect dependencies causing re-renders
-useEffect(() => {
-  // ...
-}, [serverUrl, roomId]);
-console.log([serverUrl, roomId]); // Compare arrays: Object.is(arr1[0], arr2[0])
-
-// Debug React Query cache state
-window.__REACT_QUERY_STATE__ = queryClient.getQueryCache();
-
-// Debug DOM issues before React render
-const domNode = document.getElementById('root');
-console.log(domNode); // Check for null (typo in ID or script loading early)
-
-// Debug useMemo dependencies
-const result = useMemo(() => compute(), [dep1, dep2]);
-console.log([dep1, dep2]); // Log dependencies to find what changed
-```
-
-#### Chrome DevTools Features
-- **Network tab**: 
-  - Monitor API calls, check request/response payloads
-  - Filter by XHR/Fetch for API debugging
-  - Check request headers (auth tokens, content-type)
-  - Verify CORS headers
-- **Application tab**: 
-  - Inspect localStorage, sessionStorage, cookies
-  - Check IndexedDB (if used)
-  - View service workers
-- **Performance tab**: 
-  - Profile React component renders
-  - Identify slow components
-  - Check for memory leaks
-- **Lighthouse**: 
-  - Run performance audits
-  - Check accessibility
-  - SEO analysis
-- **Sources**: 
-  - Set breakpoints in TypeScript/JavaScript
-  - Step through code execution
-  - Watch variables
-
-#### Common Debugging Scenarios
-
-**Problem: Component not re-rendering**
-```typescript
-// Check if state/props actually changed
-console.log('Props:', props);
-console.log('State:', state);
-
-// Use React DevTools Profiler to see if component should update
-```
-
-**Problem: API call failing silently**
-```typescript
-// Check Network tab in DevTools
-// Verify:
-// - Request URL is correct
-// - Request headers include auth token
-// - Response status code
-// - Response body (might be error message)
-
-// Add error logging in API client
-apiRequest('/api/bots').catch(err => {
-  console.error('API Error:', err);
-  console.error('Request details:', err.request);
-});
-```
-
-**Problem: React Query cache stale**
-```typescript
-// Check React Query DevTools
-// Or in console:
-queryClient.getQueryCache().getAll().forEach(query => {
-  console.log(query.queryKey, query.state);
-});
-
-// Force refetch:
-queryClient.invalidateQueries({ queryKey: ['bots'] });
-```
-
-**Problem: Styling issues**
-- Use Elements tab to inspect computed styles
-- Check for CSS specificity conflicts
-- Verify Tailwind classes are applied correctly
-- Use "Toggle device toolbar" for responsive debugging
-
-### Web Research Strategies
-
-#### When to Research Online
-1. **Finding best practices**: Use Brave Search for current industry standards
-2. **Library documentation**: Use Context7 for official docs when local docs outdated
-3. **Error messages**: Search StackOverflow for similar issues
-4. **Security vulnerabilities**: Check for CVE reports and security advisories
-5. **Performance optimization**: Research latest techniques and benchmarks
-
-#### Research Workflow
-```markdown
-1. **Define the problem** clearly
-2. **Search with specific terms**: Include library names, versions, error messages
-3. **Check multiple sources**: Official docs, StackOverflow, GitHub issues
-4. **Verify relevance**: Ensure solutions apply to your stack versions
-5. **Test in isolation**: Try solutions in a test environment first
-6. **Document findings**: Update project docs with solutions
-```
-
-#### Example Research Scenarios
-- "FastAPI async dependency injection best practices 2024" → Brave Search
-- "React Query invalidation not working" → StackOverflow + Context7
-- "TypeScript strict mode errors" → Context7 TypeScript docs
-- "Playwright test timeout issues" → Playwright GitHub issues + docs
-- "Crypto exchange API rate limiting strategies" → Brave Search + StackOverflow
-
-### Browser Testing Best Practices
-
-#### Before Writing E2E Tests
-1. **Identify critical user flows**: Login, trading actions, portfolio updates
-2. **Use data-testid attributes**: More reliable than CSS selectors
-   ```typescript
-   <button data-testid="create-bot-btn">Create Bot</button>
-   // In test:
-   await page.getByTestId('create-bot-btn').click();
-   ```
-3. **Wait for network idle**: Ensure async operations complete
-   ```typescript
-   await page.waitForLoadState('networkidle');
-   ```
-4. **Test error states**: 404 pages, validation errors, API failures
-5. **Test responsive design**: Use mobile viewports for mobile tests
-
-#### Debugging Failed Tests
-1. **Use Playwright UI mode**: `npm run test:e2e:ui` for step-through debugging
-2. **Check trace viewer**: Review detailed execution trace
-3. **Inspect screenshots**: See UI state at failure point
-4. **Check console logs**: Browser console errors captured automatically
-5. **Network tab**: Verify API calls are made correctly
-6. **Use `page.pause()`**: Interactive debugging in headed mode
-
----
-
-## 🔧 MCP (Model Context Protocol) Integration
-
-When working on this project, leverage MCP servers to enhance capabilities:
-
-### Available MCP Tools
-- **Context7**: Get up-to-date documentation for libraries (FastAPI, React, TypeScript, etc.)
-- **StackOverflow**: Search for common patterns and solutions
-- **Brave Search**: Find latest best practices and security recommendations
-- **Browser**: Navigate, interact with, and test frontend applications
-- **Memory**: Store project-specific knowledge and patterns for future reference
-- **Filesystem**: Advanced file operations when needed
-
-### When to Use MCPs
-- **Getting library documentation**: Use Context7 to fetch latest FastAPI, React Query, or TypeScript patterns
-- **Research best practices**: Use Brave Search or StackOverflow to find current best practices
-- **Frontend verification**: Use Browser MCP to visually test UI components and user flows
-- **Storing knowledge**: Use Memory MCP to persist important project decisions and patterns
-- **Problem solving**: Search for similar issues and solutions when debugging
-
-### Example Usage
-- "Get latest FastAPI async patterns" → Use Context7 to fetch FastAPI docs
-- "Find React Query invalidation best practices" → Use Context7 for TanStack Query docs
-- "Search for crypto trading platform security practices" → Use Brave Search
-- "Check if the login form renders correctly" → Use Browser MCP to navigate and screenshot
-- "Test the bot creation flow" → Use Browser MCP to automate user interactions
-- "Remember this pattern for future reference" → Use Memory MCP to store
-
----
+13. **Search codebase first** - understand existing patterns before implementing new features
+14. **Encrypt sensitive data** - API keys, credentials, wallet private keys should be encrypted at rest
+15. **Implement DEX aggregator fallback** - use multiple aggregators (0x, OKX, Rubic) with fallback logic
+16. **Handle blockchain RPC errors** - implement retries with exponential backoff
+17. **Validate price impact** - warn users if price impact exceeds threshold (>1%)
+18. **Require 2FA for high-value operations** - withdrawals and large trades
+19. **Use eager loading** - prevent N+1 queries with `selectinload`/`joinedload`
+20. **Implement pagination** - use `QueryOptimizer.paginate_query()` for database queries
 
 ## 📚 Reference Files
 
+### Core Documentation
 - **Architecture**: `docs/architecture.md`
 - **API Docs**: `http://localhost:8000/docs` (Swagger UI)
-- **Copilot Instructions**: `.github/copilot-instructions.md`
 - **Project Status**: `PROJECT_AUDIT_REPORT.md`
+
+### Cursor Rules & Configuration
 - **Frontend Rules**: `.cursor/rules/cursor-frontend.mdc`
 - **Backend Rules**: `.cursor/rules/cursor-backend.mdc`
+- **Architect Mode**: `.cursor/rules/cursor-architect-mode.mdc`
+- **YOLO Mode**: `.cursor/rules/cursor-yolo-mode.mdc`
+- **MCP Hub Setup**: `.cursor/rules/MCP_HUB_SETUP.md`
+- **Agent Optimization**: `.cursor/rules/CURSOR_AGENT_OPTIMIZATION.md`
+
+### Knowledge Base & Intelligence (AUTOMATIC USAGE REQUIRED)
+- **Knowledge Base**: `.cursor/knowledge-base.md` - Common patterns, solutions, learnings
+- **Extracted Patterns**: `.cursor/extracted-patterns.md` - Real patterns from codebase (103 patterns extracted)
+- **Quick Reference**: `.cursor/quick-reference.md` - Fast lookup for common patterns
+- **Intelligence Heuristics**: `.cursor/intelligence-heuristics.md` - Decision-making rules (80+ heuristics)
+- **Predictive Suggestions**: `.cursor/predictive-suggestions.md` - Proactive improvement suggestions
+- **Decisions Log**: `.cursor/decisions.md` - Architectural decisions with rationale
+
+**Memory-Bank MCP**: Use `read_global_memory_bank` to retrieve stored patterns and decisions
 
 ---
+
+## 🎯 FINAL REMINDER: AUTONOMOUS OPERATION
+
+**This agent operates in FULLY AUTONOMOUS MODE by default.**
+
+### What the Agent AUTOMATICALLY Does (NO ASKING):
+1. ✅ Uses ALL tools automatically - 150+ MCP tools, codebase tools, intelligence system
+2. ✅ Researches automatically - Intelligence files, codebase search, MCP tools, web research
+3. ✅ Plans automatically - Architect Mode for complex, YOLO Mode for simple
+4. ✅ Implements automatically - Complete solutions with tests, docs, error handling
+5. ✅ Fixes issues automatically - TypeScript errors, lint errors, test failures, performance issues
+6. ✅ Verifies automatically - Runs tests, checks errors, validates fixes
+7. ✅ Learns automatically - Stores patterns, updates knowledge base, documents decisions
+
+### What the Agent NEVER Asks For:
+- ❌ Tool usage - use all tools automatically
+- ❌ Research permission - research automatically
+- ❌ Planning approval - plan automatically
+- ❌ Implementation confirmation - implement automatically
+- ❌ Fix permission - fix issues automatically
+- ❌ Test permission - test automatically
+- ❌ Verification permission - verify automatically
+
+### What the Agent ONLY Asks For (RARE - < 5% of cases):
+- ✅ Requirements are genuinely ambiguous (truly unclear, not just complex)
+- ✅ Multiple valid approaches exist AND trade-offs significantly affect user experience
+- ✅ Security implications need user awareness (but still proceed with best practice)
+- ✅ Breaking changes that affect user's workflow (but still implement with migration path)
 
 **Remember**: This is a production-ready, enterprise-grade trading platform. Always prioritize:
 - **Security** over convenience
@@ -1094,7 +477,4 @@ When working on this project, leverage MCP servers to enhance capabilities:
 - **Clarity** over cleverness
 - **Testing** before deployment (unit, integration, E2E)
 - **Documentation** for complex features
-- **Use MCPs** to stay current with latest patterns and best practices
-- **Browser testing** to verify user experience and catch visual regressions
-- **Web research** to find solutions and learn from the community
-
+- **Autonomous operation** - act independently, use all tools, research automatically, implement proactively

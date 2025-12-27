@@ -40,14 +40,32 @@ test.describe('Registration', () => {
     await expect(nameInput).toBeVisible({ timeout: 5000 });
     await nameInput.fill(testName);
     
+    // Fill username (required, min 3 characters)
+    const usernameInput = page.locator('input[name="username"], input[id="username"]').first();
+    if (await usernameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await usernameInput.fill(`testuser${timestamp}`);
+    }
+    
     await expect(emailInput).toBeVisible({ timeout: 5000 });
     await emailInput.fill(testEmail);
     
     await expect(passwordInput).toBeVisible({ timeout: 5000 });
     await passwordInput.fill(testPassword);
+    
+    // Fill confirm password
+    const confirmPasswordInput = page.locator('input[name="confirmPassword"], input[id="confirmPassword"]').first();
+    if (await confirmPasswordInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmPasswordInput.fill(testPassword);
+    }
+    
+    // Accept terms (required checkbox)
+    const acceptTermsCheckbox = page.locator('[name="acceptTerms"], #acceptTerms, input[type="checkbox"]').first();
+    if (await acceptTermsCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptTermsCheckbox.check();
+    }
 
-    // Submit the form
-    await expect(submitButton).toBeVisible({ timeout: 5000 });
+    // Wait for submit button to be enabled (all fields filled and validated)
+    await expect(submitButton).toBeEnabled({ timeout: 10000 });
     
     // Click submit and wait for loading to complete
     await submitButton.click();
@@ -99,8 +117,30 @@ test.describe('Registration', () => {
     const submitButton = page.locator('button[type="submit"]:has-text("Create Account")').first();
 
     await nameInput.fill(testName);
+    
+    // Fill username
+    const usernameInput = page.locator('input[name="username"], input[id="username"]').first();
+    if (await usernameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await usernameInput.fill(`testuser${timestamp}`);
+    }
+    
     await emailInput.fill(testEmail);
     await passwordInput.fill(testPassword);
+    
+    // Fill confirm password
+    const confirmPasswordInput = page.locator('input[name="confirmPassword"], input[id="confirmPassword"]').first();
+    if (await confirmPasswordInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmPasswordInput.fill(testPassword);
+    }
+    
+    // Accept terms
+    const acceptTermsCheckbox = page.locator('[name="acceptTerms"], #acceptTerms, input[type="checkbox"]').first();
+    if (await acceptTermsCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptTermsCheckbox.check();
+    }
+    
+    // Wait for button to be enabled
+    await expect(submitButton).toBeEnabled({ timeout: 10000 });
     await submitButton.click();
     
     // Wait for first registration to complete
@@ -142,8 +182,28 @@ test.describe('Registration', () => {
     const submitButton = page.locator('button[type="submit"]:has-text("Create Account")').first();
 
     await nameInput.fill('Test User');
+    
+    // Fill username
+    const usernameInput = page.locator('input[name="username"], input[id="username"]').first();
+    if (await usernameInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await usernameInput.fill('testuser');
+    }
+    
     await emailInput.fill('weakpass@example.com');
     await passwordInput.fill('123'); // Weak password
+    
+    // Fill confirm password
+    const confirmPasswordInput = page.locator('input[name="confirmPassword"], input[id="confirmPassword"]').first();
+    if (await confirmPasswordInput.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await confirmPasswordInput.fill('123');
+    }
+    
+    // Accept terms
+    const acceptTermsCheckbox = page.locator('[name="acceptTerms"], #acceptTerms, input[type="checkbox"]').first();
+    if (await acceptTermsCheckbox.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await acceptTermsCheckbox.check();
+    }
+    
     await submitButton.click();
 
     // Should show validation error

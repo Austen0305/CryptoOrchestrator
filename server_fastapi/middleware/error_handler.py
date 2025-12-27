@@ -1,233 +1,197 @@
 """
-Enhanced Error Handling Middleware
-Provides comprehensive error handling and structured error responses
+Standardized Error Handling Middleware
+Provides consistent error response format across all endpoints
 """
 
 import logging
-import traceback
-from typing import Callable
+import uuid
+from typing import Optional
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError
-import json
+import traceback
+import os
 
 logger = logging.getLogger(__name__)
 
 
-class ErrorResponse:
+class StandardizedErrorResponse:
     """Standardized error response format"""
 
     @staticmethod
-    def create(
-        status_code: int,
-        error_code: str,
+    def create_error_response(
+        code: str,
         message: str,
-        details: dict = None,
-        request_id: str = None,
+        status_code: int,
+        details: Optional[dict] = None,
+        request_id: Optional[str] = None,
     ) -> dict:
-        """Create a standardized error response"""
-        response = {
+        """
+        Create standardized error response
+
+        Args:
+            code: Error code (e.g., "VALIDATION_ERROR")
+            message: Human-readable error message
+            status_code: HTTP status code
+            details: Additional error details
+            request_id: Request ID for correlation
+
+        Returns:
+            Standardized error response dictionary
+        """
+        return {
             "error": {
-                "code": error_code,
+                "code": code,
                 "message": message,
                 "status_code": status_code,
-            },
-            "timestamp": None,  # Will be set by middleware
-            "path": None,  # Will be set by middleware
+                "details": details or {},
+                "request_id": request_id,
+            }
         }
 
-        if details:
-            response["error"]["details"] = details
+    @staticmethod
+    def from_http_exception(
+        exc: Exception,
+        request_id: Optional[str] = None,
+    ) -> dict:
+        """Convert HTTPException to standardized format"""
+        from fastapi import HTTPException
 
-        if request_id:
-            response["request_id"] = request_id
+        if isinstance(exc, HTTPException):
+            return StandardizedErrorResponse.create_error_response(
+                code=f"HTTP_{exc.status_code}",
+                message=exc.detail,
+                status_code=exc.status_code,
+                request_id=request_id,
+            )
 
-        return response
+        return StandardizedErrorResponse.create_error_response(
+            code="INTERNAL_ERROR",
+            message=str(exc),
+            status_code=500,
+            request_id=request_id,
+        )
+
+    @staticmethod
+    def from_validation_error(
+        exc: RequestValidationError,
+        request_id: Optional[str] = None,
+    ) -> dict:
+        """Convert validation error to standardized format"""
+        errors = []
+        for error in exc.errors():
+            errors.append(
+                {
+                    "field": ".".join(str(loc) for loc in error.get("loc", [])),
+                    "message": error.get("msg", "Validation error"),
+                    "type": error.get("type", "value_error"),
+                }
+            )
+
+        return StandardizedErrorResponse.create_error_response(
+            code="VALIDATION_ERROR",
+            message="Request validation failed",
+            status_code=422,
+            details={"validation_errors": errors},
+            request_id=request_id,
+        )
 
 
-async def enhanced_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """
-    Enhanced exception handler for unhandled exceptions
+async def get_request_id(request: Request) -> str:
+    """Get or generate request ID"""
+    request_id = request.headers.get("X-Request-ID")
+    if not request_id:
+        request_id = str(uuid.uuid4())
+    return request_id
 
-    Provides:
-    - Structured error responses
-    - Detailed logging
-    - Request context
-    - Error tracking
-    """
-    import time
-    from datetime import datetime
 
-    # Get request ID if available
-    request_id = getattr(request.state, "request_id", None)
+async def validation_exception_handler(
+    request: Request,
+    exc: RequestValidationError,
+) -> JSONResponse:
+    """Handle validation errors with standardized format"""
+    request_id = await get_request_id(request)
 
-    # Log the full exception
-    logger.error(
-        f"Unhandled exception: {type(exc).__name__}: {str(exc)}",
-        exc_info=True,
-        extra={
-            "request_id": request_id,
-            "path": request.url.path,
-            "method": request.method,
-            "client_ip": request.client.host if request.client else None,
-        },
+    error_response = StandardizedErrorResponse.from_validation_error(exc, request_id)
+
+    logger.warning(
+        f"Validation error: {exc.errors()}",
+        extra={"request_id": request_id, "path": request.url.path},
     )
 
-    # Create error response
-    error_response = ErrorResponse.create(
-        status_code=500,
-        error_code="INTERNAL_SERVER_ERROR",
-        message="An unexpected error occurred. Please try again later.",
-        request_id=request_id,
+    return JSONResponse(
+        status_code=422,
+        content=error_response,
+        headers={"X-Request-ID": request_id},
     )
-
-    # Add timestamp and path
-    error_response["timestamp"] = datetime.utcnow().isoformat() + "Z"
-    error_response["path"] = str(request.url.path)
-
-    # In development, include traceback
-    import os
-
-    if os.getenv("ENVIRONMENT", "production") == "development":
-        error_response["error"]["traceback"] = traceback.format_exc()
-
-    return JSONResponse(status_code=500, content=error_response)
 
 
 async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
+    request: Request,
+    exc: Exception,
 ) -> JSONResponse:
-    """
-    Enhanced HTTP exception handler
+    """Handle HTTP exceptions with standardized format"""
+    from fastapi import HTTPException
 
-    Provides structured error responses for HTTP exceptions
-    """
-    import time
-    from datetime import datetime
+    request_id = await get_request_id(request)
 
-    request_id = getattr(request.state, "request_id", None)
+    error_response = StandardizedErrorResponse.from_http_exception(exc, request_id)
+    status_code = exc.status_code if isinstance(exc, HTTPException) else 500
 
-    # Determine error code from status code
-    error_codes = {
-        400: "BAD_REQUEST",
-        401: "UNAUTHORIZED",
-        403: "FORBIDDEN",
-        404: "NOT_FOUND",
-        405: "METHOD_NOT_ALLOWED",
-        409: "CONFLICT",
-        422: "VALIDATION_ERROR",
-        429: "RATE_LIMIT_EXCEEDED",
-        500: "INTERNAL_SERVER_ERROR",
-        502: "BAD_GATEWAY",
-        503: "SERVICE_UNAVAILABLE",
-        504: "GATEWAY_TIMEOUT",
-    }
+    logger.warning(
+        f"HTTP exception: {exc.detail if isinstance(exc, HTTPException) else str(exc)}",
+        extra={
+            "request_id": request_id,
+            "status_code": status_code,
+            "path": request.url.path,
+        },
+    )
 
-    error_code = error_codes.get(exc.status_code, "HTTP_ERROR")
+    return JSONResponse(
+        status_code=status_code,
+        content=error_response,
+        headers={"X-Request-ID": request_id},
+    )
 
-    # Get error message
-    if isinstance(exc.detail, dict):
-        message = exc.detail.get(
-            "message", exc.detail.get("detail", "An error occurred")
-        )
-        details = {
-            k: v for k, v in exc.detail.items() if k not in ["message", "detail"]
-        }
-    elif isinstance(exc.detail, str):
-        message = exc.detail
-        details = None
+
+async def general_exception_handler(
+    request: Request,
+    exc: Exception,
+) -> JSONResponse:
+    """Handle general exceptions with standardized format"""
+    request_id = await get_request_id(request)
+
+    # Log full exception with traceback
+    logger.error(
+        f"Unhandled exception: {exc}",
+        exc_info=True,
+        extra={"request_id": request_id, "path": request.url.path},
+    )
+
+    # In production, don't expose internal error details
+    is_production = os.getenv("NODE_ENV") == "production"
+
+    if is_production:
+        message = "An internal error occurred. Please try again later."
+        details = {}
     else:
-        message = "An error occurred"
-        details = None
+        message = str(exc)
+        details = {
+            "exception_type": type(exc).__name__,
+            "traceback": traceback.format_exc() if not is_production else None,
+        }
 
-    error_response = ErrorResponse.create(
-        status_code=exc.status_code,
-        error_code=error_code,
+    error_response = StandardizedErrorResponse.create_error_response(
+        code="INTERNAL_ERROR",
         message=message,
+        status_code=500,
         details=details,
         request_id=request_id,
     )
 
-    error_response["timestamp"] = datetime.utcnow().isoformat() + "Z"
-    error_response["path"] = str(request.url.path)
-
-    # Log the error
-    log_level = logging.WARNING if exc.status_code < 500 else logging.ERROR
-    logger.log(
-        log_level,
-        f"HTTP {exc.status_code}: {message}",
-        extra={
-            "request_id": request_id,
-            "path": request.url.path,
-            "method": request.method,
-            "status_code": exc.status_code,
-        },
+    return JSONResponse(
+        status_code=500,
+        content=error_response,
+        headers={"X-Request-ID": request_id},
     )
-
-    return JSONResponse(status_code=exc.status_code, content=error_response)
-
-
-async def validation_exception_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
-    """
-    Enhanced validation exception handler
-
-    Provides detailed validation error information
-    """
-    from datetime import datetime
-
-    request_id = getattr(request.state, "request_id", None)
-
-    # Extract validation errors
-    errors = []
-    for error in exc.errors():
-        field = ".".join(str(loc) for loc in error.get("loc", []))
-        errors.append(
-            {
-                "field": field,
-                "message": error.get("msg", "Validation error"),
-                "type": error.get("type", "validation_error"),
-            }
-        )
-
-    error_response = ErrorResponse.create(
-        status_code=422,
-        error_code="VALIDATION_ERROR",
-        message="Request validation failed",
-        details={"errors": errors},
-        request_id=request_id,
-    )
-
-    error_response["timestamp"] = datetime.utcnow().isoformat() + "Z"
-    error_response["path"] = str(request.url.path)
-
-    # Log validation errors (at info level, not error)
-    logger.info(
-        f"Validation error: {len(errors)} field(s) failed validation",
-        extra={
-            "request_id": request_id,
-            "path": request.url.path,
-            "method": request.method,
-            "validation_errors": errors,
-        },
-    )
-
-    return JSONResponse(status_code=422, content=error_response)
-
-
-def setup_error_handlers(app):
-    """
-    Setup enhanced error handlers for the FastAPI application
-
-    Args:
-        app: FastAPI application instance
-    """
-    # Add exception handlers
-    app.add_exception_handler(Exception, enhanced_exception_handler)
-    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
-    app.add_exception_handler(RequestValidationError, validation_exception_handler)
-
-    logger.info("✅ Enhanced error handlers configured")

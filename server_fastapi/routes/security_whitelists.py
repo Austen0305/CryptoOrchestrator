@@ -5,7 +5,7 @@ API endpoints for managing IP and withdrawal address whitelists
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Annotated
 import logging
 
 from ..dependencies.auth import get_current_user
@@ -14,6 +14,8 @@ from ..services.security.withdrawal_whitelist_service import (
     withdrawal_whitelist_service,
 )
 from ..database import get_db_context
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +53,12 @@ class RemoveWithdrawalAddressRequest(BaseModel):
 # IP Whitelist Endpoints
 @router.post("/ip", response_model=Dict[str, Any])
 async def add_ip_to_whitelist(
-    request: AddIPRequest, current_user: dict = Depends(get_current_user)
+    request: AddIPRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Add IP address to user's whitelist"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await ip_whitelist_service.add_ip_to_whitelist(
@@ -82,13 +83,12 @@ async def add_ip_to_whitelist(
 
 @router.delete("/ip", response_model=Dict[str, Any])
 async def remove_ip_from_whitelist(
-    request: RemoveIPRequest, current_user: dict = Depends(get_current_user)
+    request: RemoveIPRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Remove IP address from user's whitelist"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await ip_whitelist_service.remove_ip_from_whitelist(
@@ -112,19 +112,26 @@ async def remove_ip_from_whitelist(
 
 @router.get("/ip", response_model=List[Dict[str, Any]])
 async def get_ip_whitelist(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ) -> List[Dict[str, Any]]:
-    """Get user's IP whitelist"""
+    """Get user's IP whitelist with pagination"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             whitelist = await ip_whitelist_service.get_whitelist(
                 user_id=int(user_id), db=db
             )
-            return whitelist
+
+            # Apply pagination
+            total = len(whitelist)
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_whitelist = whitelist[start_idx:end_idx]
+
+            return paginated_whitelist
     except HTTPException:
         raise
     except Exception as e:
@@ -135,13 +142,12 @@ async def get_ip_whitelist(
 # Withdrawal Address Whitelist Endpoints
 @router.post("/withdrawal", response_model=Dict[str, Any])
 async def add_withdrawal_address(
-    request: AddWithdrawalAddressRequest, current_user: dict = Depends(get_current_user)
+    request: AddWithdrawalAddressRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Add withdrawal address to user's whitelist (24-hour cooldown applies)"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await withdrawal_whitelist_service.add_withdrawal_address(
@@ -168,13 +174,11 @@ async def add_withdrawal_address(
 @router.delete("/withdrawal", response_model=Dict[str, Any])
 async def remove_withdrawal_address(
     request: RemoveWithdrawalAddressRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Remove withdrawal address from user's whitelist"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             result = await withdrawal_whitelist_service.remove_withdrawal_address(
@@ -201,21 +205,31 @@ async def remove_withdrawal_address(
 
 
 @router.get("/withdrawal", response_model=List[Dict[str, Any]])
+@cached(
+    ttl=300, prefix="withdrawal_whitelist"
+)  # 5min TTL for withdrawal whitelist (static config)
 async def get_withdrawal_whitelist(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     currency: Optional[str] = Query(None, description="Filter by currency"),
-    current_user: dict = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
-    """Get user's withdrawal address whitelist"""
+    """Get user's withdrawal address whitelist with pagination"""
     try:
-        user_id = current_user.get("id") or current_user.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         async with get_db_context() as db:
             whitelist = await withdrawal_whitelist_service.get_whitelist(
                 user_id=int(user_id), currency=currency, db=db
             )
-            return whitelist
+
+            # Apply pagination
+            total = len(whitelist)
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_whitelist = whitelist[start_idx:end_idx]
+
+            return paginated_whitelist
     except HTTPException:
         raise
     except Exception as e:

@@ -1,8 +1,0 @@
-Temporary registration shim middleware added in main.py to short-circuit
-/api/auth/register requests and avoid deeper middleware stack hangs.
-
-This file exists only as documentation/reminder and can be removed once
-the underlying middleware issue is fully resolved and the normal
-server_fastapi.routes.auth.register endpoint is stable.
-
-

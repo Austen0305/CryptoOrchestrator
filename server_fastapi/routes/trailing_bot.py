@@ -4,13 +4,17 @@ Trailing Bot API Routes
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from ..services.trading.trailing_bot_service import TrailingBotService
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -84,14 +88,15 @@ class TrailingBotResponse(BaseModel):
 )
 async def create_trailing_bot(
     request: CreateTrailingBotRequest,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Create a new trailing bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
         bot_id = await service.create_trailing_bot(
-            user_id=current_user["id"],
+            user_id=user_id,
             name=request.name,
             symbol=request.symbol,
             exchange=request.exchange,
@@ -126,17 +131,23 @@ async def create_trailing_bot(
 @router.get(
     "/trailing-bots", response_model=List[TrailingBotResponse], tags=["Trailing Bot"]
 )
+@cached(ttl=120, prefix="trailing_bots")  # 120s TTL for trailing bots list
 async def list_trailing_bots(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    """List all trailing bots for the current user."""
+    """List all trailing bots for the current user with pagination."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
-        bots = await service.list_user_trailing_bots(current_user["id"], skip, limit)
-        return bots
+        # Convert page/page_size to skip/limit for service layer (backward compatibility)
+        skip = (page - 1) * page_size
+        limit = page_size
+        bots, total = await service.list_user_trailing_bots(user_id, skip, limit)
+        # Use ResponseOptimizer for paginated response with metadata
+        return ResponseOptimizer.paginate_response(bots, page, page_size, total)
     except Exception as e:
         logger.error(f"Error listing trailing bots: {e}", exc_info=True)
         raise HTTPException(
@@ -150,13 +161,14 @@ async def list_trailing_bots(
 )
 async def get_trailing_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Get a specific trailing bot by ID."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
-        bot = await service.get_trailing_bot(bot_id, current_user["id"])
+        bot = await service.get_trailing_bot(bot_id, user_id)
         if not bot:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Trailing bot not found"
@@ -179,13 +191,14 @@ async def get_trailing_bot(
 )
 async def start_trailing_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Start a trailing bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
-        success = await service.start_trailing_bot(bot_id, current_user["id"])
+        success = await service.start_trailing_bot(bot_id, user_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -207,13 +220,14 @@ async def start_trailing_bot(
 )
 async def stop_trailing_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Stop a trailing bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
-        success = await service.stop_trailing_bot(bot_id, current_user["id"])
+        success = await service.stop_trailing_bot(bot_id, user_id)
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -235,20 +249,19 @@ async def stop_trailing_bot(
 )
 async def delete_trailing_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Delete a trailing bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = TrailingBotService(session=db_session)
-        await service.stop_trailing_bot(bot_id, current_user["id"])
+        await service.stop_trailing_bot(bot_id, user_id)
 
         from ...repositories.trailing_bot_repository import TrailingBotRepository
 
         repository = TrailingBotRepository()
-        bot = await repository.get_by_user_and_id(
-            db_session, bot_id, current_user["id"]
-        )
+        bot = await repository.get_by_user_and_id(db_session, bot_id, user_id)
 
         if not bot:
             raise HTTPException(

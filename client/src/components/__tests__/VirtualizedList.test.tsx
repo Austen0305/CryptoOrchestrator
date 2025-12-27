@@ -2,11 +2,11 @@
  * Tests for VirtualizedList component
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { VirtualizedList } from '../VirtualizedList';
+import { describe, it, expect, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { VirtualizedList } from "../VirtualizedList";
 
-describe('VirtualizedList', () => {
+describe("VirtualizedList", () => {
   const mockItems = Array.from({ length: 100 }, (_, i) => ({
     id: i,
     name: `Item ${i}`,
@@ -18,19 +18,14 @@ describe('VirtualizedList', () => {
     </div>
   );
 
-  it('renders empty state when no items', () => {
+  it("renders empty state when no items", () => {
     render(
-      <VirtualizedList
-        items={[]}
-        itemHeight={50}
-        containerHeight={400}
-        renderItem={renderItem}
-      />
+      <VirtualizedList items={[]} itemHeight={50} containerHeight={400} renderItem={renderItem} />
     );
     expect(screen.getByText(/no items/i)).toBeInTheDocument();
   });
 
-  it('renders items within viewport', () => {
+  it("renders items within viewport", () => {
     render(
       <VirtualizedList
         items={mockItems.slice(0, 10)}
@@ -40,10 +35,10 @@ describe('VirtualizedList', () => {
       />
     );
     // Should render visible items
-    expect(screen.getByTestId('item-0')).toBeInTheDocument();
+    expect(screen.getByTestId("item-0")).toBeInTheDocument();
   });
 
-  it('handles large lists efficiently', () => {
+  it("handles large lists efficiently", () => {
     const { container } = render(
       <VirtualizedList
         items={mockItems}
@@ -57,7 +52,7 @@ describe('VirtualizedList', () => {
     expect(renderedItems.length).toBeLessThan(20); // Only visible + overscan
   });
 
-  it('calls onScroll callback', () => {
+  it("calls onScroll callback", () => {
     const onScroll = vi.fn();
     const { container } = render(
       <VirtualizedList
@@ -68,16 +63,16 @@ describe('VirtualizedList', () => {
         onScroll={onScroll}
       />
     );
-    
+
     const scrollContainer = container.querySelector('[class*="overflow-auto"]');
     if (scrollContainer) {
       scrollContainer.scrollTop = 100;
-      scrollContainer.dispatchEvent(new Event('scroll'));
+      scrollContainer.dispatchEvent(new Event("scroll"));
       expect(onScroll).toHaveBeenCalled();
     }
   });
 
-  it('renders custom empty state', () => {
+  it("renders custom empty state", () => {
     const customEmpty = <div>No data available</div>;
     render(
       <VirtualizedList
@@ -88,7 +83,6 @@ describe('VirtualizedList', () => {
         emptyState={customEmpty}
       />
     );
-    expect(screen.getByText('No data available')).toBeInTheDocument();
+    expect(screen.getByText("No data available")).toBeInTheDocument();
   });
 });
-

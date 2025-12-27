@@ -8,9 +8,10 @@ from sqlalchemy import Column, String, Boolean, Integer, DateTime, Text, Foreign
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from .base import BaseModel, Base
 
+# ExchangeAPIKey - REMOVED (platform uses blockchain/DEX trading exclusively)
+
 if TYPE_CHECKING:
     from .subscription import Subscription
-    from .exchange_api_key import ExchangeAPIKey
     from .bot import Bot
     from .strategy import Strategy
     from .grid_bot import GridBot
@@ -18,6 +19,11 @@ if TYPE_CHECKING:
     from .infinity_grid import InfinityGrid
     from .trailing_bot import TrailingBot
     from .futures_position import FuturesPosition
+    from .dex_position import DEXPosition
+    from .idempotency import IdempotencyKey
+    from .push_subscription import PushSubscription
+    from .institutional_wallet import InstitutionalWallet
+    from .analytics_threshold import AnalyticsThreshold
 
 
 class User(BaseModel):
@@ -41,6 +47,9 @@ class User(BaseModel):
     is_email_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Alias for is_email_verified (for compatibility)
     email_verification_token: Mapped[Optional[str]] = mapped_column(
         String(64), nullable=True, index=True
     )
@@ -79,6 +88,20 @@ class User(BaseModel):
         String(10), nullable=True, default="en"
     )
 
+    # Terms and compliance
+    terms_accepted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Whether user has accepted terms of service
+    terms_accepted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )  # When terms were accepted
+    mfa_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Two-factor authentication enabled
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Email verification status (alias for is_email_verified compatibility)
+
     # Relationships
     subscription: Mapped[Optional["Subscription"]] = relationship(
         "Subscription",
@@ -86,9 +109,8 @@ class User(BaseModel):
         uselist=False,
         cascade="all, delete-orphan",
     )
-    exchange_api_keys: Mapped[List["ExchangeAPIKey"]] = relationship(
-        "ExchangeAPIKey", back_populates="user", cascade="all, delete-orphan"
-    )
+    # ExchangeAPIKey relationship removed - platform uses blockchain wallets instead
+    # exchange_api_keys relationship removed - platform uses blockchain wallets instead
     bots: Mapped[List["Bot"]] = relationship(
         "Bot", back_populates="user", cascade="all, delete-orphan"
     )
@@ -109,6 +131,23 @@ class User(BaseModel):
     )
     futures_positions: Mapped[List["FuturesPosition"]] = relationship(
         "FuturesPosition", back_populates="user", cascade="all, delete-orphan"
+    )
+    dex_positions: Mapped[List["DEXPosition"]] = relationship(
+        "DEXPosition", back_populates="user", cascade="all, delete-orphan"
+    )
+    idempotency_keys: Mapped[List["IdempotencyKey"]] = relationship(
+        "IdempotencyKey", back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscriptions: Mapped[List["PushSubscription"]] = relationship(
+        "PushSubscription", back_populates="user", cascade="all, delete-orphan"
+    )
+    analytics_thresholds: Mapped[List["AnalyticsThreshold"]] = relationship(
+        "AnalyticsThreshold", back_populates="user", cascade="all, delete-orphan"
+    )
+    institutional_wallets: Mapped[List["InstitutionalWallet"]] = relationship(
+        "InstitutionalWallet",
+        secondary="wallet_signer_associations",
+        back_populates="signers",
     )
 
     def __repr__(self) -> str:

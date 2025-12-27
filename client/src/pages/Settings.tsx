@@ -11,14 +11,18 @@ import { Save, Bell, Shield, Palette, Globe, Key, FileText, LogOut } from "lucid
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import ExchangeKeys from "./ExchangeKeys";
+// ExchangeKeys removed - using blockchain wallets instead
 import { AuditLogViewer } from "@/components/AuditLogViewer";
 import { Wallet } from "@/components/Wallet";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { CryptoTransfer } from "@/components/CryptoTransfer";
 import { Staking } from "@/components/Staking";
+import { IPWhitelistManager } from "@/components/IPWhitelistManager";
+import { PushNotificationSettings } from "@/components/PushNotificationSettings";
+import logger from "@/lib/logger";
+import { EnhancedErrorBoundary } from "@/components/EnhancedErrorBoundary";
 
-export default function Settings() {
+function SettingsContent() {
   const { i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
@@ -46,10 +50,7 @@ export default function Settings() {
         <TabsList>
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="trading">Trading</TabsTrigger>
-          <TabsTrigger value="exchange-keys">
-            <Key className="h-4 w-4 mr-2" />
-            Exchange Keys
-          </TabsTrigger>
+          {/* Exchange Keys tab removed - using blockchain wallets instead */}
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="security">Security</TabsTrigger>
           <TabsTrigger value="wallet">Wallet</TabsTrigger>
@@ -195,9 +196,7 @@ export default function Settings() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="exchange-keys">
-          <ExchangeKeys />
-        </TabsContent>
+        {/* Exchange Keys tab removed - using blockchain wallets instead. See Wallet tab for wallet management. */}
 
         <TabsContent value="notifications" className="space-y-4">
           <Card className="border-blue-500 border rounded-xl bg-card">
@@ -262,6 +261,21 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="border-blue-500 border rounded-xl bg-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5" />
+                Push Notifications
+              </CardTitle>
+              <CardDescription>
+                Enable browser push notifications for real-time alerts
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PushNotificationSettings />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="security" className="space-y-4">
@@ -272,20 +286,10 @@ export default function Settings() {
                 Security Settings
               </CardTitle>
               <CardDescription>
-                Manage your account security and API keys
+                Manage your account security settings
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="api-key">Kraken API Key</Label>
-                <Input id="api-key" type="password" placeholder="Enter your API key" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="api-secret">Kraken API Secret</Label>
-                <Input id="api-secret" type="password" placeholder="Enter your API secret" />
-              </div>
-
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Two-Factor Authentication</Label>
@@ -307,6 +311,8 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          <IPWhitelistManager />
 
           <Card className="border-destructive/50 rounded-xl bg-card">
             <CardHeader>
@@ -362,5 +368,17 @@ export default function Settings() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function Settings() {
+  return (
+    <EnhancedErrorBoundary
+      onError={(error, errorInfo) => {
+        logger.error("Settings page error", { error, errorInfo });
+      }}
+    >
+      <SettingsContent />
+    </EnhancedErrorBoundary>
   );
 }

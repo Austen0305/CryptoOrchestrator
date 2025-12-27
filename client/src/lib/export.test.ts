@@ -7,6 +7,14 @@ describe('export utilities', () => {
   let anchor: HTMLAnchorElement | null = null;
 
   beforeEach(() => {
+    // Ensure document is available (happy-dom should provide this via vitest environment)
+    // This check ensures the DOM environment is properly initialized
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      throw new Error(
+        'DOM environment not available. Ensure vitest.config.ts has environment: "happy-dom" and test runs from client directory.'
+      );
+    }
+
     // Mock object URL APIs
     URL.createObjectURL = vi.fn().mockReturnValue('blob:mock');
     URL.revokeObjectURL = vi.fn();

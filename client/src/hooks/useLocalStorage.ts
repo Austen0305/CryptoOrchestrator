@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import logger from '@/lib/logger';
 
 export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
   // State to store our value
@@ -15,7 +16,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
       const item = window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      logger.error(`Error reading localStorage key "${key}"`, { error, key });
       return initialValue;
     }
   });
@@ -32,7 +33,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
         window.localStorage.setItem(key, JSON.stringify(valueToStore));
       }
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      logger.error(`Error setting localStorage key "${key}"`, { error, key });
     }
   };
 
@@ -45,7 +46,7 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
         try {
           setStoredValue(JSON.parse(e.newValue));
         } catch (error) {
-          console.error(`Error parsing localStorage value for key "${key}":`, error);
+          logger.error(`Error parsing localStorage value for key "${key}"`, { error, key });
         }
       }
     };

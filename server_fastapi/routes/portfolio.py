@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..services.exchange_service import default_exchange
+from ..services.coingecko_service import CoinGeckoService
 from ..services.analytics_engine import analytics_engine
 from ..services.pnl_service import PnLService
 from ..dependencies.auth import get_current_user
+from ..dependencies.pnl import get_pnl_service
 from ..database import get_db_session
+from ..middleware.cache_manager import cached
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -39,178 +42,242 @@ class Portfolio(BaseModel):
 
 
 @router.get("/{mode}")
+@cached(ttl=300, prefix="portfolio")  # 5min TTL for portfolio data
 async def get_portfolio(
     mode: str,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    pnl_service: Annotated[PnLService, Depends(get_pnl_service)],
 ) -> Portfolio:
     """Get portfolio for paper or real trading mode"""
     try:
-        # Normalize mode: "live" -> "real"
-        if mode == "live":
-            mode = "real"
+        from ..utils.trading_utils import normalize_trading_mode
+
+        mode = normalize_trading_mode(mode)
 
         if mode not in ["paper", "real"]:
             raise HTTPException(
                 status_code=400, detail="Mode must be 'paper' or 'real'"
             )
 
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub") or 1
+        user_id = _get_user_id(current_user)
 
         if mode == "real":
-            # Get real portfolio data from exchange using user's API keys
+            # Get real portfolio data from blockchain wallets (DEX-only)
             try:
-                from ..services.auth.exchange_key_service import exchange_key_service
-                import ccxt
+                from ..repositories.wallet_repository import WalletRepository
+                from ..services.blockchain.balance_service import get_balance_service
+                from ..services.blockchain.token_registry import (
+                    TokenRegistryService,
+                )  # Will be created later
 
-                # Get user's validated API keys
+                balance_service = get_balance_service()
+                wallet_repo = WalletRepository(db)
+                coingecko = CoinGeckoService()
+
+                # Get all user wallets across all chains
                 user_id_str = str(user_id)
-                api_keys = await exchange_key_service.list_api_keys(user_id_str)
-                validated_keys = [k for k in api_keys if k.get("is_validated", False)]
+                wallets = await wallet_repo.get_wallets_by_user(user_id_str)
 
-                if not validated_keys:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No validated API keys found. Please add and validate an exchange API key in Settings.",
+                if not wallets:
+                    # No wallets found - return empty portfolio with helpful message
+                    logger.info(f"No wallets found for user {user_id_str}")
+                    return Portfolio(
+                        totalBalance=0.0,
+                        availableBalance=0.0,
+                        positions={},
+                        profitLoss24h=0.0,
+                        profitLossTotal=0.0,
+                        successfulTrades=0,
+                        failedTrades=0,
+                        totalTrades=0,
+                        winRate=0.0,
+                        averageWin=0.0,
+                        averageLoss=0.0,
                     )
-
-                # Use first validated exchange (or allow user to specify)
-                exchange_key_data = validated_keys[0]
-                exchange_name = exchange_key_data["exchange"]
-
-                # Get decrypted API keys
-                api_key_data = await exchange_key_service.get_api_key(
-                    user_id_str, exchange_name, include_secrets=True
-                )
-                if not api_key_data:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Failed to retrieve API key for {exchange_name}",
-                    )
-
-                # Create exchange instance with user's API keys
-                exchange_class = getattr(ccxt, exchange_name, None)
-                if not exchange_class:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Exchange {exchange_name} not supported",
-                    )
-
-                exchange_config = {
-                    "apiKey": api_key_data["api_key"],
-                    "secret": api_key_data["api_secret"],
-                    "enableRateLimit": True,
-                    "options": {
-                        "testnet": api_key_data.get("is_testnet", False),
-                    },
-                }
-
-                if api_key_data.get("passphrase"):
-                    exchange_config["passphrase"] = api_key_data["passphrase"]
-
-                exchange_instance = exchange_class(exchange_config)
-                await exchange_instance.load_markets()
-
-                # Fetch real balance from exchange
-                balance_data = await exchange_instance.fetch_balance()
-                balance = balance_data.get("total", {})
 
                 positions = {}
                 total_balance = 0.0
                 available_balance = 0.0
 
-                for asset, amount in balance.items():
-                    if amount > 0:
-                        # Get current price for each asset
-                        if asset in ["USD", "USDT", "USDC", "BUSD", "DAI"]:
-                            # Stablecoins - value is 1:1
-                            current_price = 1.0
-                            total_value = amount
-                            if asset in ["USD", "USDT", "USDC"]:
-                                available_balance += amount
-                        else:
-                            # Get price from exchange for crypto assets
-                            # Try multiple pair formats
-                            pairs_to_try = [
-                                f"{asset}/USD",
-                                f"{asset}/USDT",
-                                f"{asset}/BTC",
-                                f"{asset}/ETH",
-                            ]
+                # Aggregate balances from all wallets
+                for wallet in wallets:
+                    chain_id = wallet.chain_id if hasattr(wallet, "chain_id") else 1
+                    wallet_address = (
+                        wallet.wallet_address
+                        if hasattr(wallet, "wallet_address")
+                        else wallet.address
+                    )
 
-                            current_price = None
-                            for pair in pairs_to_try:
-                                try:
-                                    ticker = await exchange_instance.fetch_ticker(pair)
-                                    current_price = ticker.get("last")
-                                    if current_price:
-                                        # If pair is not USD, convert to USD via USDT
-                                        if not pair.endswith(
-                                            "/USD"
-                                        ) and not pair.endswith("/USDT"):
-                                            # For BTC/ETH pairs, need to get USD price
-                                            usdt_pair = f"{pair.split('/')[1]}/USDT"
-                                            try:
-                                                usdt_ticker = await exchange_instance.fetch_ticker(
-                                                    usdt_pair
-                                                )
-                                                usdt_price = usdt_ticker.get(
-                                                    "last", 1.0
-                                                )
-                                                current_price = (
-                                                    current_price * usdt_price
-                                                )
-                                            except:
-                                                pass
-                                        break
-                                except:
-                                    continue
+                    try:
+                        # Get native token balance (ETH, MATIC, etc.)
+                        native_balance = await balance_service.get_eth_balance(
+                            chain_id=chain_id, address=wallet_address, use_cache=True
+                        )
 
-                            if current_price is None:
-                                current_price = 0.0
+                        if native_balance and native_balance > 0:
+                            # Get native token symbol based on chain
+                            chain_symbols = {
+                                1: "ETH",  # Ethereum
+                                8453: "ETH",  # Base
+                                42161: "ETH",  # Arbitrum
+                                137: "MATIC",  # Polygon
+                                43114: "AVAX",  # Avalanche
+                                56: "BNB",  # BNB Chain
+                            }
+                            asset_symbol = chain_symbols.get(chain_id, "ETH")
 
-                            total_value = amount * current_price
-                            total_balance += total_value
-
-                            # Calculate P&L from trade history using PnLService
-                            pnl_service = PnLService(db)
-                            pair_symbol = (
-                                f"{asset}/USD"  # Use USD as quote for P&L calculation
+                            # Get current price
+                            price_symbol = f"{asset_symbol}/USD"
+                            current_price = (
+                                await coingecko.get_price(price_symbol) or 0.0
                             )
+                            total_value = float(native_balance) * current_price
 
+                            # Aggregate positions by symbol (sum across chains)
+                            if asset_symbol in positions:
+                                positions[asset_symbol].amount += float(native_balance)
+                                positions[asset_symbol].totalValue += total_value
+                            else:
+                                # ✅ Use injected service
+                                pair_symbol = f"{asset_symbol}/USD"
+
+                                try:
+                                    position_pnl = (
+                                        await pnl_service.calculate_position_pnl(
+                                            user_id=user_id,
+                                            symbol=pair_symbol,
+                                            current_price=current_price,
+                                            mode="real",
+                                        )
+                                    )
+                                    average_price = position_pnl.get(
+                                        "average_price", current_price
+                                    )
+                                    profit_loss = position_pnl.get("pnl", 0.0)
+                                    profit_loss_percent = position_pnl.get(
+                                        "pnl_percent", 0.0
+                                    )
+                                except Exception as e:
+                                    logger.warning(
+                                        f"Failed to calculate P&L for {asset_symbol}: {e}"
+                                    )
+                                    average_price = current_price
+                                    profit_loss = 0.0
+                                    profit_loss_percent = 0.0
+
+                                positions[asset_symbol] = Position(
+                                    asset=asset_symbol,
+                                    amount=float(native_balance),
+                                    averagePrice=average_price,
+                                    currentPrice=current_price,
+                                    totalValue=total_value,
+                                    profitLoss=profit_loss,
+                                    profitLossPercent=profit_loss_percent,
+                                )
+
+                            total_balance += total_value
+                            if asset_symbol in ["USDC", "USDT", "DAI"]:
+                                available_balance += float(native_balance)
+
+                        # Get ERC-20 token balances (USDC, USDT, etc.)
+                        # Common token addresses per chain
+                        common_tokens = {
+                            1: {  # Ethereum
+                                "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0c3606eB48",
+                                "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+                                "DAI": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+                                "WBTC": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+                            },
+                            8453: {  # Base
+                                "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+                            },
+                            42161: {  # Arbitrum
+                                "USDC": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+                            },
+                        }
+
+                        chain_tokens = common_tokens.get(chain_id, {})
+                        for token_symbol, token_address in chain_tokens.items():
                             try:
-                                position_pnl = await pnl_service.calculate_position_pnl(
-                                    user_id=user_id,
-                                    symbol=pair_symbol,
-                                    current_price=current_price,
-                                    mode="real",
+                                token_balance = await balance_service.get_token_balance(
+                                    chain_id=chain_id,
+                                    address=wallet_address,
+                                    token_address=token_address,
                                 )
 
-                                average_price = position_pnl.get(
-                                    "average_price", current_price
-                                )
-                                profit_loss = position_pnl.get("pnl", 0.0)
-                                profit_loss_percent = position_pnl.get(
-                                    "pnl_percent", 0.0
-                                )
+                                if token_balance and token_balance > 0:
+                                    # Get current price
+                                    if token_symbol in ["USDC", "USDT", "DAI"]:
+                                        current_price = 1.0  # Stablecoins
+                                        total_value = float(token_balance)
+                                        available_balance += float(token_balance)
+                                    else:
+                                        price_symbol = f"{token_symbol}/USD"
+                                        current_price = (
+                                            await coingecko.get_price(price_symbol)
+                                            or 0.0
+                                        )
+                                        total_value = (
+                                            float(token_balance) * current_price
+                                        )
+
+                                    # Aggregate positions
+                                    if token_symbol in positions:
+                                        positions[token_symbol].amount += float(
+                                            token_balance
+                                        )
+                                        positions[
+                                            token_symbol
+                                        ].totalValue += total_value
+                                    else:
+                                        # ✅ Use injected service
+                                        pair_symbol = f"{token_symbol}/USD"
+
+                                        try:
+                                            position_pnl = await pnl_service.calculate_position_pnl(
+                                                user_id=user_id,
+                                                symbol=pair_symbol,
+                                                current_price=current_price,
+                                                mode="real",
+                                            )
+                                            average_price = position_pnl.get(
+                                                "average_price", current_price
+                                            )
+                                            profit_loss = position_pnl.get("pnl", 0.0)
+                                            profit_loss_percent = position_pnl.get(
+                                                "pnl_percent", 0.0
+                                            )
+                                        except Exception as e:
+                                            logger.warning(
+                                                f"Failed to calculate P&L for {token_symbol}: {e}"
+                                            )
+                                            average_price = current_price
+                                            profit_loss = 0.0
+                                            profit_loss_percent = 0.0
+
+                                        positions[token_symbol] = Position(
+                                            asset=token_symbol,
+                                            amount=float(token_balance),
+                                            averagePrice=average_price,
+                                            currentPrice=current_price,
+                                            totalValue=total_value,
+                                            profitLoss=profit_loss,
+                                            profitLossPercent=profit_loss_percent,
+                                        )
+
+                                    total_balance += total_value
                             except Exception as e:
                                 logger.warning(
-                                    f"Failed to calculate P&L for {asset}: {e}"
+                                    f"Failed to get {token_symbol} balance on chain {chain_id}: {e}"
                                 )
-                                # Fallback to current price if P&L calculation fails
-                                average_price = current_price
-                                profit_loss = 0.0
-                                profit_loss_percent = 0.0
+                                continue
 
-                            positions[asset] = Position(
-                                asset=asset,
-                                amount=amount,
-                                averagePrice=average_price,
-                                currentPrice=current_price,
-                                totalValue=total_value,
-                                profitLoss=profit_loss,
-                                profitLossPercent=profit_loss_percent,
-                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to get balances for wallet {wallet_address} on chain {chain_id}: {e}"
+                        )
+                        continue
 
                 # Get analytics data for performance metrics
                 try:
@@ -232,8 +299,7 @@ async def get_portfolio(
                         average_win
                     ) = average_loss = 0
 
-                # Calculate P&L from trade history using PnLService
-                pnl_service = PnLService(db)
+                # ✅ Use injected service - Calculate P&L from trade history using PnLService
                 try:
                     profit_loss_24h = await pnl_service.calculate_24h_pnl(
                         str(user_id), "real"
@@ -262,29 +328,31 @@ async def get_portfolio(
 
             except Exception as e:
                 logger.error(f"Failed to get live portfolio: {e}")
-                # Fall back to mock data
+                # Return empty portfolio instead of mock data
+                try:
+                    # Try to get at least P&L data
+                    profit_loss_24h = await pnl_service.calculate_24h_pnl(
+                        str(user_id), "real"
+                    )
+                    profit_loss_total = await pnl_service.calculate_total_pnl(
+                        str(user_id), "real"
+                    )
+                except Exception:
+                    profit_loss_24h = 0.0
+                    profit_loss_total = 0.0
+
                 return Portfolio(
-                    totalBalance=50000.0,
-                    availableBalance=48000.0,
-                    positions={
-                        "BTC": Position(
-                            asset="BTC",
-                            amount=0.5,
-                            averagePrice=49000.0,
-                            currentPrice=50000.0,
-                            totalValue=25000.0,
-                            profitLoss=500.0,
-                            profitLossPercent=2.0,
-                        )
-                    },
-                    profitLoss24h=320.75,
-                    profitLossTotal=1820.0,
-                    successfulTrades=23,
-                    failedTrades=8,
-                    totalTrades=31,
-                    winRate=0.742,
-                    averageWin=145.25,
-                    averageLoss=-125.50,
+                    totalBalance=0.0,
+                    availableBalance=0.0,
+                    positions={},
+                    profitLoss24h=profit_loss_24h,
+                    profitLossTotal=profit_loss_total,
+                    successfulTrades=0,
+                    failedTrades=0,
+                    totalTrades=0,
+                    winRate=0.0,
+                    averageWin=0.0,
+                    averageLoss=0.0,
                 )
 
         else:  # paper mode
@@ -297,14 +365,15 @@ async def get_portfolio(
                 paper_service = PaperTradingService()
                 paper_portfolio = await paper_service.get_paper_portfolio(str(user_id))
 
-                # Calculate P&L from trade history
-                pnl_service = PnLService(db)
+                # ✅ Use injected service - Calculate P&L from trade history
                 try:
-                    profit_loss_24h = await pnl_service.calculate_24h_pnl(str(user_id), "paper")
+                    profit_loss_24h = await pnl_service.calculate_24h_pnl(
+                        str(user_id), "paper"
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to calculate 24h P&L: {e}")
                     profit_loss_24h = 0.0
-                
+
                 try:
                     profit_loss_total = await pnl_service.calculate_total_pnl(
                         str(user_id), "paper"
@@ -325,10 +394,12 @@ async def get_portfolio(
 
                     # Get current price
                     try:
-                        ticker = await default_exchange.get_market_price(
-                            f"{symbol}/USD"
-                        )
-                        current_price = ticker if ticker else 0.0
+                        # Get price from CoinGecko instead of exchange
+                        coingecko = CoinGeckoService()
+                        ticker = await coingecko.get_price(
+                            symbol
+                        )  # CoinGecko handles symbol conversion
+                        current_price = float(ticker) if ticker else 0.0
                     except:
                         current_price = 0.0
 
@@ -393,8 +464,7 @@ async def get_portfolio(
 
             except Exception as e:
                 logger.error(f"Failed to get paper portfolio: {e}")
-                # Fallback to minimal portfolio if paper trading service fails
-                pnl_service = PnLService(db)
+                # ✅ Use injected service - Fallback to minimal portfolio if paper trading service fails
                 try:
                     profit_loss_24h = await pnl_service.calculate_24h_pnl(
                         str(user_id), "paper"
@@ -426,7 +496,10 @@ async def get_portfolio(
         logger.error(f"Error getting portfolio for mode {mode}: {e}", exc_info=True)
         # Return minimal portfolio instead of 500 error for better UX during development
         logger.warning(f"Returning minimal portfolio due to error: {e}")
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub") or 1
+        try:
+            user_id = _get_user_id(current_user)
+        except HTTPException:
+            user_id = "unknown"  # Fallback for error case
         return Portfolio(
             totalBalance=100000.0,
             availableBalance=95000.0,

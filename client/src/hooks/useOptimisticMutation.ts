@@ -8,10 +8,10 @@ import { useCallback } from 'react';
 
 interface OptimisticMutationOptions<TData, TVariables, TError> {
   mutationFn: (variables: TVariables) => Promise<TData>;
-  onMutate?: (variables: TVariables) => Promise<any> | any;
-  onError?: (error: TError, variables: TVariables, context: any) => void;
-  onSuccess?: (data: TData, variables: TVariables, context: any) => void;
-  onSettled?: (data: TData | undefined, error: TError | null, variables: TVariables, context: any) => void;
+  onMutate?: (variables: TVariables) => Promise<unknown> | unknown;
+  onError?: (error: TError, variables: TVariables, context: unknown) => void;
+  onSuccess?: (data: TData, variables: TVariables, context: unknown) => void;
+  onSettled?: (data: TData | undefined, error: TError | null, variables: TVariables, context: unknown) => void;
   invalidateQueries?: string[][];
 }
 
@@ -56,10 +56,13 @@ export function useOptimisticMutation<TData, TVariables, TError = Error>(
     },
     onError: (error, variables, context) => {
       // Rollback on error
-      if (context?.previousValues) {
-        invalidateQueries.forEach((queryKey, index) => {
-          queryClient.setQueryData(queryKey, context.previousValues[index]);
-        });
+      if (context && typeof context === 'object' && 'previousValues' in context) {
+        const previousValues = (context as { previousValues: unknown[] }).previousValues;
+        if (Array.isArray(previousValues)) {
+          invalidateQueries.forEach((queryKey, index) => {
+            queryClient.setQueryData(queryKey, previousValues[index]);
+          });
+        }
       }
 
       if (onError) {

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cryptoorchestrator-config
+  namespace: cryptoorchestrator
+data:
+  NODE_ENV: "production"
+  PORT: "8000"
+  ENVIRONMENT: "production"
+  FRONTEND_URL: "https://app.cryptoorchestrator.com"
+  API_DOMAIN: "api.cryptoorchestrator.com"
+  FRONTEND_DOMAIN: "app.cryptoorchestrator.com"
+  # Database URL will be set via secret
+  # Redis URL will be set via secret
+  # JWT secrets will be set via secret

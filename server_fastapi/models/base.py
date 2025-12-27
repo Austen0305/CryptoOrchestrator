@@ -14,8 +14,8 @@ class Base(DeclarativeBase):
     pass
 
 
-if TYPE_CHECKING:
-    from .exchange_api_key import ExchangeAPIKey
+# ExchangeAPIKey - REMOVED (platform uses blockchain/DEX trading exclusively)
+# Model file deleted - platform uses blockchain/DEX trading exclusively
 
 
 class TimestampMixin:

@@ -92,7 +92,7 @@ export function StrategyList({ onEdit }: StrategyListProps) {
 
   if (!strategies || strategies.length === 0) {
     return (
-      <EmptyStrategiesState onCreate={() => onEdit?.(null)} />
+      <EmptyStrategiesState onCreateStrategy={() => onEdit?.(null)} />
     );
   }
 
@@ -143,7 +143,7 @@ export function StrategyList({ onEdit }: StrategyListProps) {
                       <div className="text-sm">
                         Win Rate: {formatPercentage(strategy.backtest_win_rate)}
                       </div>
-                      {strategy.backtest_sharpe_ratio !== null && (
+                      {strategy.backtest_sharpe_ratio !== null && strategy.backtest_sharpe_ratio !== undefined && (
                         <div className="text-sm text-muted-foreground">
                           Sharpe: {strategy.backtest_sharpe_ratio.toFixed(2)}
                         </div>

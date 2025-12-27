@@ -6,13 +6,14 @@ Implements infinity grid bot functionality - dynamic grid that follows price mov
 import logging
 import uuid
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.infinity_grid import InfinityGrid
 from ...repositories.infinity_grid_repository import InfinityGridRepository
-from ...services.exchange_service import ExchangeService
+from ...services.coingecko_service import CoinGeckoService
+from ...services.trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...database import get_db_context
 from contextlib import asynccontextmanager
@@ -30,6 +31,8 @@ class InfinityGridService:
         self.repository = InfinityGridRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
+        self.coingecko = CoinGeckoService()
+        self.dex_service = DEXTradingService()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -67,8 +70,7 @@ class InfinityGridService:
 
             async with self._get_session() as session:
                 # Get current market price to set initial bounds
-                exchange_service = ExchangeService(exchange)
-                current_price = await exchange_service.get_market_price(symbol)
+                current_price = await self.coingecko.get_price(symbol)
 
                 if not current_price:
                     raise ValueError(f"Could not get market price for {symbol}")
@@ -80,13 +82,22 @@ class InfinityGridService:
                 initial_upper = current_price + (price_range / 2)
                 initial_lower = current_price - (price_range / 2)
 
-                # Create infinity grid bot
+                # Extract chain_id from config or use default
+                chain_id = 1  # Default to Ethereum
+                if config and isinstance(config, dict):
+                    chain_id = config.get("chain_id", 1)
+                elif isinstance(exchange, str) and exchange.isdigit():
+                    chain_id = int(exchange)
+
+                # Create infinity grid bot (using exchange field for chain_id temporarily)
                 infinity_grid = InfinityGrid(
                     id=bot_id,
                     user_id=user_id,
                     name=name,
                     symbol=symbol,
-                    exchange=exchange,
+                    exchange=str(
+                        chain_id
+                    ),  # Store chain_id as string in exchange field (temporary)
                     trading_mode=trading_mode,
                     grid_count=grid_count,
                     grid_spacing_percent=grid_spacing_percent,
@@ -105,7 +116,7 @@ class InfinityGridService:
                             "current_price": current_price,
                         }
                     ),
-                    config=json.dumps(config or {}),
+                    config=json.dumps((config or {}) | {"chain_id": chain_id}),
                 )
 
                 session.add(infinity_grid)
@@ -183,9 +194,8 @@ class InfinityGridService:
                 if not bot or not bot.active:
                     return {"action": "skipped", "reason": "bot_inactive"}
 
-                # Get current market price
-                exchange_service = ExchangeService(bot.exchange)
-                current_price = await exchange_service.get_market_price(bot.symbol)
+                # Get current market price from CoinGecko
+                current_price = await self.coingecko.get_price(bot.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}
@@ -281,10 +291,158 @@ class InfinityGridService:
         self, bot: InfinityGrid, session: AsyncSession
     ) -> List[Dict[str, Any]]:
         """Place initial grid orders."""
-        # Similar to grid trading service
         # Calculate grid prices within current bounds
-        # Place buy/sell orders
-        return []
+        price_range = bot.current_upper_price - bot.current_lower_price
+        interval = price_range / (bot.grid_count - 1)
+        grid_prices = [
+            bot.current_lower_price + (i * interval) for i in range(bot.grid_count)
+        ]
+
+        current_price = bot.initial_price
+        orders = []
+        grid_state = (
+            json.loads(bot.grid_state)
+            if bot.grid_state
+            else {"orders": [], "filled_orders": []}
+        )
+
+        # Place buy orders below current price
+        buy_prices = [p for p in grid_prices if p < current_price]
+        for price in buy_prices:
+            order = await self._place_grid_order(
+                bot, "buy", price, bot.order_amount, session
+            )
+            if order:
+                orders.append(order)
+                grid_state["orders"].append(
+                    {
+                        "order_id": order.get("id"),
+                        "side": "buy",
+                        "price": price,
+                        "amount": bot.order_amount,
+                        "status": "open",
+                    }
+                )
+
+        # Place sell orders above current price
+        sell_prices = [p for p in grid_prices if p > current_price]
+        for price in sell_prices:
+            order = await self._place_grid_order(
+                bot, "sell", price, bot.order_amount, session
+            )
+            if order:
+                orders.append(order)
+                grid_state["orders"].append(
+                    {
+                        "order_id": order.get("id"),
+                        "side": "sell",
+                        "price": price,
+                        "amount": bot.order_amount,
+                        "status": "open",
+                    }
+                )
+
+        # Update grid state
+        await self.repository.update_grid_state(
+            session, bot.id, bot.user_id, grid_state
+        )
+
+        return orders
+
+    async def _place_grid_order(
+        self,
+        bot: InfinityGrid,
+        side: str,
+        price: float,
+        amount: float,
+        session: AsyncSession,
+    ) -> Optional[Dict[str, Any]]:
+        """Place a single grid order."""
+        try:
+            if bot.trading_mode == "paper":
+                # Paper trading - simulate order
+                return {
+                    "id": f"paper-{uuid.uuid4().hex[:12]}",
+                    "side": side,
+                    "price": price,
+                    "amount": amount,
+                    "status": "open",
+                    "symbol": bot.symbol,
+                }
+            else:
+                # Real trading - execute DEX swap
+                chain_id = 1  # Default to Ethereum
+                if bot.config:
+                    config = (
+                        json.loads(bot.config)
+                        if isinstance(bot.config, str)
+                        else bot.config
+                    )
+                    chain_id = config.get(
+                        "chain_id", int(bot.exchange) if bot.exchange.isdigit() else 1
+                    )
+                elif bot.exchange and bot.exchange.isdigit():
+                    chain_id = int(bot.exchange)
+
+                # Convert symbol to token addresses using token registry
+                base_address, quote_address = await self._parse_symbol_to_tokens(
+                    bot.symbol, chain_id
+                )
+
+                # Calculate sell amount based on side and price
+                if side == "buy":
+                    # Buying: sell quote token to get base token
+                    sell_token = quote_address
+                    buy_token = base_address
+                    sell_amount = str(amount * price)
+                else:
+                    # Selling: sell base token to get quote token
+                    sell_token = base_address
+                    buy_token = quote_address
+                    sell_amount = str(amount)
+
+                # Execute DEX swap
+                swap_result = await self.dex_service.execute_custodial_swap(
+                    user_id=bot.user_id,
+                    sell_token=sell_token,
+                    buy_token=buy_token,
+                    sell_amount=sell_amount,
+                    chain_id=chain_id,
+                    slippage_percentage=0.5,
+                    db=session,
+                    user_tier="free",
+                )
+
+                if swap_result and swap_result.get("success"):
+                    return {
+                        "id": swap_result.get("transaction_hash"),
+                        "side": side,
+                        "price": price,
+                        "amount": amount,
+                        "status": "open",
+                        "symbol": bot.symbol,
+                        "transaction_hash": swap_result.get("transaction_hash"),
+                    }
+                else:
+                    logger.error(
+                        f"DEX swap failed for infinity grid order: {swap_result}"
+                    )
+                    return None
+        except Exception as e:
+            logger.error(f"Error placing infinity grid order: {str(e)}", exc_info=True)
+            return None
+
+    async def _parse_symbol_to_tokens(
+        self, symbol: str, chain_id: int = 1
+    ) -> Tuple[str, str]:
+        """Parse trading symbol to token addresses using token registry."""
+        from ..blockchain.token_registry import get_token_registry
+
+        token_registry = get_token_registry()
+        base_address, quote_address = await token_registry.parse_symbol_to_tokens(
+            symbol, chain_id
+        )
+        return base_address, quote_address
 
     async def _check_filled_orders(
         self,
@@ -346,14 +504,15 @@ class InfinityGridService:
 
     async def list_user_infinity_grids(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """List all infinity grids for a user."""
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all infinity grids for a user with total count."""
         try:
             async with self._get_session() as session:
                 bots = await self.repository.get_user_infinity_grids(
                     session, user_id, skip, limit
                 )
-                return [bot.to_dict() for bot in bots]
+                total = await self.repository.count_user_infinity_grids(session, user_id)
+                return [bot.to_dict() for bot in bots], total
         except Exception as e:
             logger.error(f"Error listing infinity grids: {str(e)}", exc_info=True)
-            return []
+            return [], 0

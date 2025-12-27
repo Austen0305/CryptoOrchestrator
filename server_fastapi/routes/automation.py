@@ -3,7 +3,7 @@ Automation Routes - Auto-hedging, strategy switching, smart alerts, portfolio op
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Annotated
 import logging
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -33,6 +33,7 @@ from ..services.automation.portfolio_optimizer import (
     OptimizationRecommendation,
 )
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class HedgingConfigRequest(BaseModel):
 async def start_hedging(
     portfolio_id: str,
     config: HedgingConfigRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Start automatic hedging for a portfolio"""
     try:
@@ -78,7 +79,8 @@ async def start_hedging(
 
 @router.post("/hedging/stop", response_model=Dict)
 async def stop_hedging(
-    portfolio_id: str, current_user: dict = Depends(get_current_user)
+    portfolio_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Stop automatic hedging for a portfolio"""
     try:
@@ -95,12 +97,25 @@ async def stop_hedging(
 
 @router.get("/hedging/positions", response_model=Dict)
 async def get_hedge_positions(
-    portfolio_id: Optional[str] = None, current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    portfolio_id: Optional[str] = None,
 ):
-    """Get active hedge positions"""
+    """Get active hedge positions with pagination"""
     try:
         positions = auto_hedging_service.get_active_hedges(portfolio_id)
-        return {"positions": [pos.dict() for pos in positions], "count": len(positions)}
+
+        # Apply pagination
+        total = len(positions)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_positions = positions[start_idx:end_idx]
+
+        return {
+            "positions": [pos.dict() for pos in paginated_positions],
+            "count": total,
+        }
     except Exception as e:
         logger.error(f"Error getting hedge positions: {e}")
         raise HTTPException(
@@ -126,7 +141,7 @@ class StrategySwitchConfigRequest(BaseModel):
 async def start_strategy_switching(
     bot_id: str,
     config: StrategySwitchConfigRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Start strategy switching monitoring for a bot"""
     try:
@@ -153,7 +168,8 @@ async def start_strategy_switching(
 
 @router.post("/strategy-switching/stop", response_model=Dict)
 async def stop_strategy_switching(
-    bot_id: str, current_user: dict = Depends(get_current_user)
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Stop strategy switching monitoring for a bot"""
     try:
@@ -176,14 +192,27 @@ async def stop_strategy_switching(
 
 @router.get("/strategy-switching/history", response_model=Dict)
 async def get_switch_history(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     bot_id: Optional[str] = Query(None),
-    limit: int = Query(50, ge=1, le=500),
-    current_user: dict = Depends(get_current_user),
 ):
-    """Get strategy switch history"""
+    """Get strategy switch history with pagination"""
     try:
+        # Convert page/page_size to limit for service (fetch enough for current page)
+        limit = page * page_size
         history = strategy_switching_service.get_switch_history(bot_id, limit)
-        return {"history": [switch.dict() for switch in history], "count": len(history)}
+
+        # Apply pagination
+        total = len(history)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_history = history[start_idx:end_idx]
+
+        return {
+            "history": [switch.dict() for switch in paginated_history],
+            "count": total,
+        }
     except Exception as e:
         logger.error(f"Error getting switch history: {e}")
         raise HTTPException(
@@ -209,7 +238,8 @@ class AlertRuleRequest(BaseModel):
 
 @router.post("/alerts/rules", response_model=Dict)
 async def create_alert_rule(
-    rule: AlertRuleRequest, current_user: dict = Depends(get_current_user)
+    rule: AlertRuleRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Create a new alert rule"""
     try:
@@ -233,7 +263,7 @@ async def create_alert_rule(
 async def update_alert_rule(
     rule_id: str,
     updates: Dict[str, Any],
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Update an alert rule"""
     try:
@@ -254,7 +284,8 @@ async def update_alert_rule(
 
 @router.delete("/alerts/rules/{rule_id}", response_model=Dict)
 async def delete_alert_rule(
-    rule_id: str, current_user: dict = Depends(get_current_user)
+    rule_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Delete an alert rule"""
     try:
@@ -274,14 +305,24 @@ async def delete_alert_rule(
 
 
 @router.get("/alerts/active", response_model=Dict)
+@cached(ttl=60, prefix="automation_alerts")  # 60s TTL for automation alerts
 async def get_active_alerts(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     priority: Optional[AlertPriority] = Query(None),
-    current_user: dict = Depends(get_current_user),
 ):
-    """Get active alerts"""
+    """Get active alerts with pagination"""
     try:
         alerts = smart_alerts_service.get_active_alerts(priority)
-        return {"alerts": [alert.dict() for alert in alerts], "count": len(alerts)}
+
+        # Apply pagination
+        total = len(alerts)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_alerts = alerts[start_idx:end_idx]
+
+        return {"alerts": [alert.dict() for alert in paginated_alerts], "count": total}
     except Exception as e:
         logger.error(f"Error getting active alerts: {e}")
         raise HTTPException(
@@ -291,7 +332,8 @@ async def get_active_alerts(
 
 @router.post("/alerts/{alert_id}/acknowledge", response_model=Dict)
 async def acknowledge_alert(
-    alert_id: str, current_user: dict = Depends(get_current_user)
+    alert_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Acknowledge an alert"""
     try:
@@ -311,15 +353,31 @@ async def acknowledge_alert(
 
 
 @router.get("/alerts/history", response_model=Dict)
+@cached(
+    ttl=120, prefix="automation_alert_history"
+)  # 120s TTL for automation alert history
 async def get_alert_history(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     rule_id: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=1000),
-    current_user: dict = Depends(get_current_user),
 ):
-    """Get alert history"""
+    """Get alert history with pagination"""
     try:
+        # Convert page/page_size to limit for service (fetch enough for current page)
+        limit = page * page_size
         history = smart_alerts_service.get_alert_history(rule_id, limit)
-        return {"history": [alert.dict() for alert in history], "count": len(history)}
+
+        # Apply pagination
+        total = len(history)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_history = history[start_idx:end_idx]
+
+        return {
+            "history": [alert.dict() for alert in paginated_history],
+            "count": total,
+        }
     except Exception as e:
         logger.error(f"Error getting alert history: {e}")
         raise HTTPException(
@@ -341,7 +399,7 @@ class PortfolioOptimizationRequest(BaseModel):
 @router.post("/portfolio/optimize", response_model=Dict)
 async def optimize_portfolio(
     request: PortfolioOptimizationRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Analyze portfolio and generate optimization recommendations"""
     try:

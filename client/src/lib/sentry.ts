@@ -27,8 +27,10 @@ export function initSentry() {
 
   try {
     // Dynamically import Sentry (reduce bundle size when not used)
-    import('@sentry/react').then(async (Sentry) => {
-      const { browserTracingIntegration, replayIntegration } = await import('@sentry/react');
+    // @ts-ignore - Optional dependency, may not be installed
+    import('@sentry/react').then(async (Sentry: any) => {
+      // @ts-ignore - Optional dependency, may not be installed
+      const { browserTracingIntegration, replayIntegration } = await import('@sentry/react') as any;
       
       Sentry.init({
         dsn,
@@ -44,7 +46,7 @@ export function initSentry() {
         tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
         replaysSessionSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
         replaysOnErrorSampleRate: 1.0,
-        beforeSend(event, hint) {
+        beforeSend(event: any, hint: any) {
           // Don't send errors in development
           if (import.meta.env.DEV) {
             console.error('[Sentry] Error caught:', hint.originalException || hint.syntheticException);
@@ -73,7 +75,8 @@ export function reportError(error: Error, context?: Record<string, any>) {
     return;
   }
 
-  import('@sentry/react').then((Sentry) => {
+  // @ts-ignore - Optional dependency, may not be installed
+  import('@sentry/react').then((Sentry: any) => {
     Sentry.captureException(error, {
       extra: context,
     });

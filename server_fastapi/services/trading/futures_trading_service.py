@@ -1,18 +1,22 @@
 """
 Futures Trading Service
 Implements futures trading with leverage support.
+
+NOTE: Futures trading on DEX requires perpetual swap protocols (e.g., GMX, dYdX, Perpetual Protocol).
+This service currently supports paper trading and position tracking.
+Real futures trading may need to be disabled or integrated with DEX perpetual protocols.
 """
 
 import logging
 import uuid
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.futures_position import FuturesPosition
 from ...repositories.futures_position_repository import FuturesPositionRepository
-from ...services.exchange_service import ExchangeService
+from ...services.coingecko_service import CoinGeckoService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...database import get_db_context
 from contextlib import asynccontextmanager
@@ -30,6 +34,7 @@ class FuturesTradingService:
         self.repository = FuturesPositionRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
+        self.coingecko = CoinGeckoService()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -90,10 +95,16 @@ class FuturesTradingService:
             async with self._get_session() as session:
                 # Get current market price if entry price not provided
                 if not entry_price:
-                    exchange_service = ExchangeService(exchange)
-                    entry_price = await exchange_service.get_market_price(symbol)
+                    entry_price = await self.coingecko.get_price(symbol)
                     if not entry_price:
                         raise ValueError(f"Could not get market price for {symbol}")
+
+                # Extract chain_id from config or use default
+                chain_id = 1  # Default to Ethereum
+                if config and isinstance(config, dict):
+                    chain_id = config.get("chain_id", 1)
+                elif isinstance(exchange, str) and exchange.isdigit():
+                    chain_id = int(exchange)
 
                 # Calculate margin requirements
                 position_value = quantity * entry_price
@@ -108,12 +119,23 @@ class FuturesTradingService:
                 )
 
                 # Create futures position
+                # NOTE: Real futures trading requires DEX perpetual protocols (GMX, dYdX, etc.)
+                # For now, only paper trading is fully supported
+                if trading_mode == "real":
+                    logger.warning(
+                        f"Real futures trading not yet supported for DEX. "
+                        f"Position {position_id} created but execution disabled. "
+                        f"Consider using DEX perpetual protocols (GMX, dYdX) for real futures."
+                    )
+
                 futures_position = FuturesPosition(
                     id=position_id,
                     user_id=user_id,
                     name=name or f"{side.upper()} {symbol} {leverage}x",
                     symbol=symbol,
-                    exchange=exchange,
+                    exchange=str(
+                        chain_id
+                    ),  # Store chain_id as string in exchange field (temporary)
                     trading_mode=trading_mode,
                     side=side,
                     leverage=leverage,
@@ -135,7 +157,7 @@ class FuturesTradingService:
                     pnl_percent=0.0,
                     liquidation_risk=0.0,
                     margin_ratio=1.0,
-                    config=json.dumps(config or {}),
+                    config=json.dumps((config or {}) | {"chain_id": chain_id}),
                 )
 
                 session.add(futures_position)
@@ -180,9 +202,8 @@ class FuturesTradingService:
                 if not position or not position.is_open:
                     return {"action": "skipped", "reason": "position_not_open"}
 
-                # Get current market price
-                exchange_service = ExchangeService(position.exchange)
-                current_price = await exchange_service.get_market_price(position.symbol)
+                # Get current market price from CoinGecko
+                current_price = await self.coingecko.get_price(position.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}
@@ -284,10 +305,7 @@ class FuturesTradingService:
 
                 # Get close price if not provided
                 if not close_price:
-                    exchange_service = ExchangeService(position.exchange)
-                    close_price = await exchange_service.get_market_price(
-                        position.symbol
-                    )
+                    close_price = await self.coingecko.get_price(position.symbol)
                     if not close_price:
                         return {
                             "action": "error",
@@ -420,19 +438,22 @@ class FuturesTradingService:
 
     async def list_user_futures_positions(
         self, user_id: int, skip: int = 0, limit: int = 100, open_only: bool = False
-    ) -> List[Dict[str, Any]]:
-        """List all futures positions for a user."""
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all futures positions for a user with total count."""
         try:
             async with self._get_session() as session:
                 if open_only:
                     positions = await self.repository.get_open_positions(
                         session, user_id
                     )
+                    # For open_only, return all positions with total = length
+                    return [position.to_dict() for position in positions], len(positions)
                 else:
                     positions = await self.repository.get_user_futures_positions(
                         session, user_id, skip, limit
                     )
-                return [position.to_dict() for position in positions]
+                    total = await self.repository.count_user_futures_positions(session, user_id)
+                    return [position.to_dict() for position in positions], total
         except Exception as e:
             logger.error(f"Error listing futures positions: {str(e)}", exc_info=True)
-            return []
+            return [], 0

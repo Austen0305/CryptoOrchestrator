@@ -4,13 +4,16 @@ Futures Trading API Routes
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from ..services.trading.futures_trading_service import FuturesTradingService
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -91,14 +94,15 @@ class FuturesPositionResponse(BaseModel):
 )
 async def create_futures_position(
     request: CreateFuturesPositionRequest,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Create a new futures position with leverage."""
     try:
+        user_id = _get_user_id(current_user)
         service = FuturesTradingService(session=db_session)
         position_id = await service.create_futures_position(
-            user_id=current_user["id"],
+            user_id=user_id,
             symbol=request.symbol,
             exchange=request.exchange,
             side=request.side,
@@ -136,20 +140,27 @@ async def create_futures_position(
     response_model=List[FuturesPositionResponse],
     tags=["Futures Trading"],
 )
+@cached(ttl=60, prefix="futures_positions")  # 60s TTL for futures positions list
 async def list_futures_positions(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     open_only: bool = Query(False, description="Only return open positions"),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
-    """List all futures positions for the current user."""
+    """List all futures positions for the current user with pagination."""
     try:
+        user_id = _get_user_id(current_user)
         service = FuturesTradingService(session=db_session)
-        positions = await service.list_user_futures_positions(
-            current_user["id"], skip, limit, open_only
+        # Convert page/page_size to skip/limit for service layer (backward compatibility)
+        skip = (page - 1) * page_size
+        limit = page_size
+        positions, total = await service.list_user_futures_positions(
+            user_id, skip, limit, open_only
         )
-        return positions
+        # Use ResponseOptimizer for paginated response with metadata
+        # Note: When open_only=True, total will be the length of open positions
+        return ResponseOptimizer.paginate_response(positions, page, page_size, total)
     except Exception as e:
         logger.error(f"Error listing futures positions: {e}", exc_info=True)
         raise HTTPException(
@@ -165,13 +176,14 @@ async def list_futures_positions(
 )
 async def get_futures_position(
     position_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Get a specific futures position by ID."""
     try:
+        user_id = _get_user_id(current_user)
         service = FuturesTradingService(session=db_session)
-        position = await service.get_futures_position(position_id, current_user["id"])
+        position = await service.get_futures_position(position_id, user_id)
         if not position:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -195,16 +207,15 @@ async def get_futures_position(
 )
 async def close_futures_position(
     position_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     close_price: Optional[float] = Query(None, gt=0),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Close a futures position."""
     try:
+        user_id = _get_user_id(current_user)
         service = FuturesTradingService(session=db_session)
-        result = await service.close_futures_position(
-            position_id, current_user["id"], close_price
-        )
+        result = await service.close_futures_position(position_id, user_id, close_price)
 
         if result.get("action") == "error":
             raise HTTPException(
@@ -230,13 +241,14 @@ async def close_futures_position(
 )
 async def update_position_pnl(
     position_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Update P&L for a futures position."""
     try:
+        user_id = _get_user_id(current_user)
         service = FuturesTradingService(session=db_session)
-        result = await service.update_position_pnl(position_id, current_user["id"])
+        result = await service.update_position_pnl(position_id, user_id)
         return result
     except Exception as e:
         logger.error(f"Error updating position P&L: {e}", exc_info=True)

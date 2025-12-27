@@ -1,568 +1,802 @@
 """
-API Marketplace - Trading Signal Publishing and Monetization Platform
+Marketplace Routes
+API endpoints for copy trading marketplace functionality.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from pydantic import BaseModel, Field, EmailStr
-from typing import List, Dict, Optional, Literal
-from datetime import datetime, timedelta
-from enum import Enum
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from typing import List, Optional, Annotated
 import logging
-import secrets
-import hashlib
+from datetime import datetime, timedelta
+
+from ..services.marketplace_service import MarketplaceService
+from ..services.marketplace_verification_service import MarketplaceVerificationService
+from ..dependencies.copy_trading import get_copy_trading_service
+from ..services.copy_trading_service import CopyTradingService
+from ..dependencies.auth import get_current_user, require_admin
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..database import get_db_session
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/marketplace", tags=["API Marketplace"])
+router = APIRouter()
 
 
-class SubscriptionTier(str, Enum):
-    """Subscription tiers with rate limits"""
-
-    FREE = "free"
-    BASIC = "basic"
-    PRO = "pro"
-    ENTERPRISE = "enterprise"
+class ApplySignalProviderRequest(BaseModel):
+    profile_description: Optional[str] = None
 
 
-class SignalType(str, Enum):
-    """Types of trading signals"""
-
-    BUY = "buy"
-    SELL = "sell"
-    STOP_LOSS = "stop_loss"
-    TAKE_PROFIT = "take_profit"
-    ALERT = "alert"
+class RateSignalProviderRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5")
+    comment: Optional[str] = None
 
 
-class SignalProvider(BaseModel):
-    """Signal provider profile"""
-
-    provider_id: str
-    name: str
-    description: str
-    verified: bool = False
-    total_signals: int = 0
-    accuracy_rate: float = Field(0.0, ge=0, le=100)
-    avg_return_pct: float = 0.0
-    subscribers: int = 0
-    rating: float = Field(0.0, ge=0, le=5)
-    reviews: int = 0
-    created_at: str
-    subscription_price_monthly: float = Field(
-        0.0, description="Monthly subscription price in USD"
-    )
+class UpdateSignalProviderRequest(BaseModel):
+    profile_description: Optional[str] = None
+    trading_strategy: Optional[str] = None
+    risk_level: Optional[str] = None
+    subscription_fee: Optional[float] = None
+    performance_fee_percentage: Optional[float] = Field(None, ge=0, le=100)
+    minimum_subscription_amount: Optional[float] = None
 
 
-class TradingSignal(BaseModel):
-    """Published trading signal"""
+@router.post("/apply")
+async def apply_as_signal_provider(
+    request: ApplySignalProviderRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Apply to become a signal provider (requires curator approval)"""
+    try:
+        user_id = _get_user_id(current_user)
+        service = MarketplaceService(db)
 
-    signal_id: str
-    provider_id: str
-    provider_name: str
-    symbol: str
-    signal_type: SignalType
-    entry_price: Optional[float] = None
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    confidence: float = Field(..., ge=0, le=100)
-    timeframe: str
-    analysis: str
-    timestamp: str
-    expires_at: Optional[str] = None
-
-
-class APIKey(BaseModel):
-    """API key for marketplace access"""
-
-    key_id: str
-    user_id: str
-    api_key: str
-    tier: SubscriptionTier
-    rate_limit_per_hour: int
-    requests_used: int = 0
-    created_at: str
-    last_used_at: Optional[str] = None
-    active: bool = True
-
-
-class SignalPerformance(BaseModel):
-    """Signal historical performance"""
-
-    signal_id: str
-    outcome: Literal["win", "loss", "pending", "cancelled"]
-    entry_price: float
-    exit_price: Optional[float] = None
-    return_pct: Optional[float] = None
-    duration_hours: Optional[float] = None
-    closed_at: Optional[str] = None
-
-
-class MarketplaceStats(BaseModel):
-    """Marketplace statistics"""
-
-    total_providers: int
-    total_signals_24h: int
-    top_providers: List[Dict]
-    trending_symbols: List[str]
-    avg_signal_accuracy: float
-
-
-# Tier configurations
-TIER_LIMITS = {
-    SubscriptionTier.FREE: {"requests_per_hour": 10, "signals_per_day": 5},
-    SubscriptionTier.BASIC: {"requests_per_hour": 100, "signals_per_day": 50},
-    SubscriptionTier.PRO: {"requests_per_hour": 1000, "signals_per_day": 500},
-    SubscriptionTier.ENTERPRISE: {"requests_per_hour": 10000, "signals_per_day": -1},
-}
-
-# In-memory storage (use database in production)
-providers: Dict[str, SignalProvider] = {}
-signals: Dict[str, TradingSignal] = {}
-api_keys: Dict[str, APIKey] = {}
-signal_performance: Dict[str, List[SignalPerformance]] = {}
-subscriptions: Dict[str, List[str]] = {}  # user_id -> [provider_ids]
-
-
-class MarketplaceService:
-    """Marketplace business logic"""
-
-    @staticmethod
-    def generate_api_key() -> str:
-        """Generate secure API key"""
-        key = secrets.token_urlsafe(32)
-        return f"mk_{key}"
-
-    @staticmethod
-    def hash_api_key(api_key: str) -> str:
-        """Hash API key for storage"""
-        return hashlib.sha256(api_key.encode()).hexdigest()
-
-    @staticmethod
-    async def verify_api_key(api_key: str) -> Optional[APIKey]:
-        """Verify and return API key details"""
-        for key_obj in api_keys.values():
-            if key_obj.api_key == api_key:
-                # Update last used
-                key_obj.last_used_at = datetime.now().isoformat()
-                return key_obj
-        return None
-
-    @staticmethod
-    async def check_rate_limit(key_obj: APIKey) -> bool:
-        """Check if API key is within rate limits"""
-        tier_limit = TIER_LIMITS[key_obj.tier]["requests_per_hour"]
-
-        # Reset counter if hour has passed
-        if key_obj.last_used_at:
-            last_used = datetime.fromisoformat(key_obj.last_used_at)
-            if datetime.now() - last_used > timedelta(hours=1):
-                key_obj.requests_used = 0
-
-        if key_obj.requests_used >= tier_limit:
-            return False
-
-        key_obj.requests_used += 1
-        return True
-
-    @staticmethod
-    async def calculate_provider_accuracy(provider_id: str) -> float:
-        """Calculate provider accuracy based on closed signals"""
-        if provider_id not in signal_performance:
-            return 0.0
-
-        performances = signal_performance[provider_id]
-        closed = [p for p in performances if p.outcome in ["win", "loss"]]
-
-        if not closed:
-            return 0.0
-
-        wins = sum(1 for p in closed if p.outcome == "win")
-        return (wins / len(closed)) * 100
-
-    @staticmethod
-    async def calculate_avg_return(provider_id: str) -> float:
-        """Calculate average return percentage"""
-        if provider_id not in signal_performance:
-            return 0.0
-
-        performances = signal_performance[provider_id]
-        returns = [p.return_pct for p in performances if p.return_pct is not None]
-
-        if not returns:
-            return 0.0
-
-        return sum(returns) / len(returns)
-
-
-marketplace_service = MarketplaceService()
-
-
-# Dependency for API key authentication
-async def verify_marketplace_api_key(api_key: str = None) -> APIKey:
-    """Dependency to verify API key"""
-    if not api_key:
-        raise HTTPException(status_code=401, detail="API key required")
-
-    key_obj = await marketplace_service.verify_api_key(api_key)
-
-    if not key_obj or not key_obj.active:
-        raise HTTPException(status_code=401, detail="Invalid or inactive API key")
-
-    if not await marketplace_service.check_rate_limit(key_obj):
-        raise HTTPException(
-            status_code=429, detail=f"Rate limit exceeded for {key_obj.tier} tier"
+        result = await service.apply_as_signal_provider(
+            user_id=user_id, profile_description=request.profile_description
         )
 
-    return key_obj
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error applying as signal provider: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to apply as signal provider")
 
 
-@router.post("/keys/generate", response_model=APIKey)
-async def generate_api_key(
-    user_id: str, tier: SubscriptionTier = SubscriptionTier.FREE
+@router.get("/traders")
+@cached(ttl=300, prefix="marketplace_traders")  # 5 min cache
+async def get_marketplace_traders(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    skip: int = Query(0, ge=0, description="Pagination offset"),
+    limit: int = Query(20, ge=1, le=100, description="Items per page"),
+    sort_by: str = Query(
+        "total_return",
+        description="Sort field: total_return, sharpe_ratio, win_rate, follower_count, rating",
+    ),
+    min_rating: Optional[float] = Query(None, ge=0, le=5, description="Minimum average rating"),
+    min_win_rate: Optional[float] = Query(None, ge=0, le=1, description="Minimum win rate (0-1)"),
+    min_sharpe: Optional[float] = Query(None, description="Minimum Sharpe ratio"),
 ):
-    """
-    Generate new API key for marketplace access
+    """Get list of signal providers for marketplace"""
+    try:
+        service = MarketplaceService(db)
 
-    Tier determines rate limits and features available
-    """
-    api_key = marketplace_service.generate_api_key()
+        result = await service.get_marketplace_traders(
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            min_rating=min_rating,
+            min_win_rate=min_win_rate,
+            min_sharpe=min_sharpe,
+        )
 
-    key_obj = APIKey(
-        key_id=f"key_{user_id}_{int(datetime.now().timestamp())}",
-        user_id=user_id,
-        api_key=api_key,
-        tier=tier,
-        rate_limit_per_hour=TIER_LIMITS[tier]["requests_per_hour"],
-        created_at=datetime.now().isoformat(),
-    )
-
-    api_keys[key_obj.key_id] = key_obj
-
-    logger.info(f"Generated API key for user {user_id} with tier {tier}")
-
-    return key_obj
+        return result
+    except Exception as e:
+        logger.error(f"Error getting marketplace traders: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get marketplace traders")
 
 
-@router.get("/keys/{user_id}", response_model=List[APIKey])
-async def get_user_keys(user_id: str):
-    """Get all API keys for a user"""
-    user_keys = [key for key in api_keys.values() if key.user_id == user_id]
-    return user_keys
-
-
-@router.delete("/keys/{key_id}")
-async def revoke_api_key(key_id: str):
-    """Revoke an API key"""
-    if key_id not in api_keys:
-        raise HTTPException(status_code=404, detail="API key not found")
-
-    api_keys[key_id].active = False
-
-    return {"success": True, "message": "API key revoked"}
-
-
-@router.post("/providers/register", response_model=SignalProvider)
-async def register_provider(
-    user_id: str, name: str, description: str, subscription_price: float = 0.0
+@router.get("/traders/{trader_id}")
+@cached(ttl=120, prefix="marketplace_trader")
+async def get_trader_profile(
+    trader_id: int,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """
-    Register as a signal provider
+    """Get detailed profile of a signal provider"""
+    try:
+        from ..models.signal_provider import SignalProvider
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
 
-    Allows users to publish trading signals and monetize their strategies
-    """
-    provider_id = f"provider_{user_id}_{int(datetime.now().timestamp())}"
+        result = await db.execute(
+            select(SignalProvider)
+            .where(SignalProvider.id == trader_id)
+            .options(selectinload(SignalProvider.user))
+        )
+        signal_provider = result.scalar_one_or_none()
 
-    provider = SignalProvider(
-        provider_id=provider_id,
-        name=name,
-        description=description,
-        created_at=datetime.now().isoformat(),
-        subscription_price_monthly=subscription_price,
-    )
+        if not signal_provider:
+            raise HTTPException(status_code=404, detail="Signal provider not found")
 
-    providers[provider_id] = provider
-    signal_performance[provider_id] = []
+        user = signal_provider.user
 
-    logger.info(f"Registered new provider: {name} ({provider_id})")
+        return {
+            "id": signal_provider.id,
+            "user_id": signal_provider.user_id,
+            "username": user.username or user.email if user else None,
+            "profile_description": signal_provider.profile_description,
+            "trading_strategy": signal_provider.trading_strategy,
+            "risk_level": signal_provider.risk_level,
+            "total_return": signal_provider.total_return,
+            "sharpe_ratio": signal_provider.sharpe_ratio,
+            "win_rate": signal_provider.win_rate,
+            "total_trades": signal_provider.total_trades,
+            "winning_trades": signal_provider.winning_trades,
+            "total_profit": signal_provider.total_profit,
+            "max_drawdown": signal_provider.max_drawdown,
+            "profit_factor": signal_provider.profit_factor,
+            "follower_count": signal_provider.follower_count,
+            "average_rating": signal_provider.average_rating,
+            "total_ratings": signal_provider.total_ratings,
+            "subscription_fee": signal_provider.subscription_fee,
+            "performance_fee_percentage": signal_provider.performance_fee_percentage,
+            "curator_status": signal_provider.curator_status,
+            "last_metrics_update": (
+                signal_provider.last_metrics_update.isoformat()
+                if signal_provider.last_metrics_update
+                else None
+            ),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting trader profile: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get trader profile")
 
-    return provider
 
-
-@router.get("/providers", response_model=List[SignalProvider])
-async def list_providers(
-    verified_only: bool = False,
-    min_accuracy: float = 0.0,
-    sort_by: Literal["rating", "subscribers", "accuracy"] = "rating",
+@router.post("/traders/{trader_id}/rate")
+async def rate_trader(
+    trader_id: int,
+    request: RateSignalProviderRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """
-    List all signal providers
+    """Rate a signal provider (1-5 stars)"""
+    try:
+        user_id = _get_user_id(current_user)
+        service = MarketplaceService(db)
 
-    Can filter by verification status and minimum accuracy
-    """
-    provider_list = list(providers.values())
+        result = await service.rate_signal_provider(
+            signal_provider_id=trader_id,
+            user_id=user_id,
+            rating=request.rating,
+            comment=request.comment,
+        )
 
-    if verified_only:
-        provider_list = [p for p in provider_list if p.verified]
-
-    if min_accuracy > 0:
-        provider_list = [p for p in provider_list if p.accuracy_rate >= min_accuracy]
-
-    # Sort
-    if sort_by == "rating":
-        provider_list.sort(key=lambda p: p.rating, reverse=True)
-    elif sort_by == "subscribers":
-        provider_list.sort(key=lambda p: p.subscribers, reverse=True)
-    elif sort_by == "accuracy":
-        provider_list.sort(key=lambda p: p.accuracy_rate, reverse=True)
-
-    return provider_list
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error rating trader: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to rate trader")
 
 
-@router.get("/providers/{provider_id}", response_model=SignalProvider)
-async def get_provider_details(provider_id: str):
-    """Get detailed provider information"""
-    if provider_id not in providers:
-        raise HTTPException(status_code=404, detail="Provider not found")
-
-    provider = providers[provider_id]
-
-    # Update live stats
-    provider.accuracy_rate = await marketplace_service.calculate_provider_accuracy(
-        provider_id
-    )
-    provider.avg_return_pct = await marketplace_service.calculate_avg_return(
-        provider_id
-    )
-
-    return provider
-
-
-@router.post("/signals/publish", response_model=TradingSignal)
-async def publish_signal(
-    provider_id: str,
-    symbol: str,
-    signal_type: SignalType,
-    entry_price: Optional[float],
-    stop_loss: Optional[float],
-    take_profit: Optional[float],
-    confidence: float,
-    timeframe: str,
-    analysis: str,
-    expires_hours: Optional[int] = None,
+@router.post("/traders/{trader_id}/follow")
+async def follow_trader_marketplace(
+    trader_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    copy_trading_service: Annotated[CopyTradingService, Depends(get_copy_trading_service)],
 ):
-    """
-    Publish a new trading signal
+    """Follow a trader from the marketplace"""
+    try:
+        follower_id = _get_user_id(current_user)
 
-    Subscribers will receive notification of this signal
-    """
-    if provider_id not in providers:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        result = await copy_trading_service.follow_trader(
+            follower_id=follower_id,
+            trader_id=trader_id,
+            allocation_percentage=100.0,  # Default allocation
+            max_position_size=None,
+        )
 
-    signal_id = f"signal_{provider_id}_{int(datetime.now().timestamp())}"
-
-    expires_at = None
-    if expires_hours:
-        expires_at = (datetime.now() + timedelta(hours=expires_hours)).isoformat()
-
-    signal = TradingSignal(
-        signal_id=signal_id,
-        provider_id=provider_id,
-        provider_name=providers[provider_id].name,
-        symbol=symbol,
-        signal_type=signal_type,
-        entry_price=entry_price,
-        stop_loss=stop_loss,
-        take_profit=take_profit,
-        confidence=confidence,
-        timeframe=timeframe,
-        analysis=analysis,
-        timestamp=datetime.now().isoformat(),
-        expires_at=expires_at,
-    )
-
-    signals[signal_id] = signal
-    providers[provider_id].total_signals += 1
-
-    logger.info(f"Published signal {signal_id} from {providers[provider_id].name}")
-
-    # Notify subscribers (implement notification service)
-    # await notify_subscribers(provider_id, signal)
-
-    return signal
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error following trader: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to follow trader")
 
 
-@router.get("/signals", response_model=List[TradingSignal])
-async def get_signals(
-    symbol: Optional[str] = None,
-    provider_id: Optional[str] = None,
-    signal_type: Optional[SignalType] = None,
-    limit: int = 50,
-    key: APIKey = Depends(verify_marketplace_api_key),
+@router.delete("/traders/{trader_id}/follow")
+async def unfollow_trader_marketplace(
+    trader_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    copy_trading_service: Annotated[CopyTradingService, Depends(get_copy_trading_service)],
 ):
-    """
-    Get trading signals (requires API key)
+    """Unfollow a trader from the marketplace"""
+    try:
+        follower_id = _get_user_id(current_user)
 
-    Filter by symbol, provider, or signal type
-    """
-    signal_list = list(signals.values())
+        success = await copy_trading_service.unfollow_trader(follower_id, trader_id)
 
-    # Filter expired signals
-    now = datetime.now()
-    signal_list = [
-        s
-        for s in signal_list
-        if s.expires_at is None or datetime.fromisoformat(s.expires_at) > now
-    ]
-
-    if symbol:
-        signal_list = [s for s in signal_list if s.symbol == symbol]
-
-    if provider_id:
-        signal_list = [s for s in signal_list if s.provider_id == provider_id]
-
-    if signal_type:
-        signal_list = [s for s in signal_list if s.signal_type == signal_type]
-
-    # Sort by timestamp (newest first)
-    signal_list.sort(key=lambda s: s.timestamp, reverse=True)
-
-    return signal_list[:limit]
+        if success:
+            return {"message": "Successfully unfollowed trader"}
+        else:
+            raise HTTPException(status_code=404, detail="Follow relationship not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error unfollowing trader: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to unfollow trader")
 
 
-@router.post("/signals/{signal_id}/close")
-async def close_signal(
-    signal_id: str,
-    provider_id: str,
-    exit_price: float,
-    outcome: Literal["win", "loss", "cancelled"],
+@router.post("/traders/{trader_id}/update-metrics")
+async def update_trader_metrics(
+    trader_id: int,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """
-    Close a signal and record performance
+    """Update performance metrics for a signal provider (admin/curator only)"""
+    try:
+        service = MarketplaceService(db)
 
-    Provider must close their signals to track accuracy
-    """
-    if signal_id not in signals:
-        raise HTTPException(status_code=404, detail="Signal not found")
+        result = await service.update_performance_metrics(signal_provider_id=trader_id)
 
-    signal = signals[signal_id]
-
-    if signal.provider_id != provider_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    return_pct = None
-    if signal.entry_price and outcome != "cancelled":
-        if signal.signal_type == SignalType.BUY:
-            return_pct = ((exit_price - signal.entry_price) / signal.entry_price) * 100
-        else:  # SELL
-            return_pct = ((signal.entry_price - exit_price) / signal.entry_price) * 100
-
-    duration = (
-        datetime.now() - datetime.fromisoformat(signal.timestamp)
-    ).total_seconds() / 3600
-
-    performance = SignalPerformance(
-        signal_id=signal_id,
-        outcome=outcome,
-        entry_price=signal.entry_price or 0,
-        exit_price=exit_price,
-        return_pct=return_pct,
-        duration_hours=duration,
-        closed_at=datetime.now().isoformat(),
-    )
-
-    signal_performance[provider_id].append(performance)
-
-    # Update provider stats
-    providers[provider_id].accuracy_rate = (
-        await marketplace_service.calculate_provider_accuracy(provider_id)
-    )
-    providers[provider_id].avg_return_pct = (
-        await marketplace_service.calculate_avg_return(provider_id)
-    )
-
-    logger.info(f"Closed signal {signal_id} with outcome {outcome}")
-
-    return {"success": True, "performance": performance}
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error updating trader metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update trader metrics")
 
 
-@router.post("/subscribe/{provider_id}")
-async def subscribe_to_provider(user_id: str, provider_id: str):
-    """
-    Subscribe to a signal provider
+@router.get("/payouts/calculate")
+async def calculate_payout(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    signal_provider_id: int = Query(..., description="Signal provider ID"),
+    period_days: int = Query(30, ge=1, le=365, description="Period in days"),
+):
+    """Calculate payout for a signal provider"""
+    try:
+        user_id = _get_user_id(current_user)
 
-    In production, integrate with payment processor
-    """
-    if provider_id not in providers:
-        raise HTTPException(status_code=404, detail="Provider not found")
+        # Verify user owns the signal provider
+        from ..models.signal_provider import SignalProvider
+        from sqlalchemy import select
 
-    if user_id not in subscriptions:
-        subscriptions[user_id] = []
+        result = await db.execute(
+            select(SignalProvider).where(SignalProvider.id == signal_provider_id)
+        )
+        signal_provider = result.scalar_one_or_none()
 
-    if provider_id not in subscriptions[user_id]:
-        subscriptions[user_id].append(provider_id)
-        providers[provider_id].subscribers += 1
+        if not signal_provider or signal_provider.user_id != user_id:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to view this payout"
+            )
 
-    logger.info(f"User {user_id} subscribed to provider {provider_id}")
+        service = MarketplaceService(db)
+        period_end = datetime.utcnow()
+        period_start = period_end - timedelta(days=period_days)
 
-    return {"success": True, "message": "Subscribed successfully"}
+        result = await service.calculate_payout(
+            signal_provider_id=signal_provider_id,
+            period_start=period_start,
+            period_end=period_end,
+        )
 
-
-@router.delete("/subscribe/{provider_id}")
-async def unsubscribe_from_provider(user_id: str, provider_id: str):
-    """Unsubscribe from a signal provider"""
-    if user_id in subscriptions and provider_id in subscriptions[user_id]:
-        subscriptions[user_id].remove(provider_id)
-        providers[provider_id].subscribers -= 1
-
-    return {"success": True, "message": "Unsubscribed successfully"}
-
-
-@router.get("/subscriptions/{user_id}", response_model=List[SignalProvider])
-async def get_user_subscriptions(user_id: str):
-    """Get all providers user is subscribed to"""
-    if user_id not in subscriptions:
-        return []
-
-    return [providers[pid] for pid in subscriptions[user_id] if pid in providers]
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error calculating payout: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to calculate payout")
 
 
-@router.get("/stats", response_model=MarketplaceStats)
-async def get_marketplace_stats():
-    """Get marketplace statistics"""
-    # Calculate 24h signals
-    cutoff = datetime.now() - timedelta(hours=24)
-    signals_24h = sum(
-        1 for s in signals.values() if datetime.fromisoformat(s.timestamp) > cutoff
-    )
+@router.post("/payouts/create")
+async def create_payout(
+    signal_provider_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    period_days: int = Query(30, ge=1, le=365, description="Period in days"),
+):
+    """Create a payout record for a signal provider"""
+    try:
+        user_id = _get_user_id(current_user)
 
-    # Top providers
-    top_providers = sorted(providers.values(), key=lambda p: p.rating, reverse=True)[:5]
+        # Verify user owns the signal provider
+        from ..models.signal_provider import SignalProvider
+        from sqlalchemy import select
 
-    # Trending symbols
-    symbol_counts = {}
-    for signal in signals.values():
-        symbol_counts[signal.symbol] = symbol_counts.get(signal.symbol, 0) + 1
+        result = await db.execute(
+            select(SignalProvider).where(SignalProvider.id == signal_provider_id)
+        )
+        signal_provider = result.scalar_one_or_none()
 
-    trending = sorted(symbol_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        if not signal_provider or signal_provider.user_id != user_id:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to create this payout"
+            )
 
-    # Average accuracy
-    accuracies = [p.accuracy_rate for p in providers.values() if p.accuracy_rate > 0]
-    avg_accuracy = sum(accuracies) / len(accuracies) if accuracies else 0
+        service = MarketplaceService(db)
+        period_end = datetime.utcnow()
+        period_start = period_end - timedelta(days=period_days)
 
-    return MarketplaceStats(
-        total_providers=len(providers),
-        total_signals_24h=signals_24h,
-        top_providers=[
+        result = await service.create_payout(
+            signal_provider_id=signal_provider_id,
+            period_start=period_start,
+            period_end=period_end,
+        )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating payout: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create payout")
+
+
+@router.post("/traders/{trader_id}/verify")
+async def verify_trader_performance(
+    trader_id: int,
+    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
+    current_user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Verify historical performance of a signal provider (admin only)"""
+    try:
+        service = MarketplaceVerificationService(db)
+
+        result = await service.verify_provider_performance(
+            provider_id=trader_id,
+            period_days=period_days,
+        )
+
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error verifying trader performance: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to verify trader performance")
+
+
+@router.post("/traders/verify-all")
+async def verify_all_traders(
+    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
+    current_user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Verify all signal providers (admin only)"""
+    try:
+        service = MarketplaceVerificationService(db)
+
+        result = await service.verify_all_providers(period_days=period_days)
+
+        return result
+    except Exception as e:
+        logger.error(f"Error verifying all traders: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to verify all traders")
+
+
+@router.get("/traders/flagged")
+async def get_flagged_traders(
+    threshold_days: int = Query(30, ge=1, le=365, description="Days since last verification"),
+    current_user: Annotated[dict, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Get list of flagged/suspicious signal providers (admin only)"""
+    try:
+        service = MarketplaceVerificationService(db)
+
+        flagged = await service.flag_suspicious_providers(threshold_days=threshold_days)
+
+        return {
+            "flagged_count": len(flagged),
+            "flagged_providers": flagged,
+        }
+    except Exception as e:
+        logger.error(f"Error getting flagged traders: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get flagged traders")
+
+
+@router.get("/analytics/provider/{provider_id}")
+async def get_provider_analytics(
+    request: Request,
+    provider_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Get analytics for a specific signal provider (owner only)"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        # Verify user owns the provider
+        from ..models.signal_provider import SignalProvider
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(SignalProvider).where(SignalProvider.id == provider_id)
+        )
+        provider = result.scalar_one_or_none()
+        
+        if not provider:
+            raise HTTPException(status_code=404, detail="Signal provider not found")
+        
+        if provider.user_id != user_id:
+            raise HTTPException(
+                status_code=403, detail="Not authorized to view this provider's analytics"
+            )
+        
+        from ..services.marketplace_analytics_service import MarketplaceAnalyticsService
+        analytics_service = MarketplaceAnalyticsService(db)
+        
+        analytics = await analytics_service.get_provider_analytics(provider_id=provider_id)
+        
+        return analytics
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting provider analytics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get provider analytics")
+
+
+# Analytics Threshold Management Routes
+
+class CreateThresholdRequest(BaseModel):
+    threshold_type: str = Field(..., description="Type of threshold (copy_trading, indicator_marketplace, provider, developer, marketplace_overview)")
+    metric: str = Field(..., description="Metric to monitor")
+    operator: str = Field(..., description="Comparison operator (gt, lt, eq, gte, lte, percent_change_down, percent_change_up)")
+    threshold_value: float = Field(..., description="Threshold value")
+    context: Optional[dict] = Field(None, description="Context data (e.g., provider_id, developer_id)")
+    enabled: bool = Field(True, description="Whether threshold is enabled")
+    notification_channels: Optional[dict] = Field(None, description="Notification channels configuration")
+    cooldown_minutes: int = Field(60, description="Cooldown period in minutes")
+    name: Optional[str] = Field(None, description="Threshold name")
+    description: Optional[str] = Field(None, description="Threshold description")
+
+
+class UpdateThresholdRequest(BaseModel):
+    enabled: Optional[bool] = None
+    threshold_value: Optional[float] = None
+    operator: Optional[str] = None
+    notification_channels: Optional[dict] = None
+    cooldown_minutes: Optional[int] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.post("/analytics/thresholds")
+async def create_analytics_threshold(
+    request: CreateThresholdRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Create a new analytics threshold"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import (
+            AnalyticsThreshold,
+            ThresholdType,
+            ThresholdMetric,
+            ThresholdOperator,
+        )
+        
+        # Validate threshold type
+        valid_types = [t.value for t in ThresholdType]
+        if request.threshold_type not in valid_types:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid threshold_type. Must be one of: {', '.join(valid_types)}"
+            )
+        
+        # Validate operator
+        valid_operators = [op.value for op in ThresholdOperator]
+        if request.operator not in valid_operators:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid operator. Must be one of: {', '.join(valid_operators)}"
+            )
+        
+        # Validate metric (basic check - metric should be a valid ThresholdMetric enum value)
+        valid_metrics = [m.value for m in ThresholdMetric]
+        if request.metric not in valid_metrics:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid metric. Must be a valid ThresholdMetric value"
+            )
+        
+        # Validate cooldown
+        if request.cooldown_minutes < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="cooldown_minutes must be at least 1"
+            )
+        
+        # Validate context for provider/developer types
+        if request.threshold_type in [ThresholdType.PROVIDER.value, ThresholdType.DEVELOPER.value]:
+            if not request.context:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"context with {request.threshold_type}_id is required for {request.threshold_type} thresholds"
+                )
+            context_key = f"{request.threshold_type}_id"
+            if context_key not in request.context:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"context must include {context_key}"
+                )
+        
+        threshold = AnalyticsThreshold(
+            user_id=user_id,
+            threshold_type=request.threshold_type,
+            metric=request.metric,
+            operator=request.operator,
+            threshold_value=request.threshold_value,
+            context=request.context,
+            enabled=request.enabled,
+            notification_channels=request.notification_channels or {
+                "email": True,
+                "push": True,
+                "in_app": True,
+            },
+            cooldown_minutes=request.cooldown_minutes,
+            name=request.name,
+            description=request.description,
+        )
+        
+        db.add(threshold)
+        await db.commit()
+        await db.refresh(threshold)
+        
+        logger.info(
+            f"Created analytics threshold {threshold.id} for user {user_id}",
+            extra={"threshold_id": threshold.id, "user_id": user_id, "threshold_type": threshold.threshold_type}
+        )
+        
+        return {
+            "id": threshold.id,
+            "threshold_type": threshold.threshold_type,
+            "metric": threshold.metric,
+            "operator": threshold.operator,
+            "threshold_value": threshold.threshold_value,
+            "enabled": threshold.enabled,
+            "created_at": threshold.created_at.isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating threshold: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to create threshold")
+
+
+@router.get("/analytics/thresholds")
+async def get_analytics_thresholds(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    threshold_type: Optional[str] = Query(None, description="Filter by threshold type"),
+):
+    """Get all analytics thresholds for the current user"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import AnalyticsThreshold
+        from sqlalchemy import select
+        
+        query = select(AnalyticsThreshold).where(AnalyticsThreshold.user_id == user_id)
+        
+        if threshold_type:
+            query = query.where(AnalyticsThreshold.threshold_type == threshold_type)
+        
+        result = await db.execute(query)
+        thresholds = result.scalars().all()
+        
+        return [
             {
-                "provider_id": p.provider_id,
-                "name": p.name,
-                "rating": p.rating,
-                "subscribers": p.subscribers,
-                "accuracy": p.accuracy_rate,
+                "id": t.id,
+                "threshold_type": t.threshold_type,
+                "metric": t.metric,
+                "operator": t.operator,
+                "threshold_value": t.threshold_value,
+                "context": t.context,
+                "enabled": t.enabled,
+                "notification_channels": t.notification_channels,
+                "cooldown_minutes": t.cooldown_minutes,
+                "last_triggered_at": t.last_triggered_at.isoformat() if t.last_triggered_at else None,
+                "name": t.name,
+                "description": t.description,
+                "created_at": t.created_at.isoformat(),
             }
-            for p in top_providers
-        ],
-        trending_symbols=[symbol for symbol, _ in trending],
-        avg_signal_accuracy=avg_accuracy,
-    )
+            for t in thresholds
+        ]
+    except Exception as e:
+        logger.error(f"Error getting thresholds: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get thresholds")
+
+
+@router.get("/analytics/thresholds/{threshold_id}")
+async def get_analytics_threshold(
+    threshold_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Get a specific analytics threshold"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import AnalyticsThreshold
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(AnalyticsThreshold).where(
+                AnalyticsThreshold.id == threshold_id,
+                AnalyticsThreshold.user_id == user_id,
+            )
+        )
+        threshold = result.scalar_one_or_none()
+        
+        if not threshold:
+            raise HTTPException(status_code=404, detail="Threshold not found")
+        
+        return {
+            "id": threshold.id,
+            "threshold_type": threshold.threshold_type,
+            "metric": threshold.metric,
+            "operator": threshold.operator,
+            "threshold_value": threshold.threshold_value,
+            "context": threshold.context,
+            "enabled": threshold.enabled,
+            "notification_channels": threshold.notification_channels,
+            "cooldown_minutes": threshold.cooldown_minutes,
+            "last_triggered_at": threshold.last_triggered_at.isoformat() if threshold.last_triggered_at else None,
+            "name": threshold.name,
+            "description": threshold.description,
+            "created_at": threshold.created_at.isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting threshold: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get threshold")
+
+
+@router.put("/analytics/thresholds/{threshold_id}")
+async def update_analytics_threshold(
+    threshold_id: int,
+    request: UpdateThresholdRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Update an analytics threshold"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import AnalyticsThreshold
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(AnalyticsThreshold).where(
+                AnalyticsThreshold.id == threshold_id,
+                AnalyticsThreshold.user_id == user_id,
+            )
+        )
+        threshold = result.scalar_one_or_none()
+        
+        if not threshold:
+            raise HTTPException(status_code=404, detail="Threshold not found")
+        
+        if request.enabled is not None:
+            threshold.enabled = request.enabled
+        if request.threshold_value is not None:
+            threshold.threshold_value = request.threshold_value
+        if request.operator is not None:
+            threshold.operator = request.operator
+        if request.notification_channels is not None:
+            threshold.notification_channels = request.notification_channels
+        if request.cooldown_minutes is not None:
+            threshold.cooldown_minutes = request.cooldown_minutes
+        if request.name is not None:
+            threshold.name = request.name
+        if request.description is not None:
+            threshold.description = request.description
+        
+        await db.commit()
+        await db.refresh(threshold)
+        
+        return {
+            "id": threshold.id,
+            "threshold_type": threshold.threshold_type,
+            "metric": threshold.metric,
+            "operator": threshold.operator,
+            "threshold_value": threshold.threshold_value,
+            "enabled": threshold.enabled,
+            "updated_at": threshold.updated_at.isoformat(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating threshold: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to update threshold")
+
+
+@router.delete("/analytics/thresholds/{threshold_id}")
+async def delete_analytics_threshold(
+    threshold_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Delete an analytics threshold"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import AnalyticsThreshold
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(AnalyticsThreshold).where(
+                AnalyticsThreshold.id == threshold_id,
+                AnalyticsThreshold.user_id == user_id,
+            )
+        )
+        threshold = result.scalar_one_or_none()
+        
+        if not threshold:
+            raise HTTPException(status_code=404, detail="Threshold not found")
+        
+        await db.delete(threshold)
+        await db.commit()
+        
+        return {"message": "Threshold deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting threshold: {e}", exc_info=True)
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete threshold")
+
+
+@router.post("/analytics/thresholds/{threshold_id}/test")
+async def test_analytics_threshold(
+    threshold_id: int,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    """Manually test/trigger a threshold check"""
+    try:
+        user_id = _get_user_id(current_user)
+        
+        from ..models.analytics_threshold import AnalyticsThreshold
+        from ..services.marketplace_threshold_service import MarketplaceThresholdService
+        from sqlalchemy import select
+        
+        result = await db.execute(
+            select(AnalyticsThreshold).where(
+                AnalyticsThreshold.id == threshold_id,
+                AnalyticsThreshold.user_id == user_id,
+            )
+        )
+        threshold = result.scalar_one_or_none()
+        
+        if not threshold:
+            raise HTTPException(status_code=404, detail="Threshold not found")
+        
+        threshold_service = MarketplaceThresholdService(db)
+        alert = await threshold_service._check_threshold(threshold)
+        
+        if alert:
+            return {
+                "triggered": True,
+                "alert": alert,
+            }
+        else:
+            return {
+                "triggered": False,
+                "message": "Threshold condition not met",
+            }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error testing threshold: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to test threshold")

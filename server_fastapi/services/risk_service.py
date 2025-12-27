@@ -1,11 +1,15 @@
 import asyncio
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..repositories.risk_repository import RiskRepository
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
 from datetime import datetime
 import logging
+
+from ..repositories.risk_repository import RiskRepository
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,7 @@ class RiskAlert(BaseModel):
 
     @field_validator("type")
     @classmethod
-    def validate_type(cls, v: str):
+    def validate_type(cls, v: str) -> str:
         allowed = {"warning", "critical", "info"}
         if v not in allowed:
             raise ValueError("type must be one of 'warning' | 'critical' | 'info'")
@@ -66,24 +70,41 @@ class RiskService:
 
     def __init__(
         self, db_session: Optional[AsyncSession] = None, ttl_seconds: int = 10
-    ):
-        self.db = db_session
+    ) -> None:
+        # ✅ Repository created internally (Service Layer Pattern)
+        self.risk_repository = RiskRepository()
+        self.db = db_session  # Keep db for transaction handling
+        # Default limits - used as base when no user-specific limits exist in DB
         self._default_limits: RiskLimits = RiskLimits()
+        # In-memory storage only used as fallback when DB is unavailable (e.g., tests)
         self._alerts: Dict[str, RiskAlert] = {}
         self._metrics_cache: Optional[RiskMetrics] = None
         self._metrics_cached_at: float = 0.0
         self._ttl = ttl_seconds
         self._lock = asyncio.Lock()
-        # seed example alert
-        self._alerts["drawdown"] = RiskAlert(
-            id="drawdown",
-            type="warning",
-            message="Max drawdown approaching threshold",
-            threshold=0.05,
-            currentValue=0.042,
-            timestamp=int(time.time() * 1000),
-            acknowledged=False,
-        )
+        # Risk persistence service for database operations
+        from .risk_persistence import RiskPersistenceService
+
+        self._persistence: Optional[RiskPersistenceService] = None
+        if db_session:
+            self._persistence = RiskPersistenceService(db_session)
+        # Redis cache for risk data (with memory fallback)
+        self._cache = None
+        self._init_cache()
+        # Note: No longer seeding example alerts - all alerts should come from database
+
+    def _init_cache(self):
+        """Initialize Redis cache with memory fallback"""
+        try:
+            from ..utils.cache_utils import MultiLevelCache
+            import os
+
+            redis_url = os.getenv("REDIS_URL")
+            # MultiLevelCache handles Redis availability checking
+            self._cache = MultiLevelCache(redis_url=redis_url)
+        except Exception as e:
+            logger.warning(f"Failed to initialize cache: {e}, using in-memory only")
+            self._cache = None
 
     async def create_alert_db(
         self,
@@ -94,14 +115,17 @@ class RiskService:
         current_value: Optional[float] = None,
         threshold_value: Optional[float] = None,
     ):
-        """Persist risk alert to database"""
+        """Persist risk alert to database with cache invalidation"""
         if not self.db:
-            logger.warning("Database session not available for alert persistence")
+            logger.warning(
+                "Database session not available for alert persistence",
+                extra={"user_id": user_id},
+            )
             return None
 
-        from ..models.risk_alert import RiskAlert as RiskAlertModel
-
-        alert = RiskAlertModel(
+        # ✅ Data access delegated to repository
+        alert = await self.risk_repository.create_alert(
+            self.db,
             user_id=user_id,
             alert_type=alert_type,
             severity=severity,
@@ -109,91 +133,86 @@ class RiskService:
             current_value=current_value,
             threshold_value=threshold_value,
         )
-        self.db.add(alert)
-        await self.db.commit()
-        await self.db.refresh(alert)
-        logger.info(f"Risk alert created: {alert.id} for user {user_id}")
+        logger.info(
+            f"Risk alert created: {alert.id} for user {user_id}",
+            extra={"alert_id": alert.id, "user_id": user_id, "alert_type": alert_type},
+        )
+
+        # Invalidate alerts cache for this user
+        if self._cache:
+            try:
+                await self._cache.delete(f"risk:alerts:{user_id}:all")
+                await self._cache.delete(f"risk:alerts:{user_id}:unresolved")
+            except Exception as e:
+                logger.warning(f"Cache deletion error: {e}", extra={"user_id": user_id})
+
         return alert
 
     async def get_user_alerts_db(
         self, user_id: str, limit: int = 50, unresolved_only: bool = False
-    ):
+    ) -> List[Any]:
         """Retrieve user's risk alerts from database"""
         if not self.db:
-            logger.warning("Database session not available")
+            logger.warning("Database session not available", extra={"user_id": user_id})
             return []
 
-        from ..models.risk_alert import RiskAlert as RiskAlertModel
-
-        stmt = select(RiskAlertModel).where(RiskAlertModel.user_id == user_id)
-
-        if unresolved_only:
-            stmt = stmt.where(RiskAlertModel.resolved == False)
-
-        stmt = stmt.order_by(RiskAlertModel.created_at.desc()).limit(limit)
-
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
+        # ✅ Data access delegated to repository
+        alerts = await self.risk_repository.get_user_alerts(
+            self.db,
+            user_id=user_id,
+            resolved=False if unresolved_only else None,
+            limit=limit,
+        )
+        return alerts
 
     async def acknowledge_alert_db(self, alert_id: int):
         """Acknowledge a database alert"""
         if not self.db:
-            logger.warning("Database session not available")
+            logger.warning(
+                "Database session not available", extra={"alert_id": alert_id}
+            )
             return None
 
-        from ..models.risk_alert import RiskAlert as RiskAlertModel
+        # ✅ Data access delegated to repository
+        alert = await self.risk_repository.acknowledge_alert(self.db, alert_id)
+        if alert:
+            logger.info(
+                f"Alert {alert_id} acknowledged",
+                extra={"alert_id": alert_id, "user_id": alert.user_id},
+            )
+            return True
+        return None
 
-        stmt = (
-            update(RiskAlertModel)
-            .where(RiskAlertModel.id == alert_id)
-            .values(acknowledged=True, acknowledged_at=datetime.utcnow())
-        )
-
-        await self.db.execute(stmt)
-        await self.db.commit()
-        logger.info(f"Alert {alert_id} acknowledged")
-        return True
-
-    async def set_risk_limit_db(self, user_id: str, limit_type: str, value: float):
+    async def set_risk_limit_db(
+        self, user_id: str, limit_type: str, value: float
+    ) -> Optional[Any]:
         """Set or update risk limit in database"""
         if not self.db:
-            logger.warning("Database session not available")
+            logger.warning(
+                "Database session not available",
+                extra={"user_id": user_id, "limit_type": limit_type},
+            )
             return None
 
-        from ..models.risk_limit import RiskLimit as RiskLimitModel
-
-        # Check if limit exists
-        stmt = select(RiskLimitModel).where(
-            RiskLimitModel.user_id == user_id, RiskLimitModel.limit_type == limit_type
+        # ✅ Data access delegated to repository
+        limit = await self.risk_repository.create_or_update_limit(
+            self.db,
+            user_id=user_id,
+            limit_type=limit_type,
+            value=value,
+            enabled=True,
         )
-        result = await self.db.execute(stmt)
-        limit = result.scalar_one_or_none()
-
-        if limit:
-            limit.value = value
-            limit.updated_at = datetime.utcnow()
-        else:
-            limit = RiskLimitModel(user_id=user_id, limit_type=limit_type, value=value)
-            self.db.add(limit)
-
-        await self.db.commit()
-        await self.db.refresh(limit)
-        logger.info(f"Risk limit set: {limit_type}={value} for user {user_id}")
         return limit
 
     async def get_user_limits_db(self, user_id: str):
         """Get all risk limits for a user"""
         if not self.db:
-            logger.warning("Database session not available")
+            logger.warning("Database session not available", extra={"user_id": user_id})
             return []
 
-        from ..models.risk_limit import RiskLimit as RiskLimitModel
-
-        stmt = select(RiskLimitModel).where(
-            RiskLimitModel.user_id == user_id, RiskLimitModel.enabled == True
-        )
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
+        # ✅ Data access delegated to repository
+        limits = await self.risk_repository.get_user_limits(self.db, user_id)
+        return limits
 
     async def get_limits(self) -> RiskLimits:
         return self._default_limits
@@ -204,7 +223,7 @@ class RiskService:
             self._default_limits = self._default_limits.model_copy(update=updates)
             return self._default_limits
 
-    def _serialize_db_alert(self, alert_model) -> RiskAlert:
+    def _serialize_db_alert(self, alert_model: Any) -> RiskAlert:
         timestamp = (
             int(alert_model.created_at.timestamp() * 1000)
             if getattr(alert_model, "created_at", None)
@@ -223,25 +242,79 @@ class RiskService:
     async def get_user_alerts(
         self, user_id: str, unresolved_only: bool = False
     ) -> List[RiskAlert]:
+        """Get user alerts with Redis caching"""
+        # Try cache first
+        cache_key = (
+            f"risk:alerts:{user_id}:{'unresolved' if unresolved_only else 'all'}"
+        )
+        if self._cache:
+            try:
+                cached = await self._cache.get(cache_key)
+                if cached is not None:
+                    return cached
+            except Exception as e:
+                logger.warning(f"Cache get error: {e}")
+
+        # ✅ Fallback to database or in-memory
         if not self.db:
             return list(self._alerts.values())
-        alerts = await self.get_user_alerts_db(user_id, unresolved_only=unresolved_only)
-        return [self._serialize_db_alert(alert) for alert in alerts]
+
+        alerts = await self.get_user_alerts_db(
+            user_id,
+            limit=1000,  # Get all alerts for serialization
+            unresolved_only=unresolved_only,
+        )
+        serialized = [self._serialize_db_alert(alert) for alert in alerts]
+
+        # Cache the result
+        if self._cache:
+            try:
+                await self._cache.set(
+                    cache_key, serialized, ttl=60
+                )  # Cache for 1 minute
+            except Exception as e:
+                logger.warning(f"Cache set error: {e}")
+
+        return serialized
 
     async def get_user_limits(self, user_id: str) -> RiskLimits:
+        """Get user limits with Redis caching"""
+        # Try cache first
+        cache_key = f"risk:limits:{user_id}"
+        if self._cache:
+            try:
+                cached = await self._cache.get(cache_key)
+                if cached is not None:
+                    return RiskLimits(**cached)
+            except Exception as e:
+                logger.warning(f"Cache get error: {e}")
+
+        # Fallback to database or defaults
         base = self._default_limits.model_dump()
         if not self.db:
             return RiskLimits(**base)
+
         db_limits = await self.get_user_limits_db(user_id)
         for limit in db_limits:
             field = self.LIMIT_TYPE_TO_FIELD.get(limit.limit_type)
             if field:
                 base[field] = limit.value
-        return RiskLimits(**base)
+
+        result = RiskLimits(**base)
+
+        # Cache the result
+        if self._cache:
+            try:
+                await self._cache.set(cache_key, base, ttl=300)  # Cache for 5 minutes
+            except Exception as e:
+                logger.warning(f"Cache set error: {e}")
+
+        return result
 
     async def update_user_limits(
         self, user_id: str, updates: Dict[str, float]
     ) -> RiskLimits:
+        """Update user limits with cache invalidation"""
         if not updates:
             return await self.get_user_limits(user_id)
 
@@ -253,9 +326,32 @@ class RiskService:
         else:
             await self.update_limits(updates)
 
+        # Invalidate cache
+        cache_key = f"risk:limits:{user_id}"
+        if self._cache:
+            try:
+                await self._cache.delete(cache_key)
+            except Exception as e:
+                logger.warning(f"Cache deletion error: {e}")
+
         return await self.get_user_limits(user_id)
 
-    async def acknowledge_alert(self, alert_id: str) -> RiskAlert:
+    async def acknowledge_alert(self, alert_id: str, user_id: str) -> RiskAlert:
+        """Acknowledge an alert - prefers database if available"""
+        if self.db:
+            # ✅ Use database method
+            alert_id_int = int(alert_id) if alert_id.isdigit() else None
+            if alert_id_int:
+                await self.acknowledge_alert_db(alert_id_int)
+                # ✅ Return updated alert from database using repository
+                alert_model = await self.risk_repository.get_alert_by_id(
+                    self.db, alert_id_int
+                )
+                if alert_model:
+                    return self._serialize_db_alert(alert_model)
+            raise KeyError(f"Alert {alert_id} not found")
+
+        # Fallback to in-memory (only when DB unavailable)
         async with self._lock:
             alert = self._alerts.get(alert_id)
             if not alert:
@@ -264,8 +360,57 @@ class RiskService:
             self._alerts[alert_id] = alert
             return alert
 
-    async def get_alerts(self) -> List[RiskAlert]:
+    async def get_alerts(self, user_id: Optional[str] = None) -> List[RiskAlert]:
+        """Get alerts - prefers database if available and user_id provided"""
+        if self.db and user_id:
+            return await self.get_user_alerts(user_id)
+        # Fallback to in-memory (only when DB unavailable or no user_id)
         return list(self._alerts.values())
+
+    async def create_alert(
+        self,
+        user_id: str,
+        alert_type: str,
+        severity: str,
+        message: str,
+        current_value: Optional[float] = None,
+        threshold_value: Optional[float] = None,
+    ) -> Optional[RiskAlert]:
+        """
+        Create a risk alert - uses database by default, falls back to in-memory if DB unavailable.
+        This is a convenience method that automatically uses the appropriate storage.
+        """
+        # Always prefer database when available
+        if self.db:
+            alert_model = await self.create_alert_db(
+                user_id=user_id,
+                alert_type=alert_type,
+                severity=severity,
+                message=message,
+                current_value=current_value,
+                threshold_value=threshold_value,
+            )
+            if alert_model:
+                return self._serialize_db_alert(alert_model)
+            return None
+
+        # Fallback to in-memory only when DB is unavailable (e.g., tests)
+        import time
+        import uuid
+
+        alert = RiskAlert(
+            id=str(uuid.uuid4()),
+            type=alert_type,
+            message=message,
+            threshold=threshold_value or 0.0,
+            currentValue=current_value or 0.0,
+            timestamp=int(time.time() * 1000),
+            acknowledged=False,
+        )
+        async with self._lock:
+            self._alerts[alert.id] = alert
+        logger.warning(f"Alert created in-memory (DB unavailable): {alert.id}")
+        return alert
 
     async def get_metrics(self) -> RiskMetrics:
         now = time.time()

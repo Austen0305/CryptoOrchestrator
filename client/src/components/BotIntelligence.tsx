@@ -22,6 +22,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
+import { ErrorRetry } from "@/components/ErrorRetry";
 
 interface BotIntelligenceProps {
   botId: string;
@@ -238,15 +239,15 @@ export const BotIntelligence = React.memo(function BotIntelligence({ botId }: Bo
                 <div className="space-y-2">
                   <p className="text-sm font-medium flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
-                    AI Reasoning ({analysis.analysis.reasoning.length} factors)
+                    AI Reasoning ({analysis.analysis.reasoning?.length || 0} factors)
                   </p>
                   <div className="space-y-1.5">
-                    {analysis.analysis.reasoning.map((reason, idx) => (
+                    {analysis.analysis.reasoning && Array.isArray(analysis.analysis.reasoning) ? analysis.analysis.reasoning.map((reason, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-sm bg-muted/50 p-2 rounded">
                         <span className="text-muted-foreground mt-0.5">•</span>
                         <span>{reason}</span>
                       </div>
-                    ))}
+                    )) : null}
                   </div>
                 </div>
 
@@ -254,11 +255,11 @@ export const BotIntelligence = React.memo(function BotIntelligence({ botId }: Bo
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Chart Patterns Detected</p>
                     <div className="flex flex-wrap gap-2">
-                      {analysis.analysis.patterns_detected.map((pattern, idx) => (
+                      {analysis.analysis.patterns_detected && Array.isArray(analysis.analysis.patterns_detected) ? analysis.analysis.patterns_detected.map((pattern, idx) => (
                         <Badge key={idx} variant="secondary" className="capitalize">
                           {pattern.replace('_', ' ')}
                         </Badge>
-                      ))}
+                      )) : null}
                     </div>
                   </div>
                 )}
@@ -365,14 +366,14 @@ export const BotIntelligence = React.memo(function BotIntelligence({ botId }: Bo
                       Warnings
                     </p>
                     <div className="space-y-1.5">
-                      {riskMetrics.recommendations.warnings
+                      {riskMetrics.recommendations.warnings && Array.isArray(riskMetrics.recommendations.warnings) ? riskMetrics.recommendations.warnings
                         .filter(w => w !== null)
                         .map((warning, idx) => (
                           <div key={idx} className="flex items-start gap-2 text-sm bg-orange-500/10 p-2 rounded border border-orange-500/20">
                             <span className="text-orange-500 mt-0.5">⚠</span>
                             <span>{warning}</span>
                           </div>
-                        ))}
+                        )) : null}
                     </div>
                   </div>
                 )}
@@ -450,12 +451,12 @@ export const BotIntelligence = React.memo(function BotIntelligence({ botId }: Bo
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Adaptive Reasoning</p>
                   <div className="space-y-1.5">
-                    {optimizeMutation.data.optimized_parameters.adaptive_reasoning.map((reason, idx) => (
+                    {optimizeMutation.data?.optimized_parameters?.adaptive_reasoning && Array.isArray(optimizeMutation.data.optimized_parameters.adaptive_reasoning) ? optimizeMutation.data.optimized_parameters.adaptive_reasoning.map((reason, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-sm bg-muted/50 p-2 rounded">
                         <span className="text-muted-foreground mt-0.5">•</span>
                         <span>{reason}</span>
                       </div>
-                    ))}
+                    )) : null}
                   </div>
                 </div>
 

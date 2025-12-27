@@ -6,16 +6,22 @@ export function useRiskHorizons() {
   const { data: portfolio } = usePortfolio('paper');
   const { data: trades } = useTrades();
 
+  // Type guards for portfolio and trades
+  const portfolioBalance = portfolio && typeof portfolio === 'object' && 'totalBalance' in portfolio
+    ? (portfolio.totalBalance as number) ?? 0
+    : 0;
+  const tradesArray = Array.isArray(trades) ? trades : [];
+
   // Stable dependency key: avoids deep compares on trades array by using length + balance snapshot
   const depKey = useMemo(() => {
-    return `${portfolio?.totalBalance || 0}|${(trades || []).length}`;
-  }, [portfolio?.totalBalance, (trades || []).length]);
+    return `${portfolioBalance}|${tradesArray.length}`;
+  }, [portfolioBalance, tradesArray.length]);
 
   return useMemo(() => {
-    const returns = computeReturns(trades || []);
-    const balance = portfolio?.totalBalance || 0;
+    const returns = computeReturns(tradesArray);
+    const balance = portfolioBalance;
     const varSeries = multiHorizonVar(returns, balance, 0.95, [1, 7, 30]);
     const esSeries = multiHorizonConditionalVar(returns, balance, 0.95, [1, 7, 30]);
     return { varSeries, esSeries };
-  }, [depKey]);
+  }, [depKey, tradesArray, portfolioBalance]);
 }

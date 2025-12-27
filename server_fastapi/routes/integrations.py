@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Annotated
 import logging
 
 from ..services.trading_orchestrator import (
@@ -32,6 +32,7 @@ def get_integration_service():
 
 # Import centralized auth dependency
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 
 
 # Pydantic models for integration management
@@ -85,8 +86,8 @@ router = APIRouter()
 # Overview status endpoint (public, no auth required)
 @router.get("/status", response_model=IntegrationsOverviewResponse)
 async def get_integrations_overview(
-    integration_svc=Depends(get_integration_service),
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
 ) -> IntegrationsOverviewResponse:
     """Get overview status of all integrations and trading adapters"""
     try:
@@ -132,13 +133,27 @@ async def get_integrations_overview(
 
 # Integration management endpoints
 @router.get("/integrations", response_model=List[IntegrationListResponse])
+@cached(ttl=120, prefix="integrations")  # 120s TTL for integrations list
 async def list_integrations(
-    integration_svc=Depends(get_integration_service), user=Depends(get_current_user)
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ) -> List[IntegrationListResponse]:
-    """List all available integrations with their status"""
+    """List all available integrations with their status and pagination"""
     try:
         integrations = await integration_svc.list_integrations()
-        return [IntegrationListResponse(**integration) for integration in integrations]
+
+        # Apply pagination
+        total = len(integrations)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_integrations = integrations[start_idx:end_idx]
+
+        return [
+            IntegrationListResponse(**integration)
+            for integration in paginated_integrations
+        ]
     except Exception as e:
         logger.error(f"Error listing integrations: {e}")
         raise HTTPException(status_code=500, detail="Failed to list integrations")
@@ -147,8 +162,8 @@ async def list_integrations(
 @router.get("/integrations/{name}/status", response_model=IntegrationStatusResponse)
 async def get_integration_status(
     name: str,
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> IntegrationStatusResponse:
     """Get status of a specific integration"""
     try:
@@ -165,8 +180,8 @@ async def get_integration_status(
 async def configure_integration(
     name: str,
     request: ConfigureIntegrationRequest,
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> IntegrationResponse:
     """Configure an integration adapter"""
     try:
@@ -188,9 +203,9 @@ async def configure_integration(
 @router.post("/integrations/{name}/test", response_model=Dict[str, Any])
 async def run_integration_test(
     name: str,
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
     request: IntegrationTestRequest = IntegrationTestRequest(),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Run tests for an integration"""
     try:
@@ -206,8 +221,8 @@ async def run_integration_test(
 @router.post("/integrations/{name}/start", response_model=IntegrationResponse)
 async def start_integration(
     name: str,
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> IntegrationResponse:
     """Start an integration adapter"""
     try:
@@ -227,8 +242,8 @@ async def start_integration(
 @router.post("/integrations/{name}/stop", response_model=IntegrationResponse)
 async def stop_integration(
     name: str,
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> IntegrationResponse:
     """Stop an integration adapter"""
     try:
@@ -244,8 +259,8 @@ async def stop_integration(
 @router.post("/integrations/{name}/restart", response_model=IntegrationResponse)
 async def restart_integration(
     name: str,
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> IntegrationResponse:
     """Restart an integration adapter"""
     try:
@@ -312,9 +327,9 @@ class BacktestRequest(BaseModel):
 @router.post("/predict")
 async def predict(
     request: PredictRequest,
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> EnsemblePrediction:
     """Get ensemble prediction from all available trading frameworks"""
     try:
@@ -341,9 +356,9 @@ async def predict(
 @router.post("/backtest")
 async def backtest(
     request: BacktestRequest,
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> BacktestResult:
     """Run backtest across all trading frameworks"""
     try:
@@ -381,9 +396,9 @@ async def backtest(
 
 @router.get("/ping")
 async def ping(
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> PingResult:
     """Ping all trading framework adapters"""
     try:
@@ -398,9 +413,9 @@ async def ping(
 
 @router.post("/start")
 async def start_all(
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ):
     """Start all trading framework adapters"""
     try:
@@ -420,9 +435,9 @@ async def start_all(
 
 @router.post("/stop")
 async def stop_all(
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ):
     """Stop all trading framework adapters"""
     try:
@@ -437,9 +452,9 @@ async def stop_all(
 
 @router.get("/status")
 async def get_status(
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Get status of all trading framework adapters"""
     try:
@@ -469,9 +484,9 @@ async def get_status(
 @router.get("/adapter/{name}/health")
 async def get_adapter_health(
     name: str,
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Get health status of a specific adapter"""
     try:
@@ -510,9 +525,9 @@ async def get_adapter_health(
 @router.post("/adapter/{name}/restart")
 async def restart_adapter(
     name: str,
-    orchestrator: TradingOrchestrator = Depends(get_trading_orchestrator),
-    integration_svc=Depends(get_integration_service),
-    user=Depends(get_current_user),
+    orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
+    integration_svc: Annotated[Any, Depends(get_integration_service)],
+    user: Annotated[dict, Depends(get_current_user)],
 ):
     """Restart a specific adapter"""
     try:

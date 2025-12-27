@@ -3,19 +3,27 @@ from fastapi.testclient import TestClient
 from server_fastapi.main import app
 import uuid
 
+
 @pytest.fixture
 def client():
     return TestClient(app)
 
+
 @pytest.fixture
 def auth_headers(client):
     email = f"bots-{uuid.uuid4().hex[:8]}@example.com"
-    reg = client.post("/api/auth/register", json={"email": email, "password": "BotsPass123!", "name": "Bots User"})
+    reg = client.post(
+        "/api/auth/register",
+        json={"email": email, "password": "BotsPass123!", "name": "Bots User"},
+    )
     assert reg.status_code == 200, reg.text
-    login = client.post("/api/auth/login", json={"email": email, "password": "BotsPass123!"})
+    login = client.post(
+        "/api/auth/login", json={"email": email, "password": "BotsPass123!"}
+    )
     assert login.status_code == 200, login.text
     token = login.json()["data"]["token"]
     return {"Authorization": f"Bearer {token}"}
+
 
 class TestBotsAPI:
     def test_bots_unauthorized(self, client):

@@ -53,17 +53,17 @@ export default function Landing() {
     },
     {
       icon: TrendingUp,
-      title: "Multi-Exchange Support",
-      description: "Trade on Binance, Coinbase, Kraken, Bitfinex, and more",
-      highlight: "5+ Exchanges",
+      title: "Blockchain-Only Trading",
+      description: "Trade directly on DEX aggregators - no centralized exchanges needed",
+      highlight: "DEX Only",
       color: "text-green-500",
       details: [
-        "Unified interface for all exchanges",
-        "Automatic arbitrage detection",
-        "Cross-exchange portfolio management",
-        "Real-time order book aggregation",
-        "Smart order routing for best prices",
-        "Exchange-specific risk management"
+        "Trade on 500+ DEXs via aggregators (0x, OKX, Rubic)",
+        "Multi-chain support (Ethereum, Base, Arbitrum, Polygon, etc.)",
+        "Best price routing across all DEXs",
+        "No exchange API keys required",
+        "Lower fees - only blockchain gas + DEX fees",
+        "Custodial or non-custodial wallet options"
       ]
     },
     {
@@ -249,7 +249,7 @@ export default function Landing() {
     {
       name: "Sarah Martinez",
       role: "Crypto Fund Manager",
-      content: "The multi-exchange support and risk management tools are exactly what we needed. Our portfolio performance improved significantly.",
+      content: "The blockchain-only trading and DEX aggregator integration are exactly what we needed. Lower fees and better control over our trades.",
       rating: 5
     },
     {
@@ -260,7 +260,7 @@ export default function Landing() {
     }
   ];
 
-  const exchanges = ["Binance", "Coinbase", "Kraken", "Bitfinex", "Kucoin"];
+  const chains = ["Ethereum", "Base", "Arbitrum", "Polygon", "Optimism"];
   
   const handleOneClickInstall = () => {
     setShowInstallDialog(true);
@@ -488,9 +488,9 @@ echo "📊 API docs at http://localhost:8000/docs"
           <div className="pt-12 flex flex-col items-center gap-4">
             <p className="text-sm text-muted-foreground">Trusted by traders on</p>
             <div className="flex flex-wrap items-center justify-center gap-6">
-              {exchanges.map((exchange, idx) => (
+              {chains.map((chain, idx) => (
                 <div key={idx} className="px-4 py-2 rounded-lg bg-muted/50 border border-border text-sm font-medium">
-                  {exchange}
+                  {chain}
                 </div>
               ))}
             </div>
@@ -656,7 +656,7 @@ echo "📊 API docs at http://localhost:8000/docs"
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {[
             { step: "1", title: "Sign Up Free", description: "Create your account in seconds. No credit card required.", icon: UserPlus },
-            { step: "2", title: "Connect Exchange", description: "Link your exchange API keys securely. We use bank-level encryption.", icon: Shield },
+            { step: "2", title: "Create Wallet", description: "Set up a custodial wallet or connect your Web3 wallet. No API keys needed!", icon: Wallet },
             { step: "3", title: "Start Trading", description: "Choose a strategy or create your own. Let AI do the work.", icon: Rocket }
           ].map((item, idx) => {
             const Icon = item.icon;

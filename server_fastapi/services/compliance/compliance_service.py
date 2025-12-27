@@ -41,7 +41,7 @@ class ComplianceService:
         )  # user_id -> {date: volume}
 
     async def check_trade_compliance(
-        self, user_id: int, amount_usd: float, exchange: str, symbol: str, side: str
+        self, user_id: int, amount_usd: float, chain_id: int, symbol: str, side: str
     ) -> Tuple[ComplianceCheckResult, List[str]]:
         """
         Check if a trade complies with regulatory requirements.
@@ -49,7 +49,7 @@ class ComplianceService:
         Args:
             user_id: User ID
             amount_usd: Trade amount in USD
-            exchange: Exchange name
+            chain_id: Blockchain chain ID (changed from exchange)
             symbol: Trading symbol
             side: Trade side (buy/sell)
 
@@ -77,7 +77,7 @@ class ComplianceService:
 
             # 3. Check for suspicious activity patterns
             suspicious_check = await self._check_suspicious_activity(
-                user_id, amount_usd, exchange, symbol
+                user_id, amount_usd, chain_id, symbol
             )
             if suspicious_check[0]:
                 reasons.extend(suspicious_check[1])
@@ -138,7 +138,7 @@ class ComplianceService:
         return True, []
 
     async def _check_suspicious_activity(
-        self, user_id: int, amount_usd: float, exchange: str, symbol: str
+        self, user_id: int, amount_usd: float, chain_id: int, symbol: str
     ) -> Tuple[bool, List[str]]:
         """Check for suspicious activity patterns"""
         reasons = []
@@ -177,12 +177,76 @@ class ComplianceService:
 
         return is_suspicious, reasons
 
+    async def check_withdrawal_fraud(
+        self, user_id: int, amount: float, to_address: str, chain_id: int
+    ) -> Dict[str, Any]:
+        """
+        Check for fraudulent withdrawal patterns
+
+        Args:
+            user_id: User ID
+            amount: Withdrawal amount
+            to_address: Destination address
+            chain_id: Blockchain chain ID
+
+        Returns:
+            Dict with 'allowed' boolean and 'reason' string
+        """
+        reasons = []
+        is_fraudulent = False
+
+        try:
+            # Check for rapid withdrawals
+            user_history = self.transaction_history.get(user_id, [])
+            recent_withdrawals = [
+                t
+                for t in user_history
+                if t.get("type") == "withdrawal"
+                and (
+                    datetime.utcnow()
+                    - datetime.fromisoformat(t.get("timestamp", "1970-01-01"))
+                ).total_seconds()
+                < 3600
+            ]
+
+            if len(recent_withdrawals) > 5:  # More than 5 withdrawals in last hour
+                is_fraudulent = True
+                reasons.append("Too many withdrawals in short time period")
+
+            # Check for unusual withdrawal amount
+            if amount > self.SUSPICIOUS_ACTIVITY_THRESHOLD:
+                is_fraudulent = True
+                reasons.append(f"Unusually large withdrawal: ${amount:,.2f}")
+
+            # Check for new address (first withdrawal to this address)
+            address_history = [
+                t
+                for t in user_history
+                if t.get("type") == "withdrawal" and t.get("to_address") == to_address
+            ]
+
+            if (
+                not address_history and amount > 1000.0
+            ):  # First withdrawal to new address > $1000
+                is_fraudulent = True
+                reasons.append("First withdrawal to new address exceeds threshold")
+
+            return {
+                "allowed": not is_fraudulent,
+                "reason": "; ".join(reasons) if reasons else None,
+            }
+
+        except Exception as e:
+            logger.error(f"Error in withdrawal fraud check: {e}", exc_info=True)
+            # Fail safe: allow but flag for review
+            return {"allowed": True, "reason": f"Fraud check error: {str(e)}"}
+
     async def record_transaction(
         self,
         user_id: int,
         transaction_id: str,
         amount_usd: float,
-        exchange: str,
+        chain_id: int,  # Changed from exchange
         symbol: str,
         side: str,
         order_id: Optional[str] = None,
@@ -193,13 +257,14 @@ class ComplianceService:
                 self.transaction_history[user_id] = []
 
             transaction = {
+                "chain_id": chain_id,  # Changed from exchange
                 "transaction_id": transaction_id,
                 "order_id": order_id,
                 "user_id": user_id,
                 "amount_usd": amount_usd,
-                "exchange": exchange,
                 "symbol": symbol,
                 "side": side,
+                "type": "trade",  # Transaction type
                 "timestamp": datetime.now().isoformat(),
             }
 
@@ -215,6 +280,42 @@ class ComplianceService:
 
         except Exception as e:
             logger.error(f"Error recording transaction: {e}", exc_info=True)
+
+    async def record_withdrawal(
+        self,
+        user_id: int,
+        withdrawal_id: str,
+        amount: float,
+        to_address: str,
+        chain_id: int,
+    ):
+        """Record withdrawal for compliance monitoring"""
+        try:
+            if user_id not in self.transaction_history:
+                self.transaction_history[user_id] = []
+
+            withdrawal = {
+                "chain_id": chain_id,
+                "transaction_id": withdrawal_id,
+                "user_id": user_id,
+                "amount_usd": amount,
+                "to_address": to_address,
+                "type": "withdrawal",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            self.transaction_history[user_id].append(withdrawal)
+
+            # Keep only last 1000 transactions per user
+            if len(self.transaction_history[user_id]) > 1000:
+                self.transaction_history[user_id] = self.transaction_history[user_id][
+                    -1000:
+                ]
+
+            logger.info(f"Withdrawal recorded for compliance: {withdrawal_id}")
+
+        except Exception as e:
+            logger.error(f"Error recording withdrawal: {e}", exc_info=True)
 
     async def get_user_compliance_status(self, user_id: int) -> Dict[str, Any]:
         """Get comprehensive compliance status for a user"""

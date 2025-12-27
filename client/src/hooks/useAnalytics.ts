@@ -19,6 +19,7 @@ export const useAnalyticsSummary = () => {
       return await apiRequest("/api/analytics/summary", { method: "GET" });
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for analytics data
     refetchInterval: isAuthenticated ? 30000 : false, // 30 seconds
   });
 };
@@ -32,6 +33,7 @@ export const useAnalyticsPerformance = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for performance data
     refetchInterval: isAuthenticated ? 60000 : false, // 1 minute
   });
 };
@@ -45,6 +47,7 @@ export const useAnalyticsRisk = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for risk data
     refetchInterval: isAuthenticated ? 30000 : false,
   });
 };
@@ -58,6 +61,7 @@ export const useAnalyticsPnLChart = (days: number = 30) => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
   });
 };
 
@@ -70,6 +74,7 @@ export const useAnalyticsWinRateChart = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
   });
 };
 
@@ -82,6 +87,7 @@ export const useAnalyticsDrawdownChart = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
   });
 };
 
@@ -94,6 +100,7 @@ export const useDashboardSummary = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 2 * 60 * 1000, // 2 minutes for dashboard summary (status-like data)
     refetchInterval: isAuthenticated ? 10000 : false, // 10 seconds
   });
 };
@@ -107,6 +114,7 @@ export const useDashboardRealtime = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 2 * 60 * 1000, // 2 minutes for real-time status data
     refetchInterval: isAuthenticated ? 5000 : false, // 5 seconds
   });
 };
@@ -120,6 +128,7 @@ export const useDashboardKPIs = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 2 * 60 * 1000, // 2 minutes for KPI status data
     refetchInterval: isAuthenticated ? 30000 : false,
   });
 };
@@ -133,6 +142,7 @@ export const usePortfolioPerformanceChart = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
     refetchInterval: isAuthenticated ? 60000 : false,
   });
 };
@@ -146,6 +156,7 @@ export const useAssetAllocationChart = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
   });
 };
 
@@ -158,6 +169,7 @@ export const useBotPerformanceComparison = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
     refetchInterval: isAuthenticated ? 60000 : false,
   });
 };
@@ -171,6 +183,7 @@ export const useTradeDistributionChart = () => {
       return response;
     },
     enabled: isAuthenticated,
+    staleTime: 30000, // 30 seconds for chart data
   });
 };
 

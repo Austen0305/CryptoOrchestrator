@@ -4,7 +4,7 @@
 # Multi-stage build for optimized production image
 
 # Stage 1: Base image with Python
-FROM python:3.11-slim as base
+FROM python:3.12-slim as base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -36,7 +36,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 FROM base as production
 
 # Copy installed packages from dependencies stage
-COPY --from=dependencies /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=dependencies /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=dependencies /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -54,9 +54,9 @@ ENV PYTHONPATH=/app
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (using /healthz for Kubernetes compatibility)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/healthz || exit 1
 
 # Run application
 CMD ["python", "-m", "uvicorn", "server_fastapi.main:app", "--host", "0.0.0.0", "--port", "8000"]

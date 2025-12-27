@@ -5,11 +5,12 @@ API endpoints for 2FA setup and verification.
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Annotated
 import logging
 
 from ..services.two_factor_service import two_factor_service
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,10 @@ class Setup2FAResponse(BaseModel):
 
 
 @router.post("/setup")
-async def setup_2fa(current_user: dict = Depends(get_current_user)):
+async def setup_2fa(current_user: Annotated[dict, Depends(get_current_user)]):
     """Set up 2FA for the current user"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         email = current_user.get("email", "")
 
         # Generate secret
@@ -57,11 +58,12 @@ async def setup_2fa(current_user: dict = Depends(get_current_user)):
 
 @router.post("/verify")
 async def verify_2fa_token(
-    request: VerifyTokenRequest, current_user: dict = Depends(get_current_user)
+    request: VerifyTokenRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Verify a 2FA token"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         is_valid = two_factor_service.verify_token(user_id, request.token)
 
@@ -77,10 +79,10 @@ async def verify_2fa_token(
 
 
 @router.get("/status")
-async def get_2fa_status(current_user: dict = Depends(get_current_user)):
+async def get_2fa_status(current_user: Annotated[dict, Depends(get_current_user)]):
     """Get 2FA status for current user"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         is_enabled = two_factor_service.is_2fa_enabled(user_id)
 
         return {
@@ -97,10 +99,10 @@ async def get_2fa_status(current_user: dict = Depends(get_current_user)):
 
 
 @router.delete("/disable")
-async def disable_2fa(current_user: dict = Depends(get_current_user)):
+async def disable_2fa(current_user: Annotated[dict, Depends(get_current_user)]):
     """Disable 2FA for current user"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         # In production, would remove from database
         # For now, just remove from in-memory storage
         if user_id in two_factor_service.user_secrets:

@@ -30,9 +30,10 @@ export function AITradingAssistant() {
     {
       id: "1",
       role: "assistant",
-      content: "Hello! I'm your AI Trading Assistant. I can help you with trading decisions, portfolio analysis, and strategy suggestions. Try saying: 'Buy $500 of BTC when it dips below $45k' or 'Analyze my portfolio'",
+      content:
+        "Hello! I'm your AI Trading Assistant. I can help you with trading decisions, portfolio analysis, and strategy suggestions. Try saying: 'Buy $500 of BTC when it dips below $45k' or 'Analyze my portfolio'",
       timestamp: new Date(),
-    }
+    },
   ]);
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -49,13 +50,14 @@ export function AITradingAssistant() {
   // Use React Query mutation for AI assistant API calls
   const aiAssistantMutation = useMutation({
     mutationFn: async (message: string) => {
-      return await apiRequest<{ content: string; suggestions?: string[]; tradeAction?: Message["tradeAction"] }>(
-        '/api/ai/assistant',
-        {
-          method: 'POST',
-          body: JSON.stringify({ message }),
-        }
-      );
+      return await apiRequest<{
+        content: string;
+        suggestions?: string[];
+        tradeAction?: Message["tradeAction"];
+      }>("/api/ai/assistant", {
+        method: "POST",
+        body: JSON.stringify({ message }),
+      });
     },
     onError: (error) => {
       toast({
@@ -75,7 +77,7 @@ export function AITradingAssistant() {
           suggestions: response.suggestions,
           tradeAction: response.tradeAction,
         };
-        setMessages(prev => [...prev, assistantMsg]);
+        setMessages((prev) => [...prev, assistantMsg]);
       }
     },
   });
@@ -92,7 +94,7 @@ export function AITradingAssistant() {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
     try {
@@ -106,7 +108,7 @@ export function AITradingAssistant() {
         suggestions: response.suggestions,
         tradeAction: response.tradeAction,
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     } catch {
       // Error handling is done in onError callback
       // Fallback to local response
@@ -119,11 +121,13 @@ export function AITradingAssistant() {
         suggestions: response.suggestions,
         tradeAction: response.tradeAction,
       };
-      setMessages(prev => [...prev, assistantMsg]);
+      setMessages((prev) => [...prev, assistantMsg]);
     }
   };
 
-  const generateAIResponse = (userInput: string): { content: string; suggestions?: string[]; tradeAction?: Message["tradeAction"] } => {
+  const generateAIResponse = (
+    userInput: string
+  ): { content: string; suggestions?: string[]; tradeAction?: Message["tradeAction"] } => {
     const lowerInput = userInput.toLowerCase();
 
     // Buy order detection
@@ -132,9 +136,15 @@ export function AITradingAssistant() {
       const amountMatch = userInput.match(/\$?([\d,]+\.?\d*)/);
       const priceMatch = userInput.match(/(?:below|under|when|at)\s*\$?([\d,]+\.?\d*)/i);
 
-      const symbol = symbolMatch ? (symbolMatch[2] ? `${symbolMatch[1] || 'BTC'}/${symbolMatch[2]}` : symbolMatch[1] || 'BTC/USD') : "BTC/USD";
-      const amount = amountMatch && amountMatch[1] ? parseFloat(amountMatch[1].replace(/,/g, "")) : 500;
-      const price = priceMatch && priceMatch[1] ? parseFloat(priceMatch[1].replace(/,/g, "")) : undefined;
+      const symbol = symbolMatch
+        ? symbolMatch[2]
+          ? `${symbolMatch[1] || "BTC"}/${symbolMatch[2]}`
+          : symbolMatch[1] || "BTC/USD"
+        : "BTC/USD";
+      const amount =
+        amountMatch && amountMatch[1] ? parseFloat(amountMatch[1].replace(/,/g, "")) : 500;
+      const price =
+        priceMatch && priceMatch[1] ? parseFloat(priceMatch[1].replace(/,/g, "")) : undefined;
 
       return {
         content: `I'll help you set up a buy order for ${symbol}${amount ? ` worth ${formatCurrency(amount)}` : ""}${price ? ` when the price drops below ${formatCurrency(price)}` : ""}. Would you like me to create this order now?`,
@@ -151,7 +161,8 @@ export function AITradingAssistant() {
     // Sell order detection
     if (lowerInput.includes("sell")) {
       return {
-        content: "I can help you set up a sell order. Please specify the symbol and amount, or I can analyze your portfolio and suggest the best positions to sell.",
+        content:
+          "I can help you set up a sell order. Please specify the symbol and amount, or I can analyze your portfolio and suggest the best positions to sell.",
         suggestions: ["Show My Positions", "Sell All BTC", "Take Profit 10%"],
       };
     }
@@ -159,7 +170,8 @@ export function AITradingAssistant() {
     // Portfolio analysis
     if (lowerInput.includes("portfolio") || lowerInput.includes("analyze")) {
       return {
-        content: "Analyzing your portfolio... Your current allocation shows: BTC 65%, ETH 25%, Other 10%. Risk level: Moderate. Recommendations: Consider diversifying to reduce BTC concentration risk. Your Sharpe ratio is 1.8, which is good. Overall portfolio health: 85/100.",
+        content:
+          "Analyzing your portfolio... Your current allocation shows: BTC 65%, ETH 25%, Other 10%. Risk level: Moderate. Recommendations: Consider diversifying to reduce BTC concentration risk. Your Sharpe ratio is 1.8, which is good. Overall portfolio health: 85/100.",
         suggestions: ["Rebalance Portfolio", "View Detailed Analysis", "Compare to Benchmark"],
       };
     }
@@ -167,14 +179,16 @@ export function AITradingAssistant() {
     // Price inquiry
     if (lowerInput.includes("price") || lowerInput.includes("how much")) {
       return {
-        content: "Current prices: BTC/USD: $47,350 (+4.76%), ETH/USD: $2,920 (+2.1%), SOL/USD: $142 (-0.5%). Would you like more details on any specific asset?",
+        content:
+          "Current prices: BTC/USD: $47,350 (+4.76%), ETH/USD: $2,920 (+2.1%), SOL/USD: $142 (-0.5%). Would you like more details on any specific asset?",
         suggestions: ["BTC Analysis", "ETH Analysis", "Set Price Alert"],
       };
     }
 
     // Default response
     return {
-      content: "I understand you're asking about trading. I can help you with:\n- Creating buy/sell orders\n- Analyzing your portfolio\n- Setting price alerts\n- Getting market insights\n- Strategy recommendations\n\nTry saying something like: 'Buy $500 of BTC' or 'Analyze my portfolio'",
+      content:
+        "I understand you're asking about trading. I can help you with:\n- Creating buy/sell orders\n- Analyzing your portfolio\n- Setting price alerts\n- Getting market insights\n- Strategy recommendations\n\nTry saying something like: 'Buy $500 of BTC' or 'Analyze my portfolio'",
       suggestions: ["Show Examples", "View Portfolio", "Market Overview"],
     };
   };
@@ -186,7 +200,9 @@ export function AITradingAssistant() {
   const handleTradeAction = (action: Message["tradeAction"]) => {
     if (!action) return;
     // In production, this would open the order entry panel or execute the trade
-    alert(`Executing ${action.action.toUpperCase()} order: ${action.amount} ${action.symbol}${action.price ? ` at ${formatCurrency(action.price)}` : ""}`);
+    alert(
+      `Executing ${action.action.toUpperCase()} order: ${action.amount} ${action.symbol}${action.price ? ` at ${formatCurrency(action.price)}` : ""}`
+    );
   };
 
   return (
@@ -220,15 +236,13 @@ export function AITradingAssistant() {
                 <div
                   className={cn(
                     "rounded-lg px-4 py-2 max-w-[80%]",
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                    message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   )}
                 >
                   <div className="whitespace-pre-wrap text-sm">{message.content}</div>
                   {message.suggestions && message.suggestions.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-3">
-                      {message.suggestions.map((suggestion, index) => (
+                      {message.suggestions?.map((suggestion, index) => (
                         <Button
                           key={index}
                           variant="outline"
@@ -245,10 +259,7 @@ export function AITradingAssistant() {
                     <div className="mt-3 p-3 rounded-md border bg-background/50">
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium text-sm">Proposed Trade</div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleTradeAction(message.tradeAction)}
-                        >
+                        <Button size="sm" onClick={() => handleTradeAction(message.tradeAction)}>
                           Execute
                         </Button>
                       </div>
@@ -357,4 +368,3 @@ export function AITradingAssistant() {
     </Card>
   );
 }
-

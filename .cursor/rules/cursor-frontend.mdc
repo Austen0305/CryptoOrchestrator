@@ -1,27 +1,34 @@
 ---
 alwaysApply: true
+description: "Frontend development rules for CryptoOrchestrator - React (legacy) and SvelteKit (new)"
 ---
 # CryptoOrchestrator - Frontend Development Rules
 
+> **Current Date**: December 11, 2025  
+> **Last Updated**: 2025-12-11
+
 You are an expert frontend software engineer specializing in this production-ready cryptocurrency trading automation platform. Follow these rules when working on frontend code.
 
-> **Note**: This file focuses on frontend-specific rules. See `.cursor/rules/cursorprojectrules.mdc` for full-stack patterns and architecture.
+> **Note**: The project uses the optimized React stack for maximum performance and production readiness.
 
 ## 🎨 Frontend Stack & Architecture
 
-### Core Technologies
+### Production Stack (React - Active)
 - **Framework**: React 18+ with TypeScript (strict mode enabled)
-- **Build System**: Vite with manual code splitting
+- **Build System**: Vite with advanced manual code splitting
 - **State Management**: 
-  - **Server State**: TanStack Query (React Query) v5+
+  - **Server State**: TanStack Query (React Query) v5+ with request deduplication
   - **UI State**: React useState/useReducer
   - **Global State**: Zustand (when needed)
   - **Form State**: React Hook Form with Zod validation
 - **UI Components**: shadcn/ui (Radix UI primitives)
-- **Styling**: Tailwind CSS with dark mode support
+- **Styling**: Tailwind CSS with dark mode support and custom animations
 - **Routing**: React Router (if used) or component-based routing
-- **Desktop**: Electron wrapper (for desktop builds)
-- **PWA**: Vite PWA plugin for offline support
+- **Desktop**: Electron wrapper with Python runtime bundling and auto-updater
+- **Mobile**: React Native/Expo with push notifications, offline mode, and biometric auth
+- **PWA**: Vite PWA plugin for offline support with 55+ precached entries
+- **Testing**: Vitest for unit tests, Playwright for E2E (cross-browser: Chromium, Firefox, WebKit)
+
 
 ### Directory Structure
 ```
@@ -29,21 +36,32 @@ client/
 ├── src/
 │   ├── components/          # UI components
 │   │   ├── ui/             # shadcn/ui base components
-│   │   └── [feature]/      # Feature-specific components
+│   │   ├── [feature]/      # Feature-specific components
+│   │   ├── LoadingSkeleton.tsx  # Loading states with variants
+│   │   ├── PageTransition.tsx    # Page transition animations
+│   │   ├── MobileMenu.tsx        # Mobile navigation
+│   │   └── AccessibilityProvider.tsx  # Accessibility features
 │   ├── hooks/               # Custom React hooks
 │   │   ├── useApi.ts       # React Query hooks
+│   │   ├── useFormValidation.ts  # Form validation with debouncing
+│   │   ├── useVirtualScroll.ts   # Virtual scrolling for large lists
+│   │   ├── useIntersectionObserver.ts  # Lazy loading hook
 │   │   └── [feature].ts    # Feature hooks
 │   ├── lib/                 # Utilities & API clients
 │   │   ├── api.ts          # API function definitions
-│   │   ├── queryClient.ts  # React Query setup
+│   │   ├── queryClient.ts  # React Query setup with request deduplication
 │   │   └── utils.ts        # Helper functions
+│   ├── utils/               # Performance & optimization utilities
+│   │   ├── performance.ts  # Debounce, throttle, deduplication, batching
+│   │   ├── imageOptimization.ts  # WebP/AVIF, lazy loading, srcset
+│   │   └── accessibility.ts  # Accessibility utilities (focus trap, announcements)
 │   ├── pages/               # Page components
 │   ├── contexts/            # React contexts
 │   ├── locales/             # i18n translations
 │   └── test/                # Test utilities
 ├── public/                  # Static assets
 ├── index.html
-└── vite.config.ts
+└── vite.config.ts          # Vite config with advanced code splitting
 ```
 
 ### Path Aliases
@@ -324,6 +342,61 @@ export const useThemeStore = create<ThemeStore>((set) => ({
 
 ## 🧪 Testing Patterns
 
+### Complete E2E Testing Infrastructure
+
+**NEW**: Comprehensive end-to-end testing infrastructure with automated service management.
+
+#### Unified Test Runner
+- **Command**: `npm run test:e2e:complete`
+- **Script**: `scripts/test-e2e-complete.js`
+- **Features**:
+  - Validates environment before tests
+  - Starts all services automatically
+  - Runs Playwright E2E tests
+  - Runs Puppeteer critical flow tests
+  - Generates combined reports
+  - Cleans up services
+
+#### Puppeteer Testing
+- **Configuration**: `puppeteer.config.js` - Centralized browser options
+- **Test Helper**: `tests/puppeteer/test-helper.js`
+  - Retry logic with exponential backoff
+  - Safe element operations (click, type, navigate)
+  - Screenshot handling
+  - Consistent result format
+- **Test Files**: `tests/puppeteer/*.js`
+  - `auth-flow.js` - Authentication flow testing
+  - `bot-management.js` - Bot CRUD operations
+  - `dex-trading.js` - DEX swap testing
+  - `wallet-operations.js` - Wallet management
+- **Pattern**:
+  ```javascript
+  const { safeNavigate, safeClick, createTestResults, finalizeResults, config } = require('./test-helper');
+  
+  async function testFeature() {
+    const browser = await puppeteer.launch(config.launch);
+    const page = await browser.newPage();
+    const results = createTestResults();
+    
+    try {
+      await safeNavigate(page, `${BASE_URL}/feature`);
+      // Test logic
+      results.passed.push('Feature works');
+    } catch (error) {
+      results.failed.push(`Error: ${error.message}`);
+    } finally {
+      await browser.close();
+      finalizeResults(results);
+    }
+  }
+  ```
+
+#### Test Reporting
+- **Report Generator**: `scripts/generate-test-report.js`
+  - Combines Playwright and Puppeteer results
+  - Generates HTML and JSON reports
+  - Location: `test-results/combined-report.html`
+
 ### Component Tests (Vitest + Testing Library)
 ```typescript
 // client/src/components/__tests__/BotList.test.tsx
@@ -383,6 +456,13 @@ test('should create bot successfully', async ({ page }) => {
 });
 ```
 
+### NPM Scripts
+- `test:e2e:complete` - Run complete E2E test suite
+- `test:puppeteer` - Run Puppeteer tests only
+- `start:all` - Start all services
+- `validate:env` - Validate environment
+- `check:services` - Check service health
+
 ---
 
 ## 🎨 Styling Guidelines
@@ -405,21 +485,67 @@ test('should create bot successfully', async ({ page }) => {
 ### Code Splitting
 - Vite automatically splits vendor chunks (see `vite.config.ts`)
 - Manual chunks: React, React Query, Charts, Radix UI, Icons
+- **Advanced chunk splitting**: Radix UI split into overlays/forms/core, Web3 libraries, date-utils, forms, validation
 - Lazy load routes and heavy components:
-  ```typescript
-  const HeavyComponent = lazy(() => import('./HeavyComponent'));
-  ```
+ ```typescript
+ const HeavyComponent = lazy(() => import('./HeavyComponent'));
+ ```
 
 ### React Optimization
-- Use `React.memo` for expensive components
+- Use `React.memo` for expensive components (BotCreator, OrderEntryPanel, EmptyState, etc.)
 - Use `useMemo` for expensive computations
 - Use `useCallback` for stable function references
-- Debounce/throttle API calls in search/filters
+- Debounce/throttle API calls in search/filters using `@/utils/performance`
+- **Request Deduplication**: Prevents duplicate API calls (implemented in `queryClient.ts`)
+
+### Performance Utilities
+```typescript
+// ✅ Use performance utilities from @/utils/performance
+import { debounce, throttle, deduplicateRequest, batchOperations } from '@/utils/performance';
+
+// Debounce search input
+const debouncedSearch = debounce((query: string) => {
+  searchApi(query);
+}, 300);
+
+// Throttle scroll events
+const throttledScroll = throttle(() => {
+  handleScroll();
+}, 100);
+
+// Deduplicate API requests
+const result = await deduplicateRequest('key', () => apiRequest('/api/data'));
+```
+
+### Image Optimization
+```typescript
+// ✅ Use image optimization utilities
+import { generateSrcSet, getOptimizedImageUrl, useLazyImage } from '@/utils/imageOptimization';
+
+// Generate responsive srcset
+const srcset = generateSrcSet(imageUrl, [320, 640, 960, 1280]);
+
+// Lazy load images
+const { ref, src, isLoaded } = useLazyImage(imageUrl, placeholder);
+```
+
+### Virtual Scrolling
+```typescript
+// ✅ Use virtual scrolling for large lists
+import { useVirtualScroll } from '@/hooks/useVirtualScroll';
+
+const { virtualItems, totalHeight, scrollToIndex } = useVirtualScroll({
+  items: largeList,
+  itemHeight: 50,
+  containerHeight: 400,
+});
+```
 
 ### Bundle Size
 - Chunk size warning limit: 1MB (configured in `vite.config.ts`)
 - Monitor bundle with `npm run build` (Vite visualizer)
 - Remove unused dependencies
+- **TensorFlow excluded** from optimizeDeps for lazy loading
 
 ---
 
@@ -456,6 +582,77 @@ type TradingMode = typeof TradingMode[keyof typeof TradingMode];
 ```
 
 ---
+
+## 🎨 UI/UX Patterns
+
+### Loading States
+```typescript
+// ✅ Use LoadingSkeleton with variants
+import { LoadingSkeleton, FormSkeleton, ListSkeleton } from '@/components/LoadingSkeleton';
+
+// Default skeleton
+<LoadingSkeleton variant="card" />
+
+// Form skeleton
+<FormSkeleton fields={4} />
+
+// List skeleton
+<ListSkeleton items={5} />
+```
+
+### Form Validation
+```typescript
+// ✅ Use useFormValidation hook for real-time validation
+import { useFormValidation, validationRules } from '@/hooks/useFormValidation';
+
+const { values, errors, handleChange, handleBlur, isValid } = useFormValidation(
+  initialValues,
+  {
+    name: [validationRules.required(), validationRules.minLength(3)],
+    email: [validationRules.required(), validationRules.email()],
+  },
+  { debounceMs: 300 }
+);
+```
+
+### Page Transitions
+```typescript
+// ✅ Use PageTransition for smooth page changes
+import { PageTransition, AnimatedContainer } from '@/components/PageTransition';
+
+<PageTransition variant="fade" duration={300}>
+  <YourPageContent />
+</PageTransition>
+
+<AnimatedContainer animation="fade-in-up" delay={100}>
+  <YourComponent />
+</AnimatedContainer>
+```
+
+### Accessibility
+```typescript
+// ✅ Use accessibility utilities
+import { trapFocus, announceToScreenReader, getFocusableElements } from '@/utils/accessibility';
+
+// Trap focus in modal
+const cleanup = trapFocus(modalRef.current);
+
+// Announce to screen readers
+announceToScreenReader('Bot created successfully', 'polite');
+```
+
+### Mobile Optimization
+```typescript
+// ✅ Ensure minimum touch targets (44x44px)
+<Button className="min-h-[44px] min-w-[44px] touch-manipulation">
+  Click me
+</Button>
+
+// Use safe area insets for mobile
+<div className="safe-area-inset-bottom">
+  Mobile content
+</div>
+```
 
 ## 🐛 Frontend Debugging
 
@@ -497,9 +694,234 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 
 ---
 
+## 🔗 Web3 Wallet Integration Patterns
+
+### Wallet Connection (MetaMask, WalletConnect, Coinbase Wallet)
+
+```typescript
+// ✅ Web3 wallet connection hook
+import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { MetaMaskConnector, WalletConnectConnector } from 'wagmi/connectors';
+
+export function useWalletConnection() {
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { disconnect } = useDisconnect();
+
+  const connectMetaMask = () => {
+    connect({ connector: connectors.find(c => c.id === 'metaMask') });
+  };
+
+  const connectWalletConnect = () => {
+    connect({ connector: connectors.find(c => c.id === 'walletConnect') });
+  };
+
+  return {
+    address,
+    isConnected,
+    connectMetaMask,
+    connectWalletConnect,
+    disconnect,
+  };
+}
+```
+
+### Multi-Chain Wallet Support
+
+```typescript
+// ✅ Multi-chain wallet hook
+import { useNetwork, useSwitchNetwork } from 'wagmi';
+import { mainnet, base, arbitrum, polygon } from 'wagmi/chains';
+
+export function useMultiChainWallet() {
+  const { chain } = useNetwork();
+  const { switchNetwork } = useSwitchNetwork();
+
+  const supportedChains = [mainnet, base, arbitrum, polygon];
+
+  const switchToChain = (chainId: number) => {
+    switchNetwork?.(chainId);
+  };
+
+  return {
+    currentChain: chain,
+    supportedChains,
+    switchToChain,
+  };
+}
+```
+
+### Wallet Balance Display
+
+```typescript
+// ✅ Wallet balance hook with CoinGecko price data
+import { useBalance } from 'wagmi';
+import { useQuery } from '@tanstack/react-query';
+
+export function useWalletBalance(address: string, chainId: number) {
+  const { data: balance, isLoading } = useBalance({
+    address: address as `0x${string}`,
+    chainId,
+  });
+
+  // Get USD value from CoinGecko MCP or API
+  const { data: price } = useQuery({
+    queryKey: ['token-price', 'ethereum', chainId],
+    queryFn: () => fetchCoinGeckoPrice('ethereum'),
+    staleTime: 30000,
+  });
+
+  const usdValue = balance && price 
+    ? parseFloat(balance.formatted) * price 
+    : null;
+
+  return {
+    balance: balance?.formatted,
+    symbol: balance?.symbol,
+    usdValue,
+    isLoading,
+  };
+}
+```
+
+## 🔄 DEX Trading UI Patterns
+
+### Swap Interface Component
+
+```typescript
+// ✅ DEX swap component with price impact warning
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+interface SwapProps {
+  chainId: number;
+  walletAddress: string;
+}
+
+export function SwapInterface({ chainId, walletAddress }: SwapProps) {
+  const [tokenIn, setTokenIn] = useState('USDC');
+  const [tokenOut, setTokenOut] = useState('ETH');
+  const [amount, setAmount] = useState('');
+
+  // Get quote from backend
+  const { data: quote, isLoading } = useQuery({
+    queryKey: ['dex-quote', tokenIn, tokenOut, amount, chainId],
+    queryFn: () => getDexQuote(tokenIn, tokenOut, amount, chainId),
+    enabled: !!amount && parseFloat(amount) > 0,
+  });
+
+  const priceImpact = quote?.price_impact || 0;
+  const showWarning = priceImpact > 0.01; // 1% threshold
+
+  return (
+    <div>
+      <Input
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Amount"
+      />
+      {showWarning && (
+        <div className="text-yellow-500">
+          Warning: Price impact is {(priceImpact * 100).toFixed(2)}%
+        </div>
+      )}
+      <Button
+        onClick={() => executeSwap(quote)}
+        disabled={!quote || isLoading || showWarning}
+      >
+        Swap
+      </Button>
+    </div>
+  );
+}
+```
+
+### Transaction Status Tracking
+
+```typescript
+// ✅ Transaction status component
+export function useTransactionStatus(txHash: string | null, chainId: number) {
+  return useQuery({
+    queryKey: ['transaction-status', txHash, chainId],
+    queryFn: () => getTransactionStatus(txHash!, chainId),
+    enabled: !!txHash,
+    refetchInterval: (data) => {
+      // Poll every 2 seconds until confirmed
+      return data?.status === 'pending' ? 2000 : false;
+    },
+  });
+}
+```
+
+## 📱 Mobile App Development
+
+### Mobile Stack
+- **Framework**: React Native with Expo
+- **Navigation**: React Navigation (`@react-navigation/bottom-tabs`)
+- **State Management**: React Query (`@tanstack/react-query`)
+- **API Client**: Axios with interceptors
+- **Storage**: AsyncStorage for local data
+- **Notifications**: Expo Notifications
+- **Network**: NetInfo for connectivity detection
+- **Biometrics**: react-native-biometrics, react-native-keychain
+
+### Mobile Features
+
+**Push Notifications:**
+- Expo push notifications configured
+- Backend subscription management
+- Foreground notification handling
+- Badge count management
+
+**Offline Mode:**
+- Action queuing for trades, bot actions
+- Data caching with TTL
+- Automatic sync when online
+- Retry logic for failed actions
+
+**Biometric Authentication:**
+- Face ID, Touch ID, fingerprint support
+- Secure keychain storage
+- Transaction confirmation
+- App unlock protection
+
+**Screens:**
+- Dashboard: Portfolio overview, bot status
+- Portfolio: Multi-chain wallets, balances, positions
+- Trading: Exchange and DEX trading
+- Settings: Preferences, security, offline queue
+- Profile: User management, password change, 2FA
+
+### Mobile Build & Deployment
+
+**Build Commands:**
+```bash
+# iOS
+cd mobile && npx expo build:ios
+
+# Android
+cd mobile && npx expo build:android
+```
+
+**CI/CD**: Automated builds in `.github/workflows/mobile-build.yml`
+
 ## 🔧 MCP Integration for Frontend
 
+### MCP Hub Access
+
+**All MCP tools are accessed through MCP Hub** to bypass Cursor's 40-tool limit:
+- **Configuration**: Individual servers in `~/.cursor/mcp-hub.json`, only `mcp-hub` in `mcp.json`
+- **Enable**: Only `mcp-hub` in Cursor Settings > Tools & MCP (disable all individual servers)
+- **Tools**: Use `list-all-tools`, `call-tool`, `get-tool-info` to access all servers
+- **Example**: `call-tool(serverName: "coingecko", toolName: "get_price", toolArgs: {symbol: "BTC"})`
+- **Environment Variables**: Set in `.env` file (see `.cursor/MCP_ENV_VARS_ADDED.md`)
+
 ### Available MCP Tools
+- **CoinGecko MCP**: Real-time crypto prices for UI components
+- **Web3 MCP**: Blockchain interactions in hooks (wallet balances, transactions)
+- **DeFi Trading MCP**: Portfolio analysis and DEX liquidity data
 - **Puppeteer**: Browser automation for testing and UI verification
 - **Context7**: Get latest React, TypeScript, TanStack Query, Vite documentation
 - **StackOverflow**: Search for React/TypeScript patterns and solutions
@@ -513,6 +935,27 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 
 ### When to Use MCPs
 
+**CoinGecko MCP (Cryptocurrency Prices):**
+- Get real-time token prices for display in components
+- Fetch historical price data for charts
+- Get market cap and volume data
+- List trending tokens
+- Use in hooks: `useQuery({ queryKey: ['price', 'ethereum'], queryFn: () => getCoinGeckoPrice('ethereum') })`
+
+**Web3 MCP (Blockchain Interactions):**
+- Check wallet balances in hooks
+- Get transaction status
+- Query smart contract data
+- Get gas prices for multiple chains
+- Use in hooks: `useQuery({ queryKey: ['balance', address, chainId], queryFn: () => getWeb3Balance(address, chainId) })`
+
+**DeFi Trading MCP (Trading Features):**
+- Get portfolio performance data
+- Track DEX liquidity for token pairs
+- Monitor transaction history
+- Get market data intelligence
+- Use in components: Display portfolio analytics, DEX liquidity info
+
 **Puppeteer (Browser Automation):**
 - Verify UI components render correctly
 - Test user flows and interactions programmatically
@@ -520,6 +963,8 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - Debug frontend issues interactively
 - Automate E2E testing workflows
 - Test responsive design across viewports
+- Test wallet connection flows
+- Verify swap UI interactions
 
 **Context7 (Documentation):**
 - "Get latest React Query invalidation patterns"
@@ -528,6 +973,8 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - "Vite build optimization techniques"
 - "TanStack Query v5 migration guide"
 - "shadcn/ui component patterns"
+- "Web3 wallet integration hooks (wagmi)"
+- "DEX UI component patterns"
 
 **StackOverflow (Patterns & Solutions):**
 - Search for React/TypeScript error messages
@@ -535,6 +982,9 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - Check for known issues with libraries
 - Learn from community solutions
 - Troubleshoot build/compilation errors
+- "Web3 wallet connection issues"
+- "React Query cache not updating"
+- "wagmi hook patterns"
 
 **Brave Search (Best Practices):**
 - "React performance optimization 2024"
@@ -542,12 +992,17 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - "Frontend security best practices"
 - "Accessibility best practices React"
 - "Vite production optimization"
+- "Web3 wallet integration best practices"
+- "DEX UI/UX patterns"
+- "Crypto trading platform frontend security"
 
 **Memory/Memory-Bank (Knowledge Storage):**
 - Store custom component patterns
 - Save complex hook implementations
 - Remember architecture decisions
 - Document frontend solutions
+- Store Web3 wallet integration patterns
+- Save DEX UI component patterns
 
 **Filesystem:**
 - Bulk file operations
@@ -560,14 +1015,38 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - Review PRs and issues
 - Commit frontend changes
 - Collaborate on frontend code
+- **GitHub MCP**: Requires `GITHUB_TOKEN` environment variable
 
 ### Example Usage
+
+**Crypto-Specific Examples:**
+```typescript
+// Use CoinGecko MCP for price data in components
+const { data: price } = useQuery({
+  queryKey: ['price', 'ethereum'],
+  queryFn: () => getCoinGeckoPrice('ethereum'),
+});
+
+// Use Web3 MCP for wallet balance in hooks
+const { data: balance } = useQuery({
+  queryKey: ['balance', address, chainId],
+  queryFn: () => getWeb3Balance(address, chainId),
+});
+
+// Use DeFi Trading MCP for portfolio data
+const { data: portfolio } = useQuery({
+  queryKey: ['portfolio', address],
+  queryFn: () => getDeFiTradingPortfolio(address),
+});
+```
+
+**Development Examples:**
 ```typescript
 // Use Context7 to get latest React Query docs
-// Use Puppeteer to test login flow and take screenshots
-// Use StackOverflow to search for "React Query cache not updating"
-// Use Memory-Bank to store a custom hook pattern
-// Use Brave Search for "React 18 concurrent features"
+// Use Puppeteer to test wallet connection flow and take screenshots
+// Use StackOverflow to search for "wagmi wallet connection issues"
+// Use Memory-Bank to store a custom Web3 hook pattern
+// Use Brave Search for "Web3 wallet integration React 2025"
 ```
 
 ---
@@ -579,6 +1058,27 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 - **Linter**: ESLint (follow `.eslintrc.json`)
 - **Strict mode**: All strict flags enabled (see `tsconfig.json`)
 - **No `any`**: Use `unknown` for truly unknown types
+
+### ⚠️ TypeScript Execution Tools - CRITICAL RULES
+
+**tsx (TypeScript Execute) - SCRIPTS ONLY**:
+- ❌ **NEVER** use `tsx` to run React components or frontend code
+- ❌ **NEVER** use `tsx` to run `client/src/main.tsx` or any React app files
+- ❌ **NEVER** use `tsx` for Vite dev server or build processes
+- ✅ **ONLY** use `tsx` for standalone utility scripts in `scripts/` directory
+- ✅ **ONLY** use `tsx` for one-off scripts, build tools, or data processing
+
+**Correct Commands**:
+- ✅ Frontend dev server: `npm run dev` (uses Vite, NOT tsx)
+- ✅ Type checking: `npm run check` (uses `tsc`, NOT tsx)
+- ✅ Build: `npm run build` (uses Vite, NOT tsx)
+- ✅ Scripts: `npx tsx scripts/utility.ts` (ONLY for scripts)
+
+**What to use instead of tsx**:
+- React app development: `npm run dev` (Vite)
+- Type checking: `npm run check` (TypeScript compiler)
+- Building: `npm run build` (Vite)
+- Testing: `npm run test:frontend` (Vitest)
 
 ### File Organization
 - One component per file
@@ -596,45 +1096,147 @@ queryClient.invalidateQueries({ queryKey: ['bots'] });
 
 ## 🤖 Frontend-Specific Agent Behavior
 
-### Codebase Search Patterns
-- **Before creating components**: Search for similar UI patterns and components
-- **Before creating hooks**: Check existing React Query hooks and patterns
-- **Before API calls**: Verify API functions exist in `client/src/lib/api.ts`
-- **Before styling**: Check existing Tailwind patterns and shadcn/ui components
-- **Query examples**:
-  - "How are React Query hooks structured?"
-  - "Where are API functions defined?"
-  - "How is authentication handled in components?"
-  - "What error handling patterns are used?"
+### Default Mode: AUTONOMOUS OPERATION
 
-### Frontend Code Generation
-- **Always include**: TypeScript types, error boundaries, loading states, tests
-- **Component pattern**: Props interface → React Query hooks → Error/Loading states → Render
-- **Hook pattern**: Query key → Query function → Options (staleTime, refetchInterval)
-- **API pattern**: Function definition → Type parameters → apiRequest call → Return typed result
-- **Test pattern**: Render → User interaction → Assert state changes → Cleanup
+**The agent operates in AUTONOMOUS MODE for all frontend tasks**, meaning:
 
-### Frontend-Specific Checks
-Before submitting frontend code, verify:
-- ✅ All components have TypeScript interfaces for props
-- ✅ No `any` types (use `unknown` if needed)
-- ✅ Loading states handled (LoadingSkeleton component)
-- ✅ Error states handled (ErrorBoundary or error fallback)
-- ✅ React Query used for server state (not component state)
-- ✅ Query keys follow hierarchical pattern (`['domain', subKey]`)
-- ✅ Trading modes normalized ("live" → "real") before API calls
-- ✅ Polling disabled when WebSocket connected
-- ✅ Bundle size acceptable (check chunk sizes)
-- ✅ Accessibility (semantic HTML, ARIA labels, keyboard nav)
+- ✅ **Automatically uses all tools** - MCP tools, browser tools, codebase search - NO ASKING
+- ✅ **Automatically researches** - Intelligence system, codebase patterns, external docs - NO ASKING
+- ✅ **Automatically plans** - Component architecture, hooks, state management - NO ASKING
+- ✅ **Automatically implements** - Components, hooks, API functions, tests - NO ASKING
+- ✅ **Automatically fixes issues** - TypeScript errors, lint errors, test failures - NO ASKING
+- ✅ **Automatically verifies** - Runs tests, checks bundle size, validates UI - NO ASKING
 
-### Frontend Debugging Strategy
-1. **Browser DevTools**: Check Network tab for API calls, Console for errors
-2. **React DevTools**: Inspect component tree, hooks, and state
-3. **React Query DevTools**: Check query cache, mutations, loading states
-4. **TypeScript errors**: Use `npm run check` to find type issues
-5. **Build issues**: Check Vite build output for bundle size warnings
-6. **UI issues**: Use Browser MCP to visually test components
-7. **Performance**: Use React DevTools Profiler to identify slow components
+**The agent only asks when requirements are genuinely ambiguous (rare cases).**
+
+### Mandatory Intelligence System Usage (AUTOMATIC)
+
+**REQUIRED**: The agent MUST automatically use the intelligence system for EVERY frontend task - NO EXCEPTIONS.
+
+**Before ANY frontend task, AUTOMATICALLY (MANDATORY):**
+1. ✅ **AUTOMATICALLY** Read `.cursor/extracted-patterns.md` - Find React Query Hook Pattern (42+ files), Optimistic Update Pattern (10+ files)
+2. ✅ **AUTOMATICALLY** Read `.cursor/knowledge-base.md` - Check for frontend patterns and solutions
+3. ✅ **AUTOMATICALLY** Read `.cursor/quick-reference.md` - Fast lookup for frontend patterns
+4. ✅ **AUTOMATICALLY** Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor", path: "patterns/react-query-hook.json" })` - Retrieve stored patterns
+5. ✅ **AUTOMATICALLY** Check `.cursor/predictive-suggestions.md` - Get frontend-specific predictions
+6. ✅ **AUTOMATICALLY** Apply heuristics: Read `.cursor/intelligence-heuristics.md` - Frontend decision rules
+
+**The agent does NOT ask** - it automatically uses the intelligence system before every frontend task.
+
+**When creating hooks:**
+- ✅ Match React Query Hook Pattern from `.cursor/extracted-patterns.md`
+- ✅ Use `useAuth()` hook to check authentication
+- ✅ Set `enabled: isAuthenticated` to conditionally fetch
+- ✅ Set appropriate `staleTime` (2min for status, 30s for data)
+- ✅ Disable polling when WebSocket connected
+
+**When creating mutations:**
+- ✅ Match Optimistic Update Pattern from `.cursor/extracted-patterns.md`
+- ✅ Use `onMutate` for optimistic update
+- ✅ Snapshot previous state for rollback
+- ✅ Use `onError` for rollback on failure
+- ✅ Use `onSettled` for query invalidation
+
+**When creating API functions:**
+- ✅ Normalize trading modes ("live" → "real") - Check Memory-Bank: `read_global_memory_bank({ docs: ".cursor", path: "decisions/trading-mode-normalization.json" })`
+- ✅ Use `apiRequest()` wrapper for all API calls
+- ✅ Handle query parameters properly
+
+### Automatic Codebase Search (MANDATORY)
+
+**The agent AUTOMATICALLY searches the codebase before implementing - NO ASKING:**
+
+- ✅ **AUTOMATICALLY** Search for similar UI patterns before creating components
+- ✅ **AUTOMATICALLY** Check existing React Query hooks before creating hooks
+- ✅ **AUTOMATICALLY** Verify API functions exist before API calls
+- ✅ **AUTOMATICALLY** Check existing Tailwind patterns before styling
+- ✅ **AUTOMATICALLY** Match patterns from `.cursor/extracted-patterns.md`
+
+**Automatic search queries:**
+- ✅ "How are React Query hooks structured?" - AUTOMATICALLY search
+- ✅ "Where are API functions defined?" - AUTOMATICALLY search
+- ✅ "How is authentication handled in components?" - AUTOMATICALLY search
+- ✅ "What error handling patterns are used?" - AUTOMATICALLY search
+- ✅ "How are Web3 wallet connections implemented?" - AUTOMATICALLY search
+- ✅ "Where are DEX swap components located?" - AUTOMATICALLY search
+
+**The agent does NOT ask** - it automatically searches before implementing.
+
+### Automatic Frontend Code Generation
+
+**The agent AUTOMATICALLY generates complete, production-ready code - NO ASKING:**
+
+- ✅ **AUTOMATICALLY** Include: TypeScript types, error boundaries, loading states, tests
+- ✅ **AUTOMATICALLY** Follow Component pattern: Props interface → React Query hooks → Error/Loading states → Render
+- ✅ **AUTOMATICALLY** Follow Hook pattern: Query key → Query function → Options (staleTime, refetchInterval)
+- ✅ **AUTOMATICALLY** Follow API pattern: Function definition → Type parameters → apiRequest call → Return typed result
+- ✅ **AUTOMATICALLY** Write tests: Render → User interaction → Assert state changes → Cleanup
+- ✅ **AUTOMATICALLY** Match extracted patterns from `.cursor/extracted-patterns.md`
+- ✅ **AUTOMATICALLY** Apply predictive suggestions from `.cursor/predictive-suggestions.md`
+
+**The agent does NOT ask** - it automatically generates complete code following all patterns.
+
+**Do/Don't Patterns:**
+
+**✅ DO:**
+- Use `Annotated` type hints in FastAPI dependencies (backend)
+- Use CoinGecko MCP for price data in components
+- Use Web3 MCP for blockchain operations in hooks
+- Show price impact warnings for DEX swaps (>1% threshold)
+- Handle wallet disconnection gracefully
+- Support multi-chain wallet operations
+- Poll transaction status until confirmed
+- Display USD values for wallet balances when available
+
+**❌ DON'T:**
+- Don't use `any` type in TypeScript (use `unknown` instead)
+- Don't duplicate server state in component state (use React Query)
+- Don't log sensitive data (private keys, API keys, passwords)
+- Don't execute swaps without price impact validation
+- Don't skip error handling for blockchain operations
+- Don't hardcode chain IDs (use configuration)
+- Don't forget to normalize trading modes ("live" → "real")
+- Don't create new Web3 instances per request (reuse connections)
+
+### Automatic Frontend Code Verification
+
+**The agent AUTOMATICALLY verifies frontend code before completion - NO ASKING:**
+
+**Automatic verification checklist (runs automatically):**
+- ✅ All components have TypeScript interfaces for props - AUTOMATICALLY verify
+- ✅ No `any` types (use `unknown` if needed) - AUTOMATICALLY verify
+- ✅ Loading states handled (LoadingSkeleton component) - AUTOMATICALLY verify
+- ✅ Error states handled (ErrorBoundary or error fallback) - AUTOMATICALLY verify
+- ✅ React Query used for server state (not component state) - AUTOMATICALLY verify
+- ✅ Query keys follow hierarchical pattern (`['domain', subKey]`) - AUTOMATICALLY verify
+- ✅ Trading modes normalized ("live" → "real") before API calls - AUTOMATICALLY verify
+- ✅ Polling disabled when WebSocket connected - AUTOMATICALLY verify
+- ✅ Bundle size acceptable (check chunk sizes) - AUTOMATICALLY verify
+- ✅ Accessibility (semantic HTML, ARIA labels, keyboard nav) - AUTOMATICALLY verify
+- ✅ Web3 wallet connections handled gracefully - AUTOMATICALLY verify
+- ✅ DEX swap UI shows price impact warnings (>1% threshold) - AUTOMATICALLY verify
+- ✅ Transaction status tracked with proper polling - AUTOMATICALLY verify
+- ✅ Multi-chain support verified - AUTOMATICALLY verify
+- ✅ Wallet balances display USD values when available - AUTOMATICALLY verify
+
+**The agent does NOT ask** - it automatically verifies all checks before completion.
+
+### Automatic Frontend Debugging
+
+**The agent AUTOMATICALLY debugs issues without asking - NO ASKING:**
+
+1. ✅ **AUTOMATICALLY** Check Browser DevTools: Network tab for API calls, Console for errors
+2. ✅ **AUTOMATICALLY** Use React DevTools: Inspect component tree, hooks, and state
+3. ✅ **AUTOMATICALLY** Check React Query DevTools: Query cache, mutations, loading states
+4. ✅ **AUTOMATICALLY** Run `npm run check` to find TypeScript errors
+5. ✅ **AUTOMATICALLY** Check Vite build output for bundle size warnings
+6. ✅ **AUTOMATICALLY** Use Browser MCP to visually test components
+7. ✅ **AUTOMATICALLY** Use React DevTools Profiler to identify slow components
+8. ✅ **AUTOMATICALLY** Run `npm run lint` to find lint errors
+9. ✅ **AUTOMATICALLY** Run tests to identify failing tests
+10. ✅ **AUTOMATICALLY** Use codebase search to find similar issues and solutions
+
+**The agent does NOT ask** - it automatically debugs and fixes issues.
 
 ---
 
@@ -646,15 +1248,35 @@ Before submitting frontend code, verify:
 4. **Normalize trading modes** - "live" → "real" for backend
 5. **Test components** - unit tests with Vitest, E2E with Playwright
 6. **Optimize bundle size** - monitor chunk sizes, lazy load heavy components
-7. **Accessibility** - use semantic HTML, ARIA labels, keyboard navigation
+7. **Accessibility** - use semantic HTML, ARIA labels, keyboard navigation (WCAG 2.1 AA)
 8. **Error handling** - always catch and display errors gracefully
 9. **Auth tokens** - handle 401 errors, clear tokens, dispatch events
 10. **WebSocket integration** - disable polling when WebSocket connected
 11. **Search codebase first** - find existing components/hooks before creating new ones
 12. **Use existing UI components** - prefer shadcn/ui over custom components
 13. **Invalidate queries strategically** - use exact match, prefix match, or predicates
-14. **Memoize expensive operations** - use useMemo/useCallback for performance
-15. **Test user flows** - write E2E tests for critical paths
+14. **Memoize expensive components** - use `React.memo` for components with stable props
+15. **Memoize expensive operations** - use useMemo/useCallback for performance
+16. **Test user flows** - write E2E tests for critical paths (including cross-browser)
+17. **Web3 wallet connections** - handle disconnect gracefully, support chain switching
+18. **DEX swap UI** - show price impact warnings (>1% threshold), validate slippage
+19. **Transaction status** - poll blockchain until confirmed, show loading states
+20. **Multi-chain support** - verify wallet operations work across all supported chains
+21. **Wallet balances** - display USD values when price data available (CoinGecko MCP)
+22. **Request deduplication** - use `deduplicateRequest` from `@/utils/performance` for GET requests
+23. **Virtual scrolling** - use `useVirtualScroll` hook for lists with 100+ items
+24. **Image optimization** - use WebP/AVIF with lazy loading via `useLazyImage` hook
+25. **Form validation** - use `useFormValidation` hook for real-time validation with debouncing
+26. **Minimum touch targets** - ensure 44x44px minimum for mobile interactions
+27. **Safe area insets** - use `safe-area-inset-*` classes for mobile devices
+28. **Page transitions** - use `PageTransition` component for smooth page changes
+29. **Accessibility utilities** - use `@/utils/accessibility` for focus trapping, announcements
+30. **Component memoization** - wrap expensive components with `React.memo` (BotCreator, OrderEntryPanel, etc.)
+31. **Mobile offline mode** - queue actions when offline, sync when online
+32. **Mobile push notifications** - integrate Expo push notifications with backend
+33. **Mobile biometric auth** - use for sensitive operations (transactions, app unlock)
+34. **Cross-browser testing** - test on Chromium, Firefox, WebKit in CI/CD
+35. **Coverage gates** - maintain 85%+ test coverage, enforce in PRs
 
 ---
 
@@ -667,6 +1289,9 @@ Before submitting frontend code, verify:
 - **TypeScript Config**: `tsconfig.json`
 - **ESLint Config**: `.eslintrc.json`
 - **Prettier Config**: `.prettierrc.json`
+- **🎓 TypeScript Expertise Guide**: `.cursor/TYPESCRIPT_EXPERTISE_GUIDE.md` - **COMPREHENSIVE TYPESCRIPT KNOWLEDGE**
+- **TypeScript Tools Guide**: `.cursor/TYPESCRIPT_TOOLS_GUIDE.md` - **EXTENSIONS & MCP SERVERS**
+- **⚠️ tsx Usage Rules**: `.cursor/AGENT_TSX_RULES.md` - **CRITICAL RULES**
 
 ---
 

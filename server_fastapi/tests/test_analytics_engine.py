@@ -1,7 +1,11 @@
 import pytest
 import asyncio
 
-from server_fastapi.services.analytics_engine import AnalyticsEngine, PerformanceMetrics, BotConfig
+from server_fastapi.services.analytics_engine import (
+    AnalyticsEngine,
+    PerformanceMetrics,
+    BotConfig,
+)
 
 
 @pytest.mark.asyncio
@@ -13,7 +17,7 @@ async def test_generate_performance_report_basic():
         return BotConfig(id=bot_id, name=f"Bot {bot_id}")
 
     # Provide sample metrics
-    async def fake_calculate_performance_metrics(bot_id: str, period: str = '30d'):
+    async def fake_calculate_performance_metrics(bot_id: str, period: str = "30d"):
         return PerformanceMetrics(
             botId=bot_id,
             period=period,
@@ -30,10 +34,10 @@ async def test_generate_performance_report_basic():
     engine._get_bot = fake_get_bot
     engine.calculate_performance_metrics = fake_calculate_performance_metrics
 
-    report = await engine.generate_performance_report('bot-1', '30d')
+    report = await engine.generate_performance_report("bot-1", "30d")
 
-    assert 'Performance Report for Bot bot-1 (30d)' in report
-    assert 'Total Return:' in report
-    assert 'Sharpe Ratio:' in report
-    assert 'Profit Factor:' in report
-    assert 'Total Trades:' in report
+    assert "Performance Report for Bot bot-1 (30d)" in report
+    assert "Total Return:" in report
+    assert "Sharpe Ratio:" in report
+    assert "Profit Factor:" in report
+    assert "Total Trades:" in report

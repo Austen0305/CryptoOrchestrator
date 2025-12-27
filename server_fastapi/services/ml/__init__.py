@@ -46,14 +46,31 @@ except (ImportError, RuntimeError, Exception) as e:
     Action = None
     TradingState = None
     rl_service = None
-from .sentiment_ai import (
-    SentimentAIService,
-    SentimentScore,
-    NewsArticle,
-    SocialMediaPost,
-    AggregatedSentiment,
-    sentiment_ai_service,
-)
+
+try:
+    from .sentiment_ai import (
+        SentimentAIService,
+        SentimentScore,
+        NewsArticle,
+        SocialMediaPost,
+        AggregatedSentiment,
+        sentiment_ai_service,
+    )
+except (ImportError, RuntimeError, Exception) as e:
+    import logging
+
+    logger = logging.getLogger(__name__)
+    logger.warning(
+        f"Failed to import sentiment_ai: {e}. Sentiment analysis features will be disabled."
+    )
+    # Create dummy classes to prevent import errors
+    SentimentAIService = None
+    SentimentScore = None
+    NewsArticle = None
+    SocialMediaPost = None
+    AggregatedSentiment = None
+    sentiment_ai_service = None
+
 from .market_regime import (
     MarketRegimeService,
     MarketRegime,

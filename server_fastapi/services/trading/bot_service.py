@@ -40,8 +40,8 @@ class BotService:
 
     async def update_bot(
         self, bot_id: str, user_id: int, updates: Dict[str, Any]
-    ) -> bool:
-        """Update an existing bot"""
+    ) -> Optional[Dict[str, Any]]:
+        """Update an existing bot and return the updated bot configuration"""
         return await self.creation.update_bot(bot_id, user_id, updates)
 
     async def delete_bot(self, bot_id: str, user_id: int) -> bool:
@@ -97,6 +97,10 @@ class BotService:
     async def get_bot_alerts(self, bot_id: str, user_id: int) -> List[Any]:
         """Get bot alerts"""
         return await self.monitoring.get_bot_alerts(bot_id, user_id)
+
+    async def get_bot_performance(self, bot_id: str, user_id: int) -> Dict[str, Any]:
+        """Get bot performance metrics"""
+        return await self.monitoring.get_bot_performance(bot_id, user_id)
 
     async def validate_bot_start_conditions(
         self, bot_id: str, user_id: int

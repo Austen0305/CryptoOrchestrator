@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { usePortfolio } from "@/hooks/useApi";
+import type { Portfolio } from "@shared/schema";
 import { formatCurrency, formatPercentage } from "@/lib/formatters";
 import { TrendingUp, RefreshCw, DollarSign, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,49 +22,40 @@ const COLORS = [
   "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#a8dadc"
 ];
 
-interface Asset {
-  symbol: string;
-  amount: number;
-  value: number;
-  percentage: number;
-  change24h?: number;
-}
-
-interface BalanceValue {
-  free?: number;
-  used?: number;
-  total?: number;
-  price?: number;
-  [key: string]: unknown; // Allow additional fields from API
-}
-
 export function PortfolioPieChart() {
   const { data: portfolio, isLoading } = usePortfolio("paper");
 
   const chartData = useMemo(() => {
-    if (!portfolio || !portfolio.balances) return [];
+    if (!portfolio?.positions) return [];
 
-    // Convert portfolio balances to chart data
-    const balances = portfolio.balances as Record<string, BalanceValue> | undefined;
-    if (!balances) return [];
+    // Portfolio.positions is Record<string, Position> from schema
+    const positions = portfolio.positions;
 
-    const assets: Asset[] = Object.entries(balances)
-      .filter(([_, value]) => value && typeof value === 'object' && (value.free ?? 0) > 0)
-      .map(([symbol, value]) => {
-        const amount = value.free ?? 0;
-        const price = value.price ?? 0; // Would need price data
-        const assetValue = amount * price;
+    interface AssetWithoutPercentage {
+      symbol: string;
+      amount: number;
+      value: number;
+      price: number;
+    }
+
+    const assets: AssetWithoutPercentage[] = Object.entries(positions)
+      .filter(([_, position]) => position && position.totalValue > 0)
+      .map(([symbol, position]) => {
+        const amount = position.amount;
+        const value = position.totalValue;
+        const price = position.currentPrice;
         return {
-          symbol,
+          symbol: position.asset || symbol,
           amount,
-          value: assetValue,
+          value,
           price
         };
       })
       .filter(asset => asset.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0) || portfolio.totalValueUsd || 1;
+    const portfolioTotal = portfolio?.totalBalance ?? 0;
+    const totalValue = assets.reduce((sum, asset) => sum + asset.value, 0) || portfolioTotal || 1;
 
     return assets.map(asset => ({
       name: asset.symbol,
@@ -75,7 +67,8 @@ export function PortfolioPieChart() {
   }, [portfolio]);
 
   const totalValue = useMemo(() => {
-    return chartData.reduce((sum, asset) => sum + asset.value, 0) || portfolio?.totalValueUsd || 0;
+    const portfolioTotal = portfolio?.totalBalance ?? 0;
+    return chartData.reduce((sum, asset) => sum + asset.value, 0) || portfolioTotal || 0;
   }, [chartData, portfolio]);
 
   const largestAsset = chartData.length > 0 ? chartData[0] : null;
@@ -95,7 +88,7 @@ export function PortfolioPieChart() {
   }
 
   const CustomTooltip = ({ active, payload }: TooltipProps) => {
-    if (active && payload && payload.length) {
+    if (active && payload && payload.length && payload[0]) {
       const data = payload[0].payload;
       return (
         <div className="rounded-lg border bg-background p-3 shadow-md">
@@ -162,7 +155,7 @@ export function PortfolioPieChart() {
         </CardHeader>
         <CardContent>
           <div className="h-[300px] flex items-center justify-center">
-            <LoadingSkeleton variant="circular" className="w-48 h-48" />
+            <LoadingSkeleton variant="card" className="w-48 h-48 rounded-full" />
           </div>
         </CardContent>
       </Card>
@@ -255,9 +248,9 @@ export function PortfolioPieChart() {
               <Legend
                 verticalAlign="bottom"
                 height={36}
-                formatter={(value, entry: { color?: string; payload?: { percentage: number } }) => (
+                formatter={(value, entry: any) => (
                   <span style={{ color: entry.color }} className="text-sm">
-                    {value} ({formatPercentage(entry.payload.percentage)})
+                    {value} ({entry.payload?.percentage ? formatPercentage(entry.payload.percentage) : '0%'})
                   </span>
                 )}
               />

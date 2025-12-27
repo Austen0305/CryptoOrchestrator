@@ -1,6 +1,15 @@
 # OSX
 .DS_Store
 
+# Native projects (generated, can be regenerated)
+# Uncomment these if you want to exclude native projects from git
+# ios/
+# android/
+
+# But keep these native config files:
+!ios/Podfile.example
+!android/gradle.properties.example
+
 # Xcode
 build/
 *.pbxuser
@@ -58,3 +67,12 @@ yarn-error.log
 
 # Testing
 coverage/
+
+# Google Play Service Account (contains credentials)
+google-service-account.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!app.json
+!eas.json

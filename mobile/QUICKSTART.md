@@ -1,78 +1,127 @@
 # Mobile App Quick Start
 
-## ⚠️ Important: React Native Project Initialization Required
+## ⚠️ Important: Native Project Initialization Required
 
-The mobile app code is ready, but you need to initialize the native iOS and Android projects.
+The mobile app code is ready, but you need to initialize the native iOS and Android projects using Expo.
 
-## 🚀 Quick Setup (Choose ONE option)
+## 🚀 Quick Setup (Recommended Method)
 
-### Option 1: Initialize Fresh React Native Project (Recommended)
+### Step 1: Initialize Native Projects
 
-This will create the ios/ and android/ folders properly:
+The mobile app uses **Expo** with React Native. Initialize native projects using the automated script:
 
-```bash
-# 1. Go to parent directory
-cd "c:\Users\William Walker\OneDrive\Desktop\CryptoOrchestrator"
-
-# 2. Create a temporary React Native project
-npx react-native@latest init CryptoOrchestratorMobileTemp
-
-# 3. Copy the native folders to our mobile directory
-# On Windows PowerShell:
-Copy-Item -Recurse .\CryptoOrchestratorMobileTemp\ios .\mobile\ios
-Copy-Item -Recurse .\CryptoOrchestratorMobileTemp\android .\mobile\android
-
-# 4. Clean up temp project
-Remove-Item -Recurse -Force .\CryptoOrchestratorMobileTemp
-
-# 5. Install iOS pods (macOS only)
-cd mobile/ios
-pod install
-cd ..
-
-# 6. Start the app
-npm start
-# In another terminal:
-npm run ios     # For iOS
-# OR
-npm run android # For Android
+**Windows (PowerShell):**
+```powershell
+cd mobile
+npm run init:native
 ```
 
-### Option 2: Use Expo (Easier, No Native Setup)
+**macOS/Linux:**
+```bash
+cd mobile
+npm run init:native
+```
 
-If you want a simpler approach without Xcode/Android Studio:
+This script will:
+- ✅ Check prerequisites (Node.js, npm, Expo)
+- ✅ Install dependencies if needed
+- ✅ Generate `ios/` folder (macOS only)
+- ✅ Generate `android/` folder
+- ✅ Install CocoaPods dependencies (iOS, macOS only)
+- ✅ Create `android/local.properties` with SDK path
+- ✅ Create `.env` file if missing
 
+**Alternative: Manual Expo Prebuild**
 ```bash
 cd mobile
 
-# Install Expo
-npm install expo
+# Initialize Android
+npx expo prebuild --platform android --clean
 
-# Update package.json scripts to use expo
-# Replace "start" script with: "expo start"
+# Initialize iOS (macOS only)
+npx expo prebuild --platform ios --clean
 
-# Start Expo
-npm start
-
-# Then scan QR code with Expo Go app on your phone
+# Install iOS dependencies (macOS only)
+cd ios && pod install && cd ..
 ```
 
-### Option 3: Test on Web First (Instant)
+### Step 2: Verify Setup
 
-You can test the app logic on web while setting up native:
+Check that everything is initialized correctly:
 
 ```bash
 cd mobile
+npm run verify:native
+```
 
-# Install web dependencies
-npm install react-dom react-native-web
+### Step 3: Configure Environment
 
-# Add web script to package.json:
-# "web": "expo start --web"
+Edit `mobile/.env` with your API URLs:
 
-# Start on web
+```env
+# For iOS Simulator
+API_BASE_URL=http://localhost:8000
+WS_BASE_URL=ws://localhost:8000
+
+# For Android Emulator
+# API_BASE_URL=http://10.0.2.2:8000
+# WS_BASE_URL=ws://10.0.2.2:8000
+
+# For Physical Device (use your computer's IP)
+# API_BASE_URL=http://192.168.1.100:8000
+# WS_BASE_URL=ws://192.168.1.100:8000
+```
+
+### Step 4: Start the App
+
+**Start Metro Bundler:**
+```bash
+cd mobile
+npm start
+```
+
+**In another terminal, run on device:**
+
+**iOS (macOS only):**
+```bash
+cd mobile
+npm run ios
+# or
+npm run run:ios
+```
+
+**Android:**
+```bash
+cd mobile
+npm run android
+# or
+npm run run:android
+```
+
+## 🎯 Alternative Methods
+
+### Option A: Expo Go (No Build Required)
+
+Test the app without building native projects:
+
+```bash
+cd mobile
+npm start
+# Scan QR code with Expo Go app on your phone
+```
+
+**Note:** Some features (biometric auth, push notifications) require native builds.
+
+### Option B: Web (Instant Testing)
+
+Test the app logic in a browser:
+
+```bash
+cd mobile
 npm run web
 ```
+
+**Note:** Native features won't work on web.
 
 ## 📱 Current Mobile App Features
 

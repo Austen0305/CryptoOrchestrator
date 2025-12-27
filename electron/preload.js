@@ -26,7 +26,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
       body: body,
       icon: icon || '../client/public/favicon.png'
     });
-  }
+  },
+  
+  // Auto-updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
+  onUpdateAvailable: (callback) => ipcRenderer.on('update-available', (event, ...args) => callback(...args)),
+  onUpdateDownloaded: (callback) => ipcRenderer.on('update-downloaded', (event, ...args) => callback(...args)),
+  onUpdateProgress: (callback) => ipcRenderer.on('update-progress', (event, ...args) => callback(...args)),
+  onUpdateError: (callback) => ipcRenderer.on('update-error', (event, ...args) => callback(...args)),
+  onUpdateNotAvailable: (callback) => ipcRenderer.on('update-not-available', (event, ...args) => callback(...args)),
+  
+  // Auto-start
+  setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
+  getAutoStart: () => ipcRenderer.invoke('get-auto-start'),
+  
+  // Notifications
+  setNotificationsEnabled: (enabled) => ipcRenderer.invoke('set-notifications-enabled', enabled),
+  getNotificationsEnabled: () => ipcRenderer.invoke('get-notifications-enabled'),
+  
+  // Server health
+  onServerHealth: (callback) => ipcRenderer.on('server-health', (event, ...args) => callback(...args)),
+  onServerLog: (callback) => ipcRenderer.on('server-log', (event, ...args) => callback(...args)),
+  onServerError: (callback) => ipcRenderer.on('server-error', (event, ...args) => callback(...args))
 });
 
 // Set API URL for Electron environment

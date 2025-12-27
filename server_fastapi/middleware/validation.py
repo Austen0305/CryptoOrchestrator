@@ -82,16 +82,30 @@ def validate_email_format(email: str) -> bool:
 
 def validate_password_strength(password: str) -> Dict[str, Any]:
     """
-    Validate password strength and return security assessment
+    Validate password strength according to security checklist requirements.
+    Requirements:
+    - Minimum 12 characters (security checklist requirement)
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one number
+    - At least one special character
+    - No spaces
     """
-    if not password or len(password) < 8:
+    if not password:
         return {
             "valid": False,
-            "message": "Password must be at least 8 characters long",
+            "message": "Password is required",
+        }
+
+    # Security checklist requirement: minimum 12 characters
+    if len(password) < 12:
+        return {
+            "valid": False,
+            "message": "Password must be at least 12 characters long",
         }
 
     checks = {
-        "length": len(password) >= 8,
+        "length": len(password) >= 12,  # Updated to 12 characters
         "uppercase": bool(re.search(r"[A-Z]", password)),
         "lowercase": bool(re.search(r"[a-z]", password)),
         "numbers": bool(re.search(r"[0-9]", password)),

@@ -4,13 +4,16 @@ Grid Trading API Routes
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from ..services.trading.grid_trading_service import GridTradingService
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +108,8 @@ class UpdateGridBotRequest(BaseModel):
 )
 async def create_grid_bot(
     request: CreateGridBotRequest,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """
     Create a new grid trading bot.
@@ -114,12 +117,18 @@ async def create_grid_bot(
     Grid trading places buy and sell orders in a grid pattern to profit from volatility.
     """
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = GridTradingService(session=db_session)
+        # Convert exchange string to chain_id (temporary - exchange field stores chain_id as string)
+        chain_id = (
+            int(request.exchange) if request.exchange.isdigit() else 1
+        )  # Default to Ethereum
         bot_id = await service.create_grid_bot(
-            user_id=current_user["id"],
+            user_id=user_id,
             name=request.name,
             symbol=request.symbol,
-            exchange=request.exchange,
+            chain_id=chain_id,
             upper_price=request.upper_price,
             lower_price=request.lower_price,
             grid_count=request.grid_count,
@@ -148,17 +157,24 @@ async def create_grid_bot(
 
 
 @router.get("/grid-bots", response_model=List[GridBotResponse], tags=["Grid Trading"])
+@cached(ttl=120, prefix="grid_bots")  # 120s TTL for grid bots list
 async def list_grid_bots(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    """List all grid bots for the current user."""
+    """List all grid bots for the current user with pagination."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = GridTradingService(session=db_session)
-        bots = await service.list_user_grid_bots(current_user["id"], skip, limit)
-        return bots
+        # Convert page/page_size to skip/limit for service layer (backward compatibility)
+        skip = (page - 1) * page_size
+        limit = page_size
+        bots, total = await service.list_user_grid_bots(user_id, skip, limit)
+        # Use ResponseOptimizer for paginated response with metadata
+        return ResponseOptimizer.paginate_response(bots, page, page_size, total)
 
     except Exception as e:
         logger.error(f"Error listing grid bots: {e}", exc_info=True)
@@ -173,13 +189,14 @@ async def list_grid_bots(
 )
 async def get_grid_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Get a specific grid bot by ID."""
     try:
+        user_id = _get_user_id(current_user)
         service = GridTradingService(session=db_session)
-        bot = await service.get_grid_bot(bot_id, current_user["id"])
+        bot = await service.get_grid_bot(bot_id, user_id)
 
         if not bot:
             raise HTTPException(
@@ -203,13 +220,15 @@ async def get_grid_bot(
 )
 async def start_grid_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Start a grid trading bot."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = GridTradingService(session=db_session)
-        success = await service.start_grid_bot(bot_id, current_user["id"])
+        success = await service.start_grid_bot(bot_id, user_id)
 
         if not success:
             raise HTTPException(
@@ -234,13 +253,14 @@ async def start_grid_bot(
 )
 async def stop_grid_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Stop a grid trading bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = GridTradingService(session=db_session)
-        success = await service.stop_grid_bot(bot_id, current_user["id"])
+        success = await service.stop_grid_bot(bot_id, user_id)
 
         if not success:
             raise HTTPException(
@@ -265,22 +285,22 @@ async def stop_grid_bot(
 )
 async def delete_grid_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Delete a grid trading bot."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         # First stop the bot if it's running
         service = GridTradingService(session=db_session)
-        await service.stop_grid_bot(bot_id, current_user["id"])
+        await service.stop_grid_bot(bot_id, user_id)
 
         # Then soft delete
         from ...repositories.grid_bot_repository import GridBotRepository
 
         repository = GridBotRepository()
-        bot = await repository.get_by_user_and_id(
-            db_session, bot_id, current_user["id"]
-        )
+        bot = await repository.get_by_user_and_id(db_session, bot_id, user_id)
 
         if not bot:
             raise HTTPException(

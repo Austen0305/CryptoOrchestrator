@@ -10,6 +10,7 @@ interface User {
   is_email_verified: boolean;
   first_name?: string;
   last_name?: string;
+  mfaEnabled?: boolean;
 }
 
 interface AuthContextType {
@@ -18,7 +19,13 @@ interface AuthContextType {
   error: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<boolean>;
-  register: (email: string, username: string, password: string, firstName?: string, lastName?: string) => Promise<boolean>;
+  register: (
+    email: string,
+    username: string,
+    password: string,
+    firstName?: string,
+    lastName?: string
+  ) => Promise<boolean>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<boolean>;
   resetPassword: (token: string, newPassword: string) => Promise<boolean>;
@@ -74,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setIsLoading(true);
-      
+
       // Add timeout to prevent infinite loading
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => {
@@ -87,7 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       });
 
-      const response = await Promise.race([loginPromise, timeoutPromise]) as { access_token: string; refresh_token?: string; user: User };
+      const response = (await Promise.race([loginPromise, timeoutPromise])) as {
+        access_token: string;
+        refresh_token?: string;
+        user: User;
+      };
 
       const { access_token, refresh_token, user: userData } = response;
 
@@ -108,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err: unknown) {
       let errorMessage = "Unable to sign in. Please check your email and password.";
-      
+
       // Extract error message from various error formats
       interface ApiError extends Error {
         response?: {
@@ -119,25 +130,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const apiError = err as ApiError;
       const rawMessage = apiError.response?.data?.detail || apiError.message || "";
-      
+
       // Map common login errors to user-friendly messages
-      if (rawMessage.includes('Invalid credentials') || rawMessage.includes('incorrect') || rawMessage.includes('wrong password')) {
+      if (
+        rawMessage.includes("Invalid credentials") ||
+        rawMessage.includes("incorrect") ||
+        rawMessage.includes("wrong password")
+      ) {
         errorMessage = "The email or password you entered is incorrect. Please try again.";
-      } else if (rawMessage.includes('not found') || rawMessage.includes('does not exist')) {
-        errorMessage = "No account found with this email. Please check your email or create an account.";
-      } else if (rawMessage.includes('HTTP 401') || rawMessage.includes('Unauthorized')) {
+      } else if (rawMessage.includes("not found") || rawMessage.includes("does not exist")) {
+        errorMessage =
+          "No account found with this email. Please check your email or create an account.";
+      } else if (rawMessage.includes("HTTP 401") || rawMessage.includes("Unauthorized")) {
         errorMessage = "Invalid email or password. Please try again.";
-      } else if (rawMessage.includes('HTTP 429') || rawMessage.includes('rate limit')) {
+      } else if (rawMessage.includes("HTTP 429") || rawMessage.includes("rate limit")) {
         errorMessage = "Too many login attempts. Please wait a few minutes and try again.";
-      } else if (rawMessage.includes('HTTP 500') || rawMessage.includes('HTTP 503')) {
-        errorMessage = "Our servers are temporarily unavailable. Please try again in a few moments.";
-      } else if (rawMessage.includes('timeout') || rawMessage.includes('network')) {
+      } else if (rawMessage.includes("HTTP 500") || rawMessage.includes("HTTP 503")) {
+        errorMessage =
+          "Our servers are temporarily unavailable. Please try again in a few moments.";
+      } else if (rawMessage.includes("timeout") || rawMessage.includes("network")) {
         errorMessage = "Connection timeout. Please check your internet connection and try again.";
       } else if (rawMessage && rawMessage.length < 150) {
         // Use the message if it's reasonably short and user-friendly
         errorMessage = rawMessage;
       }
-      
+
       setError(errorMessage);
       setIsLoading(false);
       return false;
@@ -155,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       setIsLoading(true);
-      
+
       // Add timeout wrapper to prevent hanging (10 seconds)
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = window.setTimeout(() => {
@@ -217,27 +234,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err: unknown) {
       // User-friendly error messages
       let errorMessage = "Unable to create your account. Please try again.";
-      
+
       if (err instanceof Error) {
         const message = err.message;
-        
+
         // Map common error messages to user-friendly versions
-        if (message.includes('HTTP 400') || message.includes('HTTP 422')) {
+        if (message.includes("HTTP 400") || message.includes("HTTP 422")) {
           // Validation errors - try to extract user-friendly message
           const match = message.match(/HTTP \d+: (.+)/);
-          if (match) {
+          if (match && match[1]) {
             try {
-              const parsed = JSON.parse(match[1]);
-              const detail = parsed.detail || parsed.message || '';
-              
+              const parsed: { detail?: string; message?: string } = JSON.parse(match[1]);
+              const detail: string = parsed.detail || parsed.message || "";
+
               // Make validation errors more user-friendly
-              if (detail.includes('email')) {
+              if (detail.includes("email")) {
                 errorMessage = "Please enter a valid email address.";
-              } else if (detail.includes('password')) {
+              } else if (detail.includes("password")) {
                 errorMessage = "Password must be at least 8 characters long.";
-              } else if (detail.includes('username')) {
+              } else if (detail.includes("username")) {
                 errorMessage = "Username is already taken. Please choose another.";
-              } else if (detail.includes('already exists') || detail.includes('already registered')) {
+              } else if (
+                detail.includes("already exists") ||
+                detail.includes("already registered")
+              ) {
                 errorMessage = "An account with this email already exists. Please log in instead.";
               } else {
                 errorMessage = detail || errorMessage;
@@ -246,22 +266,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               errorMessage = match[1] || errorMessage;
             }
           }
-        } else if (message.includes('HTTP 409')) {
+        } else if (message.includes("HTTP 409")) {
           errorMessage = "An account with this email already exists. Please log in instead.";
-        } else if (message.includes('HTTP 500') || message.includes('HTTP 503')) {
-          errorMessage = "Our servers are temporarily unavailable. Please try again in a few moments.";
-        } else if (message.includes('timeout') || message.includes('took too long')) {
-          errorMessage = "The request took too long. Please check your internet connection and try again.";
-        } else if (message.includes('Failed to fetch') || message.includes('NetworkError') || message.includes('Network request failed')) {
+        } else if (message.includes("HTTP 500") || message.includes("HTTP 503")) {
+          errorMessage =
+            "Our servers are temporarily unavailable. Please try again in a few moments.";
+        } else if (message.includes("timeout") || message.includes("took too long")) {
+          errorMessage =
+            "The request took too long. Please check your internet connection and try again.";
+        } else if (
+          message.includes("Failed to fetch") ||
+          message.includes("NetworkError") ||
+          message.includes("Network request failed")
+        ) {
           errorMessage = "Unable to connect to our servers. Please check your internet connection.";
-        } else if (message.includes('Invalid response') || message.includes('missing')) {
+        } else if (message.includes("Invalid response") || message.includes("missing")) {
           errorMessage = "Something went wrong during registration. Please try again.";
         } else {
           // Use the error message if it's already user-friendly, otherwise use default
           errorMessage = message.length < 100 ? message : errorMessage;
         }
       }
-      
+
       setError(errorMessage);
       setIsLoading(false);
       return false;
@@ -304,19 +330,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const apiError = err as ApiError;
       const rawMessage = apiError.response?.data?.detail || apiError.message || "";
-      
+
       let errorMessage = "Unable to send password reset email. Please try again.";
-      
-      if (rawMessage.includes('not found') || rawMessage.includes('does not exist')) {
+
+      if (rawMessage.includes("not found") || rawMessage.includes("does not exist")) {
         errorMessage = "No account found with this email address.";
-      } else if (rawMessage.includes('HTTP 429') || rawMessage.includes('rate limit')) {
-        errorMessage = "Too many requests. Please wait a few minutes before requesting another reset email.";
-      } else if (rawMessage.includes('HTTP 500') || rawMessage.includes('HTTP 503')) {
+      } else if (rawMessage.includes("HTTP 429") || rawMessage.includes("rate limit")) {
+        errorMessage =
+          "Too many requests. Please wait a few minutes before requesting another reset email.";
+      } else if (rawMessage.includes("HTTP 500") || rawMessage.includes("HTTP 503")) {
         errorMessage = "Our servers are temporarily unavailable. Please try again later.";
       } else if (rawMessage && rawMessage.length < 150) {
         errorMessage = rawMessage;
       }
-      
+
       setError(errorMessage);
       return false;
     }
@@ -340,21 +367,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const apiError = err as ApiError;
       const rawMessage = apiError.response?.data?.detail || apiError.message || "";
-      
+
       let errorMessage = "Unable to reset your password. Please try again.";
-      
-      if (rawMessage.includes('invalid') || rawMessage.includes('expired') || rawMessage.includes('token')) {
-        errorMessage = "This password reset link is invalid or has expired. Please request a new one.";
-      } else if (rawMessage.includes('password') && (rawMessage.includes('weak') || rawMessage.includes('short'))) {
-        errorMessage = "Password must be at least 8 characters long and contain both letters and numbers.";
-      } else if (rawMessage.includes('HTTP 400') || rawMessage.includes('HTTP 422')) {
+
+      if (
+        rawMessage.includes("invalid") ||
+        rawMessage.includes("expired") ||
+        rawMessage.includes("token")
+      ) {
+        errorMessage =
+          "This password reset link is invalid or has expired. Please request a new one.";
+      } else if (
+        rawMessage.includes("password") &&
+        (rawMessage.includes("weak") || rawMessage.includes("short"))
+      ) {
+        errorMessage =
+          "Password must be at least 8 characters long and contain both letters and numbers.";
+      } else if (rawMessage.includes("HTTP 400") || rawMessage.includes("HTTP 422")) {
         errorMessage = "Please check that your password meets the requirements and try again.";
-      } else if (rawMessage.includes('HTTP 500') || rawMessage.includes('HTTP 503')) {
+      } else if (rawMessage.includes("HTTP 500") || rawMessage.includes("HTTP 503")) {
         errorMessage = "Our servers are temporarily unavailable. Please try again later.";
       } else if (rawMessage && rawMessage.length < 150) {
         errorMessage = rawMessage;
       }
-      
+
       setError(errorMessage);
       return false;
     }
@@ -363,19 +399,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshToken = async (): Promise<boolean> => {
     try {
       const refreshTokenValue =
-        localStorage.getItem("refresh_token") ||
-        sessionStorage.getItem("refresh_token");
+        localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token");
 
       if (!refreshTokenValue) {
         return false;
       }
 
-      const response = await apiClient.post<{ access_token: string }>(
-        "/auth/refresh",
-        {
-          refresh_token: refreshTokenValue,
-        }
-      );
+      const response = await apiClient.post<{ access_token: string }>("/auth/refresh", {
+        refresh_token: refreshTokenValue,
+      });
 
       const { access_token } = response;
 
@@ -398,10 +430,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setupMFA = async (): Promise<{ secret: string; otpauthUrl: string }> => {
     try {
       setError(null);
-      const response = await apiClient.post<{ secret: string; qr_code: string; otpauthUrl?: string }>(
-        "/2fa/setup",
-        {}
-      );
+      const response = await apiClient.post<{
+        secret: string;
+        qr_code: string;
+        otpauthUrl?: string;
+      }>("/2fa/setup", {});
       return {
         secret: response.secret,
         otpauthUrl: response.otpauthUrl || response.qr_code || "",
@@ -415,7 +448,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
       const apiError = err as ApiError;
-      const errorMessage = apiError.response?.data?.detail || apiError.message || "Failed to set up 2FA. Please try again.";
+      const errorMessage =
+        apiError.response?.data?.detail ||
+        apiError.message ||
+        "Failed to set up 2FA. Please try again.";
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -435,14 +471,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
       const apiError = err as ApiError;
-      const errorMessage = apiError.response?.data?.detail || apiError.message || "Invalid 2FA token. Please try again.";
+      const errorMessage =
+        apiError.response?.data?.detail ||
+        apiError.message ||
+        "Invalid 2FA token. Please try again.";
       setError(errorMessage);
       return false;
     }
   };
 
   return (
-    <AuthContext.Provider value={{
+    <AuthContext.Provider
+      value={{
         user,
         isLoading,
         error,
@@ -455,7 +495,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken,
         setupMFA,
         verifyMFA,
-      }}>
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -19,21 +19,21 @@ logger = logging.getLogger(__name__)
 class TradeValidationRequest(BaseModel):
     """Request model for trade validation."""
 
-    symbol: str = Field(..., example="BTC/USDT", description="Trading pair")
-    side: str = Field(..., example="buy", description="Trade side (buy/sell)")
-    quantity: float = Field(..., gt=0, example=0.1, description="Trade quantity")
-    price: float = Field(..., gt=0, example=50000.0, description="Expected price")
+    symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"}, description="Trading pair")
+    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)")
+    quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1}, description="Trade quantity")
+    price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0}, description="Expected price")
     account_balance: float = Field(
-        ..., gt=0, example=10000.0, description="Current account balance in USD"
+        ..., gt=0, json_schema_extra={"example": 10000.0}, description="Current account balance in USD"
     )
     current_positions: Dict[str, Dict[str, Any]] = Field(
-        default={},
-        example={"BTC/USDT": {"value": 1000.0, "quantity": 0.02}},
+        default_factory=dict,
+        json_schema_extra={"example": {"BTC/USDT": {"value": 1000.0, "quantity": 0.02}}},
         description="Current open positions",
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "symbol": "BTC/USDT",
                 "side": "buy",
@@ -46,6 +46,7 @@ class TradeValidationRequest(BaseModel):
                 },
             }
         }
+    }
 
 
 class TradeValidationResponse(BaseModel):
@@ -59,9 +60,9 @@ class TradeValidationResponse(BaseModel):
 class SlippageCheckRequest(BaseModel):
     """Request model for slippage check."""
 
-    expected_price: float = Field(..., gt=0, example=50000.0)
-    actual_price: float = Field(..., gt=0, example=50100.0)
-    side: str = Field(..., example="buy", description="Trade side (buy/sell)")
+    expected_price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
+    actual_price: float = Field(..., gt=0, json_schema_extra={"example": 50100.0})
+    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)")
 
 
 class SlippageCheckResponse(BaseModel):
@@ -76,12 +77,12 @@ class SlippageCheckResponse(BaseModel):
 class TradeResultRequest(BaseModel):
     """Request model for recording trade result."""
 
-    trade_id: str = Field(..., example="trade_12345")
-    pnl: float = Field(..., example=150.0, description="Profit/loss in USD")
-    symbol: str = Field(..., example="BTC/USDT")
-    side: str = Field(..., example="buy")
-    quantity: float = Field(..., gt=0, example=0.1)
-    price: float = Field(..., gt=0, example=50000.0)
+    trade_id: str = Field(..., json_schema_extra={"example": "trade_12345"})
+    pnl: float = Field(..., json_schema_extra={"example": 150.0}, description="Profit/loss in USD")
+    symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"})
+    side: str = Field(..., json_schema_extra={"example": "buy"})
+    quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1})
+    price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
 
 
 class SafetyStatusResponse(BaseModel):

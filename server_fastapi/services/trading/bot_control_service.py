@@ -52,8 +52,26 @@ class BotControlService:
                     session, bot_id, user_id, True, "running"
                 )
                 if updated_bot:
+                    # Commit transaction (Service Layer Pattern - service handles commits)
+                    await session.commit()
+                    await session.refresh(updated_bot)
+
                     logger.info(f"Bot {bot_id} started successfully")
                     await self._trigger_reconciliation(user_id, session)
+
+                    # Invalidate cache for this bot - use bot_id in pattern (custom key format: bot_id:user_id)
+                    try:
+                        from ..middleware.cache_manager import invalidate_pattern
+
+                        # Invalidate cache keys for this specific bot (custom key format includes bot_id)
+                        await invalidate_pattern(f"bots:get_bot:{bot_id}:*")
+                        # Also invalidate any other bot-related cache
+                        await invalidate_pattern(f"bots:*{bot_id}*")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to invalidate cache for bot {bot_id}: {e}"
+                        )
+
                     return True
                 else:
                     logger.error(f"Failed to update bot {bot_id} status")
@@ -84,8 +102,26 @@ class BotControlService:
                     session, bot_id, user_id, False, "stopped"
                 )
                 if updated_bot:
+                    # Commit transaction (Service Layer Pattern - service handles commits)
+                    await session.commit()
+                    await session.refresh(updated_bot)
+
                     logger.info(f"Bot {bot_id} stopped successfully")
                     await self._trigger_reconciliation(user_id, session)
+
+                    # Invalidate cache for this bot - use bot_id in pattern (custom key format: bot_id:user_id)
+                    try:
+                        from ..middleware.cache_manager import invalidate_pattern
+
+                        # Invalidate cache keys for this specific bot (custom key format includes bot_id)
+                        await invalidate_pattern(f"bots:get_bot:{bot_id}:*")
+                        # Also invalidate any other bot-related cache
+                        await invalidate_pattern(f"bots:*{bot_id}*")
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to invalidate cache for bot {bot_id}: {e}"
+                        )
+
                     return True
                 else:
                     logger.error(f"Failed to update bot {bot_id} status")

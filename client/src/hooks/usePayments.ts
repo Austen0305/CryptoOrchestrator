@@ -1,6 +1,8 @@
 import { useCallback } from "react";
 import { api } from "@/lib/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import logger from "@/lib/logger";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Plan {
   plan: string;
@@ -46,13 +48,16 @@ export interface PricingInfo {
  * Used by PricingPlans component
  */
 export function usePricing() {
+  const { isAuthenticated } = useAuth();
   return useQuery<PricingInfo>({
     queryKey: ['pricing'],
     queryFn: async () => {
       const { api } = await import("@/lib/apiClient");
+      // apiClient.get<T>() returns T directly, not { data: T }
       const response = await api.get<{ pricing: Record<string, PricingPlan> }>("/billing/pricing");
-      return response.data;
+      return response || { pricing: {} };
     },
+    enabled: isAuthenticated,
     staleTime: 10 * 60 * 1000, // 10 minutes - pricing doesn't change often
     retry: 2,
   });
@@ -70,14 +75,15 @@ export function usePayments() {
   const createCheckoutMutation = useMutation({
     mutationFn: async ({ priceId, plan }: { priceId: string; plan: string }) => {
       const { api } = await import("@/lib/apiClient");
-      const response = await api.post("/billing/checkout", {
+      // apiClient.post<T>() returns T directly, not { data: T }
+      const response = await api.post<{ checkout_url: string; session_id: string }>("/billing/checkout", {
         price_id: priceId,
         plan,
       });
-      return response.data;
+      return response;
     },
     onError: (error: Error) => {
-      console.error('Failed to create checkout session:', error);
+      logger.error('Failed to create checkout session', { error });
       throw error;
     },
   });
@@ -86,11 +92,13 @@ export function usePayments() {
   const createPortalMutation = useMutation({
     mutationFn: async () => {
       const { api } = await import("@/lib/apiClient");
-      const response = await api.post("/billing/portal");
-      return response.data;
+      // apiClient.post<T>() returns T directly, not { data: T }
+      // api.post requires (endpoint, data, config?) - pass empty object for POST without body
+      const response = await api.post<{ portal_url: string }>("/billing/portal", {});
+      return response;
     },
     onError: (error: Error) => {
-      console.error('Failed to create portal session:', error);
+      logger.error('Failed to create portal session', { error });
       throw error;
     },
   });
@@ -107,7 +115,7 @@ export function usePayments() {
       queryClient.invalidateQueries({ queryKey: ['billing-subscription'] });
     },
     onError: (error: Error) => {
-      console.error('Failed to cancel subscription:', error);
+      logger.error('Failed to cancel subscription', { error });
       throw error;
     },
   });
@@ -115,18 +123,22 @@ export function usePayments() {
   // Helper functions for backward compatibility with Billing page
   const getPlans = useCallback(async (): Promise<Plan[]> => {
     const { api } = await import("@/lib/apiClient");
-    const response = await api.get("/billing/plans");
-    return response.data.plans || [];
+    // apiClient.get<T>() returns T directly, not { data: T }
+    const response = await api.get<{ plans?: Plan[] }>("/billing/plans");
+    return (response && 'plans' in response && Array.isArray(response.plans))
+      ? response.plans
+      : [];
   }, []);
 
   const getSubscription = useCallback(async (): Promise<Subscription | null> => {
     const { api } = await import("@/lib/apiClient");
     try {
-      const response = await api.get("/billing/subscription");
-      return response.data || null;
+      // apiClient.get<T>() returns T directly, not { data: T }
+      const response = await api.get<Subscription>("/billing/subscription");
+      return response || null;
     } catch (err) {
       // Return null instead of throwing for subscription (user might not have one)
-      console.error('Failed to get subscription:', err);
+      logger.error('Failed to get subscription', { error: err });
       return null;
     }
   }, []);

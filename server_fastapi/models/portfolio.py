@@ -17,7 +17,9 @@ class Portfolio(Base, TimestampMixin):
     user_id: Mapped[str] = mapped_column(
         String, index=True, nullable=False, unique=True
     )
-    exchange: Mapped[str] = mapped_column(String, nullable=False)
+    chain_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )  # Blockchain chain ID
     balances: Mapped[dict] = mapped_column(
         JSON, nullable=False, default={}
     )  # {symbol: amount}
@@ -25,4 +27,4 @@ class Portfolio(Base, TimestampMixin):
     last_synced_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self):
-        return f"<Portfolio(id={self.id}, user_id={self.user_id}, exchange={self.exchange})>"
+        return f"<Portfolio(id={self.id}, user_id={self.user_id}, chain_id={self.chain_id})>"

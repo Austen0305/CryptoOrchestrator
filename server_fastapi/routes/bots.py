@@ -1,26 +1,20 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
-from pydantic import BaseModel, ValidationError
-from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any, Annotated
 import logging
-import asyncio
 from datetime import datetime
 
-from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
+from ..services.trading.bot_service import BotService
+from ..services.trading.bot_trading_service import BotTradingService
 from ..dependencies.bots import get_bot_service, get_bot_trading_service
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
+from ..utils.route_helpers import _get_user_id
+from ..routes.integrations import get_trading_orchestrator
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _get_user_id(current_user: dict) -> str:
-    """Helper function to safely extract user_id from current_user dict"""
-    user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
-    if not user_id:
-        logger.warning(f"User ID not found in current_user: {current_user}")
-        raise HTTPException(status_code=401, detail="User not authenticated")
-    return str(user_id)
 
 
 # Pydantic models
@@ -31,6 +25,7 @@ class BotConfig(BaseModel):
     symbol: str
     strategy: str
     is_active: bool
+    status: Optional[str] = None  # Bot status: "stopped", "running", "error", etc.
     config: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
@@ -158,45 +153,87 @@ class MockBotStorage:
 
 
 @router.get("/")
-async def get_bots(current_user: dict = Depends(get_current_user)) -> List[BotConfig]:
-    """Get all trading bots for the authenticated user"""
+@cached(ttl=120, prefix="bots")  # 2min TTL for bot list
+async def get_bots(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    fields: Optional[str] = Query(
+        None, description="Comma-separated list of fields to include"
+    ),
+) -> List[BotConfig]:
+    """Get all trading bots for the authenticated user with pagination and field selection"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
-        if not user_id:
-            logger.warning(f"User ID not found in current_user: {current_user}")
-            return []
-        
-        bot_service = get_bot_service()
-        bot_configs = await bot_service.list_user_bots(str(user_id))
-        # bot_configs are BotConfiguration objects from service - convert to BotConfig response
-        result = []
-        for bot_conf in bot_configs:
-            # BotConfiguration has: id, strategy, parameters, active
-            # BotConfig needs: id, user_id, name, symbol, strategy, is_active, config, created_at, updated_at
-            # We need to fetch full bot data to get all fields
-            bot_data = await bot_service.get_bot_config(bot_conf.id, str(user_id))
-            if bot_data:
-                result.append(BotConfig(**bot_data))
-        return result
+        from ..middleware.query_cache import cache_query_result
+        from ..utils.response_optimizer import ResponseOptimizer
+
+        user_id = _get_user_id(current_user)
+
+        # Use cached query result
+        @cache_query_result(ttl=60, key_prefix="bot_list", include_user=True)
+        async def _get_bots_cached(user_id_str: str, page: int, page_size: int):
+            bot_configs = await bot_service.list_user_bots(user_id_str)
+            total = len(bot_configs)
+
+            # Apply pagination
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            paginated_configs = bot_configs[start_idx:end_idx]
+
+            # Convert to BotConfig response
+            result = []
+            for bot_conf in paginated_configs:
+                bot_data = await bot_service.get_bot_config(bot_conf.id, user_id_str)
+                if bot_data:
+                    result.append(BotConfig(**bot_data))
+            return result, total
+
+        bots, total = await _get_bots_cached(str(user_id), page, page_size)
+
+        # Apply field selection if requested (for future use)
+        if fields:
+            field_list = [f.strip() for f in fields.split(",")]
+            bots = ResponseOptimizer.select_fields(bots, field_list)
+
+        # Return bots list (backward compatible with List[BotConfig])
+        return bots
     except HTTPException:
         raise
     except Exception as e:
         logger.error(
-            f"Error fetching bots for user {current_user.get('id', 'unknown')}: {e}", exc_info=True
+            f"Error fetching bots for user {current_user.get('id', 'unknown')}: {e}",
+            exc_info=True,
         )
         # Return empty list instead of 500 error for better UX during development
         logger.warning(f"Returning empty bots list due to error: {e}")
         return []
 
 
+def _bot_cache_key(
+    bot_id: str, current_user: dict, bot_service: BotService, **kwargs
+) -> str:
+    """Custom cache key builder that includes bot_id for searchable invalidation"""
+    user_id = (
+        current_user.get("id")
+        or current_user.get("user_id")
+        or current_user.get("sub", "unknown")
+    )
+    return f"{bot_id}:{user_id}"
+
+
 @router.get("/{bot_id}")
+@cached(
+    ttl=120, prefix="bots", key_builder=_bot_cache_key
+)  # 2min TTL for bot status, custom key with bot_id
 async def get_bot(
-    bot_id: str, current_user: dict = Depends(get_current_user)
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> BotConfig:
     """Get a specific bot by ID"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
@@ -204,13 +241,25 @@ async def get_bot(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching bot {bot_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch bot")
+        # Handle database errors gracefully - if bot not found or table doesn't exist, return 404
+        error_str = str(e).lower()
+        if (
+            "no such table" in error_str
+            or "does not exist" in error_str
+            or "mapper" in error_str
+            or "not found" in error_str
+        ):
+            logger.warning(f"Bot not found or table not available, returning 404 for bot {bot_id}: {e}")
+            raise HTTPException(status_code=404, detail="Bot not found")
+        logger.error(f"Error fetching bot {bot_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @router.post("/")
 async def create_bot(
-    request: CreateBotRequest, current_user: dict = Depends(get_current_user)
+    request: CreateBotRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> BotConfig:
     """Create a new trading bot"""
     try:
@@ -218,7 +267,6 @@ async def create_bot(
         CreateBotRequest.validate_strategy(request.strategy)
 
         # Validate configuration
-        bot_service = get_bot_service()
         is_valid = await bot_service.validate_bot_config(
             request.strategy, request.config
         )
@@ -254,7 +302,10 @@ async def create_bot(
     except HTTPException:
         raise
     except Exception as e:
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub") or "unknown"
+        try:
+            user_id = _get_user_id(current_user)
+        except HTTPException:
+            user_id = "unknown"  # Fallback for error logging
         logger.error(f"Error creating bot for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to create bot")
 
@@ -263,12 +314,12 @@ async def create_bot(
 async def update_bot(
     bot_id: str,
     request: UpdateBotRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> BotConfig:
     """Update an existing bot"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
 
         # Check if bot exists
         existing_bot = await bot_service.get_bot_config(bot_id, user_id)
@@ -282,17 +333,10 @@ async def update_bot(
         # Prepare updates
         updates = {k: v for k, v in request.model_dump().items() if v is not None}
 
-        # Update bot
-        success = await bot_service.update_bot(bot_id, user_id, updates)
-        if not success:
-            raise HTTPException(status_code=500, detail="Failed to update bot")
-
-        # Get updated bot
-        updated_bot = await bot_service.get_bot_config(bot_id, user_id)
+        # Update bot and get the updated bot configuration
+        updated_bot = await bot_service.update_bot(bot_id, user_id, updates)
         if not updated_bot:
-            raise HTTPException(
-                status_code=500, detail="Failed to retrieve updated bot"
-            )
+            raise HTTPException(status_code=500, detail="Failed to update bot")
 
         logger.info(f"Updated bot: {bot_id}")
         return BotConfig(**updated_bot)
@@ -304,11 +348,14 @@ async def update_bot(
 
 
 @router.delete("/{bot_id}")
-async def delete_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_bot(
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+):
     """Delete a bot"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
 
         # Check if bot exists
         existing_bot = await bot_service.get_bot_config(bot_id, user_id)
@@ -332,18 +379,16 @@ async def delete_bot(bot_id: str, current_user: dict = Depends(get_current_user)
 async def start_bot(
     bot_id: str,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    trading_service: Annotated[BotTradingService, Depends(get_bot_trading_service)],
 ):
     """Start a trading bot with safety checks"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
-        trading_service = get_bot_trading_service()
 
         # Validate start conditions
-        validation = await bot_service.validate_bot_start_conditions(
-            bot_id, user_id
-        )
+        validation = await bot_service.validate_bot_start_conditions(bot_id, user_id)
         if not validation["can_start"]:
             blockers = ", ".join(validation.get("blockers", []))
             raise HTTPException(status_code=403, detail=f"Cannot start bot: {blockers}")
@@ -367,9 +412,7 @@ async def start_bot(
             raise HTTPException(status_code=500, detail="Failed to start bot")
 
         # Start bot trading loop in background
-        background_tasks.add_task(
-            trading_service.run_bot_loop, bot_id, user_id
-        )
+        background_tasks.add_task(trading_service.run_bot_loop, bot_id, user_id)
 
         logger.info(f"Started bot: {bot_id}")
         return {"message": f"Bot {bot_id} started successfully"}
@@ -381,11 +424,14 @@ async def start_bot(
 
 
 @router.post("/{bot_id}/stop")
-async def stop_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
+async def stop_bot(
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+):
     """Stop a trading bot"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
 
         # Check if bot exists
         bot_status = await bot_service.get_bot_status(bot_id, user_id)
@@ -410,12 +456,13 @@ async def stop_bot(bot_id: str, current_user: dict = Depends(get_current_user)):
 
 @router.get("/{bot_id}/model")
 async def get_bot_model(
-    bot_id: str, current_user: dict = Depends(get_current_user)
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> Dict[str, Any]:
     """Get bot's ML model status"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
@@ -449,29 +496,76 @@ async def get_bot_model(
         raise HTTPException(status_code=500, detail="Failed to get model status")
 
 
+class TradeRequest(BaseModel):
+    side: str
+    amount: float
+    price: Optional[float] = None
+    symbol: Optional[str] = None
+
+
+@router.post("/{bot_id}/trade")
+async def trade_bot(
+    bot_id: str,
+    request: TradeRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    orchestrator: Annotated[Any, Depends(get_trading_orchestrator)],
+):
+    """Execute a manual trade for a bot via the orchestrator"""
+    try:
+        user_id = _get_user_id(current_user)
+
+        # Ensure bot exists
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
+        if not bot_status:
+            raise HTTPException(status_code=404, detail="Bot not found")
+
+        # Fill symbol from bot config if not provided
+        symbol = request.symbol or bot_status.get("symbol")
+
+        # Call orchestrator to execute trade
+        result = await orchestrator.execute_trade(
+            bot_id=bot_id,
+            user_id=user_id,
+            side=request.side,
+            amount=request.amount,
+            price=request.price,
+            symbol=symbol,
+        )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error executing trade for bot {bot_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to execute trade")
+
+
 @router.get("/{bot_id}/performance")
 async def get_bot_performance(
-    bot_id: str, current_user: dict = Depends(get_current_user)
+    bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> BotPerformance:
     """Get bot performance metrics"""
     try:
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot = await bot_service.get_bot_config(bot_id, user_id)
         if not bot:
             raise HTTPException(status_code=404, detail="Bot not found")
 
-        # In a real implementation, get actual performance data from repository
-        # For now, return mock data
+        # Get performance data from bot service
+        performance = await bot_service.get_bot_performance(bot_id, user_id)
+        
         return BotPerformance(
-            total_trades=45,
-            winning_trades=28,
-            losing_trades=17,
-            win_rate=0.622,
-            total_pnl=1250.75,
-            max_drawdown=185.50,
-            sharpe_ratio=1.85,
-            current_balance=101250.75,
+            total_trades=performance.get("total_trades", 0),
+            winning_trades=performance.get("winning_trades", 0),
+            losing_trades=performance.get("losing_trades", 0),
+            win_rate=performance.get("win_rate", 0.0),
+            total_pnl=performance.get("total_pnl", 0.0),
+            max_drawdown=performance.get("max_drawdown", 0.0),
+            sharpe_ratio=performance.get("sharpe_ratio", 0.0),
+            current_balance=performance.get("current_balance", 0.0),
         )
     except HTTPException:
         raise
@@ -485,10 +579,12 @@ async def get_bot_performance(
 
 
 @router.get("/safety/status")
-async def get_safety_status(current_user: dict = Depends(get_current_user)):
+async def get_safety_status(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+):
     """Get current safety status"""
     try:
-        bot_service = get_bot_service()
         status = await bot_service.get_system_safety_status()
         return status
     except Exception as e:
@@ -497,7 +593,10 @@ async def get_safety_status(current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/safety/emergency-stop")
-async def emergency_stop(current_user: dict = Depends(get_current_user)):
+async def emergency_stop(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+):
     """Trigger emergency stop for all trading activities"""
     try:
         # Check if user has admin privileges (simplified check)
@@ -507,7 +606,6 @@ async def emergency_stop(current_user: dict = Depends(get_current_user)):
             )
 
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         stopped_count = await bot_service.emergency_stop_all_user_bots(
             user_id, "admin_emergency"
         )
@@ -534,8 +632,9 @@ async def emergency_stop(current_user: dict = Depends(get_current_user)):
 @router.get("/bots/{bot_id}/analysis")
 async def get_bot_analysis(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    bot_trading_service=Depends(get_bot_trading_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    bot_trading_service: Annotated[BotTradingService, Depends(get_bot_trading_service)],
 ):
     """Get real-time smart analysis for a bot"""
     try:
@@ -543,7 +642,6 @@ async def get_bot_analysis(
 
         # Get bot configuration
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:
@@ -585,15 +683,15 @@ async def get_bot_analysis(
 @router.get("/bots/{bot_id}/risk-metrics")
 async def get_bot_risk_metrics(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    bot_trading_service=Depends(get_bot_trading_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    bot_trading_service: Annotated[BotTradingService, Depends(get_bot_trading_service)],
 ):
     """Get comprehensive risk assessment for a bot"""
     try:
         from ..services.trading.smart_bot_engine import SmartBotEngine
 
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:
@@ -661,8 +759,9 @@ async def get_bot_risk_metrics(
 @router.post("/bots/{bot_id}/optimize")
 async def optimize_bot_parameters(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    bot_trading_service=Depends(get_bot_trading_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
+    bot_trading_service: Annotated[BotTradingService, Depends(get_bot_trading_service)],
 ):
     """Optimize bot parameters based on current market conditions and learning history"""
     try:
@@ -671,7 +770,6 @@ async def optimize_bot_parameters(
         from ..services.ml.adaptive_learning import adaptive_learning_service
 
         user_id = _get_user_id(current_user)
-        bot_service = get_bot_service()
         bot_status = await bot_service.get_bot_status(bot_id, user_id)
 
         if not bot_status:

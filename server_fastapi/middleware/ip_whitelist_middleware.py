@@ -27,10 +27,12 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
         # Routes that require IP whitelist check
         self.protected_routes = [
             "/api/wallet/withdraw",
+            "/api/wallets",  # Wallet operations (withdrawals)
             "/api/trades",
             "/api/bots",
             "/api/payments",
             "/api/wallet/deposit",
+            "/api/dex/swap",  # DEX swaps (real money trades)
         ]
 
     async def dispatch(self, request: Request, call_next: Callable):
@@ -85,8 +87,31 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
                 if not is_whitelisted:
                     logger.warning(
                         f"IP whitelist violation: user {user_id}, IP {client_ip}, "
-                        f"route {request.url.path}"
+                        f"route {request.url.path}",
+                        extra={
+                            "user_id": user_id,
+                            "ip": client_ip,
+                            "route": request.url.path,
+                            "method": request.method,
+                        },
                     )
+
+                    # Audit log the violation
+                    try:
+                        from ..services.audit.audit_logger import audit_logger
+
+                        audit_logger.log_security_event(
+                            user_id=int(user_id),
+                            event_type="ip_whitelist_violation",
+                            details={
+                                "ip_address": client_ip,
+                                "route": request.url.path,
+                                "method": request.method,
+                            },
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to audit log IP whitelist violation: {e}")
+
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"IP address {client_ip} is not whitelisted. "

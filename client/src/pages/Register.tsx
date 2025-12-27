@@ -101,11 +101,29 @@ export default function Register() {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                name="name"
+                type="text"
+                placeholder="John Doe"
+                value={`${formData.firstName} ${formData.lastName}`.trim() || ""}
+                onChange={(e) => {
+                  const parts = e.target.value.split(" ");
+                  handleChange("firstName", parts[0] || "");
+                  handleChange("lastName", parts.slice(1).join(" ") || "");
+                }}
+                disabled={isLoading}
+                autoComplete="name"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input
                   id="firstName"
+                  name="firstName"
                   type="text"
                   placeholder="John"
                   value={formData.firstName}
@@ -118,6 +136,7 @@ export default function Register() {
                 <Label htmlFor="lastName">Last Name</Label>
                 <Input
                   id="lastName"
+                  name="lastName"
                   type="text"
                   placeholder="Doe"
                   value={formData.lastName}
@@ -131,6 +150,7 @@ export default function Register() {
               <Label htmlFor="username">Username</Label>
                 <Input
                   id="username"
+                  name="username"
                   type="text"
                   placeholder="johndoe"
                   value={formData.username}
@@ -151,6 +171,7 @@ export default function Register() {
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="you@example.com"
                 value={formData.email}
@@ -168,6 +189,7 @@ export default function Register() {
               <div className="relative">
                 <Input
                   id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={formData.password}
@@ -203,6 +225,7 @@ export default function Register() {
               <div className="relative">
                 <Input
                   id="confirmPassword"
+                  name="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={formData.confirmPassword}
@@ -235,6 +258,8 @@ export default function Register() {
                 <input
                   type="checkbox"
                   id="acceptTerms"
+                  name="acceptTerms"
+                  aria-label="Accept terms and conditions"
                   checked={formData.acceptTerms}
                   onChange={(e) => handleChange("acceptTerms", e.target.checked)}
                   className="h-4 w-4 mt-1 rounded border-gray-300"

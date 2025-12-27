@@ -13,6 +13,14 @@ except ImportError:
     REDIS_AVAILABLE = False
     redis = None
 
+# Optional: Import compression service for large cache entries
+try:
+    from .performance.cache_compression import cache_compression_service
+    COMPRESSION_ENABLED = True
+except ImportError:
+    COMPRESSION_ENABLED = False
+    cache_compression_service = None
+
 logger = logging.getLogger(__name__)
 
 # Cache configuration
@@ -136,7 +144,7 @@ class CacheService:
         """Connect to Redis if available"""
         if self.redis_available:
             return  # Already connected
-        
+
         if not REDIS_AVAILABLE:
             logger.info("Redis library not available, using memory cache")
             return
@@ -160,12 +168,23 @@ class CacheService:
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
-        
+
         effective_ttl = ttl or self._get_ttl_for_key(key)
+
+        # Compress if enabled and value is large enough
+        if COMPRESSION_ENABLED and cache_compression_service:
+            try:
+                compressed = cache_compression_service.compress(value)
+                serialized = compressed
+            except Exception as e:
+                logger.debug(f"Compression failed for key {key}, using uncompressed: {e}")
+                serialized = json.dumps(value).encode('utf-8')
+        else:
+            serialized = json.dumps(value).encode('utf-8')
 
         if self.redis_available and self.redis:
             try:
-                await self.redis.setex(key, effective_ttl, json.dumps(value))
+                await self.redis.setex(key, effective_ttl, serialized)
             except Exception as e:
                 logger.error(f"Redis set failed: {e}, using memory cache")
                 self.memory_cache.set(key, value, effective_ttl)
@@ -177,11 +196,23 @@ class CacheService:
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
-        
+
         if self.redis_available and self.redis:
             try:
                 value = await self.redis.get(key)
                 if value:
+                    # Try to decompress if compression is enabled
+                    if COMPRESSION_ENABLED and cache_compression_service:
+                        try:
+                            # Check if data is compressed (has ZSTD header)
+                            if isinstance(value, bytes) and value.startswith(b"ZSTD:"):
+                                return cache_compression_service.decompress(value)
+                        except Exception as e:
+                            logger.debug(f"Decompression failed for key {key}, trying JSON: {e}")
+                    
+                    # Fallback to JSON parsing
+                    if isinstance(value, bytes):
+                        value = value.decode('utf-8')
                     return json.loads(value)
             except Exception as e:
                 logger.error(f"Redis get failed: {e}, using memory cache")
@@ -193,7 +224,7 @@ class CacheService:
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
-        
+
         if self.redis_available and self.redis:
             try:
                 await self.redis.delete(key)
@@ -208,7 +239,7 @@ class CacheService:
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
-        
+
         if self.redis_available and self.redis:
             try:
                 return await self.redis.exists(key) == 1
@@ -222,7 +253,7 @@ class CacheService:
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
-        
+
         if self.redis_available and self.redis:
             try:
                 keys = await self.redis.keys(f"{CACHE_CONFIG['key_prefix']}*")

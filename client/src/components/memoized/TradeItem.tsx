@@ -7,14 +7,15 @@ import { memo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowUpRight, ArrowDownRight, ExternalLink } from 'lucide-react';
-import { formatCurrency, formatPercentage } from '@/lib/formatters';
+import { formatCurrency, formatPercentage, formatDateTime } from '@/lib/formatters';
 import { cn } from '@/lib/utils';
+import { getChainName } from '@/lib/wagmiConfig';
 
 interface TradeItemProps {
   trade: {
     id: string;
     pair: string;
-    side: string;
+    side?: string;
     type: string;
     amount: number;
     price: number;
@@ -23,6 +24,8 @@ interface TradeItemProps {
     pnlPercent?: number;
     exchange?: string;
     status?: string;
+    mode?: "paper" | "real" | "live";
+    chain_id?: number;
   };
   isBuy: boolean;
   tradeSide: string;
@@ -46,20 +49,36 @@ export const TradeItem = memo(function TradeItem({ trade, isBuy, tradeSide }: Tr
 
         {/* Trade Details */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-semibold text-sm">{trade.pair}</span>
             <Badge variant="outline" className="text-xs">
               {tradeSide.toUpperCase()}
             </Badge>
-            {trade.exchange && (
+            {trade.mode && (
+              <Badge 
+                variant={trade.mode === "real" || trade.mode === "live" ? "destructive" : "secondary"} 
+                className={cn(
+                  "text-xs",
+                  (trade.mode === "real" || trade.mode === "live") && "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                )}
+              >
+                {trade.mode === "real" || trade.mode === "live" ? "Real Money" : "Paper"}
+              </Badge>
+            )}
+            {trade.chain_id && (
+              <Badge variant="outline" className="text-xs">
+                {getChainName(trade.chain_id)}
+              </Badge>
+            )}
+            {trade.exchange && !trade.chain_id && (
               <Badge variant="secondary" className="text-xs">
-                {trade.exchange}
+                {trade.exchange.toUpperCase()}
               </Badge>
             )}
           </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>{trade.amount.toFixed(4)} @ {formatCurrency(trade.price)}</span>
-            <span>{formatDate(trade.timestamp)}</span>
+            <span>{formatDateTime(trade.timestamp)}</span>
           </div>
         </div>
 

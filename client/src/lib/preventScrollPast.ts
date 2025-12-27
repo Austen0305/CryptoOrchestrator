@@ -3,7 +3,7 @@
  * Simplified - only prevents overscroll at boundaries, allows normal scrolling
  */
 
-export function preventScrollPastContent() {
+export function preventScrollPastContent(): void {
   if (typeof window === 'undefined') return;
   
   const main = document.getElementById('main-content');
@@ -24,14 +24,14 @@ export function preventScrollPastContent() {
     if (atBottom && e.deltaY > 0) {
       e.preventDefault();
       e.stopPropagation();
-      return false;
+      return;
     }
     
     // If at top and scrolling up, prevent overscroll  
     if (atTop && e.deltaY < 0) {
       e.preventDefault();
       e.stopPropagation();
-      return false;
+      return;
     }
     
     // Allow all other scrolling - don't interfere
@@ -40,7 +40,9 @@ export function preventScrollPastContent() {
   // Handle touch events for mobile (only prevent at boundaries)
   let touchStartY = 0;
   main.addEventListener('touchstart', (e) => {
-    touchStartY = e.touches[0].clientY;
+    if (e.touches && e.touches[0]) {
+      touchStartY = e.touches[0].clientY;
+    }
   }, { passive: true });
   
   main.addEventListener('touchmove', (e) => {
@@ -48,18 +50,19 @@ export function preventScrollPastContent() {
     const scrollHeight = main.scrollHeight;
     const clientHeight = main.clientHeight;
     const maxScroll = scrollHeight - clientHeight;
-    const touchY = e.touches[0].clientY;
+    const touchY = e.touches[0]?.clientY;
+    if (touchY === undefined) return;
     const deltaY = touchStartY - touchY;
     
     // Only prevent if at boundaries and trying to scroll beyond
     if (currentScrollTop >= maxScroll && deltaY < 0) {
       e.preventDefault();
-      return false;
+      return;
     }
     
     if (currentScrollTop <= 0 && deltaY > 0) {
       e.preventDefault();
-      return false;
+      return;
     }
   }, { passive: false });
 }

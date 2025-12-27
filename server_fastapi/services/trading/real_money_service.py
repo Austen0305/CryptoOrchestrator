@@ -8,8 +8,7 @@ import asyncio
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 
-from ..exchange_service import ExchangeService
-from ...services.auth.exchange_key_service import exchange_key_service
+from ..trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.trading.safe_trading_system import SafeTradingSystem
 from ...services.real_money_safety import real_money_safety_service
@@ -31,7 +30,7 @@ class RealMoneyTradingService:
     async def execute_real_money_trade(
         self,
         user_id: str,
-        exchange: str,
+        chain_id: int,  # Changed from exchange to chain_id
         pair: str,
         side: str,
         order_type: str,
@@ -43,6 +42,7 @@ class RealMoneyTradingService:
         take_profit: Optional[float] = None,
         trailing_stop_percent: Optional[float] = None,
         time_in_force: Optional[str] = "GTC",
+        db: Optional[Any] = None,  # Database session
     ) -> Dict[str, Any]:
         """Execute a real money trade with proper validation and security"""
         user_id_int = (
@@ -61,22 +61,14 @@ class RealMoneyTradingService:
         )
         if not price_decimal:  # Market order - estimate with current price
             try:
-                from ..exchange_service import ExchangeService
-                from ..auth.exchange_key_service import exchange_key_service
+                # Get current price from CoinGecko
+                from ..coingecko_service import CoinGeckoService
 
-                api_key_data = await exchange_key_service.get_api_key(
-                    str(user_id_int), exchange, include_secrets=False
-                )
-                if api_key_data:
-                    exchange_service = ExchangeService(
-                        name=exchange,
-                        use_mock=False,
-                        api_key=api_key_data.get("api_key"),
-                        api_secret=api_key_data.get("api_secret"),
-                    )
-                    current_price = await exchange_service.get_market_price(pair)
-                    if current_price:
-                        trade_value_usd = float(amount_decimal) * current_price
+                coingecko = CoinGeckoService()
+                coin_symbol = pair.split("/")[0]  # e.g., "ETH" from "ETH/USD"
+                current_price = await coingecko.get_price(f"{coin_symbol}/USD")
+                if current_price:
+                    trade_value_usd = float(amount_decimal) * current_price
             except Exception as e:
                 logger.warning(f"Could not estimate trade value for compliance: {e}")
 
@@ -90,7 +82,7 @@ class RealMoneyTradingService:
             await compliance_service.check_trade_compliance(
                 user_id=user_id_int,
                 amount_usd=trade_value_usd,
-                exchange=exchange,
+                chain_id=chain_id,  # Changed from exchange
                 symbol=pair,
                 side=side,
             )
@@ -116,7 +108,7 @@ class RealMoneyTradingService:
         is_valid, errors, metadata = (
             await real_money_safety_service.validate_real_money_trade(
                 user_id=user_id_int,
-                exchange=exchange,
+                chain_id=chain_id,
                 symbol=pair,
                 side=side,
                 amount=amount_decimal,
@@ -131,11 +123,22 @@ class RealMoneyTradingService:
             )
             raise ValueError(f"Trade validation failed: {error_message}")
 
+        # Validate MFA if provided
+        if mfa_token:
+            from ..services.two_factor_service import two_factor_service
+
+            is_valid_mfa = await two_factor_service.verify_totp(
+                user_id=user_id_int,
+                token=mfa_token,
+            )
+            if not is_valid_mfa:
+                raise ValueError("Invalid 2FA token")
+
         # Execute within atomic transaction
         async def _execute_trade(db):
             return await self._execute_trade_internal(
                 user_id_int,
-                exchange,
+                chain_id,  # Changed from exchange
                 pair,
                 side,
                 order_type,
@@ -152,7 +155,7 @@ class RealMoneyTradingService:
                 operation_name="trade",
                 user_id=user_id_int,
                 operation_details={
-                    "exchange": exchange,
+                    "chain_id": chain_id,
                     "symbol": pair,
                     "side": side,
                     "amount": float(amount_decimal),
@@ -162,6 +165,26 @@ class RealMoneyTradingService:
                     **metadata,
                 },
             )
+
+            # Audit log the trade
+            from ..services.audit.audit_logger import audit_logger
+
+            audit_logger.log_trade(
+                user_id=user_id_int,
+                trade_id=str(result.get("trade_id", "unknown")),
+                chain_id=chain_id,
+                symbol=pair,
+                side=side,
+                amount=float(amount_decimal),
+                price=float(price_decimal) if price_decimal else 0.0,
+                mode="real",
+                transaction_hash=result.get("transaction_hash"),
+                bot_id=bot_id,
+                mfa_used=bool(mfa_token),
+                risk_checks_passed=True,
+                success=result.get("success", False),
+            )
+
             return result
         except Exception as e:
             logger.error(f"Failed to execute real money trade: {e}", exc_info=True)
@@ -170,7 +193,7 @@ class RealMoneyTradingService:
     async def _execute_trade_internal(
         self,
         user_id: int,
-        exchange: str,
+        chain_id: int,  # Changed from exchange to chain_id
         pair: str,
         side: str,
         order_type: str,
@@ -184,7 +207,7 @@ class RealMoneyTradingService:
         trailing_stop_percent: Optional[float] = None,
         time_in_force: Optional[str] = "GTC",
     ) -> Dict[str, Any]:
-        """Internal trade execution logic (called within transaction)"""
+        """Internal trade execution logic via DEX (called within transaction)"""
         try:
             # Convert user_id to int
             user_id_int = (
@@ -195,61 +218,78 @@ class RealMoneyTradingService:
             if not isinstance(user_id_int, int):
                 user_id_int = int(user_id) if user_id else 1
 
-            # 0. Check 2FA requirement for real money trading
-            try:
-                from ...database import get_db_context
-                from ...models.base import User
-                from sqlalchemy import select
-                import speakeasy
+            # 0. MANDATORY 2FA requirement for real money trading
+            from ...database import get_db_context
+            from ...models.base import User
+            from sqlalchemy import select
+            import speakeasy
 
-                async with get_db_context() as session:
-                    result = await session.execute(
-                        select(User).where(User.id == user_id_int)
+            async with get_db_context() as session:
+                result = await session.execute(
+                    select(User).where(User.id == user_id_int)
+                )
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    raise ValueError("User not found")
+
+                # MANDATORY: 2FA must be enabled for real money trading
+                if not user.mfa_enabled:
+                    raise ValueError(
+                        "2FA is required for real money trading. Please enable 2FA in your account settings."
                     )
-                    user = result.scalar_one_or_none()
 
-                    if user and user.mfa_enabled:
-                        if not mfa_token:
-                            raise ValueError(
-                                "2FA token required for real money trading"
-                            )
+                # MANDATORY: 2FA token must be provided
+                if not mfa_token:
+                    raise ValueError(
+                        "2FA token is required for real money trading. Please provide your 2FA token."
+                    )
 
-                        # Verify 2FA token
-                        if user.mfa_method == "totp" and user.mfa_secret:
-                            verified = speakeasy.totp.verify(
-                                {
-                                    "secret": user.mfa_secret,
-                                    "encoding": "base32",
-                                    "token": mfa_token,
-                                    "window": 2,
-                                }
-                            )
-                            if not verified:
-                                raise ValueError("Invalid 2FA token")
-                        elif user.mfa_method in ("email", "sms"):
-                            # Verify one-time code
-                            if not user.mfa_code or user.mfa_code != mfa_token:
-                                raise ValueError("Invalid 2FA code")
-                            # Check expiration
-                            if (
-                                user.mfa_code_expires_at
-                                and datetime.utcnow() > user.mfa_code_expires_at
-                            ):
-                                raise ValueError("2FA code expired")
-            except ImportError:
-                logger.warning("2FA verification not available, skipping 2FA check")
-            except Exception as e:
-                logger.warning(f"2FA check failed: {e}, proceeding with trade")
+                # Verify 2FA token
+                if user.mfa_method == "totp" and user.mfa_secret:
+                    verified = speakeasy.totp.verify(
+                        {
+                            "secret": user.mfa_secret,
+                            "encoding": "base32",
+                            "token": mfa_token,
+                            "window": 2,
+                        }
+                    )
+                    if not verified:
+                        raise ValueError(
+                            "Invalid 2FA token. Please check your authenticator app."
+                        )
+                elif user.mfa_method in ("email", "sms"):
+                    # Verify one-time code
+                    if not user.mfa_code or user.mfa_code != mfa_token:
+                        raise ValueError(
+                            "Invalid 2FA code. Please check your email/SMS."
+                        )
+                    # Check expiration
+                    if (
+                        user.mfa_code_expires_at
+                        and datetime.utcnow() > user.mfa_code_expires_at
+                    ):
+                        raise ValueError(
+                            "2FA code has expired. Please request a new code."
+                        )
+                else:
+                    raise ValueError(
+                        "Unsupported 2FA method. Please use TOTP, email, or SMS."
+                    )
 
-            # 1. Validate user has API keys for this exchange
-            api_key_data = await exchange_key_service.get_api_key(
-                str(user_id_int), exchange, include_secrets=True
+            # 1. Validate user has wallet for this chain
+            from ...repositories.wallet_repository import WalletRepository
+
+            wallet_repo = WalletRepository(db)
+            user_wallet = await wallet_repo.get_user_wallet(
+                user_id_int, chain_id, "custodial"
             )
-            if not api_key_data:
-                raise ValueError(f"No API key found for {exchange}")
 
-            if not api_key_data.get("is_validated", False):
-                raise ValueError(f"API key for {exchange} is not validated")
+            if not user_wallet:
+                raise ValueError(
+                    f"No custodial wallet found for chain {chain_id}. Please create a wallet first."
+                )
 
             # 2. Risk management checks (optional - can be disabled if risk manager is not available)
             try:
@@ -285,90 +325,79 @@ class RealMoneyTradingService:
                     f"Failed to perform risk checks: {e}, proceeding with trade"
                 )
 
-            # 3. Create exchange instance with user's API keys
-            exchange_instance = self._create_exchange_instance(
-                exchange=exchange,
-                api_key=api_key_data["api_key"],
-                api_secret=api_key_data["api_secret"],
-                passphrase=api_key_data.get("passphrase"),
-                is_testnet=api_key_data.get("is_testnet", False),
+            # 3. Execute trade via DEX
+            dex_service = DEXTradingService()
+
+            # Convert pair to token addresses using token registry
+            from ..blockchain.token_registry import get_token_registry
+
+            token_registry = get_token_registry()
+            base_address, quote_address = await token_registry.parse_symbol_to_tokens(
+                pair, chain_id
             )
 
-            # Connect to exchange
-            try:
-                await exchange_instance.load_markets()
-            except Exception as e:
-                raise ConnectionError(f"Failed to connect to {exchange}: {e}")
-
-            # 4. Execute trade with advanced order type support
-            if order_type == "market":
-                order_result = await exchange_instance.create_market_order(
-                    symbol=pair,
-                    side=side,
-                    amount=amount,
-                )
-            elif order_type == "limit":
-                if not price:
-                    raise ValueError("Price required for limit orders")
-                order_result = await exchange_instance.create_limit_order(
-                    symbol=pair,
-                    side=side,
-                    amount=amount,
-                    price=price,
-                    time_in_force=time_in_force or "GTC",
-                )
-            elif order_type in ("stop", "stop-limit"):
-                if not stop:
-                    raise ValueError("Stop price required for stop orders")
-                if order_type == "stop-limit" and not price:
-                    raise ValueError("Price required for stop-limit orders")
-                # Use exchange service place_order method which supports stop orders
-                from ..exchange_service import default_exchange
-
-                order_result = await default_exchange.place_order(
-                    pair=pair,
-                    side=side,
-                    type_=order_type,
-                    amount=amount,
-                    price=price,
-                    stop=stop,
-                    time_in_force=time_in_force or "GTC",
-                )
-            elif order_type == "take-profit":
-                if not take_profit:
-                    raise ValueError(
-                        "Take profit price required for take-profit orders"
-                    )
-                # Take-profit orders are typically limit orders with a specific price
-                order_result = await exchange_instance.create_limit_order(
-                    symbol=pair,
-                    side=side,
-                    amount=amount,
-                    price=take_profit,
-                    time_in_force=time_in_force or "GTC",
-                )
-            elif order_type == "trailing-stop":
-                if not trailing_stop_percent:
-                    raise ValueError(
-                        "Trailing stop percentage required for trailing-stop orders"
-                    )
-                # Trailing stop orders require exchange-specific implementation
-                # For now, create a stop order that will be updated dynamically
-                # This would need exchange-specific API support
-                order_result = await exchange_instance.create_order(
-                    symbol=pair,
-                    type="STOP_LOSS_LIMIT" if price else "STOP_LOSS",
-                    side=side.upper(),
-                    amount=amount,
-                    price=price,
-                    stopPrice=(
-                        price * (1 - trailing_stop_percent / 100)
-                        if side == "buy"
-                        else price * (1 + trailing_stop_percent / 100)
-                    ),
-                )
+            # Determine sell/buy tokens based on side
+            if side == "buy":
+                # Buying: sell quote token to get base token
+                sell_token = quote_address
+                buy_token = base_address
             else:
-                raise ValueError(f"Unsupported order type: {order_type}")
+                # Selling: sell base token to get quote token
+                sell_token = base_address
+                buy_token = quote_address
+
+            # For DEX, we primarily support market orders (swaps)
+            # Advanced order types (stop-loss, take-profit) would need to be handled differently
+            if order_type not in ("market", "limit"):
+                logger.warning(
+                    f"Order type {order_type} not fully supported on DEX, executing as market order"
+                )
+
+            # Convert amount to proper decimal format using token registry
+            from decimal import Decimal
+            from ..blockchain.token_registry import get_token_registry
+
+            token_registry = get_token_registry()
+            sell_token_decimals = await token_registry.get_token_decimals(
+                sell_token, chain_id
+            )
+            sell_amount_decimal = Decimal(str(amount))
+            sell_amount_wei = str(
+                int(sell_amount_decimal * Decimal(10**sell_token_decimals))
+            )
+            sell_amount = sell_amount_wei
+
+            # Calculate slippage based on order type
+            slippage_percentage = 0.5  # Default 0.5% for market orders
+            if order_type == "limit" and price:
+                # For limit orders, use tighter slippage
+                slippage_percentage = 0.1
+
+            # Execute DEX swap
+            swap_result = await dex_service.execute_custodial_swap(
+                user_id=user_id_int,
+                sell_token=sell_token,
+                buy_token=buy_token,
+                sell_amount=sell_amount,
+                chain_id=chain_id,
+                slippage_percentage=slippage_percentage,
+                user_tier="free",  # Get from user profile
+                db=db,
+            )
+
+            if not swap_result or not swap_result.get("success"):
+                raise ValueError("DEX swap execution failed")
+
+            # Format result to match expected structure
+            order_result = {
+                "id": swap_result.get("transaction_hash"),
+                "transaction_hash": swap_result.get("transaction_hash"),
+                "status": "completed" if swap_result.get("success") else "failed",
+                "price": price or swap_result.get("executed_price", 0.0),
+                "amount": amount,
+                "filled": amount,
+                "fee": swap_result.get("fee_amount", 0.0),
+            }
 
             # 5. Record trade in safe trading system
             trade_details = {
@@ -378,7 +407,7 @@ class RealMoneyTradingService:
                 "quantity": amount,
                 "price": price or order_result.get("price", 0),
                 "bot_id": bot_id or "manual",
-                "exchange": exchange,
+                "chain_id": chain_id,  # Changed from exchange
                 "pair": pair,
                 "side": side,
                 "order_type": order_type,
@@ -400,8 +429,8 @@ class RealMoneyTradingService:
 
                 audit_logger.log_trade(
                     user_id=user_id_int,
-                    trade_id=order_result.get("id", "unknown"),
-                    exchange=exchange,
+                    trade_id=order_result.get("transaction_hash", "unknown"),
+                    chain_id=chain_id,  # Changed from exchange
                     symbol=pair,
                     side=side,
                     amount=amount,
@@ -420,7 +449,7 @@ class RealMoneyTradingService:
                 logger.error(f"Failed to log trade to audit: {e}")
 
             logger.info(
-                f"Real money trade executed: user={user_id}, exchange={exchange}, "
+                f"Real money trade executed via DEX: user={user_id}, chain_id={chain_id}, "
                 f"pair={pair}, side={side}, amount={amount}, price={price}"
             )
 
@@ -431,22 +460,23 @@ class RealMoneyTradingService:
                 trade_value_usd = amount * (price or order_result.get("price", 0))
                 await compliance_service.record_transaction(
                     user_id=user_id_int,
-                    transaction_id=order_result.get("id", "unknown"),
+                    transaction_id=order_result.get("transaction_hash", "unknown"),
                     amount_usd=trade_value_usd,
-                    exchange=exchange,
+                    chain_id=chain_id,  # Changed from exchange
                     symbol=pair,
                     side=side,
-                    order_id=order_result.get("id"),
+                    order_id=order_result.get("transaction_hash"),
                 )
             except Exception as e:
                 logger.error(f"Failed to record transaction for compliance: {e}")
 
             return {
                 "success": True,
-                "order_id": order_result.get("id"),
-                "status": order_result.get("status"),
-                "filled": order_result.get("filled", 0),
-                "remaining": order_result.get("remaining", amount),
+                "order_id": order_result.get("transaction_hash"),
+                "transaction_hash": order_result.get("transaction_hash"),
+                "status": order_result.get("status", "completed"),
+                "filled": order_result.get("filled", amount),
+                "remaining": 0,  # DEX swaps are atomic, no remaining
                 "price": order_result.get("price", price),
                 "timestamp": datetime.utcnow().isoformat(),
             }
@@ -455,34 +485,7 @@ class RealMoneyTradingService:
             logger.error(f"Failed to execute real money trade: {e}")
             raise
 
-    def _create_exchange_instance(
-        self,
-        exchange: str,
-        api_key: str,
-        api_secret: str,
-        passphrase: Optional[str] = None,
-        is_testnet: bool = False,
-    ):
-        """Create exchange instance with API credentials"""
-        import ccxt
-
-        exchange_class = getattr(ccxt, exchange, None)
-        if not exchange_class:
-            raise ValueError(f"Exchange {exchange} not found in ccxt")
-
-        config = {
-            "apiKey": api_key,
-            "secret": api_secret,
-            "enableRateLimit": True,
-            "options": {
-                "testnet": is_testnet,
-            },
-        }
-
-        if passphrase:
-            config["passphrase"] = passphrase
-
-        return exchange_class(config)
+    # Removed _create_exchange_instance - no longer using exchanges
 
 
 # Global instance

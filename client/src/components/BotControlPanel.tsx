@@ -89,11 +89,11 @@ export const BotControlPanel = React.memo(function BotControlPanel({ bots }: Bot
           <Badge className="ml-2">{integrationsStatus.data ? 'online' : 'offline'}</Badge>
         </div>
       </div>
-      {bots.map((bot) => {
+      {bots && Array.isArray(bots) && bots.length > 0 ? bots.map((bot) => {
         const isRunning = bot.status === "running";
         const isProfit = bot.profitLoss >= 0;
         const isPending = pendingActions.has(bot.id);
-  const isExpanded = expandedBots.has(bot.id);
+        const isExpanded = expandedBots.has(bot.id);
 
         return (
           <Card key={bot.id} data-testid={`card-bot-${bot.id}`}>
@@ -190,7 +190,11 @@ export const BotControlPanel = React.memo(function BotControlPanel({ bots }: Bot
             </CardContent>
           </Card>
         );
-      })}
+      }) : (
+        <div className="text-center text-muted-foreground py-8">
+          No bots available
+        </div>
+      )}
     </div>
   );
 });

@@ -50,6 +50,7 @@ export interface ActivateLicenseRequest {
 
 // Hooks
 export function useLicenseTypes() {
+  const { isAuthenticated } = useAuth();
   return useQuery<{ license_types: Record<string, LicenseType> }>({
     queryKey: ["licensing", "types"],
     queryFn: async () => {
@@ -57,7 +58,8 @@ export function useLicenseTypes() {
         method: "GET",
       });
     },
-    staleTime: 10 * 60 * 1000, // Cache for 10 minutes
+    enabled: isAuthenticated,
+    staleTime: 10 * 60 * 1000, // 10 minutes - license types don't change often
   });
 }
 
@@ -77,8 +79,6 @@ export function useMachineId() {
 }
 
 export function useValidateLicense() {
-  const { isAuthenticated } = useAuth();
-  
   return useMutation({
     mutationFn: async (data: ValidateLicenseRequest) => {
       return await apiRequest<LicenseStatus>("/api/licensing/validate", {
@@ -86,13 +86,11 @@ export function useValidateLicense() {
         body: data,
       });
     },
-    enabled: isAuthenticated,
   });
 }
 
 export function useActivateLicense() {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
   
   return useMutation({
     mutationFn: async (data: ActivateLicenseRequest) => {
@@ -101,16 +99,35 @@ export function useActivateLicense() {
         body: data,
       });
     },
+    // Optimistic update: immediately update UI before server confirms
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ["licensing"] });
+      
+      // Snapshot the previous value
+      const previousLicense = queryClient.getQueryData(["licensing", "status"]);
+      
+      // Return a context object with the snapshotted value
+      return { previousLicense };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["licensing"] });
     },
-    enabled: isAuthenticated,
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, data, context) => {
+      if (context?.previousLicense) {
+        queryClient.setQueryData(["licensing", "status"], context.previousLicense);
+      }
+    },
+    // Always refetch after error or success to ensure consistency
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["licensing"] });
+    },
   });
 }
 
 export function useGenerateLicense() {
   const queryClient = useQueryClient();
-  const { isAuthenticated } = useAuth();
   
   return useMutation({
     mutationFn: async (data: GenerateLicenseRequest) => {
@@ -122,6 +139,5 @@ export function useGenerateLicense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["licensing"] });
     },
-    enabled: isAuthenticated,
   });
 }

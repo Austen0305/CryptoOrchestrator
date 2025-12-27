@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./useAuth";
+import logger from "@/lib/logger";
 
 export interface WalletUpdate {
   type: "wallet_update" | "initial_balance" | "balance_response" | "error" | "pong";
@@ -33,7 +34,7 @@ export function useWalletWebSocket(currency: string = "USD") {
         const ws = new WebSocket(`${wsUrl}/ws/wallet?token=${token}`);
         
         ws.onopen = () => {
-          console.log("Wallet WebSocket connected");
+          logger.debug("Wallet WebSocket connected");
           setIsConnected(true);
           reconnectAttempts.current = 0;
           
@@ -53,22 +54,22 @@ export function useWalletWebSocket(currency: string = "USD") {
                 setBalance(message.data);
               }
             } else if (message.type === "error") {
-              console.error("Wallet WebSocket error:", message.message);
+              logger.error("Wallet WebSocket error:", message.message);
             } else if (message.type === "pong") {
               // Heartbeat response
             }
           } catch (error) {
-            console.error("Error parsing wallet WebSocket message:", error);
+            logger.error("Error parsing wallet WebSocket message:", error);
           }
         };
 
         ws.onerror = (error) => {
-          console.error("Wallet WebSocket error:", error);
+          logger.error("Wallet WebSocket error:", error);
           setIsConnected(false);
         };
 
         ws.onclose = () => {
-          console.log("Wallet WebSocket disconnected");
+          logger.debug("Wallet WebSocket disconnected");
           setIsConnected(false);
           
           // Attempt to reconnect
@@ -83,7 +84,7 @@ export function useWalletWebSocket(currency: string = "USD") {
 
         wsRef.current = ws;
       } catch (error) {
-        console.error("Error creating wallet WebSocket:", error);
+        logger.error("Error creating wallet WebSocket:", error);
         setIsConnected(false);
       }
     };

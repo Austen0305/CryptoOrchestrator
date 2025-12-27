@@ -3,9 +3,12 @@ import { BotCreator } from "@/components/BotCreator";
 import { EmptyBotsState } from "@/components/EmptyState";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
+import { OptimizedLoading } from "@/components/OptimizedLoading";
 import { useBots, useStatus } from "@/hooks/useApi";
+import { EnhancedErrorBoundary } from "@/components/EnhancedErrorBoundary";
+import logger from "@/lib/logger";
 
-export default function Bots() {
+function BotsContent() {
   const { data: bots, isLoading: botsLoading, error: botsError, refetch } = useBots();
   const { data: status } = useStatus();
 
@@ -14,11 +17,11 @@ export default function Bots() {
       <div className="space-y-6 w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Trading Bots</h1>
+            <h1 className="text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
             <p className="text-muted-foreground mt-1">Loading bots...</p>
           </div>
         </div>
-        <LoadingSkeleton count={3} className="h-32 w-full mb-4" />
+        <OptimizedLoading variant="skeleton" />
       </div>
     );
   }
@@ -28,12 +31,11 @@ export default function Bots() {
       <div className="space-y-6 w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Trading Bots</h1>
+            <h1 className="text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
           </div>
         </div>
         <ErrorRetry
           title="Failed to load bots"
-          message={botsError instanceof Error ? botsError.message : "An unexpected error occurred."}
           onRetry={() => refetch()}
           error={botsError as Error}
         />
@@ -43,26 +45,40 @@ export default function Bots() {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Trading Bots</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your automated trading strategies
-            {status && (
-              <span className="block text-sm mt-1">
-                {status.runningBots} bots running • Kraken {status.krakenConnected ? "Connected" : "Disconnected"}
-              </span>
-            )}
-          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
+          <div className="text-muted-foreground mt-1 text-sm sm:text-base">
+            <p>Manage your automated trading strategies</p>
+            {status?.runningBots !== undefined ? (
+              <p className="text-xs sm:text-sm mt-1">
+                {String(status.runningBots || 0)} bots running • Blockchain Trading Active
+              </p>
+            ) : null}
+          </div>
         </div>
-        <BotCreator />
+        <div className="w-full sm:w-auto">
+          <BotCreator />
+        </div>
       </div>
 
-      {bots && bots.length > 0 ? (
+      {bots && Array.isArray(bots) && bots.length > 0 ? (
         <BotControlPanel bots={bots} />
       ) : (
-        <EmptyBotsState onCreate={() => {}} />
+        <EmptyBotsState onCreateBot={() => {}} />
       )}
     </div>
+  );
+}
+
+export default function Bots() {
+  return (
+    <EnhancedErrorBoundary
+      onError={(error, errorInfo) => {
+        logger.error("Bots page error", { error, errorInfo });
+      }}
+    >
+      <BotsContent />
+    </EnhancedErrorBoundary>
   );
 }

@@ -1,3 +1,4 @@
+import { describe, test, expect } from 'vitest';
 import { multiHorizonVar, multiHorizonConditionalVar } from '../risk';
 
 describe('multiHorizon risk helpers', () => {

@@ -4,6 +4,7 @@
  */
 
 import { onCLS, onLCP, onFID, onINP, onTTFB, Metric } from 'web-vitals';
+import logger from './logger';
 
 type MetricHandler = (metric: Metric) => void;
 
@@ -49,9 +50,9 @@ async function sendToAnalytics(metric: Metric) {
     }
   }
 
-  // Also log to console in development
+  // Log to logger in development
   if (import.meta.env.DEV) {
-    console.log(`[Web Vitals] ${metric.name}: ${metric.value} (${metric.rating})`);
+    logger.debug(`Web Vitals: ${metric.name}: ${metric.value} (${metric.rating})`);
   }
 }
 
@@ -76,7 +77,7 @@ export function initWebVitals(onMetric?: MetricHandler) {
   onINP(handler);      // Interaction to Next Paint
   onTTFB(handler);     // Time to First Byte
 
-  console.log('[Web Vitals] Performance tracking initialized');
+  logger.debug('Web Vitals performance tracking initialized');
 }
 
 /**

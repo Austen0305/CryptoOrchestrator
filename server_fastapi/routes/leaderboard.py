@@ -5,13 +5,17 @@ API endpoints for trader leaderboards.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.leaderboard_service import LeaderboardService
 from ..dependencies.auth import get_current_user, get_optional_user
 from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -19,18 +23,20 @@ router = APIRouter()
 
 
 @router.get("/")
+@cached(ttl=60, prefix="leaderboard")  # 60s TTL for leaderboard data
 async def get_leaderboard(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Optional[Annotated[dict, Depends(get_optional_user)]] = None,
     metric: str = Query(
         "total_pnl",
         description="Ranking metric: total_pnl, win_rate, profit_factor, sharpe_ratio",
     ),
     period: str = Query("all_time", description="Time period: 24h, 7d, 30d, all_time"),
-    limit: int = Query(100, ge=1, le=1000, description="Number of top traders"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     mode: str = Query("paper", description="Trading mode: paper or real"),
-    current_user: Optional[dict] = Depends(get_optional_user),
-    db: AsyncSession = Depends(get_db_session),
 ):
-    """Get trader leaderboard"""
+    """Get trader leaderboard with pagination"""
     try:
         if metric not in ["total_pnl", "win_rate", "profit_factor", "sharpe_ratio"]:
             raise HTTPException(status_code=400, detail="Invalid metric")
@@ -42,14 +48,22 @@ async def get_leaderboard(
             raise HTTPException(status_code=400, detail="Invalid mode")
 
         service = LeaderboardService(db)
+        # Convert page/page_size to limit for service (fetch enough for current page)
+        limit = page * page_size
         leaderboard = await service.get_leaderboard(
             metric=metric, period=period, limit=limit, mode=mode
         )
 
+        # Apply pagination
+        total = len(leaderboard)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_leaderboard = leaderboard[start_idx:end_idx]
+
         # Add user's rank if authenticated
         user_rank = None
         if current_user:
-            user_id = current_user.get("id")
+            user_id = _get_user_id(current_user)
             user_rank_data = await service.get_user_rank(user_id, metric, period, mode)
             if user_rank_data:
                 user_rank = user_rank_data
@@ -69,16 +83,17 @@ async def get_leaderboard(
 
 
 @router.get("/my-rank")
+@cached(ttl=60, prefix="my_rank")  # 60s TTL for user rank
 async def get_my_rank(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     metric: str = Query("total_pnl"),
     period: str = Query("all_time"),
     mode: str = Query("paper"),
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ):
     """Get current user's rank on the leaderboard"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         service = LeaderboardService(db)
 
         rank = await service.get_user_rank(user_id, metric, period, mode)

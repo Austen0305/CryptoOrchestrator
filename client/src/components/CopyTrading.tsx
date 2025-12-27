@@ -23,9 +23,18 @@ interface FollowedTradersResponse {
   traders: FollowedTrader[];
 }
 
+interface CopyTradingStats {
+  total_copied_trades: number;
+  total_profit: number;
+  active_copies: number;
+  followed_traders: number;
+}
+
 export function CopyTrading() {
   const { data: followedTraders, isLoading, error, refetch } = useFollowedTraders();
   const { data: stats, isLoading: statsLoading, error: statsError } = useCopyTradingStats();
+  const typedStats = stats as CopyTradingStats | undefined;
+  const typedFollowedTraders = followedTraders as FollowedTradersResponse | undefined;
   const followTrader = useFollowTrader();
   const unfollowTrader = useUnfollowTrader();
   const { toast } = useToast();
@@ -100,23 +109,23 @@ export function CopyTrading() {
             onRetry={() => window.location.reload()}
             error={statsError as Error}
           />
-        ) : stats ? (
+        ) : typedStats ? (
           <div className="grid grid-cols-4 gap-4">
             <div className="p-4 rounded-lg border">
               <div className="text-sm text-muted-foreground">Copied Trades</div>
-              <div className="text-2xl font-bold">{stats.total_copied_trades}</div>
+              <div className="text-2xl font-bold">{typedStats.total_copied_trades}</div>
             </div>
             <div className="p-4 rounded-lg border">
               <div className="text-sm text-muted-foreground">Total Profit</div>
-              <div className="text-2xl font-bold">{formatCurrency(stats.total_profit)}</div>
+              <div className="text-2xl font-bold">{formatCurrency(typedStats.total_profit)}</div>
             </div>
             <div className="p-4 rounded-lg border">
               <div className="text-sm text-muted-foreground">Active Copies</div>
-              <div className="text-2xl font-bold">{stats.active_copies}</div>
+              <div className="text-2xl font-bold">{typedStats.active_copies}</div>
             </div>
             <div className="p-4 rounded-lg border">
               <div className="text-sm text-muted-foreground">Followed Traders</div>
-              <div className="text-2xl font-bold">{stats.followed_traders}</div>
+              <div className="text-2xl font-bold">{typedStats.followed_traders}</div>
             </div>
           </div>
         ) : null}
@@ -162,7 +171,7 @@ export function CopyTrading() {
               onRetry={() => refetch()}
               error={error as Error}
             />
-          ) : followedTraders?.traders && followedTraders.traders.length > 0 ? (
+          ) : typedFollowedTraders?.traders && typedFollowedTraders.traders.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -173,7 +182,7 @@ export function CopyTrading() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {followedTraders.traders.map((trader: FollowedTrader) => (
+                {typedFollowedTraders?.traders && Array.isArray(typedFollowedTraders.traders) ? typedFollowedTraders.traders.map((trader: FollowedTrader) => (
                   <TableRow key={trader.trader_id}>
                     <TableCell>{trader.username || `Trader ${trader.trader_id}`}</TableCell>
                     <TableCell>{trader.allocation_percentage}%</TableCell>
@@ -193,7 +202,13 @@ export function CopyTrading() {
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      No followed traders found
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           ) : (

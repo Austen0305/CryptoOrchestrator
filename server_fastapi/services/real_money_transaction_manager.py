@@ -36,20 +36,22 @@ class RealMoneyTransactionManager:
 
                 # Commit transaction
                 await db.commit()
-                logger.info(f"✅ {operation_name} transaction committed successfully")
+                logger.info(f"[OK] {operation_name} transaction committed successfully")
 
             except SQLAlchemyError as e:
                 # Rollback on database error
                 await db.rollback()
                 logger.error(
-                    f"❌ {operation_name} transaction rolled back: {e}", exc_info=True
+                    f"[ERROR] {operation_name} transaction rolled back: {e}",
+                    exc_info=True,
                 )
                 raise
             except Exception as e:
                 # Rollback on any error
                 await db.rollback()
                 logger.error(
-                    f"❌ {operation_name} transaction rolled back: {e}", exc_info=True
+                    f"[ERROR] {operation_name} transaction rolled back: {e}",
+                    exc_info=True,
                 )
                 raise
 

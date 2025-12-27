@@ -3,14 +3,15 @@ P&L Calculation Service
 Calculates profit and loss from trade history for portfolios and positions.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..repositories.trade_repository import TradeRepository
 from datetime import datetime, timedelta
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
 
-from ..models.trade import Trade
-from ..models.portfolio import Portfolio as PortfolioModel
+from ..repositories.trade_repository import TradeRepository
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +19,14 @@ logger = logging.getLogger(__name__)
 class PnLService:
     """Service for calculating profit and loss from trade history"""
 
-    def __init__(self, db: AsyncSession):
-        self.db = db
+    def __init__(
+        self,
+        db: AsyncSession,
+        trade_repository: Optional[TradeRepository] = None,
+    ):
+        # ✅ Repository injected via dependency injection (Service Layer Pattern)
+        self.trade_repository = trade_repository or TradeRepository()
+        self.db = db  # Keep db for transaction handling
 
     async def calculate_position_pnl(
         self, user_id: int, symbol: str, current_price: float, mode: str = "paper"
@@ -37,22 +44,10 @@ class PnLService:
             Dict with pnl, pnl_percent, cost_basis, current_value
         """
         try:
-            # Get all trades for this symbol
-            stmt = (
-                select(Trade)
-                .where(
-                    and_(
-                        Trade.user_id == user_id,
-                        Trade.pair == symbol,
-                        Trade.mode == mode,
-                        Trade.status == "completed",
-                    )
-                )
-                .order_by(Trade.timestamp)
+            # ✅ Data access delegated to repository
+            trades = await self.trade_repository.get_completed_trades_for_pnl(
+                self.db, user_id=user_id, mode=mode, pair=symbol
             )
-
-            result = await self.db.execute(stmt)
-            trades = result.scalars().all()
 
             if not trades:
                 return {
@@ -113,7 +108,11 @@ class PnLService:
             }
 
         except Exception as e:
-            logger.error(f"Error calculating position P&L: {e}", exc_info=True)
+            logger.error(
+                f"Error calculating position P&L: {e}",
+                exc_info=True,
+                extra={"user_id": user_id, "symbol": symbol, "mode": mode},
+            )
             return {
                 "pnl": 0.0,
                 "pnl_percent": 0.0,
@@ -138,20 +137,14 @@ class PnLService:
             Dict with total_pnl, realized_pnl, unrealized_pnl, pnl_24h, etc.
         """
         try:
-            # Build query
-            conditions = [
-                Trade.user_id == user_id,
-                Trade.mode == mode,
-                Trade.status == "completed",
-            ]
-
-            if period_hours:
-                cutoff_time = datetime.utcnow() - timedelta(hours=period_hours)
-                conditions.append(Trade.timestamp >= cutoff_time)
-
-            stmt = select(Trade).where(and_(*conditions)).order_by(Trade.timestamp)
-            result = await self.db.execute(stmt)
-            trades = result.scalars().all()
+            # ✅ Data access delegated to repository
+            trades = await self.trade_repository.get_completed_trades_for_pnl(
+                self.db,
+                user_id=user_id,
+                mode=mode,
+                pair=None,
+                period_hours=period_hours,
+            )
 
             # Calculate realized P&L from completed trades
             realized_pnl = 0.0
@@ -199,7 +192,11 @@ class PnLService:
             }
 
         except Exception as e:
-            logger.error(f"Error calculating portfolio P&L: {e}", exc_info=True)
+            logger.error(
+                f"Error calculating portfolio P&L: {e}",
+                exc_info=True,
+                extra={"user_id": user_id, "mode": mode, "period_hours": period_hours},
+            )
             return {
                 "realized_pnl": 0.0,
                 "total_fees": 0.0,

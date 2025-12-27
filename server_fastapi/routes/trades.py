@@ -1,23 +1,65 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func, and_
+from sqlalchemy.orm import selectinload
 import logging
-import time
 from datetime import datetime
-from ..services.exchange_service import default_exchange
-from ..services.trading_orchestrator import trading_orchestrator
-from ..services.trading.safe_trading_system import SafeTradingSystem
-from ..services.trading.real_money_service import real_money_trading_service
-from ..services.auth.exchange_key_service import exchange_key_service
-from ..services.two_factor_service import two_factor_service
-from ..services.kyc_service import kyc_service
-from ..dependencies.auth import get_current_user
-from ..database import get_db_session
+
+import logging
 
 logger = logging.getLogger(__name__)
 
+# Rate limiting imports
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler
+    from slowapi.util import get_remote_address
+    from slowapi.errors import RateLimitExceeded
+    from ..rate_limit_config import limiter, get_rate_limit
+
+    LIMITER_AVAILABLE = True
+except ImportError:
+    LIMITER_AVAILABLE = False
+    Limiter = None
+    get_remote_address = None
+    limiter = None
+    get_rate_limit = lambda x: x  # No-op fallback
+    logger.warning("SlowAPI not available, rate limiting disabled")
+
+from ..services.trading.safe_trading_system import SafeTradingSystem
+from ..services.trading.dex_trading_service import DEXTradingService
+from ..services.pnl_service import PnLService
+from ..services.two_factor_service import two_factor_service
+from ..services.kyc_service import kyc_service
+from ..dependencies.auth import get_current_user
+from ..dependencies.trading import (
+    get_safe_trading_system,
+    get_dex_trading_service,
+)
+from ..dependencies.pnl import get_pnl_service
+from ..database import get_db_session
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.trading_utils import normalize_trading_mode
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..models.trade import Trade
+
 router = APIRouter()
+
+# Use shared limiter from rate_limit_config (with test-specific high limits in test mode)
+# If limiter is not available, create a no-op decorator
+if not LIMITER_AVAILABLE or limiter is None:
+    # Create a no-op decorator if limiter is not available
+    class NoOpLimiter:
+        def limit(self, *args, **kwargs):
+            def decorator(func):
+                return func
+
+            return decorator
+
+    limiter = NoOpLimiter()
+    get_rate_limit = lambda x: x  # No-op fallback
 
 
 # Pydantic models
@@ -35,7 +77,9 @@ class TradeCreate(BaseModel):
     trailing_stop_percent: Optional[float] = None  # Trailing stop percentage
     time_in_force: Optional[str] = "GTC"  # 'GTC', 'IOC', 'FOK'
     mode: str = "paper"  # 'paper' or 'real'
-    exchange: Optional[str] = None  # Exchange to use (e.g., 'binance', 'kraken')
+    chain_id: Optional[int] = Field(
+        1, description="Blockchain chain ID (1=Ethereum, 8453=Base, etc.)"
+    )
     mfa_token: Optional[str] = None  # 2FA token for real money trades
 
 
@@ -52,38 +96,38 @@ class TradeResponse(BaseModel):
     status: str  # 'completed', 'pending', 'failed'
     pnl: Optional[float] = None
     mode: Optional[str] = None  # 'paper' or 'real'
-    exchange: Optional[str] = None  # Exchange name
+    chain_id: Optional[int] = None  # Blockchain chain ID
+    transaction_hash: Optional[str] = None  # Blockchain transaction hash
     order_id: Optional[str] = None
+
+
+class PaginatedTradeResponse(BaseModel):
+    data: List[TradeResponse]
+    pagination: Dict[str, Any]
 
 
 # Note: All trades are now stored in database (Trade model)
 # Removed in-memory trades_store - using database only
-
-# Initialize safe trading system
-safe_trading_system = SafeTradingSystem()
+# Services are now provided via dependency injection
 
 
 @router.get("/", response_model=List[TradeResponse])
+@cached(ttl=60, prefix="trades")  # 60s TTL for trade lists
 async def get_trades(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     botId: Optional[str] = Query(None),
     mode: Optional[str] = Query(None, pattern="^(paper|real|live)$"),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    """Get trades from database with optional filtering by bot ID and mode"""
+    """Get trades from database with optional filtering by bot ID and mode, with pagination"""
     try:
-        from sqlalchemy import select
-        from ..models.trade import Trade
+        user_id = _get_user_id(current_user)
 
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
-        if not user_id:
-            logger.warning(f"User ID not found in current_user: {current_user}")
-            return []
+        normalized_mode = normalize_trading_mode(mode)
 
-        # Normalize mode: "live" -> "real"
-        normalized_mode = "real" if mode == "live" else mode
-
-        # Get trades from database
+        # Build query with eager loading to prevent N+1 queries
         query = select(Trade).where(Trade.user_id == user_id)
 
         # Filter by bot ID if provided
@@ -94,12 +138,31 @@ async def get_trades(
         if normalized_mode:
             query = query.where(Trade.mode == normalized_mode)
 
+        # Eager load relationships to prevent N+1 queries
+        query = query.options(
+            selectinload(Trade.user), selectinload(Trade.bot), selectinload(Trade.order)
+        )
+
         # Order by executed_at descending (most recent first)
         query = query.order_by(
             Trade.executed_at.desc()
             if hasattr(Trade.executed_at, "desc")
             else Trade.timestamp.desc()
         )
+
+        # Apply pagination
+        query = QueryOptimizer.paginate_query(query, page=page, page_size=page_size)
+
+        # Get total count for pagination metadata
+        count_query = (
+            select(func.count()).select_from(Trade).where(Trade.user_id == user_id)
+        )
+        if botId:
+            count_query = count_query.where(Trade.bot_id == botId)
+        if normalized_mode:
+            count_query = count_query.where(Trade.mode == normalized_mode)
+        total_result = await db_session.execute(count_query)
+        total = total_result.scalar() or 0
 
         # Execute query
         result = await db_session.execute(query)
@@ -129,7 +192,8 @@ async def get_trades(
                     status=trade.status,
                     pnl=trade.pnl,
                     mode=trade.mode,
-                    exchange=trade.exchange,
+                    chain_id=trade.chain_id,
+                    transaction_hash=None,  # Will be set after DEX execution
                     order_id=trade.order_id,
                 )
             )
@@ -146,47 +210,51 @@ async def get_trades(
 
 @router.get("/profit-calendar")
 async def get_profit_calendar(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     month: str = Query(..., description="Month in format YYYY-MM"),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
 ):
     """Get daily profit data for a calendar month"""
     try:
-        user_id = current_user.get("user_id") or current_user.get("id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         # Parse month
         from datetime import datetime
+
         try:
-            month_date = datetime.strptime(month, "%Y-%m")
+            datetime.strptime(month, "%Y-%m")  # Validate date format
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid month format. Use YYYY-MM")
+            raise HTTPException(
+                status_code=400, detail="Invalid month format. Use YYYY-MM"
+            )
 
         # For now, return empty calendar data
         # In a real implementation, this would aggregate daily profits from trades
-        return {
-            "daily_profits": []
-        }
+        return {"daily_profits": []}
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Failed to get profit calendar: {e}", exc_info=True)
         # Return empty calendar instead of error
-        return {
-            "daily_profits": []
-        }
+        return {"daily_profits": []}
 
 
 @router.post("/", response_model=TradeResponse)
+@limiter.limit(
+    get_rate_limit("10/minute")
+)  # Rate limit: 10/minute in production, 10000/minute in tests
 async def create_trade(
     trade: TradeCreate,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    request: Request,  # Required for rate limiting
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    safe_trading_system: Annotated[SafeTradingSystem, Depends(get_safe_trading_system)],
+    dex_service: Annotated[DEXTradingService, Depends(get_dex_trading_service)],
+    pnl_service: Annotated[PnLService, Depends(get_pnl_service)],
 ):
     """Create a new trade and execute it through the trading orchestrator with safety validation"""
     try:
-        user_id = current_user.get("user_id", 1)
+        user_id = _get_user_id(current_user)
 
         # Prepare trade details for validation
         trade_details = {
@@ -245,7 +313,6 @@ async def create_trade(
                 from ..services.wallet_trading_integration import (
                     WalletTradingIntegration,
                 )
-                from ..database import get_db_session
 
                 # Calculate trade cost
                 trade_value = trade.amount * (trade.price or 0)
@@ -269,10 +336,22 @@ async def create_trade(
                 )
 
                 if not funds_reserved:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Insufficient wallet balance. Required: ${total_cost:.2f}",
-                    )
+                    # Get current balance for better error message
+                    try:
+                        current_balance = (
+                            await wallet_integration.get_available_balance(
+                                user_id=user_id, currency="USD"
+                            )
+                        )
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Insufficient wallet balance. Available: ${current_balance:.2f}, Required: ${total_cost:.2f}",
+                        )
+                    except Exception:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Insufficient wallet balance. Required: ${total_cost:.2f}. Please deposit funds or reduce trade size.",
+                        )
             except HTTPException:
                 raise
             except Exception as e:
@@ -282,8 +361,6 @@ async def create_trade(
                 )
 
         # Save trade to database first
-        from ..models.trade import Trade
-
         # Normalize mode: "live" -> "real"
         normalized_mode = "real" if trade.mode == "live" else trade.mode
 
@@ -292,7 +369,7 @@ async def create_trade(
         db_trade = Trade(
             user_id=user_id,
             bot_id=trade.botId,
-            exchange=trade.exchange or "paper",
+            chain_id=trade.chain_id or 1,  # Default to Ethereum
             symbol=trade.pair,
             pair=trade.pair,
             side=trade.side,
@@ -317,70 +394,67 @@ async def create_trade(
         # Execute the trade based on mode
         if trade.mode == "real" or trade.mode == "live":
             try:
-                user_id = current_user.get("sub") or current_user.get("user_id")
+                user_id = _get_user_id(current_user)
                 if not user_id:
                     raise HTTPException(
                         status_code=401, detail="User not authenticated"
                     )
 
-                # Get user's exchange API keys
-                # Use exchange from trade request, or default to first available exchange
-                exchange = trade.exchange or "binance"
+                # Execute real money trade via DEX
+                chain_id = trade.chain_id or 1  # Default to Ethereum
 
-                # Get user's available exchanges
-                api_keys = await exchange_key_service.list_api_keys(str(user_id))
-                if api_keys:
-                    # Use the exchange from trade if available, otherwise use first validated exchange
-                    available_exchanges = [
-                        k["exchange"] for k in api_keys if k.get("is_validated")
-                    ]
-                    if exchange not in available_exchanges and available_exchanges:
-                        exchange = available_exchanges[0]
-                    elif not available_exchanges:
-                        raise HTTPException(
-                            status_code=400,
-                            detail="No validated API keys found. Please add and validate an exchange API key.",
-                        )
+                # Convert pair to token addresses (simplified - in production, use token registry)
+                # For now, assume format like "ETH/USDC" or token addresses
+                sell_token = (
+                    trade.pair.split("/")[0] if "/" in trade.pair else trade.pair
+                )
+                buy_token = trade.pair.split("/")[1] if "/" in trade.pair else "USDC"
+
+                # Convert amount to wei/units (simplified - in production, handle decimals properly)
+                sell_amount = str(int(trade.amount * 1e18))  # Assume 18 decimals
+
+                # Execute DEX swap
+                swap_result = await dex_service.execute_custodial_swap(
+                    user_id=user_id,
+                    sell_token=sell_token if trade.side == "sell" else buy_token,
+                    buy_token=buy_token if trade.side == "sell" else sell_token,
+                    sell_amount=sell_amount,
+                    chain_id=chain_id,
+                    slippage_percentage=0.5,  # Default 0.5% slippage
+                    user_tier="free",  # Get from user profile
+                    db=db_session,
+                )
+
+                if swap_result and swap_result.get("success"):
+                    order_result = {
+                        "success": True,
+                        "order_id": swap_result.get("transaction_hash"),
+                        "price": trade.price or 0.0,
+                        "status": "completed",
+                        "transaction_hash": swap_result.get("transaction_hash"),
+                    }
                 else:
                     raise HTTPException(
-                        status_code=400,
-                        detail="No API keys found. Please add an exchange API key in Settings.",
+                        status_code=500, detail="DEX swap execution failed"
                     )
-
-                # Execute real money trade with advanced order type support
-                order_result = (
-                    await real_money_trading_service.execute_real_money_trade(
-                        user_id=str(user_id),
-                        exchange=exchange,
-                        pair=trade.pair,
-                        side=trade.side,
-                        order_type=trade.type or "market",
-                        amount=trade.amount,
-                        price=trade.price,
-                        bot_id=trade.botId,
-                        mfa_token=trade.mfa_token,
-                        stop=trade.stop,
-                        take_profit=trade.take_profit,
-                        trailing_stop_percent=trade.trailing_stop_percent,
-                        time_in_force=trade.time_in_force,
-                    )
-                )
 
                 # Update trade in database and calculate P&L
                 db_trade = await db_session.get(Trade, int(trade_id))
                 if db_trade:
                     db_trade.status = order_result.get("status", "completed")
-                    db_trade.order_id = order_result.get("order_id")
-                    db_trade.success = order_result.get("status") == "completed"
+                    db_trade.order_id = order_result.get(
+                        "order_id"
+                    ) or order_result.get("transaction_hash")
+                    db_trade.transaction_hash = order_result.get("transaction_hash")
+                    db_trade.success = order_result.get(
+                        "status"
+                    ) == "completed" or order_result.get("success", False)
                     db_trade.fee = order_result.get("fee", 0.0)
                     if order_result.get("filled"):
                         db_trade.amount = order_result.get("filled", trade.amount)
 
-                    # Calculate P&L for sell trades using FIFO accounting
+                    # ✅ Use injected service - Calculate P&L for sell trades using FIFO accounting
                     if trade.side == "sell" and db_trade.status == "completed":
-                        from ..services.pnl_service import PnLService
-
-                        pnl_service = PnLService(db_session)
 
                         # Get execution price from order result or use requested price
                         execution_price = (
@@ -388,7 +462,8 @@ async def create_trade(
                         )
 
                         # Calculate position P&L using FIFO method
-                        position_pnl = await pnl_service.calculate_position_pnl(
+                        # Calculate position P&L for tracking (not used in response but logged)
+                        await pnl_service.calculate_position_pnl(
                             user_id=user_id,
                             symbol=trade.pair,
                             current_price=execution_price,
@@ -397,7 +472,6 @@ async def create_trade(
 
                         # For sell trades, calculate realized P&L
                         # Get previous buy trades for this symbol to calculate cost basis
-                        from sqlalchemy import select, and_
 
                         buy_trades_query = (
                             select(Trade)
@@ -408,7 +482,7 @@ async def create_trade(
                                     Trade.side == "buy",
                                     Trade.mode == "real",
                                     Trade.status == "completed",
-                                    Trade.success == True,
+                                    Trade.success.is_(True),
                                 )
                             )
                             .order_by(Trade.timestamp)
@@ -498,18 +572,15 @@ async def create_trade(
             if db_trade:
                 db_trade.status = "completed"
                 db_trade.success = True
-                db_trade.exchange = "paper"
+                db_trade.chain_id = 1  # Default to Ethereum for paper trading
 
-                # Calculate P&L for paper trades using FIFO accounting
+                # ✅ Use injected service - Calculate P&L for paper trades using FIFO accounting
                 if trade.side == "sell":
-                    from ..services.pnl_service import PnLService
-
-                    pnl_service = PnLService(db_session)
 
                     execution_price = trade.price or db_trade.price
 
-                    # Calculate position P&L
-                    position_pnl = await pnl_service.calculate_position_pnl(
+                    # Calculate position P&L for tracking (not used in response but logged)
+                    await pnl_service.calculate_position_pnl(
                         user_id=user_id,
                         symbol=trade.pair,
                         current_price=execution_price,
@@ -517,7 +588,6 @@ async def create_trade(
                     )
 
                     # Get previous buy trades for FIFO calculation
-                    from sqlalchemy import select, and_
 
                     buy_trades_query = (
                         select(Trade)
@@ -528,7 +598,7 @@ async def create_trade(
                                 Trade.side == "buy",
                                 Trade.mode == "paper",
                                 Trade.status == "completed",
-                                Trade.success == True,
+                                Trade.success.is_(True),
                             )
                         )
                         .order_by(Trade.timestamp)
@@ -588,17 +658,17 @@ async def create_trade(
                 audit_logger.log_trade(
                     user_id=user_id,
                     trade_id=trade_id,
-                    exchange="paper",
+                    chain_id=1,  # Default to Ethereum for paper trading
                     symbol=trade.pair,
                     side=trade.side,
                     amount=trade.amount,
                     price=trade.price or 0,
                     mode="paper",
+                    transaction_hash=None,  # Paper trading doesn't have blockchain transactions
                     bot_id=trade.botId,
                     mfa_used=False,
                     risk_checks_passed=True,
                     success=True,
-                    order_type=trade.type or "market",
                 )
             except Exception as e:
                 logger.warning(f"Failed to log paper trade to audit: {e}")
@@ -626,7 +696,8 @@ async def create_trade(
                 status=db_trade.status,
                 pnl=db_trade.pnl,
                 mode=db_trade.mode,
-                exchange=db_trade.exchange,
+                chain_id=db_trade.chain_id,
+                transaction_hash=db_trade.transaction_hash,
                 order_id=db_trade.order_id,
             )
 

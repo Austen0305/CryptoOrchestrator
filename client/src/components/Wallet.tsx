@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Wallet as WalletIcon, ArrowDown, ArrowUp, DollarSign, TrendingUp, Clock } from "lucide-react";
-import { useWallet, useWalletTransactions, useDeposit, useWithdraw } from "@/hooks/useWallet";
+import { useWallet, useWalletTransactions, useDeposit, useWithdraw, type WalletBalance, type WalletTransaction } from "@/hooks/useWallet";
 import { useWalletWebSocket } from "@/hooks/useWalletWebSocket";
 import { formatCurrency } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
@@ -17,16 +17,6 @@ import { ZodError } from "zod";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { EmptyState } from "@/components/EmptyState";
-
-interface WalletTransaction {
-  id: string;
-  type: "deposit" | "withdrawal" | "transfer";
-  amount: number;
-  currency: string;
-  status: string;
-  timestamp: string;
-  description?: string;
-}
 
 export function Wallet() {
   const { data: balance, isLoading, error: balanceError, refetch: refetchBalance } = useWallet("USD");
@@ -37,7 +27,7 @@ export function Wallet() {
   const { toast } = useToast();
   
   // Use WebSocket balance if available, otherwise fall back to API balance
-  const displayBalance = wsBalance || balance;
+  const displayBalance = (wsBalance || balance) as WalletBalance | undefined;
   
   const [showDepositDialog, setShowDepositDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
@@ -48,8 +38,16 @@ export function Wallet() {
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     
-    // Validate amount
-    const amountValidation = validateAmount(amount, 0.01, 1000000);
+    // Validate amount (min 0.01, max 1000000)
+    if (amount < 0.01 || amount > 1000000) {
+      toast({
+        title: "Invalid Amount",
+        description: "Amount must be between 0.01 and 1,000,000",
+        variant: "destructive"
+      });
+      return;
+    }
+    const amountValidation = validateAmount(amount, 0.01);
     if (!amountValidation.valid) {
       toast({
         title: "Invalid Amount",
@@ -71,7 +69,7 @@ export function Wallet() {
       const zodError = error instanceof ZodError ? error : null;
       toast({
         title: "Validation Error",
-        description: zodError?.errors?.[0]?.message || "Invalid deposit data",
+        description: zodError?.issues?.[0]?.message || "Invalid deposit data",
         variant: "destructive"
       });
       return;
@@ -100,8 +98,16 @@ export function Wallet() {
   const handleWithdraw = async () => {
     const amount = parseFloat(withdrawAmount);
     
-    // Validate amount
-    const amountValidation = validateAmount(amount, 0.01, 1000000);
+    // Validate amount (min 0.01, max 1000000)
+    if (amount < 0.01 || amount > 1000000) {
+      toast({
+        title: "Invalid Amount",
+        description: "Amount must be between 0.01 and 1,000,000",
+        variant: "destructive"
+      });
+      return;
+    }
+    const amountValidation = validateAmount(amount, 0.01);
     if (!amountValidation.valid) {
       toast({
         title: "Invalid Amount",
@@ -133,7 +139,7 @@ export function Wallet() {
       const zodError = error instanceof ZodError ? error : null;
       toast({
         title: "Validation Error",
-        description: zodError?.errors?.[0]?.message || "Invalid withdrawal data",
+        description: zodError?.issues?.[0]?.message || "Invalid withdrawal data",
         variant: "destructive"
       });
       return;
@@ -376,7 +382,7 @@ export function Wallet() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.transactions.map((tx: WalletTransaction) => (
+                {transactions.transactions.map((tx) => (
                   <TableRow key={tx.id}>
                     <TableCell>
                       <Badge variant={

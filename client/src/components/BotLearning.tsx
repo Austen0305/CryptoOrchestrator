@@ -80,7 +80,7 @@ export function BotLearning({ botId }: BotLearningProps) {
   const { data: learningMetrics, isLoading: metricsLoading, refetch: refetchMetrics } = useQuery<LearningMetrics>({
     queryKey: ["bots", botId, "learning", "metrics"],
     queryFn: async () => {
-      const data = await apiRequest(`/api/bots/${botId}/learning/metrics`, { method: "GET" });
+      const data = await apiRequest(`/api/bots/${botId}/learning/metrics`, { method: "GET" }) as { learning_metrics?: LearningMetrics };
       return data.learning_metrics || {
         total_trades_analyzed: 1247,
         successful_patterns: 892,
@@ -105,7 +105,7 @@ export function BotLearning({ botId }: BotLearningProps) {
   const { data: patternAnalysis, isLoading: patternsLoading } = useQuery<PatternAnalysis[]>({
     queryKey: ["bots", botId, "learning", "patterns"],
     queryFn: async () => {
-      const data = await apiRequest(`/api/bots/${botId}/learning/patterns`, { method: "GET" });
+      const data = await apiRequest(`/api/bots/${botId}/learning/patterns`, { method: "GET" }) as { patterns?: PatternAnalysis[] };
       return data.patterns || [
         {
           pattern: "Golden Cross",
@@ -409,7 +409,7 @@ export function BotLearning({ botId }: BotLearningProps) {
                     <p className="text-sm font-medium">AI-Generated Insights</p>
                   </div>
                   <div className="space-y-1.5">
-                    {learningMetrics.insights.map((insight, idx) => (
+                    {learningMetrics.insights?.map((insight, idx) => (
                       <div
                         key={idx}
                         className="flex items-start gap-2 text-sm bg-muted/50 p-3 rounded-md border"

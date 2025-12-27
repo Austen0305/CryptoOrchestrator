@@ -44,7 +44,7 @@ export const botSchema = z.object({
   tradingPairs: z.array(z.string()),
   strategy: z.object({
     name: z.string(),
-    parameters: z.record(z.string(), z.any()),
+    parameters: z.record(z.string(), z.unknown()),
   }),
   riskLimits: z.object({
     maxPosition: z.number(),
@@ -133,8 +133,8 @@ export const mlModelStateSchema = z.object({
   trainingEpisodes: z.number(),
   totalReward: z.number(),
   averageReward: z.number(),
-  neuralNetworkWeights: z.any().optional(),
-  config: z.any().optional(),
+  neuralNetworkWeights: z.unknown().optional(),
+  config: z.unknown().optional(),
   isTrained: z.boolean().optional(),
   lastUpdated: z.number(),
 });

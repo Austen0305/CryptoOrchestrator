@@ -1,14 +1,16 @@
 import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [],
   test: {
     globals: true,
-    environment: 'happy-dom', // Use happy-dom for faster tests
-    setupFiles: ['./src/test/setup.ts'],
-    include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    environment: 'jsdom',
+    setupFiles: ['./client/src/test/setup.ts'],
+    include: [
+      'client/src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      'client/src/**/__tests__/**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+    ],
     exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
     coverage: {
       provider: 'v8',
@@ -24,10 +26,10 @@ export default defineConfig({
         '**/*.spec.{ts,tsx}',
       ],
       thresholds: {
-        lines: 70,
-        functions: 70,
-        branches: 70,
-        statements: 70,
+        lines: 85,
+        functions: 85,
+        branches: 80,
+        statements: 85,
       },
     },
   },

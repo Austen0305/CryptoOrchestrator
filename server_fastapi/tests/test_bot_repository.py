@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from server_fastapi.repositories.bot_repository import BotRepository
 from server_fastapi.models.bot import Bot
 
+
 @pytest.mark.asyncio
 class TestBotRepository:
     """Test cases for BotRepository"""
@@ -21,7 +22,7 @@ class TestBotRepository:
             "strategy": "SMA",
             "parameters": {"period": 20},
             "active": False,
-            "status": "stopped"
+            "status": "stopped",
         }
 
         bot = await repo.create(db_session, bot_data)
@@ -48,7 +49,7 @@ class TestBotRepository:
             "strategy": "SMA",
             "parameters": {"period": 20},
             "active": False,
-            "status": "stopped"
+            "status": "stopped",
         }
         await repo.create(db_session, bot_data)
 
@@ -81,7 +82,7 @@ class TestBotRepository:
                 "strategy": "SMA",
                 "parameters": {"period": 20},
                 "active": False,
-                "status": "stopped"
+                "status": "stopped",
             }
             await repo.create(db_session, bot_data)
 
@@ -94,7 +95,7 @@ class TestBotRepository:
             "strategy": "EMA",
             "parameters": {"period": 10},
             "active": False,
-            "status": "stopped"
+            "status": "stopped",
         }
         await repo.create(db_session, bot_data)
 
@@ -117,12 +118,14 @@ class TestBotRepository:
             "strategy": "SMA",
             "parameters": {"period": 20},
             "active": False,
-            "status": "stopped"
+            "status": "stopped",
         }
         await repo.create(db_session, bot_data)
 
         # Update status to running
-        updated_bot = await repo.update_bot_status(db_session, "test_bot_1", 1, True, "running")
+        updated_bot = await repo.update_bot_status(
+            db_session, "test_bot_1", 1, True, "running"
+        )
 
         assert updated_bot is not None
         assert updated_bot.active == True
@@ -130,7 +133,9 @@ class TestBotRepository:
         assert updated_bot.last_started_at is not None
 
         # Update status to stopped
-        updated_bot = await repo.update_bot_status(db_session, "test_bot_1", 1, False, "stopped")
+        updated_bot = await repo.update_bot_status(
+            db_session, "test_bot_1", 1, False, "stopped"
+        )
 
         assert updated_bot is not None
         assert updated_bot.active == False
@@ -150,7 +155,7 @@ class TestBotRepository:
             "strategy": "SMA",
             "parameters": {"period": 20},
             "active": False,
-            "status": "stopped"
+            "status": "stopped",
         }
         await repo.create(db_session, bot_data)
 
@@ -160,10 +165,12 @@ class TestBotRepository:
             "winning_trades": 60,
             "losing_trades": 40,
             "profit_loss": 1500.50,
-            "win_rate": 0.6
+            "win_rate": 0.6,
         }
 
-        success = await repo.update_performance_data(db_session, "test_bot_1", 1, performance_data)
+        success = await repo.update_performance_data(
+            db_session, "test_bot_1", 1, performance_data
+        )
 
         assert success == True
 
@@ -185,7 +192,7 @@ class TestBotRepository:
             name="Test Bot",
             symbol="BTC/USDT",
             strategy="SMA",
-            parameters=parameters
+            parameters=parameters,
         )
 
         assert bot.id == "test_bot_1"

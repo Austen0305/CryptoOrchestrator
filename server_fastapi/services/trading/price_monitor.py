@@ -117,7 +117,8 @@ class PriceMonitoringService:
 
     async def _fetch_current_prices(self, symbols: set) -> Dict[str, float]:
         """
-        Fetch current market prices for all symbols.
+        Fetch current market prices for all symbols using batch fetching.
+        More efficient than sequential fetching.
 
         Args:
             symbols: Set of symbols to fetch prices for
@@ -125,28 +126,36 @@ class PriceMonitoringService:
         Returns:
             Dict mapping symbols to current prices
         """
-        prices = {}
+        if not symbols:
+            return {}
 
         try:
-            # Import exchange service
-            from ...services.exchange_service import ExchangeService
+            # Use CoinGecko for price data (blockchain/DEX model)
+            from ...services.coingecko_service import CoinGeckoService
 
-            # For now, use a mock exchange (in production, use real exchange)
-            exchange = ExchangeService(name="binance", use_mock=True)
+            coingecko = CoinGeckoService()
 
-            for symbol in symbols:
-                try:
-                    price = await exchange.get_market_price(symbol)
-                    if price:
-                        prices[symbol] = price
-                except Exception as e:
-                    logger.warning(f"Failed to fetch price for {symbol}: {e}")
+            # Use batch fetching for efficiency (single API call instead of N calls)
+            symbol_list = list(symbols)
+            price_results = await coingecko.get_prices_batch(symbol_list)
+
+            # Filter out None values and convert to float
+            prices = {
+                symbol: float(price)
+                for symbol, price in price_results.items()
+                if price is not None
+            }
 
             if prices:
-                logger.debug(f"Fetched prices for {len(prices)} symbols")
+                logger.debug(
+                    f"Batch fetched prices for {len(prices)}/{len(symbols)} symbols"
+                )
+            elif len(symbols) > 0:
+                logger.warning(f"No prices fetched for {len(symbols)} symbols")
 
         except Exception as e:
-            logger.error(f"Error fetching prices: {e}")
+            logger.error(f"Error fetching prices: {e}", exc_info=True)
+            prices = {}
 
         return prices
 
@@ -174,11 +183,46 @@ class PriceMonitoringService:
             from .real_money_service import real_money_trading_service
             from .sl_tp_service import get_sl_tp_service
 
-            # Execute the order
+            # Get chain_id from order, bot, or use default (Ethereum)
+            chain_id = order.get("chain_id") or 1  # Default to Ethereum
+            if not chain_id and order.get("bot_id"):
+                try:
+                    # Try to get chain_id from bot config if available
+                    from ..database import get_db_context
+                    from sqlalchemy import select
+                    from ..models.bot import Bot
+
+                    async with get_db_context() as db:
+                        bot_result = await db.execute(
+                            select(Bot).where(Bot.id == order["bot_id"])
+                        )
+                        bot = bot_result.scalar_one_or_none()
+                        if bot:
+                            # Get chain_id from bot config or exchange field (temporary migration)
+                            if hasattr(bot, "config") and bot.config:
+                                import json
+
+                                config = (
+                                    json.loads(bot.config)
+                                    if isinstance(bot.config, str)
+                                    else bot.config
+                                )
+                                chain_id = config.get("chain_id", 1)
+                            elif (
+                                hasattr(bot, "exchange")
+                                and bot.exchange
+                                and str(bot.exchange).isdigit()
+                            ):
+                                # Temporary: exchange field may contain chain_id as string
+                                chain_id = int(bot.exchange)
+                except Exception:
+                    pass  # Fallback to default
+
+            # Execute the order via DEX (real_money_service now uses chain_id)
             try:
                 result = await real_money_trading_service.execute_real_money_trade(
                     user_id=order["user_id"],
-                    exchange="binance",  # TODO: Get from order or user preference
+                    chain_id=chain_id,  # Changed from exchange to chain_id
                     pair=symbol,
                     side=side,
                     order_type="market",  # Use market order for immediate execution

@@ -390,13 +390,13 @@ export function ProfitCalendar() {
               </div>
               {(() => {
                 let bestDay: DailyProfit | null = null;
-                dailyProfits.forEach(day => {
-                  if (isSameMonth(day.date, selectedMonth)) {
+                for (const day of dailyProfits.values()) {
+                  if (day && isSameMonth(day.date, selectedMonth)) {
                     if (!bestDay || day.profit > bestDay.profit) {
                       bestDay = day;
                     }
                   }
-                });
+                }
                 return bestDay ? (
                   <div>
                     <div className="text-2xl font-bold text-green-500">
@@ -420,13 +420,13 @@ export function ProfitCalendar() {
               </div>
               {(() => {
                 let worstDay: DailyProfit | null = null;
-                dailyProfits.forEach(day => {
-                  if (isSameMonth(day.date, selectedMonth)) {
+                for (const day of dailyProfits.values()) {
+                  if (day && isSameMonth(day.date, selectedMonth)) {
                     if (!worstDay || day.profit < worstDay.profit) {
                       worstDay = day;
                     }
                   }
-                });
+                }
                 return worstDay ? (
                   <div>
                     <div className="text-2xl font-bold text-red-500">

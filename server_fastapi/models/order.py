@@ -62,7 +62,12 @@ class Order(Base, TimestampMixin):
     )
 
     # Order details
-    exchange: Mapped[str] = mapped_column(String, nullable=False)
+    chain_id: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1
+    )  # Blockchain chain ID
+    transaction_hash: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, index=True
+    )  # Blockchain transaction hash
     symbol: Mapped[str] = mapped_column(String, nullable=False, index=True)
     pair: Mapped[str] = mapped_column(String, nullable=False, index=True)
     side: Mapped[str] = mapped_column(String, nullable=False)  # 'buy' or 'sell'
@@ -98,9 +103,9 @@ class Order(Base, TimestampMixin):
     # Execution
     filled_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     average_fill_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    exchange_order_id: Mapped[Optional[str]] = mapped_column(
+    blockchain_order_id: Mapped[Optional[str]] = mapped_column(
         String, nullable=True, index=True
-    )
+    )  # Changed from exchange_order_id to blockchain_order_id
 
     # Time in force
     time_in_force: Mapped[str] = mapped_column(

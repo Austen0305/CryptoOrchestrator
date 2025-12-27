@@ -409,7 +409,7 @@ class DepositSafetyService:
             await db.refresh(transaction)
 
             logger.info(
-                f"✅ Deposit processed safely: user {user_id}, amount {amount} {currency}, "
+                f"[OK] Deposit processed safely: user {user_id}, amount {amount} {currency}, "
                 f"fee {deposit_fee:.2f} {currency} (5%), net_amount {net_amount:.2f} {currency}, "
                 f"transaction {transaction.id}, payment_intent {payment_intent_id}"
             )

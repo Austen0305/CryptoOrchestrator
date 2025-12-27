@@ -24,7 +24,7 @@ interface DepositAddress {
 export function CryptoTransfer() {
   const { toast } = useToast();
   const [selectedCurrency, setSelectedCurrency] = useState("BTC");
-  const [selectedPlatform, setSelectedPlatform] = useState("binance");
+  const [selectedPlatform, setSelectedPlatform] = useState("wallet");
   const [transferAmount, setTransferAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawAddress, setWithdrawAddress] = useState("");
@@ -55,9 +55,10 @@ export function CryptoTransfer() {
       });
     },
     onSuccess: (data) => {
+      const result = data as { currency?: string };
       toast({
         title: "Transfer Initiated",
-        description: `Follow the instructions to complete your ${data.currency} transfer`
+        description: `Follow the instructions to complete your ${result.currency || 'crypto'} transfer`
       });
     }
   });
@@ -75,9 +76,10 @@ export function CryptoTransfer() {
       });
     },
     onSuccess: (data) => {
+      const result = data as { currency?: string };
       toast({
         title: "Withdrawal Initiated",
-        description: `Your ${data.currency} withdrawal is being processed`
+        description: `Your ${result.currency || 'crypto'} withdrawal is being processed`
       });
       setWithdrawAmount("");
       setWithdrawAddress("");
@@ -163,10 +165,10 @@ export function CryptoTransfer() {
   };
 
   const platforms = [
-    { value: "binance", label: "Binance" },
-    { value: "coinbase", label: "Coinbase" },
-    { value: "kraken", label: "Kraken" },
-    { value: "external_wallet", label: "External Wallet" }
+    { value: "wallet", label: "External Wallet" },
+    { value: "custodial", label: "Custodial Wallet" },
+    { value: "metamask", label: "MetaMask" },
+    { value: "walletconnect", label: "WalletConnect" }
   ];
 
   const currencies = ["BTC", "ETH", "USDT", "SOL", "ADA", "DOT", "ATOM"];
@@ -184,14 +186,14 @@ export function CryptoTransfer() {
     <Card>
       <CardHeader>
         <CardTitle>Crypto Transfers</CardTitle>
-        <CardDescription>Transfer crypto from other platforms or withdraw to external wallets</CardDescription>
+        <CardDescription>Transfer crypto between wallets or deposit/withdraw on blockchain</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="deposit" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="deposit">
               <Upload className="h-4 w-4 mr-2" />
-              Deposit from Platform
+              Deposit to Wallet
             </TabsTrigger>
             <TabsTrigger value="withdraw">
               <Download className="h-4 w-4 mr-2" />
@@ -202,7 +204,7 @@ export function CryptoTransfer() {
           <TabsContent value="deposit" className="space-y-4">
             <div className="space-y-4">
               <div>
-                <Label>Source Platform</Label>
+                <Label>Source Wallet</Label>
                 <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
                   <SelectTrigger>
                     <SelectValue />

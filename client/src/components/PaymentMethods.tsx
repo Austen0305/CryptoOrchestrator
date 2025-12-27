@@ -52,12 +52,13 @@ export function PaymentMethods() {
         body: { payment_method_type: type }
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: unknown) => {
       // In production, would use Stripe Elements to collect payment method
       // For now, show instructions
+      const setupIntent = data as { client_secret?: string };
       toast({
         title: "Setup Intent Created",
-        description: `Client secret: ${data.client_secret?.substring(0, 20)}...`
+        description: `Client secret: ${setupIntent.client_secret?.substring(0, 20)}...`
       });
     }
   });
@@ -211,12 +212,10 @@ export function PaymentMethods() {
             icon={CreditCard}
             title="No payment methods added yet"
             description="Add a payment method to enable deposits and withdrawals."
-            action={
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Payment Method
-              </Button>
-            }
+            action={{
+              label: "Add Payment Method",
+              onClick: () => setShowAddDialog(true)
+            }}
           />
         )}
       </CardContent>

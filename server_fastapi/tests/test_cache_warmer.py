@@ -1,6 +1,7 @@
 """
 Tests for cache warmer endpoints
 """
+
 import pytest
 import sys
 from pathlib import Path
@@ -39,4 +40,3 @@ def test_stop_cache_warmer_requires_auth(client):
     """Test that stop cache warmer endpoint requires authentication"""
     response = client.post("/api/cache-warmer/stop")
     assert response.status_code == 401  # Unauthorized
-

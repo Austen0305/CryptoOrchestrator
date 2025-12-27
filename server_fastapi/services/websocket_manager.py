@@ -86,7 +86,9 @@ class ConnectionManager:
         connection = WebSocketConnection(websocket, client_id)
         self.connections[client_id] = connection
 
-        logger.info(f"✅ Client {client_id} connected (total: {len(self.connections)})")
+        logger.info(
+            f"[OK] Client {client_id} connected (total: {len(self.connections)})"
+        )
 
         # Send welcome message
         await connection.send_message(
@@ -119,7 +121,7 @@ class ConnectionManager:
         del self.connections[client_id]
 
         logger.info(
-            f"❌ Client {client_id} disconnected (remaining: {len(self.connections)})"
+            f"[ERROR] Client {client_id} disconnected (remaining: {len(self.connections)})"
         )
 
     async def subscribe(self, client_id: str, channel: str) -> bool:
@@ -137,7 +139,7 @@ class ConnectionManager:
         self.subscriptions[channel].add(client_id)
         connection.subscriptions.add(channel)
 
-        logger.info(f"📡 Client {client_id} subscribed to {channel}")
+        logger.info(f"[STREAM] Client {client_id} subscribed to {channel}")
 
         # Send confirmation
         await connection.send_message(
@@ -166,7 +168,7 @@ class ConnectionManager:
 
         connection.subscriptions.discard(channel)
 
-        logger.info(f"📡 Client {client_id} unsubscribed from {channel}")
+        logger.info(f"[STREAM] Client {client_id} unsubscribed from {channel}")
 
         # Send confirmation
         await connection.send_message(

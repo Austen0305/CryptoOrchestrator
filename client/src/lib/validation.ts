@@ -123,10 +123,10 @@ export const strategyConfigSchema = z.object({
   name: z.string().min(1, 'Strategy name is required').max(100, 'Strategy name cannot exceed 100 characters'),
   description: z.string().max(500, 'Description cannot exceed 500 characters').optional(),
   strategy_type: z.enum(['rsi', 'macd', 'breakout', 'lstm', 'transformer', 'custom'], {
-    errorMap: () => ({ message: 'Invalid strategy type' }),
+    message: 'Invalid strategy type',
   }),
   category: z.enum(['technical', 'ml', 'hybrid'], {
-    errorMap: () => ({ message: 'Invalid category' }),
+    message: 'Invalid category',
   }),
   config: z.object({
     stop_loss_pct: validationSchemas.stopLoss.optional(),
@@ -189,7 +189,7 @@ export function validateStrategyConfig(data: unknown): { valid: boolean; errors?
  */
 export function formatValidationErrors(errors: z.ZodError): Record<string, string> {
   const formatted: Record<string, string> = {};
-  errors.errors.forEach((error) => {
+  errors.issues.forEach((error) => {
     const path = error.path.join('.');
     formatted[path] = error.message;
   });
@@ -266,7 +266,7 @@ export function formatCurrencyInput(value: string): string {
   }
   
   // Limit decimal places to 8
-  if (parts.length === 2 && parts[1].length > 8) {
+  if (parts.length === 2 && parts[1] && parts[1].length > 8) {
     return parts[0] + '.' + parts[1].substring(0, 8);
   }
   

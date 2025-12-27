@@ -1,10 +1,10 @@
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = "debug" | "info" | "warn" | "error";
 
 interface LogEntry {
   timestamp: string;
   level: LogLevel;
   message: string;
-  data?: any;
+  data?: unknown;
   stack?: string;
   userAgent?: string;
   url?: string;
@@ -15,7 +15,7 @@ class Logger {
   private maxLogs = 1000;
   private isDevelopment = import.meta.env.DEV;
 
-  private createEntry(level: LogLevel, message: string, data?: any): LogEntry {
+  private createEntry(level: LogLevel, message: string, data?: unknown): LogEntry {
     const entry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -34,7 +34,7 @@ class Logger {
 
   private persistLog(entry: LogEntry) {
     this.logs.push(entry);
-    
+
     // Keep only recent logs
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(-this.maxLogs);
@@ -42,60 +42,60 @@ class Logger {
 
     // Store in localStorage for persistence
     try {
-      const storedLogs = JSON.parse(localStorage.getItem('app_logs') || '[]');
+      const storedLogs: (typeof entry)[] = JSON.parse(localStorage.getItem("app_logs") || "[]");
       storedLogs.push(entry);
-      localStorage.setItem('app_logs', JSON.stringify(storedLogs.slice(-100)));
+      localStorage.setItem("app_logs", JSON.stringify(storedLogs.slice(-100)));
     } catch (e) {
-      console.error('Failed to persist log:', e);
+      console.error("Failed to persist log:", e);
     }
 
     // Send critical errors to backend
-    if (entry.level === 'error') {
+    if (entry.level === "error") {
       this.sendToBackend(entry);
     }
   }
 
   private async sendToBackend(entry: LogEntry) {
     try {
-      await fetch('/api/logs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(entry),
       });
     } catch (e) {
-      console.error('Failed to send log to backend:', e);
+      console.error("Failed to send log to backend:", e);
     }
   }
 
-  debug(message: string, data?: any) {
+  debug(message: string, data?: unknown) {
     if (this.isDevelopment) {
       console.debug(`[DEBUG] ${message}`, data);
-      this.persistLog(this.createEntry('debug', message, data));
+      this.persistLog(this.createEntry("debug", message, data));
     }
   }
 
-  info(message: string, data?: any) {
+  info(message: string, data?: unknown) {
     console.info(`[INFO] ${message}`, data);
-    this.persistLog(this.createEntry('info', message, data));
+    this.persistLog(this.createEntry("info", message, data));
   }
 
-  warn(message: string, data?: any) {
+  warn(message: string, data?: unknown) {
     console.warn(`[WARN] ${message}`, data);
-    this.persistLog(this.createEntry('warn', message, data));
+    this.persistLog(this.createEntry("warn", message, data));
   }
 
-  error(message: string, data?: any) {
+  error(message: string, data?: unknown) {
     console.error(`[ERROR] ${message}`, data);
-    this.persistLog(this.createEntry('error', message, data));
+    this.persistLog(this.createEntry("error", message, data));
   }
 
   getLogs(level?: LogLevel): LogEntry[] {
-    return level ? this.logs.filter(log => log.level === level) : this.logs;
+    return level ? this.logs.filter((log) => log.level === level) : this.logs;
   }
 
   clearLogs() {
     this.logs = [];
-    localStorage.removeItem('app_logs');
+    localStorage.removeItem("app_logs");
   }
 
   exportLogs(): string {

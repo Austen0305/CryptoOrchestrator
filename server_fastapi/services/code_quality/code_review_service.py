@@ -385,7 +385,7 @@ class CodeReviewService:
     def _generate_summary(self, issues: List[CodeIssue], files_analyzed: int) -> str:
         """Generate a human-readable summary of issues."""
         if not issues:
-            return f"✅ No issues found in {files_analyzed} files analyzed!"
+            return f"[OK] No issues found in {files_analyzed} files analyzed!"
 
         summary_lines = [
             f"📊 Code Review Summary ({files_analyzed} files analyzed)",
@@ -402,9 +402,9 @@ class CodeReviewService:
         if by_sev.get("critical", 0) > 0:
             summary_lines.append(f"🔴 Critical: {by_sev['critical']}")
         if by_sev.get("error", 0) > 0:
-            summary_lines.append(f"❌ Errors: {by_sev['error']}")
+            summary_lines.append(f"[ERROR] Errors: {by_sev['error']}")
         if by_sev.get("warning", 0) > 0:
-            summary_lines.append(f"⚠️  Warnings: {by_sev['warning']}")
+            summary_lines.append(f"[WARN]  Warnings: {by_sev['warning']}")
         if by_sev.get("info", 0) > 0:
             summary_lines.append(f"ℹ️  Info: {by_sev['info']}")
 
@@ -472,8 +472,12 @@ if __name__ == "__main__":
     project_root = sys.argv[1] if len(sys.argv) > 1 else "."
     output_file = sys.argv[2] if len(sys.argv) > 2 else "code_review_report.md"
 
+    import logging
+
+    logger = logging.getLogger(__name__)
+
     reviewer = CodeReviewService(project_root)
     report = reviewer.generate_report(output_file)
 
-    print(report)
-    print(f"\nReport saved to: {output_file}")
+    logger.info(report)
+    logger.info(f"Report saved to: {output_file}")

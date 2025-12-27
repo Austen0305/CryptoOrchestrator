@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { useWebSocket } from '../hooks/useWebSocket';
+import OfflineIndicator from '../components/OfflineIndicator';
 
 const { width } = Dimensions.get('window');
 
@@ -102,6 +103,7 @@ export const DashboardScreen: React.FC = () => {
   }
 
   // WebSocket for real-time updates - construct URL from API base URL
+  // Note: WebSocket connection is managed by useWebSocket hook
   const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:8000';
   const wsBaseUrl = apiBaseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
   const { isConnected, lastMessage } = useWebSocket(`${wsBaseUrl}/ws`);
@@ -149,6 +151,9 @@ export const DashboardScreen: React.FC = () => {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
+      {/* Offline Indicator */}
+      <OfflineIndicator />
+
       {/* Connection Status */}
       <View style={styles.statusBar}>
         <MaterialCommunityIcons

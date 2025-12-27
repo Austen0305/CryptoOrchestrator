@@ -1,5 +1,6 @@
 """
 Stripe Service - Payment processing and subscription management
+Consolidated from billing/stripe_service.py and services/payments/stripe_service.py
 """
 
 from typing import Dict, Any, Optional, List
@@ -20,9 +21,13 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Initialize Stripe with API key from environment
-if STRIPE_AVAILABLE:
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "")
-    stripe_webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+if STRIPE_AVAILABLE and STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
 
 
 class SubscriptionTier(str, Enum):
@@ -111,6 +116,9 @@ class StripeService:
     def __init__(self):
         if not STRIPE_AVAILABLE:
             logger.warning("Stripe service initialized without Stripe SDK")
+        self.secret_key = STRIPE_SECRET_KEY
+        self.publishable_key = STRIPE_PUBLISHABLE_KEY
+        self.webhook_secret = STRIPE_WEBHOOK_SECRET
 
     def create_customer(
         self,
@@ -549,17 +557,80 @@ class StripeService:
             logger.error(f"Failed to delete payment method: {e}")
             return False
 
+    def create_checkout_session(
+        self,
+        customer_id: str,
+        price_id: str,
+        success_url: Optional[str] = None,
+        cancel_url: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Create Stripe Checkout session for subscriptions"""
+        if not STRIPE_AVAILABLE or not self.secret_key:
+            logger.warning("Stripe not available")
+            return None
+
+        try:
+            success_url = success_url or f"{FRONTEND_URL}/billing/success"
+            cancel_url = cancel_url or f"{FRONTEND_URL}/billing"
+
+            session = stripe.checkout.Session.create(
+                customer=customer_id,
+                payment_method_types=["card"],
+                line_items=[
+                    {
+                        "price": price_id,
+                        "quantity": 1,
+                    }
+                ],
+                mode="subscription",
+                success_url=success_url,
+                cancel_url=cancel_url,
+                metadata=metadata or {},
+                allow_promotion_codes=True,
+            )
+            logger.info(f"Created checkout session: {session.id}")
+            return {
+                "id": session.id,
+                "url": session.url,
+            }
+        except Exception as e:
+            logger.error(f"Failed to create checkout session: {e}", exc_info=True)
+            return None
+
+    def create_portal_session(
+        self, customer_id: str, return_url: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Create Stripe Customer Portal session"""
+        if not STRIPE_AVAILABLE or not self.secret_key:
+            logger.warning("Stripe not available")
+            return None
+
+        try:
+            return_url = return_url or f"{FRONTEND_URL}/billing"
+            session = stripe.billing_portal.Session.create(
+                customer=customer_id,
+                return_url=return_url,
+            )
+            logger.info(f"Created portal session: {session.id}")
+            return {
+                "url": session.url,
+            }
+        except Exception as e:
+            logger.error(f"Failed to create portal session: {e}", exc_info=True)
+            return None
+
     def handle_webhook(
         self, payload: bytes, signature: str
     ) -> Optional[Dict[str, Any]]:
         """Handle Stripe webhook events"""
-        if not STRIPE_AVAILABLE or not stripe_webhook_secret:
+        if not STRIPE_AVAILABLE or not self.webhook_secret:
             logger.warning("Stripe webhook handling unavailable")
             return None
 
         try:
             event = stripe.Webhook.construct_event(
-                payload, signature, stripe_webhook_secret
+                payload, signature, self.webhook_secret
             )
 
             event_type = event["type"]
@@ -587,6 +658,157 @@ class StripeService:
         except stripe.error.SignatureVerificationError as e:
             logger.error(f"Invalid signature in Stripe webhook: {e}")
             return None
+
+    @staticmethod
+    def get_plan_config(plan: str) -> Optional[Dict[str, Any]]:
+        """Get plan configuration (from billing/stripe_service.py)"""
+        # Plan configurations with detailed features and limits
+        PLAN_CONFIGS = {
+            SubscriptionPlan.FREE: {
+                "name": "Free",
+                "price_monthly": 0,
+                "price_yearly": 0,
+                "stripe_price_id_monthly": None,
+                "stripe_price_id_yearly": None,
+                "features": [
+                    "5 bots max",
+                    "Paper trading only",
+                    "Basic strategies",
+                    "Community support",
+                ],
+                "limits": {
+                    "max_bots": 5,
+                    "max_strategies": 10,
+                    "max_backtests_per_month": 20,
+                },
+            },
+            SubscriptionPlan.BASIC: {
+                "name": "Basic",
+                "price_monthly": 29,
+                "price_yearly": 290,
+                "stripe_price_id_monthly": os.getenv("STRIPE_PRICE_BASIC_MONTHLY", ""),
+                "stripe_price_id_yearly": os.getenv("STRIPE_PRICE_BASIC_YEARLY", ""),
+                "features": [
+                    "20 bots max",
+                    "Live trading",
+                    "All strategies",
+                    "Email support",
+                    "Basic ML models",
+                ],
+                "limits": {
+                    "max_bots": 20,
+                    "max_strategies": 50,
+                    "max_backtests_per_month": 100,
+                },
+            },
+            SubscriptionPlan.PRO: {
+                "name": "Pro",
+                "price_monthly": 99,
+                "price_yearly": 990,
+                "stripe_price_id_monthly": os.getenv("STRIPE_PRICE_PRO_MONTHLY", ""),
+                "stripe_price_id_yearly": os.getenv("STRIPE_PRICE_PRO_YEARLY", ""),
+                "features": [
+                    "Unlimited bots",
+                    "Live trading",
+                    "All strategies",
+                    "Advanced ML models",
+                    "Priority support",
+                    "API access",
+                    "Custom integrations",
+                ],
+                "limits": {
+                    "max_bots": -1,
+                    "max_strategies": -1,
+                    "max_backtests_per_month": -1,
+                },
+            },
+            SubscriptionPlan.ENTERPRISE: {
+                "name": "Enterprise",
+                "price_monthly": 299,
+                "price_yearly": 2990,
+                "stripe_price_id_monthly": os.getenv(
+                    "STRIPE_PRICE_ENTERPRISE_MONTHLY", ""
+                ),
+                "stripe_price_id_yearly": os.getenv(
+                    "STRIPE_PRICE_ENTERPRISE_YEARLY", ""
+                ),
+                "features": [
+                    "Unlimited everything",
+                    "Dedicated support",
+                    "Custom integrations",
+                    "SLA guarantee",
+                    "On-premise deployment",
+                ],
+                "limits": {
+                    "max_bots": -1,
+                    "max_strategies": -1,
+                    "max_backtests_per_month": -1,
+                },
+            },
+        }
+        try:
+            return PLAN_CONFIGS.get(SubscriptionPlan(plan))
+        except ValueError:
+            return None
+
+    @staticmethod
+    def list_plans() -> List[Dict[str, Any]]:
+        """List all available plans (from billing/stripe_service.py)"""
+        plan_config = StripeService.get_plan_config
+        plans = []
+        for plan in SubscriptionPlan:
+            config = plan_config(plan.value)
+            if config:
+                plans.append({"plan": plan.value, **config})
+        return plans
+
+    async def get_revenue_in_period(
+        self, start_date: datetime, end_date: datetime
+    ) -> float:
+        """
+        Get subscription revenue for a date period from Stripe
+
+        Args:
+            start_date: Start date for revenue calculation
+            end_date: End date for revenue calculation
+
+        Returns:
+            Total revenue in USD (as float)
+        """
+        if not STRIPE_AVAILABLE or not self.secret_key:
+            logger.warning("Stripe not available for revenue calculation")
+            return 0.0
+
+        try:
+            # Query Stripe for successful payment intents in the period
+            # Convert datetime to Unix timestamp for Stripe API
+            start_timestamp = int(start_date.timestamp())
+            end_timestamp = int(end_date.timestamp())
+
+            # Get all successful payment intents (subscriptions and one-time payments)
+            payment_intents = stripe.PaymentIntent.list(
+                created={"gte": start_timestamp, "lte": end_timestamp},
+                limit=100,  # Stripe pagination limit
+            )
+
+            total_revenue = 0.0
+
+            # Sum up successful payments
+            for pi in payment_intents.auto_paging_iter():
+                if pi.status == "succeeded":
+                    # Convert from cents to dollars
+                    amount_usd = pi.amount / 100.0
+                    total_revenue += amount_usd
+
+            logger.info(
+                f"Calculated revenue: ${total_revenue:.2f} from {start_date.isoformat()} to {end_date.isoformat()}"
+            )
+
+            return total_revenue
+
+        except Exception as e:
+            logger.error(f"Error calculating Stripe revenue: {e}", exc_info=True)
+            return 0.0
 
 
 # Global service instance

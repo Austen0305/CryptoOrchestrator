@@ -4,12 +4,13 @@ Licensing Routes - License key generation and validation
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Annotated
 from datetime import datetime
 import logging
 
 from ..services.licensing.license_service import license_service, LicenseType
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,15 @@ class ActivateLicenseRequest(BaseModel):
 
 @router.post("/generate", response_model=Dict)
 async def generate_license(
-    request: GenerateLicenseRequest, current_user: dict = Depends(get_current_user)
+    request: GenerateLicenseRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Generate a new license key"""
     try:
         # Check permissions (only admins should generate licenses)
+        current_user_id = _get_user_id(current_user)
         if (
-            str(current_user.get("id")) != request.user_id
+            str(current_user_id) != request.user_id
             and current_user.get("role") != "admin"
         ):
             raise HTTPException(
@@ -80,7 +83,8 @@ async def generate_license(
 
 @router.post("/validate", response_model=Dict)
 async def validate_license(
-    request: ValidateLicenseRequest, current_user: dict = Depends(get_current_user)
+    request: ValidateLicenseRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Validate a license key"""
     try:
@@ -106,7 +110,8 @@ async def validate_license(
 
 @router.post("/activate", response_model=Dict)
 async def activate_license(
-    request: ActivateLicenseRequest, current_user: dict = Depends(get_current_user)
+    request: ActivateLicenseRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Activate a license key on this machine"""
     try:
@@ -149,7 +154,9 @@ async def activate_license(
 
 
 @router.get("/machine-id", response_model=Dict)
-async def get_machine_id(current_user: dict = Depends(get_current_user)):
+async def get_machine_id(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get machine ID for license binding"""
     try:
         machine_id = license_service.get_machine_id()

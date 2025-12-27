@@ -26,7 +26,9 @@ export function TradingHeader({ balance, connected }: TradingHeaderProps) {
       setShowAuthModal(true);
       try {
         toast({ title: 'Session expired', description: 'Please log in again to continue.', variant: 'destructive' });
-      } catch {}
+      } catch (error) {
+        // Silently ignore toast errors - toast may not be available in all contexts
+      }
     };
     window.addEventListener('auth:expired', handler);
     return () => window.removeEventListener('auth:expired', handler);

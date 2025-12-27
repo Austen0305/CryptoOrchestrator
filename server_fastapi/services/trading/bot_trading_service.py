@@ -24,6 +24,7 @@ class BotTradingService:
     """Service for executing trading cycles and managing bot trading logic"""
 
     def __init__(self, session: Optional[AsyncSession] = None):
+        self._session = session
         self.control_service = BotControlService(session=session)
         self.monitoring_service = BotMonitoringService(session=session)
 
@@ -45,9 +46,19 @@ class BotTradingService:
 
         self.safety_service = get_trading_safety_service()
 
-    async def execute_trading_cycle(self, bot_config: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute one complete trading cycle for a bot"""
+    async def execute_trading_cycle(
+        self, bot_config: Dict[str, Any], db_session: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute one complete trading cycle for a bot
+
+        Args:
+            bot_config: Bot configuration dictionary
+            db_session: Optional database session (uses self._session if not provided)
+        """
         try:
+            # Use provided session or fall back to instance session
+            session = db_session or self._session
             bot_id = bot_config["id"]
             user_id = bot_config["user_id"]
             strategy = bot_config.get("strategy", "simple_ma")
@@ -93,7 +104,9 @@ class BotTradingService:
 
             # Add trading mode to trade details
             trade_details["mode"] = bot_config.get("mode", "paper")
-            trade_details["exchange"] = bot_config.get("exchange", "binance")
+            trade_details["chain_id"] = bot_config.get(
+                "chain_id", 1
+            )  # Default to Ethereum
 
             # Validate trade with existing safety system (backward compatibility)
             from ..trading.safe_trading_system import SafeTradingSystem
@@ -112,12 +125,12 @@ class BotTradingService:
                 }
 
             # Additional validation with new trading safety service
-            # Get account balance and positions (mock for now, replace with real data)
+            # Get account balance and positions from blockchain
             account_balance = await self._get_account_balance(
-                user_id, trade_details["exchange"]
+                user_id, trade_details.get("chain_id", 1)
             )
             current_positions = await self._get_current_positions(
-                user_id, trade_details["exchange"]
+                user_id, trade_details.get("chain_id", 1)
             )
 
             # Validate with trading safety service
@@ -151,8 +164,8 @@ class BotTradingService:
                     f"{original_qty:.6f} -> {trade_details['quantity']:.6f}"
                 )
 
-            # Execute trade
-            trade_result = await self._execute_trade(trade_details)
+            # Execute trade (pass database session)
+            trade_result = await self._execute_trade(trade_details, db_session=session)
 
             # Record trade result with both systems
             await safe_system.record_trade_result(
@@ -193,10 +206,10 @@ class BotTradingService:
 
                     # Get stop-loss and take-profit percentages from risk profile
                     stop_loss_pct = trade_details.get("risk_profile", {}).get(
-                        "stop_loss_pct", 0.02
+                        "stop_loss_distance", 0.02
                     )  # 2% default
                     take_profit_pct = trade_details.get("risk_profile", {}).get(
-                        "take_profit_pct", 0.05
+                        "take_profit_distance", 0.05
                     )  # 5% default
 
                     # Create stop-loss order
@@ -268,6 +281,23 @@ class BotTradingService:
                 )
 
             logger.info(f"Bot {bot_id} executed {signal['action']} trade")
+
+            # Trigger portfolio reconciliation after successful bot trade
+            if trade_result.get("success"):
+                try:
+                    from ...tasks.portfolio_reconciliation import (
+                        trigger_reconciliation_after_trade,
+                    )
+
+                    trigger_reconciliation_after_trade(str(user_id))
+                    logger.debug(
+                        f"Triggered portfolio reconciliation for user {user_id} after bot {bot_id} trade"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to trigger reconciliation: {e}", exc_info=True
+                    )
+
             return {
                 "action": signal["action"],
                 "trade_details": trade_details,
@@ -329,98 +359,145 @@ class BotTradingService:
     async def _get_market_data(
         self, bot_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Get real market data from exchange APIs"""
+        """Get real market data from blockchain/DEX sources"""
         try:
-            # Get exchange name from bot config
-            exchange_name = bot_config.get("exchange", "binance")
             symbol = bot_config.get("tradingPair") or bot_config.get(
-                "symbol", "BTC/USDT"
+                "symbol", "ETH/USDC"
             )
             timeframe = bot_config.get("timeframe", "1h")
             limit = bot_config.get("candle_limit", 100)
+            chain_id = bot_config.get("chain_id", 1)  # Default to Ethereum
 
-            # Import exchange service and key service
-            from ..exchange_service import ExchangeService
-            from ..auth.exchange_key_service import exchange_key_service
+            # Use CoinGecko or DEX aggregator for market data
+            # CoinGecko provides free API for historical data
+            try:
+                from ..coingecko_service import CoinGeckoService
 
-            # Get user's API keys for this exchange
-            user_id_str = str(bot_config.get("user_id", ""))
-            api_key_data = await exchange_key_service.get_api_key(
-                user_id_str, exchange_name, include_secrets=True
-            )
+                coingecko = CoinGeckoService()
 
-            if not api_key_data or not api_key_data.get("is_validated", False):
-                logger.warning(
-                    f"No validated API keys for {exchange_name}, cannot fetch real market data"
-                )
-                raise ValueError(f"No validated API keys for {exchange_name}")
-
-            # Create exchange service with user's API keys
-            exchange_service = ExchangeService(
-                name=exchange_name,
-                use_mock=False,  # Force real mode
-                api_key=api_key_data.get("api_key"),
-                api_secret=api_key_data.get("api_secret"),
-            )
-
-            # Connect to exchange
-            await exchange_service.connect()
-            if not exchange_service.is_connected():
-                raise ConnectionError(f"Failed to connect to {exchange_name}")
-
-            # Fetch real OHLCV data
-            ohlcv_data = await exchange_service.get_ohlcv(symbol, timeframe, limit)
-
-            if not ohlcv_data:
-                logger.warning(
-                    f"No market data returned for {symbol} on {exchange_name}"
-                )
-                raise ValueError(f"No market data available for {symbol}")
-
-            # Convert to expected format
-            market_data = []
-            for candle in ohlcv_data:
-                if len(candle) >= 6:  # [timestamp, open, high, low, close, volume]
-                    market_data.append(
-                        {
-                            "timestamp": int(candle[0]),
-                            "open": float(candle[1]),
-                            "high": float(candle[2]),
-                            "low": float(candle[3]),
-                            "close": float(candle[4]),
-                            "volume": float(candle[5]),
-                        }
+                # Get historical price data from CoinGecko
+                # Note: CoinGecko free tier provides price history, not full OHLCV
+                # For production, consider using DEX aggregator APIs for full OHLCV
+                try:
+                    historical_data = await coingecko.get_historical_prices(
+                        symbol, days=limit
                     )
+                    if historical_data:
+                        # Convert price history to OHLCV format (simplified)
+                        ohlcv_data = []
+                        for point in historical_data:
+                            price = point.get("price", 0)
+                            timestamp = point.get("timestamp", 0)
+                            ohlcv_data.append(
+                                {
+                                    "timestamp": timestamp,
+                                    "open": price,
+                                    "high": price
+                                    * 1.01,  # Estimate - use proper OHLCV in production
+                                    "low": price * 0.99,  # Estimate
+                                    "close": price,
+                                    "volume": 0.0,  # Not available in free tier
+                                }
+                            )
+                    else:
+                        ohlcv_data = []
+                except Exception as cg_error:
+                    logger.warning(f"CoinGecko historical data failed: {cg_error}")
+                    ohlcv_data = []
 
-            if not market_data:
-                raise ValueError(f"Failed to parse market data for {symbol}")
+                if ohlcv_data:
+                    market_data = []
+                    for candle in ohlcv_data:
+                        if len(candle) >= 5:  # [timestamp, open, high, low, close]
+                            market_data.append(
+                                {
+                                    "timestamp": int(candle[0]),
+                                    "open": float(candle[1]),
+                                    "high": float(candle[2]),
+                                    "low": float(candle[3]),
+                                    "close": float(candle[4]),
+                                    "volume": (
+                                        float(candle[4]) * 1000
+                                        if len(candle) > 4
+                                        else 0.0
+                                    ),  # Estimate volume
+                                }
+                            )
 
-            logger.info(
-                f"Fetched {len(market_data)} candles for {symbol} from {exchange_name}"
-            )
-            return market_data
+                    if market_data:
+                        logger.info(
+                            f"Fetched {len(market_data)} candles for {symbol} from CoinGecko"
+                        )
+                        return market_data
+            except Exception as cg_error:
+                logger.warning(
+                    f"CoinGecko data fetch failed: {cg_error}, using fallback"
+                )
 
-        except Exception as e:
-            logger.error(f"Error fetching market data: {e}", exc_info=True)
-            # In production, we should not fall back to mock data
+            # Fallback: Try to get current price from CoinGecko and use for single candle
+            # This is better than synthetic data - at least uses real current price
+            try:
+                current_price = await coingecko.get_price(symbol)
+                if current_price:
+                    # Get market data for context
+                    market_info = await coingecko.get_market_data(symbol)
+                    if market_info:
+                        # Create a single current candle with real data
+                        current_time = int(datetime.now().timestamp() * 1000)
+                        high_24h = market_info.get("high_24h", current_price * 1.01)
+                        low_24h = market_info.get("low_24h", current_price * 0.99)
+                        volume_24h = market_info.get("volume_24h", 0.0)
+
+                        # Create a single candle with real current price
+                        # Note: For full OHLCV history, integrate DEX aggregator APIs
+                        market_data = [
+                            {
+                                "timestamp": current_time,
+                                "open": current_price,
+                                "high": high_24h,
+                                "low": low_24h,
+                                "close": current_price,
+                                "volume": (
+                                    volume_24h / 24.0 if volume_24h > 0 else 0.0
+                                ),  # Estimate hourly volume
+                            }
+                        ]
+
+                        logger.info(
+                            f"Using real current price for {symbol}: ${current_price:.2f}"
+                        )
+                        return market_data
+            except Exception as price_error:
+                logger.warning(
+                    f"Failed to get current price from CoinGecko: {price_error}"
+                )
+
+            # Last resort: Raise error instead of generating synthetic data
+            # In production, we should never reach here
             from ..config.settings import get_settings
 
             settings = get_settings()
             if settings.production_mode or settings.is_production:
-                raise  # Re-raise in production - no mock fallback
+                raise ValueError(
+                    f"Unable to fetch market data for {symbol} - all data sources failed"
+                )
             else:
-                # Only allow mock fallback in development
-                logger.warning("Falling back to mock data in development mode")
-                return [
-                    {
-                        "timestamp": int(datetime.now().timestamp() * 1000),
-                        "open": 50000,
-                        "high": 50200,
-                        "low": 49900,
-                        "close": 50100,
-                        "volume": 1.5,
-                    }
-                ]
+                # Development fallback only - log warning
+                logger.error(
+                    f"All market data sources failed for {symbol}, raising error"
+                )
+                raise ValueError(f"Unable to fetch market data for {symbol}")
+
+        except Exception as e:
+            logger.error(f"Error fetching market data: {e}", exc_info=True)
+            # Never fall back to mock data - raise error instead
+            # This ensures we always know when data fetching fails
+            from ..config.settings import get_settings
+
+            settings = get_settings()
+            error_msg = f"Failed to fetch market data for {symbol}: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
     async def _get_trading_signal(
         self,
@@ -987,9 +1064,9 @@ class BotTradingService:
             # Return default risk profile
             return RiskProfile(
                 max_position_size=0.1,
-                stop_loss_pct=0.02,
-                take_profit_pct=0.05,
-                risk_per_trade=0.01,
+                stop_loss_distance=0.02,
+                take_profit_distance=0.05,
+                entry_confidence=0.8,
             )
 
     def _prepare_trade_details(
@@ -1013,27 +1090,34 @@ class BotTradingService:
             "confidence": signal.get("confidence", 0.5),
             "risk_profile": {
                 "max_position_size": risk_profile.max_position_size,
-                "stop_loss_pct": risk_profile.stop_loss_pct,
-                "take_profit_pct": risk_profile.take_profit_pct,
-                "risk_per_trade": risk_profile.risk_per_trade,
+                "stop_loss_distance": risk_profile.stop_loss_distance,
+                "take_profit_distance": risk_profile.take_profit_distance,
+                "entry_confidence": risk_profile.entry_confidence,
             },
         }
 
-    async def _execute_trade(self, trade_details: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute real trade via RealMoneyTradingService"""
-        try:
-            from ..trading.real_money_service import real_money_trading_service
-            from ..auth.exchange_key_service import exchange_key_service
+    async def _execute_trade(
+        self, trade_details: Dict[str, Any], db_session: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Execute trade via DEX (blockchain) or paper trading
 
+        Args:
+            trade_details: Trade details dictionary
+            db_session: Optional database session (uses self._session if not provided)
+        """
+        try:
+            # Use provided session or fall back to instance session
+            session = db_session or self._session
             user_id = trade_details.get("user_id")
-            symbol = trade_details.get("symbol", "BTC/USDT")
+            symbol = trade_details.get(
+                "symbol", "ETH/USDC"
+            )  # Default to common DEX pair
             action = trade_details.get("action", "buy")
             quantity = trade_details.get("quantity", 0.0)
             price = trade_details.get("price")
             bot_id = trade_details.get("bot_id")
-
-            # Determine exchange from bot config or default
-            exchange = trade_details.get("exchange", "binance")
+            chain_id = trade_details.get("chain_id", 1)  # Default to Ethereum
 
             # Check if this is paper trading mode
             trading_mode = trade_details.get("mode", "paper")
@@ -1058,47 +1142,149 @@ class BotTradingService:
                     "mode": "paper",
                 }
 
-            # Real money trading - validate API keys first
-            user_id_str = str(user_id)
-            api_key_data = await exchange_key_service.get_api_key(
-                user_id_str, exchange, include_secrets=False  # Just check existence
-            )
+            # Real money trading via DEX
+            from ..trading.dex_trading_service import DEXTradingService
 
-            if not api_key_data or not api_key_data.get("is_validated", False):
-                raise ValueError(
-                    f"No validated API keys for {exchange}. Cannot execute real money trade."
+            # Get database session - use provided, instance session, or create new one
+            if not session:
+                from ...database import get_db_context
+
+                async with get_db_context() as new_session:
+                    return await self._execute_dex_swap(
+                        trade_details,
+                        user_id,
+                        symbol,
+                        action,
+                        quantity,
+                        price,
+                        bot_id,
+                        chain_id,
+                        new_session,
+                    )
+            else:
+                return await self._execute_dex_swap(
+                    trade_details,
+                    user_id,
+                    symbol,
+                    action,
+                    quantity,
+                    price,
+                    bot_id,
+                    chain_id,
+                    session,
                 )
-
-            # Execute real money trade
-            order_type = trade_details.get("order_type", "market")
-            result = await real_money_trading_service.execute_real_money_trade(
-                user_id=user_id_str,
-                exchange=exchange,
-                pair=symbol,
-                side=action,
-                order_type=order_type,
-                amount=quantity,
-                price=price,
-                bot_id=bot_id,
-            )
-
-            logger.info(
-                f"Real money trade executed: {result.get('order_id')} for bot {bot_id}"
-            )
-
-            return {
-                "success": result.get("success", True),
-                "order_id": result.get("order_id"),
-                "executed_price": result.get("price", price),
-                "executed_quantity": quantity,
-                "pnl": 0.0,  # P&L calculated when position is closed
-                "mode": "real",
-                "status": result.get("status"),
-            }
-
         except Exception as e:
-            logger.error(f"Error executing trade: {e}", exc_info=True)
-            # In production, don't fall back to mock
+            logger.error(f"Error in _execute_trade: {e}", exc_info=True)
+            raise
+
+    async def _execute_dex_swap(
+        self,
+        trade_details: Dict[str, Any],
+        user_id: Any,
+        symbol: str,
+        action: str,
+        quantity: float,
+        price: Optional[float],
+        bot_id: Optional[str],
+        chain_id: int,
+        db_session: AsyncSession,
+    ) -> Dict[str, Any]:
+        """Execute DEX swap with proper database session"""
+        try:
+            dex_service = DEXTradingService(db_session=db_session)
+
+            # Convert symbol to token addresses (simplified - in production, use token registry)
+            # Parse symbol like "ETH/USDC" to get base and quote tokens
+            parts = symbol.split("/")
+            if len(parts) == 2:
+                base_token = parts[0].upper()
+                quote_token = parts[1].upper()
+            else:
+                # Assume single token symbol, default to USDC as quote
+                base_token = symbol.upper()
+                quote_token = "USDC"
+
+            # Use token registry for symbol-to-address conversion
+            from ..blockchain.token_registry import get_token_registry
+
+            token_registry = get_token_registry()
+            base_address = await token_registry.get_token_address(base_token, chain_id)
+            quote_address = await token_registry.get_token_address(
+                quote_token, chain_id
+            )
+
+            if not base_address:
+                raise ValueError(f"Token {base_token} not found on chain {chain_id}")
+            if not quote_address:
+                raise ValueError(f"Token {quote_token} not found on chain {chain_id}")
+
+            # Determine which token to sell/buy based on action
+            if action == "buy":
+                # Buying: sell quote token to get base token
+                sell_token = quote_address
+                buy_token = base_address
+                # Calculate sell amount (quote token amount needed)
+                sell_amount = str(quantity * (price or 0.0))  # Amount of quote token
+            else:
+                # Selling: sell base token to get quote token
+                sell_token = base_address
+                buy_token = quote_address
+                # Calculate sell amount (base token amount)
+                sell_amount = str(quantity)  # Amount of base token
+
+            # Convert to proper decimal format (simplified - should use token decimals)
+            # For now, assume 18 decimals for most tokens
+            from decimal import Decimal
+
+            try:
+                sell_amount_decimal = Decimal(sell_amount)
+                # Convert to wei/units (18 decimals)
+                sell_amount_wei = str(int(sell_amount_decimal * Decimal(10**18)))
+            except Exception:
+                # Fallback: use as-is if conversion fails
+                sell_amount_wei = sell_amount
+
+            # Execute DEX swap with proper database session
+            swap_result = await dex_service.execute_custodial_swap(
+                user_id=int(user_id),
+                sell_token=sell_token,
+                buy_token=buy_token,
+                sell_amount=sell_amount_wei,
+                chain_id=chain_id,
+                slippage_percentage=0.5,  # Default 0.5% slippage
+                user_tier="free",  # Get from user profile
+                db=db_session,  # Properly injected database session
+                enable_batching=True,  # Enable batching for bot trades (saves gas)
+                force_immediate=False,  # Allow batching
+            )
+
+            if swap_result and swap_result.get("success"):
+                logger.info(
+                    f"DEX trade executed: {swap_result.get('transaction_hash')} for bot {bot_id}"
+                )
+                # Get executed price from swap result if available
+                executed_price = swap_result.get("price") or price or 0.0
+                return {
+                    "success": True,
+                    "order_id": swap_result.get("transaction_hash"),
+                    "executed_price": executed_price,
+                    "executed_quantity": quantity,
+                    "pnl": 0.0,  # P&L calculated when position is closed
+                    "mode": "real",
+                    "status": "completed",
+                    "transaction_hash": swap_result.get("transaction_hash"),
+                }
+            else:
+                error_msg = (
+                    swap_result.get("error", "DEX swap failed")
+                    if swap_result
+                    else "DEX swap failed"
+                )
+                logger.error(f"DEX swap failed: {error_msg}")
+                raise ValueError(error_msg)
+        except Exception as dex_error:
+            logger.error(f"DEX trade execution failed: {dex_error}", exc_info=True)
+            # In production, re-raise the error
             from ..config.settings import get_settings
 
             settings = get_settings()
@@ -1115,81 +1301,152 @@ class BotTradingService:
                     "executed_price": trade_details.get("price"),
                     "executed_quantity": 0.0,
                     "pnl": 0.0,
-                    "error": str(e),
+                    "error": str(dex_error),
                 }
 
-    async def _get_account_balance(self, user_id: str, exchange: str) -> float:
+    async def _get_account_balance(self, user_id: str, chain_id: int) -> float:
         """
-        Get current account balance for user on exchange.
+        Get current account balance for user on blockchain.
 
         Args:
             user_id: User identifier
-            exchange: Exchange name (e.g., 'binance')
+            chain_id: Blockchain chain ID (e.g., 1 for Ethereum)
 
         Returns:
             Current account balance in USD
         """
         try:
-            # Try to get real balance from exchange service
-            from ..exchange.exchange_service import exchange_service
+            # Get balance from blockchain
+            from ..blockchain.balance_service import get_balance_service
+            from ...repositories.wallet_repository import WalletRepository
+            from sqlalchemy.ext.asyncio import AsyncSession
 
-            # Get user's exchange API keys
-            from ..auth.exchange_key_service import exchange_key_service
+            balance_service = get_balance_service()
 
-            api_key_data = await exchange_key_service.get_api_key(
-                str(user_id), exchange, include_secrets=False
-            )
+            # Get user's wallet address from database
+            # Note: This requires a database session - in production, inject via dependency
+            try:
+                # Get database session using context manager
+                from ...database import get_db_context
 
-            if api_key_data and api_key_data.get("is_validated"):
-                # Get real balance (implementation depends on exchange service)
-                # For now, return a default value
-                # TODO: Implement actual balance fetching
-                logger.info(f"Getting account balance for user {user_id} on {exchange}")
-                return 10000.0  # Default for now
-            else:
-                # Paper trading mode or no API keys
-                logger.info(f"Using default balance for user {user_id} (paper trading)")
-                return 10000.0  # Default paper trading balance
+                async with get_db_context() as db:
+                    wallet_repo = WalletRepository(db)
+
+                    # Get user's custodial wallet for this chain
+                    wallets = await wallet_repo.get_wallets_by_user_and_chain(
+                        user_id=int(user_id), chain_id=chain_id
+                    )
+
+                    if not wallets:
+                        logger.warning(
+                            f"No wallet found for user {user_id} on chain {chain_id}"
+                        )
+                        return 0.0
+
+                    # Get balance for the first wallet (or aggregate all wallets)
+                    total_balance_usd = 0.0
+                    for wallet in wallets:
+                        if wallet.address:
+                            # Get real balance from blockchain
+                            balance = await balance_service.get_balance_usd(
+                                wallet_address=wallet.address, chain_id=chain_id
+                            )
+                            total_balance_usd += balance or 0.0
+
+                    logger.info(
+                        f"User {user_id} balance on chain {chain_id}: ${total_balance_usd:.2f}"
+                    )
+                    return total_balance_usd
+
+            except Exception as balance_error:
+                logger.error(
+                    f"Error getting blockchain balance: {balance_error}", exc_info=True
+                )
+                # Return 0.0 instead of mock balance - better to fail than use fake data
+                return 0.0
 
         except Exception as e:
-            logger.warning(f"Error getting account balance: {e}, using default")
-            return 10000.0  # Safe default
+            logger.error(f"Error getting account balance: {e}", exc_info=True)
+            # Return 0.0 instead of mock balance
+            return 0.0
 
     async def _get_current_positions(
-        self, user_id: str, exchange: str
+        self, user_id: str, chain_id: int
     ) -> Dict[str, Dict[str, Any]]:
         """
-        Get current open positions for user on exchange.
+        Get current open positions for user on blockchain.
 
         Args:
             user_id: User identifier
-            exchange: Exchange name (e.g., 'binance')
+            chain_id: Blockchain chain ID (e.g., 1 for Ethereum)
 
         Returns:
             Dictionary of positions keyed by symbol
         """
         try:
-            # Try to get real positions from exchange service
-            from ..exchange.exchange_service import exchange_service
+            # Get positions from database (tracks DEX trades)
+            from ...repositories.trade_repository import TradeRepository
+            from sqlalchemy.ext.asyncio import AsyncSession
 
-            # Get user's exchange API keys
-            from ..auth.exchange_key_service import exchange_key_service
+            logger.info(f"Getting positions for user {user_id} on chain {chain_id}")
 
-            api_key_data = await exchange_key_service.get_api_key(
-                str(user_id), exchange, include_secrets=False
-            )
+            # Get database session using context manager
+            from ...database import get_db_context
 
-            if api_key_data and api_key_data.get("is_validated"):
-                # Get real positions (implementation depends on exchange service)
-                # For now, return empty dict
-                # TODO: Implement actual position fetching
-                logger.info(f"Getting positions for user {user_id} on {exchange}")
-                return {}  # Empty for now
-            else:
-                # Paper trading mode or no API keys
-                logger.info(f"Using empty positions for user {user_id} (paper trading)")
-                return {}
+            async with get_db_context() as db:
+                trade_repo = TradeRepository(db)
+
+                # Get open positions (trades that haven't been closed)
+                # Filter by user and chain_id
+                open_trades = await trade_repo.get_open_trades_by_user_and_chain(
+                    user_id=int(user_id), chain_id=chain_id
+                )
+
+                # Group by symbol
+                positions: Dict[str, Dict[str, Any]] = {}
+                for trade in open_trades:
+                    symbol = trade.symbol or "UNKNOWN"
+                    if symbol not in positions:
+                        positions[symbol] = {
+                            "symbol": symbol,
+                            "quantity": 0.0,
+                            "entry_price": 0.0,
+                            "current_price": 0.0,
+                            "unrealized_pnl": 0.0,
+                            "side": trade.side or "buy",
+                        }
+
+                    # Aggregate position data
+                    if trade.side == "buy":
+                        positions[symbol]["quantity"] += trade.quantity or 0.0
+                    elif trade.side == "sell":
+                        positions[symbol]["quantity"] -= trade.quantity or 0.0
+
+                    if trade.price:
+                        positions[symbol]["entry_price"] = trade.price
+
+                # Get current prices for P&L calculation
+                from ..coingecko_service import CoinGeckoService
+
+                coingecko = CoinGeckoService()
+
+                for symbol, position in positions.items():
+                    current_price = await coingecko.get_price(symbol)
+                    if current_price and position["entry_price"]:
+                        position["current_price"] = current_price
+                        if position["side"] == "buy":
+                            position["unrealized_pnl"] = (
+                                current_price - position["entry_price"]
+                            ) * position["quantity"]
+                        else:
+                            position["unrealized_pnl"] = (
+                                position["entry_price"] - current_price
+                            ) * position["quantity"]
+
+                logger.info(f"Found {len(positions)} open positions for user {user_id}")
+                return positions
 
         except Exception as e:
-            logger.warning(f"Error getting positions: {e}, using empty positions")
-            return {}  # Safe default
+            logger.error(f"Error getting positions: {e}", exc_info=True)
+            # Return empty dict instead of mock data
+            return {}

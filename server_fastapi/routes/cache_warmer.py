@@ -5,7 +5,7 @@ API endpoints for managing cache warmup tasks
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, Optional, Annotated
 import logging
 
 from ..services.cache_warmer_service import (
@@ -30,7 +30,7 @@ class RegisterTaskRequest(BaseModel):
 
 @router.get("/status")
 async def get_cache_warmer_status(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict:
     """Get cache warmer service status"""
     try:
@@ -42,7 +42,8 @@ async def get_cache_warmer_status(
 
 @router.post("/warmup")
 async def trigger_warmup(
-    task_name: Optional[str] = None, current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    task_name: Optional[str] = None,
 ) -> Dict:
     """Manually trigger cache warmup"""
     try:
@@ -60,7 +61,9 @@ async def trigger_warmup(
 
 
 @router.post("/start")
-async def start_cache_warmer(current_user: dict = Depends(get_current_user)) -> Dict:
+async def start_cache_warmer(
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> Dict:
     """Start the cache warmer service"""
     try:
         # Register default tasks if not already registered
@@ -79,7 +82,9 @@ async def start_cache_warmer(current_user: dict = Depends(get_current_user)) -> 
 
 
 @router.post("/stop")
-async def stop_cache_warmer(current_user: dict = Depends(get_current_user)) -> Dict:
+async def stop_cache_warmer(
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> Dict:
     """Stop the cache warmer service"""
     try:
         await cache_warmer_service.stop()

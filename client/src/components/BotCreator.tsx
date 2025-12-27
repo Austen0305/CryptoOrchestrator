@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -10,9 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TradingRecommendations, type RecommendationConfig } from "@/components/TradingRecommendations";
 import { useCreateBot } from "@/hooks/useApi";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Loader2, Target } from "lucide-react";
+import { Plus, Loader2, Target, AlertTriangle } from "lucide-react";
 import { botConfigSchema, formatValidationErrors } from "@/lib/validation";
 import { FormFieldError } from "@/components/FormFieldError";
+import { useTradingMode } from "@/contexts/TradingModeContext";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { InsertBotConfig } from "../../../shared/schema";
 import type { z } from "zod";
 
@@ -34,9 +38,10 @@ const tradingPairs = [
   { value: "DOT/USD", label: "DOT/USD" },
 ];
 
-export function BotCreator() {
+export const BotCreator = React.memo(function BotCreator() {
   const [open, setOpen] = useState(false);
   const createBotMutation = useCreateBot();
+  const { mode, isRealMoney } = useTradingMode();
 
   const {
     register,
@@ -56,11 +61,31 @@ export function BotCreator() {
 
   const onSubmit = async (data: BotFormData) => {
     try {
+      // Use current trading mode instead of always defaulting to paper
+      // Normalize "real" to "live" for bot config
+      const botMode = mode === "real" ? "live" : mode;
       const botData: InsertBotConfig = {
         ...data,
-        mode: "paper", // Default to paper trading
+        mode: botMode, // Use current trading mode (paper or live)
         status: "stopped",
       };
+      
+      // Show warning if creating bot in real money mode
+      if (isRealMoney) {
+        const confirmed = window.confirm(
+          `⚠️ WARNING: You are creating a bot in REAL MONEY trading mode.\n\n` +
+          `This bot will execute trades using your actual funds.\n\n` +
+          `Make sure you:\n` +
+          `1. Have tested this strategy in paper trading mode\n` +
+          `2. Understand the risks involved\n` +
+          `3. Have sufficient funds available\n\n` +
+          `Do you want to continue?`
+        );
+        
+        if (!confirmed) {
+          return;
+        }
+      }
 
       await createBotMutation.mutateAsync(botData);
       toast({
@@ -78,7 +103,7 @@ export function BotCreator() {
     }
   };
 
-  const handleApplyRecommendation = (pair: string, config: RecommendationConfig) => {
+  const handleApplyRecommendation = useCallback((pair: string, config: RecommendationConfig) => {
     setValue("tradingPair", pair);
     setValue("riskPerTrade", config.riskPerTrade);
     setValue("stopLoss", config.stopLoss);
@@ -89,13 +114,13 @@ export function BotCreator() {
       title: "Settings Applied",
       description: `Applied recommended settings for ${pair}`,
     });
-  };
+  }, [setValue, toast]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
+        <Button aria-label="Create new trading bot">
+          <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
           Create Bot
         </Button>
       </DialogTrigger>
@@ -113,6 +138,18 @@ export function BotCreator() {
           </DialogDescription>
         </DialogHeader>
 
+        {isRealMoney && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="font-semibold mb-1">Real Money Trading Mode Active</div>
+              <div className="text-sm">
+                This bot will execute trades using your actual funds. Make sure you have tested your strategy in paper trading mode first.
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Tabs defaultValue="manual" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="manual">Manual Setup</TabsTrigger>
@@ -128,7 +165,7 @@ export function BotCreator() {
               placeholder="e.g., ML Trend Follower"
               {...register("name")}
             />
-            {errors.name && <FormFieldError message={errors.name.message} />}
+            <FormFieldError error={errors.name?.message} />
           </div>
 
           <div className="space-y-2">
@@ -145,7 +182,7 @@ export function BotCreator() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.strategy && <FormFieldError message={errors.strategy.message} />}
+            <FormFieldError error={errors.strategy?.message} />
           </div>
 
           <div className="space-y-2">
@@ -162,7 +199,7 @@ export function BotCreator() {
                 ))}
               </SelectContent>
             </Select>
-            {errors.tradingPair && <FormFieldError message={errors.tradingPair.message} />}
+            <FormFieldError error={errors.tradingPair?.message} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -175,7 +212,7 @@ export function BotCreator() {
                 placeholder="0.1"
                 {...register("maxPositionSize", { valueAsNumber: true })}
               />
-              {errors.maxPositionSize && <FormFieldError message={errors.maxPositionSize.message} />}
+              <FormFieldError error={errors.maxPositionSize?.message} />
             </div>
 
             <div className="space-y-2">
@@ -187,7 +224,7 @@ export function BotCreator() {
                 placeholder="1.0"
                 {...register("riskPerTrade", { valueAsNumber: true })}
               />
-              {errors.riskPerTrade && <FormFieldError message={errors.riskPerTrade.message} />}
+              <FormFieldError error={errors.riskPerTrade?.message} />
             </div>
           </div>
 
@@ -201,7 +238,7 @@ export function BotCreator() {
                 placeholder="2.0"
                 {...register("stopLoss", { valueAsNumber: true })}
               />
-              {errors.stopLoss && <FormFieldError message={errors.stopLoss.message} />}
+              <FormFieldError error={errors.stopLoss?.message} />
             </div>
 
             <div className="space-y-2">
@@ -213,18 +250,27 @@ export function BotCreator() {
                 placeholder="5.0"
                 {...register("takeProfit", { valueAsNumber: true })}
               />
-              {errors.takeProfit && <FormFieldError message={errors.takeProfit.message} />}
+              <FormFieldError error={errors.takeProfit?.message} />
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              aria-label="Cancel bot creation"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={createBotMutation.isPending}>
+            <Button 
+              type="submit" 
+              disabled={createBotMutation.isPending}
+              aria-label={createBotMutation.isPending ? "Creating bot, please wait" : "Create trading bot"}
+            >
               {createBotMutation.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
                   Creating...
                 </>
               ) : (
@@ -242,4 +288,4 @@ export function BotCreator() {
       </DialogContent>
     </Dialog>
   );
-}
+});

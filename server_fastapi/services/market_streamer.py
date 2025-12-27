@@ -39,14 +39,14 @@ class MarketDataStreamer:
         if not self.running:
             self.running = True
             self.task = asyncio.create_task(self._stream_loop())
-            logger.info("📡 Market data streaming service started")
+            logger.info("[STREAM] Market data streaming service started")
 
     def stop(self):
         """Stop the streaming service"""
         self.running = False
         if self.task:
             self.task.cancel()
-        logger.info("📡 Market data streaming service stopped")
+        logger.info("[STREAM] Market data streaming service stopped")
 
     async def _stream_loop(self):
         """Main streaming loop"""

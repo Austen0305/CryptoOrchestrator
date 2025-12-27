@@ -1,6 +1,7 @@
 """
 Tests for cold storage endpoints
 """
+
 import pytest
 import sys
 from pathlib import Path
@@ -26,8 +27,7 @@ def test_cold_storage_eligibility_requires_auth(client):
 def test_transfer_to_cold_storage_requires_auth(client):
     """Test that transfer to cold storage endpoint requires authentication"""
     response = client.post(
-        "/api/cold-storage/transfer-to-cold",
-        json={"currency": "BTC", "amount": 1.0}
+        "/api/cold-storage/transfer-to-cold", json={"currency": "BTC", "amount": 1.0}
     )
     assert response.status_code == 401  # Unauthorized
 
@@ -42,7 +42,6 @@ def test_withdraw_from_cold_storage_requires_auth(client):
     """Test that withdraw from cold storage endpoint requires authentication"""
     response = client.post(
         "/api/cold-storage/withdraw-from-cold",
-        json={"currency": "BTC", "amount": 0.5, "destination": "hot_wallet"}
+        json={"currency": "BTC", "amount": 0.5, "destination": "hot_wallet"},
     )
     assert response.status_code == 401  # Unauthorized
-

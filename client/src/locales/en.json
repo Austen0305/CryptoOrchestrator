@@ -39,8 +39,40 @@
     "price": "Price",
     "amount": "Amount",
     "total": "Total",
-    "connected": "Exchange Connected",
+    "connected": "Blockchain Trading Active",
     "disconnected": "Disconnected",
     "mlActive": "ML Engine Active"
+  },
+  "cookieConsent": {
+    "title": "We use cookies",
+    "description": "We use cookies to enhance your browsing experience, analyze site traffic, and personalize content. By clicking 'Accept All', you consent to our use of cookies.",
+    "learnMore": "Learn more",
+    "acceptAll": "Accept All",
+    "rejectAll": "Reject All",
+    "customize": "Customize",
+    "banner": "Cookie Consent Banner",
+    "close": "Close",
+    "cancel": "Cancel",
+    "savePreferences": "Save Preferences",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "alwaysEnabled": "Always On",
+    "cookiePolicy": "Cookie Policy",
+    "settings": {
+      "title": "Cookie Settings",
+      "description": "Manage your cookie preferences. You can enable or disable different types of cookies below."
+    },
+    "necessary": {
+      "title": "Necessary Cookies",
+      "description": "These cookies are essential for the website to function properly. They cannot be disabled."
+    },
+    "analytics": {
+      "title": "Analytics Cookies",
+      "description": "These cookies help us understand how visitors interact with our website by collecting and reporting information anonymously."
+    },
+    "marketing": {
+      "title": "Marketing Cookies",
+      "description": "These cookies are used to deliver personalized advertisements and track campaign performance."
+    }
   }
 }

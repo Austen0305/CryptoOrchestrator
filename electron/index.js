@@ -22,13 +22,89 @@ let autoStartEnabled = true;
 let notificationsEnabled = true;
 
 // Add crash reporting
-import { init as initCrashReporter } from '@sentry/electron';
-initCrashReporter({
-  dsn: 'YOUR_SENTRY_DSN',
-  tracesSampleRate: 1.0,
-  release: app.getVersion(),
-  environment: isDev ? 'development' : 'production'
-});
+let crashReporterInitialized = false;
+
+// Function to send crash reports to backend for triage
+async function sendCrashReportToBackend(event, hint) {
+  const backendUrl = process.env.API_URL || 'http://localhost:8000';
+  const apiToken = process.env.API_TOKEN; // Optional service token
+  
+  try {
+    const crashReport = {
+      process_type: event.contexts?.runtime?.name || 'main',
+      version: app.getVersion(),
+      platform: process.platform,
+      crash_report: JSON.stringify(event),
+      timestamp: new Date().toISOString(),
+      environment: isDev ? 'development' : 'production'
+    };
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (apiToken) {
+      headers['Authorization'] = `Bearer ${apiToken}`;
+    }
+    
+    const response = await fetch(`${backendUrl}/api/crash-reports/electron`, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(crashReport)
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Backend responded with status ${response.status}`);
+    }
+    
+    console.log('[CrashReporter] Crash report sent to backend for triage');
+  } catch (error) {
+    console.error('[CrashReporter] Error sending crash report to backend:', error);
+    // Don't throw - we don't want to block Sentry reporting
+  }
+}
+
+// Initialize Sentry for Electron crash reporting
+async function initializeCrashReporter() {
+  if (crashReporterInitialized) {
+    return;
+  }
+  
+  const sentryDsn = process.env.SENTRY_DSN || process.env.ELECTRON_SENTRY_DSN;
+  if (sentryDsn && sentryDsn !== 'YOUR_SENTRY_DSN') {
+    try {
+      // Dynamic import to avoid issues if @sentry/electron is not installed
+      const { init: initCrashReporter } = await import('@sentry/electron');
+      
+      initCrashReporter({
+        dsn: sentryDsn,
+        tracesSampleRate: isDev ? 1.0 : 0.1,
+        release: app.getVersion(),
+        environment: isDev ? 'development' : 'production',
+        beforeSend(event, hint) {
+          // Also send crash reports to our backend for triage
+          if (event.level === 'fatal' || event.level === 'error') {
+            sendCrashReportToBackend(event, hint).catch(err => {
+              console.error('[CrashReporter] Failed to send crash report to backend:', err);
+            });
+          }
+          return event;
+        }
+      });
+      
+      crashReporterInitialized = true;
+      console.log('[CrashReporter] Sentry initialized for Electron');
+    } catch (error) {
+      if (error.code === 'MODULE_NOT_FOUND') {
+        console.warn('[CrashReporter] @sentry/electron not installed. Install with: npm install --save-dev @sentry/electron');
+      } else {
+        console.error('[CrashReporter] Failed to initialize Sentry:', error);
+      }
+    }
+  } else {
+    console.warn('[CrashReporter] Sentry DSN not configured, crash reporting disabled');
+  }
+}
 
 // Function to create the main application window
 function createWindow() {
@@ -289,6 +365,22 @@ function setupAutoUpdater() {
   // Configure auto-updater
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  
+  // Set update server URL (GitHub Releases)
+  // Format: https://github.com/OWNER/REPO/releases/latest
+  const updateServerUrl = process.env.UPDATE_SERVER_URL || 
+    'https://github.com/yourusername/Crypto-Orchestrator/releases/latest';
+  
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: process.env.GITHUB_OWNER || 'yourusername',
+    repo: process.env.GITHUB_REPO || 'Crypto-Orchestrator',
+  });
+  
+  // Enable update logging
+  autoUpdater.logger = require('electron-log');
+  autoUpdater.logger.transports.file.level = 'info';
+  
   autoUpdater.checkForUpdatesAndNotify();
 
   // Update available event
@@ -401,11 +493,36 @@ function setupAutoUpdater() {
       console.error('[AutoUpdater] Failed to check for updates:', error);
     });
   }, 4 * 60 * 60 * 1000); // 4 hours
+  
+  // Manual update check handler
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      return {
+        success: true,
+        updateInfo: result?.updateInfo || null,
+      };
+    } catch (error) {
+      console.error('[AutoUpdater] Manual check failed:', error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  });
+  
+  // Quit and install handler
+  ipcMain.handle('quit-and-install', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
 }
 
 // App event handlers
 app.whenReady().then(async () => {
-  // Start FastAPI server first
+  // Initialize crash reporter first
+  await initializeCrashReporter();
+  
+  // Start FastAPI server
   await startFastAPIServer();
 
   createWindow();

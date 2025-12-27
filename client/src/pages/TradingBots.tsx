@@ -12,7 +12,7 @@ export default function TradingBots() {
   return (
     <div className="space-y-6 w-full">
       <div>
-        <h1 className="text-3xl font-bold">Advanced Trading Bots</h1>
+        <h1 className="text-3xl font-bold" data-testid="trading-bots">Advanced Trading Bots</h1>
         <p className="text-muted-foreground mt-1">
           Professional trading automation with competitive features
         </p>

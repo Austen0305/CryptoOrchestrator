@@ -46,7 +46,7 @@ export default function Strategies() {
     <div className="space-y-6 w-full">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Strategies</h1>
+          <h1 className="text-3xl font-bold" data-testid="strategies">Strategies</h1>
           <p className="text-muted-foreground mt-1">
             Create, manage, and deploy trading strategies
           </p>
@@ -78,25 +78,25 @@ export default function Strategies() {
         </TabsList>
 
         <TabsContent value="templates" className="space-y-4">
-          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Templates</CardTitle><CardDescription>Loading templates...</CardDescription></CardHeader><CardContent><LoadingSkeleton count={4} className="h-32 w-full mb-4" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Templates</CardTitle><CardDescription>Loading templates...</CardDescription></CardHeader><CardContent><LoadingSkeleton variant="card" count={3} /></CardContent></Card>}>
             <StrategyTemplateLibrary onSelectTemplate={handleSelectTemplate} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="my-strategies" className="space-y-4">
-          <Suspense fallback={<Card><CardHeader><CardTitle>My Strategies</CardTitle><CardDescription>Loading strategies...</CardDescription></CardHeader><CardContent><LoadingSkeleton count={5} className="h-16 w-full mb-2" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardHeader><CardTitle>My Strategies</CardTitle><CardDescription>Loading strategies...</CardDescription></CardHeader><CardContent><LoadingSkeleton variant="table" count={5} /></CardContent></Card>}>
             <StrategyList onEdit={handleEditStrategy} />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="marketplace" className="space-y-4">
-          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Marketplace</CardTitle><CardDescription>Loading marketplace...</CardDescription></CardHeader><CardContent><LoadingSkeleton count={6} className="h-48 w-full mb-4" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Marketplace</CardTitle><CardDescription>Loading marketplace...</CardDescription></CardHeader><CardContent><LoadingSkeleton variant="card" count={3} /></CardContent></Card>}>
             <StrategyMarketplace />
           </Suspense>
         </TabsContent>
 
         <TabsContent value="editor" className="space-y-4">
-          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Editor</CardTitle><CardDescription>Loading editor...</CardDescription></CardHeader><CardContent><LoadingSkeleton count={8} className="h-12 w-full mb-2" /></CardContent></Card>}>
+          <Suspense fallback={<Card><CardHeader><CardTitle>Strategy Editor</CardTitle><CardDescription>Loading editor...</CardDescription></CardHeader><CardContent><LoadingSkeleton variant="rectangular" className="h-96" /></CardContent></Card>}>
             <StrategyEditor
               template={selectedTemplate}
               strategy={editingStrategy}

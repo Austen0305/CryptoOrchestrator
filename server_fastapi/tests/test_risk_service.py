@@ -1,6 +1,7 @@
 """
 Unit tests for RiskService database-backed operations.
 """
+
 import pytest
 from sqlalchemy import select
 
@@ -48,4 +49,3 @@ async def test_get_user_alerts_falls_back_to_db(db_session):
 
     alerts = await service.get_user_alerts("alert-user")
     assert any(a.message == "Discrepancy found" for a in alerts)
-

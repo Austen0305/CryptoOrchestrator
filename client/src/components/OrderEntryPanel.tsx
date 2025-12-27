@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,20 +9,23 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Keyboard, AlertTriangle, Shield } from "lucide-react";
+import { Keyboard, AlertTriangle, Shield, Wallet } from "lucide-react";
 import { useTradingMode } from "@/contexts/TradingModeContext";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/components/ui/use-toast";
 import { validateOrder, formatValidationErrors } from "@/lib/validation";
 import { FormFieldError } from "@/components/FormFieldError";
 import { useQuery } from "@tanstack/react-query";
+import { CHAIN_IDS, getChainName } from "@/lib/wagmiConfig";
+import { usePortfolio } from "@/hooks/useApi";
+import type { Portfolio } from "@shared/schema";
 
 interface OrderEntryPanelProps {
   /** Trading pair (e.g., "BTC/USD"). Defaults to "BTC/USD" if not provided. */
   pair?: string;
 }
 
-export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
+export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
   const { mode, isRealMoney, isPaperTrading } = useTradingMode();
   const [orderType, setOrderType] = useState<"market" | "limit" | "stop" | "stop-limit" | "take-profit" | "trailing-stop">("market");
   const [stopPrice, setStopPrice] = useState("");
@@ -31,41 +35,17 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
   const [amount, setAmount] = useState("");
   const [price, setPrice] = useState("");
   const [percentage, setPercentage] = useState([0]);
-  const [exchange, setExchange] = useState<string>("");
+  const [chainId, setChainId] = useState<number>(CHAIN_IDS.ETHEREUM);
   const [mfaToken, setMfaToken] = useState<string>("");
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [pendingOrder, setPendingOrder] = useState<{ side: "buy" | "sell"; amount: string; price: string; exchange?: string; mfaToken?: string } | null>(null);
+  const [pendingOrder, setPendingOrder] = useState<{ side: "buy" | "sell"; amount: string; price: string; chainId?: number; mfaToken?: string } | null>(null);
+  
+  // Get portfolio balance for validation
+  const { data: portfolio } = usePortfolio(mode) as { data: Portfolio | undefined };
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const amountInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
-
-  // Load available exchanges using React Query
-  const { data: exchangeKeys, isLoading: exchangesLoading } = useQuery<Array<{exchange: string, label: string | null}>>({
-    queryKey: ['exchange-keys'],
-    queryFn: async () => {
-      return await apiRequest<Array<{exchange: string, label: string | null}>>("/api/exchange-keys", {
-        method: "GET",
-      });
-    },
-    enabled: isRealMoney,
-    retry: 2,
-  });
-
-  // Transform exchange keys to the format expected by the component
-  const availableExchanges = exchangeKeys
-    ?.filter(k => k)
-    .map(k => ({
-      exchange: k.exchange,
-      label: k.label || k.exchange.charAt(0).toUpperCase() + k.exchange.slice(1)
-    })) || [];
-
-  // Set default exchange when available exchanges load
-  useEffect(() => {
-    if (availableExchanges.length > 0 && !exchange) {
-      setExchange(availableExchanges[0].exchange);
-    }
-  }, [availableExchanges, exchange]);
 
   const handlePercentage = (value: number) => {
     setPercentage([value]);
@@ -110,19 +90,36 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
       return;
     }
 
-    // If real money, validate exchange is selected
-    if (isRealMoney && !exchange && availableExchanges.length > 0) {
-      toast({
-        title: "Exchange Required",
-        description: "Please select an exchange for real money trading",
-        variant: "destructive",
-      });
-      return;
+    // If real money, validate wallet/chain is configured
+    if (isRealMoney) {
+      // Check if user has wallet configured (portfolio exists with balances)
+      if (!portfolio || (portfolio.totalBalance === 0 && Object.keys(portfolio.positions || {}).length === 0)) {
+        toast({
+          title: "Wallet Required",
+          description: "Please set up a wallet for real money trading. Go to Settings > Wallets to create one.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Check balance if available
+      if (portfolio && side === "buy") {
+        const tradeValue = parseFloat(amount) * (price ? parseFloat(price) : 0);
+        const availableBalance = portfolio.availableBalance || portfolio.totalBalance || 0;
+        if (tradeValue > availableBalance) {
+          toast({
+            title: "Insufficient Balance",
+            description: `Available: $${availableBalance.toLocaleString()}, Required: $${tradeValue.toLocaleString()}`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
     }
 
     // If real money, show confirmation dialog
     if (isRealMoney) {
-      setPendingOrder({ side, amount, price, exchange, mfaToken });
+      setPendingOrder({ side, amount, price, chainId, mfaToken });
       setShowConfirmDialog(true);
       return;
     }
@@ -131,7 +128,7 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
     await executeOrder(side, amount, price);
   };
 
-  const executeOrder = async (side: "buy" | "sell", orderAmount: string, orderPrice: string, orderExchange?: string, orderMfaToken?: string) => {
+  const executeOrder = async (side: "buy" | "sell", orderAmount: string, orderPrice: string, orderMfaToken?: string, orderChainId?: number) => {
     setIsPlacingOrder(true);
     try {
       interface OrderBody {
@@ -140,7 +137,7 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
         type: string;
         amount: number;
         mode: string;
-        exchange?: string;
+        chain_id?: number;
         mfa_token?: string;
         price?: number;
         stop?: number;
@@ -155,7 +152,7 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
         type: orderType,
         amount: parseFloat(orderAmount),
         mode: mode,
-        exchange: orderExchange || exchange || undefined,
+        chain_id: isRealMoney ? (orderChainId || chainId) : undefined,
         mfa_token: orderMfaToken || mfaToken || undefined,
       };
 
@@ -213,7 +210,13 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
 
   const handleConfirmOrder = async () => {
     if (!pendingOrder) return;
-    await executeOrder(pendingOrder.side, pendingOrder.amount, pendingOrder.price, pendingOrder.exchange, pendingOrder.mfaToken);
+    await executeOrder(
+      pendingOrder.side, 
+      pendingOrder.amount, 
+      pendingOrder.price, 
+      pendingOrder.mfaToken,
+      pendingOrder.chainId
+    );
   };
 
   // Keyboard shortcuts
@@ -333,12 +336,13 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
         {(orderType === "limit" || orderType === "stop-limit" || orderType === "take-profit") && (
           <div className="space-y-2">
             <Label htmlFor="price">Price</Label>
-            <Input
-              ref={priceInputRef}
-              id="price"
-              type="number"
-              placeholder="0.00"
-              value={price}
+          <Input
+            ref={priceInputRef}
+            id="price"
+            name="price"
+            type="number"
+            placeholder="0.00"
+            value={price}
               onChange={(e) => {
                 setPrice(e.target.value);
                 // Clear validation error when user types
@@ -484,6 +488,7 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
           <Input
             ref={amountInputRef}
             id="amount"
+            name="amount"
             type="number"
             placeholder="0.00"
             value={amount}
@@ -508,26 +513,34 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
           <FormFieldError error={validationErrors.amount} />
         </div>
 
-        {isRealMoney && availableExchanges.length > 0 && (
+        {isRealMoney && (
           <div className="space-y-2">
-            <Label htmlFor="exchange">Exchange</Label>
-            <Select value={exchange} onValueChange={setExchange}>
+            <Label htmlFor="chain-id" className="flex items-center gap-2">
+              <Wallet className="h-4 w-4" />
+              Blockchain Network
+            </Label>
+            <Select value={String(chainId)} onValueChange={(v) => setChainId(Number(v))}>
               <SelectTrigger 
-                id="exchange"
-                aria-label="Trading exchange"
-                aria-describedby="exchange-description"
+                id="chain-id"
+                aria-label="Blockchain network"
+                aria-describedby="chain-description"
               >
-                <SelectValue placeholder="Select Exchange" />
+                <SelectValue placeholder="Select Network" />
               </SelectTrigger>
               <SelectContent>
-                {availableExchanges.map((ex) => (
-                  <SelectItem key={ex.exchange} value={ex.exchange}>
-                    {ex.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value={String(CHAIN_IDS.ETHEREUM)}>Ethereum</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.BASE)}>Base</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.ARBITRUM)}>Arbitrum One</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.POLYGON)}>Polygon</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.OPTIMISM)}>Optimism</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.AVALANCHE)}>Avalanche</SelectItem>
+                <SelectItem value={String(CHAIN_IDS.BSC)}>BNB Chain</SelectItem>
               </SelectContent>
             </Select>
-            <span id="exchange-description" className="sr-only">Select the exchange to execute the trade on</span>
+            <span id="chain-description" className="sr-only">Select the blockchain network for DEX trading</span>
+            <p className="text-xs text-muted-foreground">
+              DEX trading uses {getChainName(chainId)} network. No API keys required - trades execute directly on blockchain.
+            </p>
           </div>
         )}
 
@@ -579,16 +592,28 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
         </div>
 
         <div className="pt-2 space-y-2">
+          {portfolio && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Available Balance:</span>
+              <span className="font-mono font-semibold">
+                ${(portfolio.availableBalance || portfolio.totalBalance || 0).toLocaleString()}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Available:</span>
-            <span className="font-mono font-semibold">$10,500</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Total:</span>
+            <span className="text-muted-foreground">Order Total:</span>
             <span className="font-mono font-semibold">
               ${amount ? (parseFloat(amount) * (price ? parseFloat(price) : 47350)).toLocaleString() : "0.00"}
             </span>
           </div>
+          {portfolio && amount && (
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>After Trade:</span>
+              <span className="font-mono">
+                ${((portfolio.availableBalance || portfolio.totalBalance || 0) - (parseFloat(amount) * (price ? parseFloat(price) : 47350))).toLocaleString()}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Confirmation Dialog for Real Money Trades */}
@@ -606,19 +631,67 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
                       ⚠️ WARNING: This is a REAL MONEY trade
                     </p>
                     <p className="text-sm text-red-800 dark:text-red-300">
-                      This order will be executed using your actual funds on connected exchanges.
+                      This order will be executed using your actual funds via DEX (blockchain) trading.
                       You could lose money if the trade goes against you.
                     </p>
                   </div>
                 )}
                 {pendingOrder && (
-                  <div className="space-y-2">
-                    <p><strong>Side:</strong> {pendingOrder.side.toUpperCase()}</p>
-                    <p><strong>Type:</strong> {orderType.toUpperCase()}</p>
-                    <p><strong>Amount:</strong> {pendingOrder.amount}</p>
-                    {pendingOrder.price && <p><strong>Price:</strong> {pendingOrder.price}</p>}
-                    {pendingOrder.exchange && <p><strong>Exchange:</strong> {pendingOrder.exchange.toUpperCase()}</p>}
-                    <p><strong>Mode:</strong> {isRealMoney ? "Real Money" : "Paper Trading"}</p>
+                  <div className="space-y-2 bg-muted/50 rounded-lg p-4">
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Side:</span>
+                        <span className="ml-2 font-semibold">{pendingOrder.side.toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Type:</span>
+                        <span className="ml-2 font-semibold">{orderType.toUpperCase()}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Pair:</span>
+                        <span className="ml-2 font-semibold">{pair}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Amount:</span>
+                        <span className="ml-2 font-semibold">{pendingOrder.amount}</span>
+                      </div>
+                      {pendingOrder.price && (
+                        <div>
+                          <span className="text-muted-foreground">Price:</span>
+                          <span className="ml-2 font-semibold">${parseFloat(pendingOrder.price).toLocaleString()}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="ml-2 font-semibold">
+                          ${(parseFloat(pendingOrder.amount) * (pendingOrder.price ? parseFloat(pendingOrder.price) : 0)).toLocaleString()}
+                        </span>
+                      </div>
+                      {pendingOrder.chainId && (
+                        <div>
+                          <span className="text-muted-foreground">Network:</span>
+                          <span className="ml-2 font-semibold">{getChainName(pendingOrder.chainId)}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-muted-foreground">Mode:</span>
+                        <span className="ml-2 font-semibold">{isRealMoney ? "Real Money" : "Paper Trading"}</span>
+                      </div>
+                    </div>
+                    {portfolio && pendingOrder.side === "buy" && (
+                      <div className="mt-3 pt-3 border-t">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Available Balance:</span>
+                          <span className="font-semibold">${(portfolio.availableBalance || portfolio.totalBalance || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm mt-1">
+                          <span className="text-muted-foreground">After Trade:</span>
+                          <span className="font-semibold">
+                            ${((portfolio.availableBalance || portfolio.totalBalance || 0) - (parseFloat(pendingOrder.amount) * (pendingOrder.price ? parseFloat(pendingOrder.price) : 0))).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </AlertDialogDescription>
@@ -685,4 +758,4 @@ export function OrderEntryPanel({ pair = "BTC/USD" }: OrderEntryPanelProps) {
       </CardContent>
     </Card>
   );
-}
+});

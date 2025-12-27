@@ -28,7 +28,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
     strategy?.strategy_type || template?.strategy_type || "custom"
   );
   const [category, setCategory] = useState(strategy?.category || template?.category || "technical");
-  const [config, setConfig] = useState<Record<string, any>>(
+  const [config, setConfig] = useState<Record<string, unknown>>(
     strategy?.config || template?.config || {}
   );
 
@@ -36,6 +36,15 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
   const updateStrategy = useUpdateStrategy();
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Helper to safely get config values
+  const getConfigValue = (key: string, defaultValue: string | number = ""): string | number => {
+    const value = config[key];
+    if (typeof value === 'number' || typeof value === 'string') {
+      return value;
+    }
+    return defaultValue;
+  };
 
   const handleSave = async () => {
     // Clear previous errors
@@ -154,7 +163,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                 placeholder="e.g., My RSI Strategy"
                 className={formErrors.name ? "border-destructive" : ""}
               />
-              {formErrors.name && <FormFieldError message={formErrors.name} />}
+              {formErrors.name && <FormFieldError error={formErrors.name} />}
             </div>
 
             <div className="space-y-2">
@@ -177,7 +186,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                 rows={3}
                 className={formErrors.description ? "border-destructive" : ""}
               />
-              {formErrors.description && <FormFieldError message={formErrors.description} />}
+              {formErrors.description && <FormFieldError error={formErrors.description} />}
             </div>
 
             {!template && (
@@ -231,7 +240,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                   <Input
                     id="stopLoss"
                     type="number"
-                    value={config.stop_loss_pct || ""}
+                    value={getConfigValue("stop_loss_pct", "")}
                     onChange={(e) => {
                       const value = parseFloat(e.target.value) || 0;
                       updateConfigValue("stop_loss_pct", value);
@@ -247,14 +256,14 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                     placeholder="2.0"
                     className={formErrors["config.stop_loss_pct"] ? "border-destructive" : ""}
                   />
-                  {formErrors["config.stop_loss_pct"] && <FormFieldError message={formErrors["config.stop_loss_pct"]} />}
+                  {formErrors["config.stop_loss_pct"] && <FormFieldError error={formErrors["config.stop_loss_pct"]} />}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="takeProfit">Take Profit (%)</Label>
                   <Input
                     id="takeProfit"
                     type="number"
-                    value={config.take_profit_pct || ""}
+                    value={getConfigValue("take_profit_pct", "")}
                     onChange={(e) => {
                       const value = parseFloat(e.target.value) || 0;
                       updateConfigValue("take_profit_pct", value);
@@ -270,14 +279,14 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                     placeholder="5.0"
                     className={formErrors["config.take_profit_pct"] ? "border-destructive" : ""}
                   />
-                  {formErrors["config.take_profit_pct"] && <FormFieldError message={formErrors["config.take_profit_pct"]} />}
+                  {formErrors["config.take_profit_pct"] && <FormFieldError error={formErrors["config.take_profit_pct"]} />}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="positionSize">Position Size (%)</Label>
                   <Input
                     id="positionSize"
                     type="number"
-                    value={config.position_size_pct || ""}
+                    value={getConfigValue("position_size_pct", "")}
                     onChange={(e) => {
                       const value = parseFloat(e.target.value) || 0;
                       updateConfigValue("position_size_pct", value);
@@ -293,7 +302,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                     placeholder="10"
                     className={formErrors["config.position_size_pct"] ? "border-destructive" : ""}
                   />
-                  {formErrors["config.position_size_pct"] && <FormFieldError message={formErrors["config.position_size_pct"]} />}
+                  {formErrors["config.position_size_pct"] && <FormFieldError error={formErrors["config.position_size_pct"]} />}
                 </div>
               </div>
             </TabsContent>
@@ -302,7 +311,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
               <div className="space-y-2">
                 <Label htmlFor="timeframe">Timeframe</Label>
                 <Select
-                  value={config.timeframe || "1h"}
+                  value={String(getConfigValue("timeframe", "1h"))}
                   onValueChange={(value) => updateConfigValue("timeframe", value)}
                 >
                   <SelectTrigger>
@@ -327,7 +336,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                     <Input
                       id="rsiPeriod"
                       type="number"
-                      value={config.rsi_period || ""}
+                      value={getConfigValue("rsi_period", "")}
                       onChange={(e) => updateConfigValue("rsi_period", parseInt(e.target.value) || 14)}
                       placeholder="14"
                     />
@@ -337,7 +346,7 @@ export const StrategyEditor = React.memo(function StrategyEditor({ template, str
                     <Input
                       id="oversold"
                       type="number"
-                      value={config.oversold_threshold || ""}
+                      value={getConfigValue("oversold_threshold", "")}
                       onChange={(e) => updateConfigValue("oversold_threshold", parseInt(e.target.value) || 30)}
                       placeholder="30"
                     />

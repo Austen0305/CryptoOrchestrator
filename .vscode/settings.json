@@ -1,12 +1,182 @@
 {
-    "CodeGPT.apiKey": "Anthropic",
-    "Codegeex.SidebarUI.LanguagePreference": "English",
-    "Codegeex.Chat.LanguagePreference": "English",
-    "Codegeex.Comment.LanguagePreference": "English",
-    "Codegeex.CommitMessage.LanguagePreference": "English",
-    "Codegeex.RepoIndex": true,
-    "easycode.codeLens": true,
-    "easycode.skipDiff": true,
-    "easycode.useActiveViewContext": true,
-    "chat.agent.maxRequests": 150
+  "CodeGPT.apiKey": "Anthropic",
+  "Codegeex.SidebarUI.LanguagePreference": "English",
+  "Codegeex.Chat.LanguagePreference": "English",
+  "Codegeex.Comment.LanguagePreference": "English",
+  "Codegeex.CommitMessage.LanguagePreference": "English",
+  "Codegeex.RepoIndex": true,
+  "easycode.codeLens": true,
+  "easycode.skipDiff": true,
+  "easycode.useActiveViewContext": true,
+  "editor.fontLigatures": true,
+  "editor.formatOnSave": true,
+  "editor.renderWhitespace": "boundary",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "editor.minimap.enabled": false,
+  "editor.wordWrap": "on",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/__pycache__/**": true
+  },
+  "cursor.completion.enabled": true,
+  "cursor.completion.model": "default",
+  "cursor.contextLimit": "enhanced",
+  "cursor.showInlineCompletions": true,
+  "cursor.rateLimit": {
+    "enabled": false
+  },
+  "chat.agent.maxRequests": 150,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.suggest.autoImports": true,
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.analysis.typeCheckingMode": "strict",
+  "errorLens.enabled": true,
+  "errorLens.enabledDiagnosticLevels": ["error", "warning"],
+  "gitlens.codeLens.enabled": true,
+  "gitlens.currentLine.enabled": true,
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "rest-client.timeoutinmilliseconds": 10000,
+  "rest-client.defaultHeaders": {
+    "Content-Type": "application/json"
+  },
+  "coverage-gutters.showGutterCoverage": true,
+  "coverage-gutters.coverageFileNames": ["coverage/lcov.info", "coverage/coverage.xml"],
+  "yaml.schemas": {
+    "kubernetes": "*.yaml"
+  },
+  "postgresql.connections": [],
+  "markdown.preview.breaks": true,
+  "markdown.preview.fontSize": 14,
+  "markdownlint.config": {
+    "default": true,
+    "MD013": false
+  },
+  "pasteImage.path": "${projectRoot}/docs/images",
+  "todo-tree.general.tags": ["TODO", "FIXME", "NOTE", "HACK", "XXX"],
+  "todo-tree.highlights.customHighlight": {
+    "TODO": {
+      "icon": "check",
+      "type": "text"
+    },
+    "FIXME": {
+      "icon": "flame",
+      "type": "text"
+    }
+  },
+  "better-comments.highlightPlainText": true,
+  "path-intellisense.extensionOnImport": true,
+  "docker.showStartPage": false,
+  "docker.commands.build": "docker build",
+  "liveServer.settings.port": 5500,
+  "liveServer.settings.CustomBrowser": "chrome",
+  "codemetrics.baseline.complexity": 10,
+  "codemetrics.baseline.length": 50,
+  "wakatime.apiKey": "",
+  "pomodoro.workDuration": 25,
+  "pomodoro.shortBreakDuration": 5,
+  "pomodoro.longBreakDuration": 15,
+  "react-native.packager.port": 8081,
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.git": true,
+    "**/__pycache__": true,
+    "**/coverage": true,
+    "**/test-results": true
+  },
+  "extensions.ignoreRecommendations": false,
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.fontSize": 14,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "go.goroot": "C:\\Users\\William Walker\\.local\\share\\mise\\installs\\go\\1.25.5\\go",
+  "go.gopath": "C:\\Users\\William Walker\\go",
+  "go.toolsGopath": "C:\\Users\\William Walker\\go\\bin",
+  "go.useLanguageServer": true,
+  "go.formatTool": "goimports",
+  "go.lintTool": "golangci-lint",
+  "mcpServers": {
+    "batch-crypto": {
+      "command": "python",
+      "args": ["-m", "mcp.server.stdio"],
+      "env": {
+        "MCP_SERVER_MODULE": ".vscode.mcp_servers.batch_crypto_mcp",
+        "COINGECKO_API_KEY": "",
+        "ETHERSCAN_API_KEY": ""
+      },
+      "alwaysAllow": ["batch_get_prices", "batch_get_balances", "batch_get_gas_prices", "get_stats"],
+      "disabled": false,
+      "description": "Batch multiple crypto API calls into single operations"
+    },
+    "redis-cache": {
+      "command": "python",
+      "args": ["-m", "mcp.server.stdio"],
+      "env": {
+        "MCP_SERVER_MODULE": ".vscode.mcp_servers.redis_cache_mcp",
+        "REDIS_URL": "redis://localhost:6379",
+        "CACHE_ENABLED": "true"
+      },
+      "alwaysAllow": ["get_cached", "set_cached", "batch_get_cached", "get_cache_stats"],
+      "disabled": false,
+      "description": "Intelligent caching with automatic TTL"
+    },
+    "rate-limiter": {
+      "command": "python",
+      "args": ["-m", "mcp.server.stdio"],
+      "env": {
+        "MCP_SERVER_MODULE": ".vscode.mcp_servers.rate_limited_mcp",
+        "API_RATE_LIMIT_MODE": "moderate",
+        "ENABLE_BACKOFF": "true"
+      },
+      "alwaysAllow": ["rate_limited_call", "batch_dex_queries", "get_rate_limit_status", "get_rate_limit_stats"],
+      "disabled": false,
+      "description": "Token bucket rate limiter preventing API throttling"
+    }
+  },
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": true,
+    "markdown": true,
+    "scm": false
+  },
+  "github.copilot.advanced": {
+    "debug.overrideChatModel": "gpt-4-turbo",
+    "inlineSuggestCount": 3,
+    "listMaxResults": 10,
+    "agent.maxRequests": 200,
+    "agent.contextWindow": "auto"
+  }
 }

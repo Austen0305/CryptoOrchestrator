@@ -4,7 +4,7 @@ ML V2 Routes - AutoML, Reinforcement Learning, Sentiment AI, Market Regime Detec
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Annotated
 from datetime import datetime
 import logging
 
@@ -51,6 +51,8 @@ class HyperparameterRangeRequest(BaseModel):
 class OptimizationRequest(BaseModel):
     """Optimization request"""
 
+    model_config = {"protected_namespaces": ()}
+
     model_type: str
     hyperparameter_ranges: Dict[str, HyperparameterRangeRequest]
     search_strategy: str = "bayesian"
@@ -63,7 +65,8 @@ class OptimizationRequest(BaseModel):
 
 @router.post("/automl/optimize", response_model=Dict)
 async def optimize_hyperparameters(
-    request: OptimizationRequest, current_user: dict = Depends(get_current_user)
+    request: OptimizationRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Optimize hyperparameters using AutoML"""
     try:
@@ -126,7 +129,8 @@ class RLTrainingRequest(BaseModel):
 
 @router.post("/rl/train", response_model=Dict)
 async def train_rl_agent(
-    request: RLTrainingRequest, current_user: dict = Depends(get_current_user)
+    request: RLTrainingRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Train reinforcement learning agent"""
     try:
@@ -151,7 +155,9 @@ async def train_rl_agent(
 
 
 @router.get("/rl/q-learning/stats", response_model=Dict)
-async def get_q_learning_stats(current_user: dict = Depends(get_current_user)):
+async def get_q_learning_stats(
+    current_user: Annotated[dict, Depends(get_current_user)],
+):
     """Get Q-learning agent statistics"""
     try:
         agent = rl_service.get_q_learning_agent()
@@ -174,7 +180,8 @@ class TextAnalysisRequest(BaseModel):
 
 @router.post("/sentiment/analyze", response_model=Dict)
 async def analyze_sentiment(
-    request: TextAnalysisRequest, current_user: dict = Depends(get_current_user)
+    request: TextAnalysisRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Analyze sentiment of text"""
     try:
@@ -196,7 +203,8 @@ class AggregateSentimentRequest(BaseModel):
 
 @router.post("/sentiment/aggregate", response_model=Dict)
 async def aggregate_sentiment(
-    request: AggregateSentimentRequest, current_user: dict = Depends(get_current_user)
+    request: AggregateSentimentRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Aggregate sentiment from multiple sources"""
     try:
@@ -230,7 +238,8 @@ class RegimeDetectionRequest(BaseModel):
 
 @router.post("/regime/detect", response_model=Dict)
 async def detect_market_regime(
-    request: RegimeDetectionRequest, current_user: dict = Depends(get_current_user)
+    request: RegimeDetectionRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Detect market regime"""
     try:
@@ -249,8 +258,8 @@ async def detect_market_regime(
 @router.get("/regime/strategy/{regime}", response_model=Dict)
 async def get_regime_strategy(
     regime: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
     base_strategy: str = "default",
-    current_user: dict = Depends(get_current_user),
 ):
     """Get regime-aware strategy recommendations"""
     try:

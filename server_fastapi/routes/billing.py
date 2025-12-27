@@ -7,13 +7,15 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Optional, Annotated
 import logging
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..billing import StripeService, SubscriptionService
 from ..models.user import User
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,9 @@ class SubscriptionResponse(BaseModel):
 
 
 @router.get("/plans")
+@cached(
+    ttl=300, prefix="billing_plans"
+)  # 5min TTL for subscription plans (static data)
 async def get_plans():
     """Get available subscription plans"""
     try:
@@ -51,15 +56,17 @@ async def get_plans():
 
 
 @router.get("/subscription")
+@cached(ttl=120, prefix="user_subscription")  # 120s TTL for user subscription
 async def get_subscription(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Get current user's subscription"""
     try:
+        user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
         subscription = await subscription_service.get_user_subscription(
-            db=db, user_id=current_user["id"]
+            db=db, user_id=user_id
         )
 
         if not subscription:
@@ -71,9 +78,7 @@ async def get_subscription(
                 limits=config.get("limits", {}) if config else {},
             )
 
-        limits = await subscription_service.get_subscription_limits(
-            db, current_user["id"]
-        )
+        limits = await subscription_service.get_subscription_limits(db, user_id)
 
         return SubscriptionResponse(
             plan=subscription.plan,
@@ -103,16 +108,17 @@ async def get_subscription(
 @router.post("/checkout")
 async def create_checkout(
     request: CreateCheckoutRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Create Stripe checkout session"""
     try:
+        user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
 
         session = await subscription_service.create_checkout_session(
             db=db,
-            user_id=current_user["id"],
+            user_id=user_id,
             price_id=request.price_id,
             plan=request.plan,
         )
@@ -140,16 +146,17 @@ async def create_checkout(
 
 @router.post("/portal")
 async def create_portal(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Create Stripe Customer Portal session"""
     try:
+        user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
 
         session = await subscription_service.create_portal_session(
             db=db,
-            user_id=current_user["id"],
+            user_id=user_id,
         )
 
         if not session:
@@ -174,17 +181,18 @@ async def create_portal(
 
 @router.post("/cancel")
 async def cancel_subscription(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     immediately: bool = False,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ):
     """Cancel user subscription"""
     try:
+        user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
 
         success = await subscription_service.cancel_subscription(
             db=db,
-            user_id=current_user["id"],
+            user_id=user_id,
             immediately=immediately,
         )
 
@@ -212,7 +220,7 @@ async def cancel_subscription(
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,
-    db: AsyncSession = Depends(get_db_session),
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Handle Stripe webhook events"""
     try:

@@ -1,6 +1,7 @@
 // Types enforced; temporary ts-nocheck removed.
 import { PortfolioCard } from "@/components/PortfolioCard";
 import { PriceChart } from "@/components/PriceChart";
+import { EnhancedPriceChart } from "@/components/EnhancedPriceChart";
 import { OrderEntryPanel } from "@/components/OrderEntryPanel";
 import { OrderBook } from "@/components/OrderBook";
 import { TradeHistory } from "@/components/TradeHistory";
@@ -23,6 +24,7 @@ const RiskSummary = React.lazy(() => import('@/components/RiskSummary').then(m =
 const RiskScenarioPanel = React.lazy(() => import('@/components/RiskScenarioPanel').then(m => ({ default: m.RiskScenarioPanel })));
 const MultiHorizonRiskPanel = React.lazy(() => import('@/components/MultiHorizonRiskPanel').then(m => ({ default: m.MultiHorizonRiskPanel })));
 import { usePortfolio, useTrades, useStatus, useRecentActivity, usePerformanceSummary } from "@/hooks/useApi";
+import type { Portfolio, Trade } from "@shared/schema";
 import { useBotStatus } from "@/hooks/useBotStatus";
 import { useState } from 'react';
 import { generateOhlcv } from '@/lib/ohlcv';
@@ -36,8 +38,10 @@ import { useOrderBook } from "@/hooks/useOrderBook";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { marketApi, integrationsApi } from "@/lib/api";
 import { QuickStats, RecentActivity, PerformanceSummary } from "@/components/DashboardEnhancements";
+import { EnhancedErrorBoundary } from "@/components/EnhancedErrorBoundary";
+import logger from "@/lib/logger";
 
-export default function Dashboard() {
+function DashboardContent() {
   const { mode, isRealMoney, isPaperTrading } = useTradingMode();
   const { data: portfolio, isLoading: portfolioLoading, isRealTime } = usePortfolio(mode);
   const { data: trades, isLoading: tradesLoading } = useTrades(undefined, mode);
@@ -68,7 +72,9 @@ export default function Dashboard() {
   }
 
   // OHLCV API returns { pair, timeframe, data: [...] }, so we need to access .data
-  const ohlcvArray = ohlcvData?.data || (Array.isArray(ohlcvData) ? ohlcvData : []);
+  const ohlcvArray = (ohlcvData && typeof ohlcvData === 'object' && 'data' in ohlcvData && Array.isArray(ohlcvData.data)) 
+    ? ohlcvData.data 
+    : (Array.isArray(ohlcvData) ? ohlcvData : []);
   
   const chartData = ohlcvArray?.map((candle: OhlcvCandle | number[]) => {
     if (Array.isArray(candle)) {
@@ -98,10 +104,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 w-full">
+    <div className="space-y-4 md:space-y-6 w-full animate-fade-in">
+      <div>
+        <h1 className="text-3xl font-bold" data-testid="dashboard">Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Overview of your blockchain trading activity and portfolio
+        </p>
+      </div>
+      
       {/* Real-time indicator */}
       {isRealTime && (
-        <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 px-4 py-2.5 rounded-lg shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 px-4 py-2.5 rounded-lg shadow-sm animate-pulse-glow">
           <div className="status-indicator h-2 w-2 bg-green-500 rounded-full"></div>
           <span className="font-medium">Live portfolio updates enabled</span>
         </div>
@@ -109,11 +122,18 @@ export default function Dashboard() {
       
       {/* Enhanced Quick Stats */}
       <QuickStats
-        totalValue={portfolio?.totalBalance || 0}
-        change24h={portfolio?.profitLoss24h || 0}
+        totalValue={(portfolio as Portfolio | undefined)?.totalBalance || 0}
+        change24h={(portfolio as Portfolio | undefined)?.profitLoss24h || 0}
         activeBots={status?.runningBots ?? runningBots ?? 0}
-        totalTrades={trades?.length || 0}
+        totalTrades={(trades && Array.isArray(trades) ? trades.length : 0)}
       />
+
+      {/* Trading Mode Switcher */}
+      <div className="flex justify-center w-full">
+        <div className="w-full sm:w-auto">
+          <TradingModeSwitcher />
+        </div>
+      </div>
 
       {/* Trading Safety Status and Exchange Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
@@ -124,31 +144,50 @@ export default function Dashboard() {
       {/* Recent Activity and Performance Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <RecentActivity 
-          activities={recentActivity || []} 
+          activities={(recentActivity && Array.isArray(recentActivity) 
+            ? recentActivity.map(activity => ({
+                id: activity.id || '',
+                type: (activity.type as "trade" | "bot" | "alert" | "system") || "system",
+                message: (activity as { message?: string; description?: string }).message || (activity as { description?: string }).description || '',
+                timestamp: activity.timestamp || '',
+                status: (activity as { status?: "success" | "warning" | "error" }).status,
+              }))
+            : [])} 
           maxItems={5}
         />
-        {performanceSummary && (
+        {performanceSummary && typeof performanceSummary === 'object' ? (
           <PerformanceSummary
-            winRate={performanceSummary.winRate || 0}
-            avgProfit={performanceSummary.avgProfit || 0}
-            totalProfit={performanceSummary.totalProfit || 0}
-            bestTrade={performanceSummary.bestTrade || 0}
-            worstTrade={performanceSummary.worstTrade || 0}
+            winRate={((performanceSummary as { winRate?: number }).winRate ?? 0) as number}
+            avgProfit={((performanceSummary as { avgProfit?: number }).avgProfit ?? 0) as number}
+            totalProfit={((performanceSummary as { totalProfit?: number }).totalProfit ?? 0) as number}
+            bestTrade={((performanceSummary as { bestTrade?: number }).bestTrade ?? 0) as number}
+            worstTrade={((performanceSummary as { worstTrade?: number }).worstTrade ?? 0) as number}
           />
-        )}
+        ) : null}
       </div>
 
       {/* Main Trading Interface - Responsive layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
         {/* Chart Section - Takes more space on larger screens */}
-        <div className="lg:col-span-8 space-y-6 md:space-y-8">
-          <div className="h-[400px] md:h-[500px] lg:h-[600px] rounded-2xl border-2 border-card-border/70 bg-card shadow-2xl overflow-hidden" style={{ borderWidth: '2px' }}>
-            <PriceChart
-              pair="BTC/USD"
-              currentPrice={47350}
-              change24h={4.76}
-              data={chartData}
-            />
+        <div className="lg:col-span-8 space-y-4 md:space-y-6 lg:space-y-8">
+          <div className="h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-xl md:rounded-2xl border-2 border-card-border/70 bg-card shadow-xl md:shadow-2xl overflow-hidden glass-premium hover-lift">
+            {/* Use EnhancedPriceChart if available, fallback to PriceChart */}
+            {typeof window !== 'undefined' && (window as typeof window & { __USE_ENHANCED_CHART?: boolean }).__USE_ENHANCED_CHART !== false ? (
+              <EnhancedPriceChart
+                pair="BTC/USD"
+                currentPrice={47350}
+                change24h={4.76}
+                data={chartData}
+                live={true}
+              />
+            ) : (
+              <PriceChart
+                pair="BTC/USD"
+                currentPrice={47350}
+                change24h={4.76}
+                data={chartData}
+              />
+            )}
           </div>
           
           {/* Trading Recommendations - Full width on mobile, shown below chart */}
@@ -158,7 +197,7 @@ export default function Dashboard() {
         </div>
 
         {/* Trading Controls - Side panel on desktop, bottom panel on mobile */}
-        <div className="lg:col-span-4 space-y-4 md:space-y-6">
+        <div className="lg:col-span-4 space-y-4 md:space-y-6 pb-16 lg:pb-0">
           <OrderEntryPanel />
           {/* Quick Predict integration panel */}
           <Card className="border-card-border">
@@ -199,23 +238,36 @@ export default function Dashboard() {
       </div>
 
       {/* Risk Summary (lazy loaded) */}
-      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading risk metrics…</div>}>
+      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
         <RiskSummary />
       </Suspense>
 
       {/* Risk Scenario Simulator */}
-      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading scenario simulator…</div>}>
+      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
         <RiskScenarioPanel />
       </Suspense>
 
       {/* Multi-Horizon VaR & ES */}
-      <Suspense fallback={<div className="text-xs text-muted-foreground">Loading multi-horizon risk…</div>}>
+      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
         <MultiHorizonRiskPanel />
       </Suspense>
 
       {/* Trade History - Always full width */}
       <Card className="border-card-border shadow-md">
-        <TradeHistory trades={trades || []} />
+        <TradeHistory trades={(trades && Array.isArray(trades) ? trades.map((t: any) => ({
+          id: t.id || '',
+          pair: t.pair || '',
+          type: t.type || 'market',
+          side: t.side || 'buy',
+          amount: t.amount || 0,
+          price: t.price || 0,
+          total: t.total || (t.amount || 0) * (t.price || 0),
+          timestamp: t.timestamp || t.executed_at || new Date().toISOString(),
+          status: t.status || 'completed',
+          mode: t.mode || mode,
+          exchange: t.exchange,
+          pnl: t.pnl,
+        })) : [])} />
       </Card>
 
       {/* New Features Section */}
@@ -311,11 +363,24 @@ function PredictPanel() {
           </p>
         </div>
       )}
-      {predictMutation.isSuccess && predictMutation.data && (
+      {predictMutation.isSuccess && predictMutation.data ? (
         <div className="mt-3 p-3 bg-muted rounded-lg border border-border">
-          <pre className="text-xs max-h-48 overflow-auto font-mono">{JSON.stringify(predictMutation.data, null, 2)}</pre>
+          <pre className="text-xs max-h-48 overflow-auto font-mono">{JSON.stringify(predictMutation.data as Record<string, unknown>, null, 2)}</pre>
         </div>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <EnhancedErrorBoundary
+      onError={(error, errorInfo) => {
+        logger.error("Dashboard error", { error, errorInfo });
+        // Error reporting would go here (Sentry, etc.)
+      }}
+    >
+      <DashboardContent />
+    </EnhancedErrorBoundary>
   );
 }

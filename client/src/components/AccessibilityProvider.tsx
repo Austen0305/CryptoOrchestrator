@@ -3,10 +3,10 @@
  * Provides comprehensive accessibility features
  */
 
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode } from "react";
 
 interface AccessibilityContextType {
-  announce: (message: string, priority?: 'polite' | 'assertive') => void;
+  announce: (message: string, priority?: "polite" | "assertive") => void;
   skipToContent: () => void;
   reduceMotion: boolean;
   highContrast: boolean;
@@ -20,22 +20,22 @@ interface AccessibilityProviderProps {
 
 export function AccessibilityProvider({ children }: AccessibilityProviderProps) {
   // Check for reduced motion preference
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   // Check for high contrast preference
-  const highContrast = window.matchMedia('(prefers-contrast: high)').matches;
+  const highContrast = window.matchMedia("(prefers-contrast: high)").matches;
 
   // Announce messages to screen readers
-  const announce = (message: string, priority: 'polite' | 'assertive' = 'polite') => {
-    const announcement = document.createElement('div');
-    announcement.setAttribute('role', 'status');
-    announcement.setAttribute('aria-live', priority);
-    announcement.setAttribute('aria-atomic', 'true');
-    announcement.className = 'sr-only';
+  const announce = (message: string, priority: "polite" | "assertive" = "polite") => {
+    const announcement = document.createElement("div");
+    announcement.setAttribute("role", "status");
+    announcement.setAttribute("aria-live", priority);
+    announcement.setAttribute("aria-atomic", "true");
+    announcement.className = "sr-only";
     announcement.textContent = message;
-    
+
     document.body.appendChild(announcement);
-    
+
     // Remove after announcement
     setTimeout(() => {
       document.body.removeChild(announcement);
@@ -44,28 +44,28 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
 
   // Skip to main content
   const skipToContent = () => {
-    const mainContent = document.getElementById('main-content');
+    const mainContent = document.getElementById("main-content");
     if (mainContent) {
       mainContent.focus();
-      mainContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      mainContent.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
   // Apply reduced motion styles
   useEffect(() => {
     if (reduceMotion) {
-      document.documentElement.classList.add('reduce-motion');
+      document.documentElement.classList.add("reduce-motion");
     } else {
-      document.documentElement.classList.remove('reduce-motion');
+      document.documentElement.classList.remove("reduce-motion");
     }
   }, [reduceMotion]);
 
   // Apply high contrast styles
   useEffect(() => {
     if (highContrast) {
-      document.documentElement.classList.add('high-contrast');
+      document.documentElement.classList.add("high-contrast");
     } else {
-      document.documentElement.classList.remove('high-contrast');
+      document.documentElement.classList.remove("high-contrast");
     }
   }, [highContrast]);
 
@@ -73,10 +73,12 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
   useEffect(() => {
     const handleKeyboardNavigation = (e: KeyboardEvent) => {
       // Escape key to close modals
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         const activeModal = document.querySelector('[role="dialog"][aria-modal="true"]');
         if (activeModal) {
-          const closeButton = activeModal.querySelector('button[aria-label*="close" i], button[aria-label*="Close" i]');
+          const closeButton = activeModal.querySelector(
+            'button[aria-label*="close" i], button[aria-label*="Close" i]'
+          );
           if (closeButton instanceof HTMLElement) {
             closeButton.click();
           }
@@ -84,7 +86,7 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
       }
 
       // Tab navigation - trap focus in modals
-      if (e.key === 'Tab') {
+      if (e.key === "Tab") {
         const activeModal = document.querySelector('[role="dialog"][aria-modal="true"]');
         if (activeModal) {
           const focusableElements = activeModal.querySelectorAll(
@@ -104,8 +106,8 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
       }
     };
 
-    document.addEventListener('keydown', handleKeyboardNavigation);
-    return () => document.removeEventListener('keydown', handleKeyboardNavigation);
+    document.addEventListener("keydown", handleKeyboardNavigation);
+    return () => document.removeEventListener("keydown", handleKeyboardNavigation);
   }, []);
 
   const value: AccessibilityContextType = {
@@ -115,11 +117,7 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
     highContrast,
   };
 
-  return (
-    <AccessibilityContext.Provider value={value}>
-      {children}
-    </AccessibilityContext.Provider>
-  );
+  return <AccessibilityContext.Provider value={value}>{children}</AccessibilityContext.Provider>;
 }
 
 /**
@@ -128,8 +126,7 @@ export function AccessibilityProvider({ children }: AccessibilityProviderProps) 
 export function useAccessibility() {
   const context = useContext(AccessibilityContext);
   if (!context) {
-    throw new Error('useAccessibility must be used within AccessibilityProvider');
+    throw new Error("useAccessibility must be used within AccessibilityProvider");
   }
   return context;
 }
-

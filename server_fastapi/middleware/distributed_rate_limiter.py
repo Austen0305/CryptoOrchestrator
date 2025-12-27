@@ -54,7 +54,7 @@ class DistributedRateLimiter:
             await self.redis.ping()
             self.connected = True
             logger.info(
-                f"✅ Distributed rate limiter connected to Redis at {self.redis_url}"
+                f"[OK] Distributed rate limiter connected to Redis at {self.redis_url}"
             )
         except Exception as e:
             logger.warning(f"Redis connection failed, using in-memory fallback: {e}")

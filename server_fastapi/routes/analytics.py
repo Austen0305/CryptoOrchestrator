@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from server_fastapi.services.analytics_engine import AnalyticsEngine
@@ -8,6 +8,9 @@ from server_fastapi.services.advanced_analytics_engine import AdvancedAnalyticsE
 from server_fastapi.services.monitoring.performance_monitor import PerformanceMonitor
 from server_fastapi.dependencies.auth import get_current_user
 from server_fastapi.database import get_db_session
+from server_fastapi.middleware.cache_manager import cached
+from server_fastapi.utils.route_helpers import _get_user_id
+from server_fastapi.utils.response_optimizer import ResponseOptimizer
 from datetime import datetime, timedelta
 
 try:
@@ -161,16 +164,15 @@ class AssetAllocation(BaseModel):
 
 
 @router.get("/summary")
+@cached(ttl=120, prefix="analytics_summary")
 async def get_analytics_summary(
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> AnalyticsSummary:
     """Get overall analytics summary from database"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
         # Get real data from database
         analytics_result = await engine.analyze(
@@ -188,37 +190,28 @@ async def get_analytics_summary(
             best_performing_bot=summary.get("best_performing_bot"),
             worst_performing_bot=summary.get("worst_performing_bot"),
         )
-        user_id = current_user.get("id")
-        analytics_result = await engine.analyze({"user_id": user_id, "type": "summary"})
-
-        return AnalyticsSummary(
-            total_bots=analytics_result.summary.get("total_bots", 5),
-            active_bots=analytics_result.summary.get("active_bots", 2),
-            total_trades=analytics_result.summary.get("total_trades", 245),
-            total_pnl=analytics_result.summary.get("total_pnl", 3250.75),
-            win_rate=analytics_result.summary.get("win_rate", 0.612),
-            best_performing_bot=analytics_result.summary.get(
-                "best_performing_bot", "bot-1"
-            ),
-            worst_performing_bot=analytics_result.summary.get(
-                "worst_performing_bot", "bot-3"
-            ),
-        )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting analytics summary: {e}")
+        logger.error(
+            f"Error getting analytics summary: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get analytics summary")
 
 
 @router.get("/performance")
+@cached(ttl=120, prefix="analytics_performance")
 async def get_performance_metrics(
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     bot_id: Optional[str] = Query(None, description="Filter by specific bot ID"),
     period: str = Query("30d", description="Time period (1d, 7d, 30d, 90d, 1y)"),
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> List[PerformanceMetrics]:
     """Get performance metrics for bots"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         analytics_result = await engine.analyze(
             {
                 "user_id": user_id,
@@ -268,19 +261,26 @@ async def get_performance_metrics(
             )
 
         return metrics
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting performance metrics: {e}")
+        logger.error(
+            f"Error getting performance metrics: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get performance metrics")
 
 
 @router.get("/risk")
+@cached(ttl=120, prefix="analytics_risk")
 async def get_risk_metrics(
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> RiskMetrics:
     """Get portfolio risk metrics"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         analytics_result = await engine.analyze({"user_id": user_id, "type": "risk"})
 
         return RiskMetrics(
@@ -294,28 +294,35 @@ async def get_risk_metrics(
             volatility=analytics_result.summary.get("volatility", 0.024),
             sharpe_ratio=analytics_result.summary.get("sharpe_ratio", 1.65),
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting risk metrics: {e}")
+        logger.error(
+            f"Error getting risk metrics: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get risk metrics")
 
 
 @router.get("/trades")
+@cached(ttl=60, prefix="analytics_trades")
 async def get_trade_history(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
     symbol: Optional[str] = Query(None, description="Filter by trading symbol"),
-    limit: int = Query(50, description="Number of trades to return", ge=1, le=500),
-    offset: int = Query(0, description="Number of trades to skip", ge=0),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=500, description="Items per page"),
 ) -> List[TradeRecord]:
-    """Get trade history from database"""
+    """Get trade history from database with pagination"""
     try:
-        from sqlalchemy import select
+        from sqlalchemy import select, func
         from ..models.trade import Trade
+        from ..utils.query_optimizer import QueryOptimizer
 
-        user_id = current_user.get("id") or current_user.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
+        offset = (page - 1) * page_size
 
         # Build query
         query = select(Trade).where(Trade.user_id == user_id)
@@ -332,8 +339,19 @@ async def get_trade_history(
             else Trade.timestamp.desc()
         )
 
-        # Apply pagination
-        query = query.offset(offset).limit(limit)
+        # Apply pagination using QueryOptimizer
+        query = QueryOptimizer.paginate_query(query, page=page, page_size=page_size)
+
+        # Get total count for pagination metadata
+        count_query = (
+            select(func.count()).select_from(Trade).where(Trade.user_id == user_id)
+        )
+        if bot_id:
+            count_query = count_query.where(Trade.bot_id == bot_id)
+        if symbol:
+            count_query = count_query.where(Trade.symbol == symbol)
+        total_result = await db_session.execute(count_query)
+        total = total_result.scalar() or 0
 
         # Execute query
         result = await db_session.execute(query)
@@ -358,79 +376,90 @@ async def get_trade_history(
                 )
             )
 
-        return trade_records
+        # Return paginated response
+        paginated_response = ResponseOptimizer.paginate_response(
+            trade_records, page, page_size, total
+        )
+        return paginated_response["data"]
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting trade history: {e}", exc_info=True)
+        logger.error(
+            f"Error getting trade history: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get trade history")
 
 
 @router.get("/pnl-chart")
+@cached(ttl=300, prefix="analytics_pnl_chart")
 async def get_pnl_chart(
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
     bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
     period: str = Query("30d", description="Time period"),
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
 ) -> List[Dict[str, Any]]:
     """Get PnL chart data from database"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="User not authenticated")
+        user_id = _get_user_id(current_user)
 
-            # Get database session and analyze
-            analytics_result = await engine.analyze(
-                {
-                    "user_id": user_id,
-                    "type": "pnl_chart",
-                    "bot_id": bot_id,
-                    "period": period,
-                },
-                db_session=db_session,
-            )
+        # Get database session and analyze
+        analytics_result = await engine.analyze(
+            {
+                "user_id": user_id,
+                "type": "pnl_chart",
+                "bot_id": bot_id,
+                "period": period,
+            },
+            db_session=db_session,
+        )
 
-            # Use real data from analytics engine
-            chart_data = analytics_result.get("chart_data", [])
+        # Use real data from analytics engine
+        chart_data = analytics_result.get("chart_data", [])
 
-            # In production, return empty data if no trades found
-            if not chart_data:
-                from ..config.settings import get_settings
+        # In production, return empty data if no trades found
+        if not chart_data:
+            from ..config.settings import get_settings
 
-                settings = get_settings()
-                if settings.production_mode or settings.is_production:
-                    return []
+            settings = get_settings()
+            if settings.production_mode or settings.is_production:
+                return []
+            else:
+                # Development fallback only
+                end_date = datetime.now()
+                if period == "7d":
+                    days = 7
+                elif period == "30d":
+                    days = 30
+                elif period == "90d":
+                    days = 90
                 else:
-                    # Development fallback only
-                    end_date = datetime.now()
-                    if period == "7d":
-                        days = 7
-                    elif period == "30d":
-                        days = 30
-                    elif period == "90d":
-                        days = 90
-                    else:
-                        days = 30
+                    days = 30
 
-                chart_data = []
-                cumulative_pnl = 0.0
-                for i in range(days):
-                    date = end_date - timedelta(days=days - i - 1)
-                    daily_pnl = (i % 5 - 2) * 50.0  # Mock daily PnL
-                    cumulative_pnl += daily_pnl
+            chart_data = []
+            cumulative_pnl = 0.0
+            for i in range(days):
+                date = end_date - timedelta(days=days - i - 1)
+                daily_pnl = (i % 5 - 2) * 50.0  # Mock daily PnL
+                cumulative_pnl += daily_pnl
 
-                    chart_data.append(
-                        {
-                            "date": date.strftime("%Y-%m-%d"),
-                            "daily_pnl": daily_pnl,
-                            "cumulative_pnl": cumulative_pnl,
-                        }
-                    )
+                chart_data.append(
+                    {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "daily_pnl": daily_pnl,
+                        "cumulative_pnl": cumulative_pnl,
+                    }
+                )
 
         return chart_data
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting PnL chart: {e}")
+        logger.error(
+            f"Error getting PnL chart: {e}", exc_info=True, extra={"user_id": user_id}
+        )
         raise HTTPException(status_code=500, detail="Failed to get PnL chart")
 
 
@@ -441,27 +470,72 @@ async def get_win_rate_chart(
 ) -> List[Dict[str, Any]]:
     """Get win rate chart data over time"""
     try:
-        # Mock data - in real implementation, calculate rolling win rate
-        end_date = datetime.now()
-        if period == "7d":
-            days = 7
-        elif period == "30d":
-            days = 30
-        elif period == "90d":
-            days = 90
-        else:
-            days = 30
-
-        chart_data = []
-
-        for i in range(days):
-            date = end_date - timedelta(days=days - i - 1)
-            # Mock win rate between 50-70%
-            win_rate = 0.5 + 0.2 * (i % 3 - 1) * 0.1
-
-            chart_data.append({"date": date.strftime("%Y-%m-%d"), "win_rate": win_rate})
-
-        return chart_data
+        user_id = _get_user_id(current_user)
+        
+        # Calculate real win rate from trades
+        try:
+            from ..repositories.trade_repository import TradeRepository
+            from ..database import get_db_context
+            
+            end_date = datetime.now()
+            if period == "7d":
+                days = 7
+            elif period == "30d":
+                days = 30
+            elif period == "90d":
+                days = 90
+            else:
+                days = 30
+            
+            start_date = end_date - timedelta(days=days)
+            
+            async with get_db_context() as session:
+                trade_repo = TradeRepository()
+                # Get trades for user with reasonable limit for chart calculations
+                # Limit to last 1000 trades to prevent performance issues
+                trades = await trade_repo.get_by_user(session, int(user_id), skip=0, limit=1000)
+                
+                # Filter trades by period
+                period_trades = [
+                    t for t in trades
+                    if (t.executed_at or t.timestamp or t.created_at) and 
+                       (t.executed_at or t.timestamp or t.created_at) >= start_date
+                ]
+                
+                # Calculate win rate per day
+                chart_data = []
+                for i in range(days):
+                    date = end_date - timedelta(days=days - i - 1)
+                    day_start = datetime.combine(date.date(), datetime.min.time())
+                    day_end = day_start + timedelta(days=1)
+                    
+                    day_trades = [
+                        t for t in period_trades
+                        if (t.executed_at or t.timestamp or t.created_at) and 
+                           day_start <= (t.executed_at or t.timestamp or t.created_at) < day_end
+                    ]
+                    
+                    if day_trades:
+                        winning = sum(1 for t in day_trades if t.pnl and t.pnl > 0)
+                        win_rate = winning / len(day_trades)
+                    else:
+                        win_rate = 0.0
+                    
+                    chart_data.append({
+                        "date": date.strftime("%Y-%m-%d"),
+                        "win_rate": win_rate
+                    })
+                
+                return chart_data
+        except Exception as calc_error:
+            logger.warning(f"Failed to calculate win rate chart: {calc_error}")
+            # Return empty data instead of mock data
+            end_date = datetime.now()
+            days = 30 if period not in ["7d", "30d", "90d"] else (7 if period == "7d" else (30 if period == "30d" else 90))
+            return [
+                {"date": (end_date - timedelta(days=days - i - 1)).strftime("%Y-%m-%d"), "win_rate": 0.0}
+                for i in range(days)
+            ]
     except Exception as e:
         logger.error(f"Error getting win rate chart: {e}")
         raise HTTPException(status_code=500, detail="Failed to get win rate chart")
@@ -474,20 +548,81 @@ async def get_drawdown_chart(
 ) -> List[Dict[str, Any]]:
     """Get drawdown chart data"""
     try:
-        # Mock data - in real implementation, calculate drawdown from equity curve
-        end_date = datetime.now()
-        if period == "7d":
-            days = 7
-        elif period == "30d":
-            days = 30
-        elif period == "90d":
-            days = 90
-        else:
-            days = 30
-
-        chart_data = []
-        peak = 100000.0
-        current_value = 100000.0
+        user_id = _get_user_id(current_user)
+        
+        # Calculate real drawdown from trade history
+        try:
+            from ..repositories.trade_repository import TradeRepository
+            from ..database import get_db_context
+            
+            end_date = datetime.now()
+            if period == "7d":
+                days = 7
+            elif period == "30d":
+                days = 30
+            elif period == "90d":
+                days = 90
+            else:
+                days = 30
+            
+            start_date = end_date - timedelta(days=days)
+            
+            async with get_db_context() as session:
+                trade_repo = TradeRepository()
+                trades = await trade_repo.get_by_user_id(session, user_id)
+                
+                # Filter trades by period and bot if specified
+                period_trades = [
+                    t for t in trades
+                    if t.executed_at and t.executed_at >= start_date
+                    and (not bot_id or str(t.bot_id) == bot_id)
+                ]
+                
+                # Calculate cumulative P&L over time
+                chart_data = []
+                cumulative_pnl = 0.0
+                peak = 0.0
+                
+                # Group trades by day
+                for i in range(days):
+                    date = end_date - timedelta(days=days - i - 1)
+                    day_start = datetime.combine(date.date(), datetime.min.time())
+                    day_end = day_start + timedelta(days=1)
+                    
+                    day_trades = [
+                        t for t in period_trades
+                        if (t.executed_at or t.timestamp or t.created_at) and 
+                           day_start <= (t.executed_at or t.timestamp or t.created_at) < day_end
+                    ]
+                    
+                    # Add P&L for this day
+                    day_pnl = sum((t.pnl or 0.0) for t in day_trades)
+                    cumulative_pnl += day_pnl
+                    peak = max(peak, cumulative_pnl)
+                    
+                    # Calculate drawdown
+                    drawdown = (peak - cumulative_pnl) / peak if peak > 0 else 0.0
+                    
+                    chart_data.append({
+                        "date": date.strftime("%Y-%m-%d"),
+                        "drawdown": drawdown,
+                        "value": cumulative_pnl,
+                    })
+                
+                return chart_data
+        except Exception as calc_error:
+            logger.warning(f"Failed to calculate drawdown chart: {calc_error}")
+            # Return empty data instead of mock data
+            end_date = datetime.now()
+            days = 30 if period not in ["7d", "30d", "90d"] else (7 if period == "7d" else (30 if period == "30d" else 90))
+            return [
+                {
+                    "date": (end_date - timedelta(days=days - i - 1)).strftime("%Y-%m-%d"),
+                    "drawdown": 0.0,
+                    "value": 0.0,
+                }
+                for i in range(days)
+            ]
 
         for i in range(days):
             date = end_date - timedelta(days=days - i - 1)
@@ -513,14 +648,15 @@ async def get_drawdown_chart(
 
 
 @router.get("/portfolio")
+@cached(ttl=120, prefix="analytics_portfolio")
 async def get_portfolio_analytics(
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period (1d, 7d, 30d, 90d, 1y)"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> PortfolioAnalytics:
     """Get portfolio analytics"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         analytics_result = await engine.analyze(
             {"user_id": user_id, "type": "portfolio", "period": period}
         )
@@ -540,21 +676,28 @@ async def get_portfolio_analytics(
                 "risk_adjusted_return", 1.2
             ),
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting portfolio analytics: {e}")
+        logger.error(
+            f"Error getting portfolio analytics: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get portfolio analytics")
 
 
 @router.get("/backtesting/{strategy_id}")
+@cached(ttl=300, prefix="analytics_backtest")
 async def get_backtesting_results(
     strategy_id: str,
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     backtest_id: Optional[str] = Query(None, description="Specific backtest ID"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> BacktestResult:
     """Get backtesting results for a strategy"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         analytics_result = await engine.analyze(
             {
                 "user_id": user_id,
@@ -586,22 +729,30 @@ async def get_backtesting_results(
             initial_balance=backtest_data.get("initial_balance", 10000.0),
             final_balance=backtest_data.get("final_balance", 10000.0),
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting backtesting results: {e}")
+        logger.error(
+            f"Error getting backtesting results: {e}",
+            exc_info=True,
+            extra={"user_id": user_id, "strategy_id": strategy_id},
+        )
+        raise HTTPException(status_code=500, detail="Failed to get backtesting results")
 
 
 @router.get("/backtesting/compare")
+@cached(ttl=300, prefix="analytics_backtest_compare")
 async def compare_backtesting_results(
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     strategy_ids: List[str] = Query(..., description="List of strategy IDs to compare"),
     backtest_ids: Optional[List[str]] = Query(
         None, description="Specific backtest IDs for each strategy"
     ),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> List[BacktestResult]:
     """Compare backtesting results across multiple strategies"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         comparison_results = []
 
         for i, strategy_id in enumerate(strategy_ids):
@@ -645,23 +796,30 @@ async def compare_backtesting_results(
             )
 
         return comparison_results
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error comparing backtesting results: {e}")
+        logger.error(
+            f"Error comparing backtesting results: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(
             status_code=500, detail="Failed to compare backtesting results"
         )
 
 
 @router.get("/backtesting/performance-metrics")
+@cached(ttl=300, prefix="analytics_backtest_metrics")
 async def get_backtesting_performance_metrics(
     strategy_id: str,
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     backtest_id: Optional[str] = Query(None, description="Specific backtest ID"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Get detailed performance metrics for a backtest"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
         analytics_result = await engine.analyze(
             {
                 "user_id": user_id,
@@ -718,8 +876,14 @@ async def get_backtesting_performance_metrics(
                 ),
             },
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting backtesting performance metrics: {e}")
+        logger.error(
+            f"Error getting backtesting performance metrics: {e}",
+            exc_info=True,
+            extra={"user_id": user_id, "strategy_id": strategy_id},
+        )
         raise HTTPException(
             status_code=500, detail="Failed to get backtesting performance metrics"
         )
@@ -729,16 +893,19 @@ async def get_backtesting_performance_metrics(
 
 
 @router.get("/dashboard/summary")
+@cached(ttl=60, prefix="analytics_dashboard_summary")
 async def get_dashboard_summary(
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    advanced_engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    advanced_engine: Annotated[
+        AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)
+    ],
+    monitor: Annotated[PerformanceMonitor, Depends(get_performance_monitor)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> DashboardSummary:
     """Get comprehensive dashboard summary with real-time metrics"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get portfolio analytics
         portfolio_result = await advanced_engine._analyze_portfolio(user_id, "1d")
@@ -776,20 +943,26 @@ async def get_dashboard_summary(
             market_sentiment=market_sentiment,
             last_updated=datetime.now(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting dashboard summary: {e}")
+        logger.error(
+            f"Error getting dashboard summary: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get dashboard summary")
 
 
 @router.get("/dashboard/realtime")
 async def get_realtime_metrics(
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    monitor: PerformanceMonitor = Depends(get_performance_monitor),
-    current_user: dict = Depends(get_current_user),
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    monitor: Annotated[PerformanceMonitor, Depends(get_performance_monitor)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> RealTimeMetrics:
     """Get real-time trading and performance metrics"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get system metrics
         system_metrics = await monitor.collect_system_metrics()
@@ -829,20 +1002,27 @@ async def get_realtime_metrics(
             system_health=system_health,
             last_update=datetime.now(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting realtime metrics: {e}")
+        logger.error(
+            f"Error getting realtime metrics: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get realtime metrics")
 
 
 @router.get("/dashboard/charts/portfolio-performance")
+@cached(ttl=300, prefix="analytics_portfolio_chart")
 async def get_portfolio_performance_chart(
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period (1d, 7d, 30d, 90d, 1y)"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> PerformanceChartData:
     """Get portfolio performance chart data optimized for visualization"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Parse period
         days = 30
@@ -902,37 +1082,74 @@ async def get_portfolio_performance_chart(
                 },
             ],
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting portfolio performance chart: {e}")
+        logger.error(
+            f"Error getting portfolio performance chart: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(
             status_code=500, detail="Failed to get portfolio performance chart"
         )
 
 
 @router.get("/dashboard/charts/asset-allocation")
+@cached(ttl=300, prefix="analytics_asset_allocation")
 async def get_asset_allocation_chart(
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> List[AssetAllocation]:
     """Get current asset allocation for pie chart visualization"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get portfolio analytics
         portfolio_result = await engine._analyze_portfolio(user_id, "1d")
         portfolio_data = portfolio_result.details if portfolio_result else {}
 
-        # Mock asset allocation data (would be from real portfolio)
-        assets = [
-            {"asset": "BTC", "percentage": 0.45, "value": 45000.0, "pnl": 2500.0},
-            {"asset": "ETH", "percentage": 0.30, "value": 30000.0, "pnl": -500.0},
-            {"asset": "ADA", "percentage": 0.15, "value": 15000.0, "pnl": 800.0},
-            {"asset": "SOL", "percentage": 0.10, "value": 10000.0, "pnl": 1200.0},
-        ]
-
-        return [AssetAllocation(**asset) for asset in assets]
+        # Get real asset allocation from portfolio
+        try:
+            from ..routes.portfolio import get_portfolio
+            from ..dependencies.pnl import get_pnl_service
+            from ..services.pnl_service import PnLService
+            
+            # Get asset allocation from portfolio data if available
+            # Note: Full integration would require calling portfolio API endpoint
+            # For now, calculate from available portfolio_data positions
+            if portfolio_data and isinstance(portfolio_data, dict):
+                positions = portfolio_data.get("positions", {})
+                if positions:
+                    # Convert positions to allocation format
+                    allocation = []
+                    total_value = sum(
+                        pos.get("totalValue", 0.0) if isinstance(pos, dict) else 0.0
+                        for pos in positions.values()
+                    )
+                    if total_value > 0:
+                        for asset, pos in positions.items():
+                            if isinstance(pos, dict):
+                                value = pos.get("totalValue", 0.0)
+                                allocation.append({
+                                    "asset": asset,
+                                    "allocation": (value / total_value) * 100,
+                                    "value": value,
+                                })
+                    return allocation
+            return []
+        except Exception as e:
+            logger.warning(f"Failed to get asset allocation: {e}")
+            # Return empty allocation instead of mock data
+            return []
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting asset allocation chart: {e}")
+        logger.error(
+            f"Error getting asset allocation chart: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(
             status_code=500, detail="Failed to get asset allocation chart"
         )
@@ -940,13 +1157,13 @@ async def get_asset_allocation_chart(
 
 @router.get("/dashboard/charts/correlation-matrix")
 async def get_correlation_matrix_data(
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     assets: List[str] = Query(None, description="List of asset symbols"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> CorrelationMatrix:
     """Get correlation matrix data for risk analysis visualization"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Default assets if none provided
         if not assets:
@@ -968,20 +1185,27 @@ async def get_correlation_matrix_data(
             matrix.append(row)
 
         return CorrelationMatrix(assets=assets, matrix=matrix)
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting correlation matrix: {e}")
+        logger.error(
+            f"Error getting correlation matrix: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get correlation matrix")
 
 
 @router.get("/dashboard/charts/risk-metrics")
+@cached(ttl=300, prefix="analytics_risk_chart")
 async def get_risk_metrics_chart(
+    engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period"),
-    engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> PerformanceChartData:
     """Get risk metrics chart data for visualization"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get risk analysis
         risk_result = await engine._analyze_risk(user_id)
@@ -1045,20 +1269,27 @@ async def get_risk_metrics_chart(
                 },
             ],
         )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting risk metrics chart: {e}")
+        logger.error(
+            f"Error getting risk metrics chart: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get risk metrics chart")
 
 
 @router.get("/dashboard/charts/bot-performance-comparison")
+@cached(ttl=300, prefix="analytics_bot_comparison")
 async def get_bot_performance_comparison_chart(
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period"),
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> PerformanceChartData:
     """Get bot performance comparison chart data"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get performance data for all bots
         performance_result = await engine.analyze(
@@ -1101,73 +1332,123 @@ async def get_bot_performance_comparison_chart(
 
 
 @router.get("/dashboard/charts/trade-distribution")
+@cached(ttl=300, prefix="analytics_trade_distribution")
 async def get_trade_distribution_chart(
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period"),
-    current_user: dict = Depends(get_current_user),
 ) -> PerformanceChartData:
     """Get trade distribution chart data (by hour, day, symbol)"""
     try:
-        # Mock trade distribution data (would be from actual trade logs)
-        hours = [f"{i:02d}:00" for i in range(24)]
-        if PANDAS_AVAILABLE:
-            trades_by_hour = [
-                np.random.poisson(5) for _ in range(24)
-            ]  # Poisson distribution
-            trades_by_day = [np.random.poisson(20) for _ in range(7)]
-            trades_by_symbol = [np.random.poisson(15) for _ in range(5)]
-        else:
-            import random
-
-            trades_by_hour = [max(0, int(random.gauss(5, 2))) for _ in range(24)]
-            trades_by_day = [max(0, int(random.gauss(20, 5))) for _ in range(7)]
-            trades_by_symbol = [max(0, int(random.gauss(15, 4))) for _ in range(5)]
-
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
-
-        return PerformanceChartData(
-            labels=hours + days + symbols,
-            datasets=[
-                {
-                    "label": "Trades by Hour",
-                    "data": trades_by_hour + [0] * (len(days) + len(symbols)),
-                    "backgroundColor": "rgba(153, 102, 255, 0.6)",
-                    "borderColor": "rgba(153, 102, 255, 1)",
-                    "type": "bar",
-                },
-                {
-                    "label": "Trades by Day",
-                    "data": [0] * len(hours) + trades_by_day + [0] * len(symbols),
-                    "backgroundColor": "rgba(255, 159, 64, 0.6)",
-                    "borderColor": "rgba(255, 159, 64, 1)",
-                    "type": "bar",
-                },
-                {
-                    "label": "Trades by Symbol",
-                    "data": [0] * (len(hours) + len(days)) + trades_by_symbol,
-                    "backgroundColor": "rgba(54, 162, 235, 0.6)",
-                    "borderColor": "rgba(54, 162, 235, 1)",
-                    "type": "bar",
-                },
-            ],
-        )
+        user_id = _get_user_id(current_user)
+        
+        # Get real trade distribution from database
+        try:
+            from ..repositories.trade_repository import TradeRepository
+            from ..database import get_db_context
+            
+            hours = [f"{i:02d}:00" for i in range(24)]
+            days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
+            
+            async with get_db_context() as session:
+                trade_repo = TradeRepository()
+                # Get trades for user with reasonable limit for chart calculations
+                # Limit to last 1000 trades to prevent performance issues
+                trades = await trade_repo.get_by_user(session, int(user_id), skip=0, limit=1000)
+                
+                # Calculate trades by hour
+                trades_by_hour = [0] * 24
+                for trade in trades:
+                    if trade.executed_at:
+                        hour = trade.executed_at.hour
+                        trades_by_hour[hour] += 1
+                
+                # Calculate trades by day of week
+                trades_by_day = [0] * 7
+                for trade in trades:
+                    if trade.executed_at:
+                        day_of_week = trade.executed_at.weekday()
+                        trades_by_day[day_of_week] += 1
+                
+                # Calculate trades by symbol
+                trades_by_symbol = [0] * len(symbols)
+                for trade in trades:
+                    if trade.pair:
+                        for idx, symbol in enumerate(symbols):
+                            if symbol in trade.pair or trade.pair in symbol:
+                                trades_by_symbol[idx] += 1
+                                break
+                
+                return PerformanceChartData(
+                    labels=hours + days + symbols,
+                    datasets=[
+                        {
+                            "label": "Trades by Hour",
+                            "data": trades_by_hour + [0] * (len(days) + len(symbols)),
+                            "backgroundColor": "rgba(153, 102, 255, 0.6)",
+                            "borderColor": "rgba(153, 102, 255, 1)",
+                            "type": "bar",
+                        },
+                        {
+                            "label": "Trades by Day",
+                            "data": [0] * len(hours) + trades_by_day + [0] * len(symbols),
+                            "backgroundColor": "rgba(255, 159, 64, 0.6)",
+                            "borderColor": "rgba(255, 159, 64, 1)",
+                            "type": "bar",
+                        },
+                        {
+                            "label": "Trades by Symbol",
+                            "data": [0] * (len(hours) + len(days)) + trades_by_symbol,
+                            "backgroundColor": "rgba(54, 162, 235, 0.6)",
+                            "borderColor": "rgba(54, 162, 235, 1)",
+                            "type": "bar",
+                        },
+                    ],
+                )
+        except Exception as e:
+            logger.warning(f"Failed to get trade distribution: {e}")
+            # Return empty data instead of mock data
+            hours = [f"{i:02d}:00" for i in range(24)]
+            days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
+            return PerformanceChartData(
+                labels=hours + days + symbols,
+                datasets=[
+                    {
+                        "label": "Trades by Hour",
+                        "data": [0] * (len(hours) + len(days) + len(symbols)),
+                        "backgroundColor": "rgba(153, 102, 255, 0.6)",
+                        "borderColor": "rgba(153, 102, 255, 1)",
+                        "type": "bar",
+                    },
+                ],
+            )
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting trade distribution chart: {e}")
+        logger.error(
+            f"Error getting trade distribution chart: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(
             status_code=500, detail="Failed to get trade distribution chart"
         )
 
 
 @router.get("/dashboard/kpis")
+@cached(ttl=60, prefix="analytics_kpis")
 async def get_key_performance_indicators(
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    advanced_engine: Annotated[
+        AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)
+    ],
+    current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period"),
-    engine: AnalyticsEngine = Depends(get_analytics_engine),
-    advanced_engine: AdvancedAnalyticsEngine = Depends(get_advanced_analytics_engine),
-    current_user: dict = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Get key performance indicators for dashboard"""
     try:
-        user_id = current_user.get("id")
+        user_id = _get_user_id(current_user)
 
         # Get various analytics data
         summary_result = await engine.analyze({"user_id": user_id, "type": "summary"})
@@ -1219,49 +1500,414 @@ async def get_key_performance_indicators(
         }
 
         return kpis
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting KPIs: {e}")
+        logger.error(
+            f"Error getting KPIs: {e}", exc_info=True, extra={"user_id": user_id}
+        )
         raise HTTPException(status_code=500, detail="Failed to get KPIs")
 
 
 @router.get("/dashboard/alerts-summary")
 async def get_alerts_summary(
-    current_user: dict = Depends(get_current_user),
+    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """Get summary of active alerts and notifications"""
     try:
-        # This would integrate with the notification service
-        # For now, return mock data
-        alerts = {"critical": 2, "warning": 5, "info": 12, "total_unread": 19}
+        user_id = _get_user_id(current_user)
 
-        recent_alerts = [
-            {
-                "id": "alert-1",
-                "title": "High Volatility Detected",
-                "message": "BTC/USD volatility exceeded 5% threshold",
-                "level": "warning",
-                "timestamp": datetime.now().isoformat(),
-                "category": "risk",
-            },
-            {
-                "id": "alert-2",
-                "title": "Bot Performance Alert",
-                "message": "Bot-1 win rate dropped below 40%",
-                "level": "critical",
-                "timestamp": (datetime.now() - timedelta(minutes=30)).isoformat(),
-                "category": "bot",
-            },
-            {
-                "id": "alert-3",
-                "title": "Portfolio Rebalancing Needed",
-                "message": "Asset allocation deviated by 15% from target",
-                "level": "info",
-                "timestamp": (datetime.now() - timedelta(hours=2)).isoformat(),
-                "category": "portfolio",
-            },
-        ]
+        # Get real alerts from database
+        try:
+            from ..models.risk_alert import RiskAlert
+            from sqlalchemy import select, desc
+            from ..database import get_db_context
+            
+            async with get_db_context() as session:
+                # Query alerts directly if repository doesn't exist
+                query = (
+                    select(RiskAlert)
+                    .where(RiskAlert.user_id == str(user_id))
+                    .order_by(desc(RiskAlert.created_at))
+                    .limit(50)
+                )
+                result = await session.execute(query)
+                alerts_list = result.scalars().all()
+                
+                # Count alerts by level
+                alerts = {
+                    "critical": sum(1 for a in alerts_list if a.severity == "high"),
+                    "warning": sum(1 for a in alerts_list if a.severity == "medium"),
+                    "info": sum(1 for a in alerts_list if a.severity == "low"),
+                    "total_unread": len([a for a in alerts_list if not a.read]),
+                }
+                
+                # Get recent alerts
+                recent_alerts = [
+                    {
+                        "id": f"alert-{a.id}",
+                        "title": a.alert_type or "Alert",
+                        "message": a.message or "",
+                        "level": "critical" if a.severity == "high" else ("warning" if a.severity == "medium" else "info"),
+                        "timestamp": a.created_at.isoformat() if hasattr(a.created_at, "isoformat") else str(a.created_at),
+                        "category": a.alert_type or "general",
+                    }
+                    for a in alerts_list[:10]
+                ]
+        except Exception as e:
+            logger.warning(f"Failed to get alerts: {e}")
+            # Return empty alerts instead of mock data
+            alerts = {"critical": 0, "warning": 0, "info": 0, "total_unread": 0}
+            recent_alerts = []
 
         return {"alert_counts": alerts, "recent_alerts": recent_alerts}
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error getting alerts summary: {e}")
+        logger.error(
+            f"Error getting alerts summary: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
         raise HTTPException(status_code=500, detail="Failed to get alerts summary")
+
+
+# ===== PERFORMANCE ATTRIBUTION API =====
+
+class AttributionData(BaseModel):
+    strategy: str
+    alpha: float
+    beta: float
+    sharpe: float
+    informationRatio: float
+    contribution: float
+    trades: int
+    winRate: float
+    avgReturn: float
+
+
+class CumulativeReturn(BaseModel):
+    month: str
+    returns: float
+    benchmark: float
+    alpha: float
+
+
+class FactorAnalysis(BaseModel):
+    factor: str
+    exposure: float
+    contribution: float
+    color: str
+
+
+class PerformanceAttributionResponse(BaseModel):
+    attribution: List[AttributionData]
+    cumulativeReturns: List[CumulativeReturn]
+    factorAnalysis: List[FactorAnalysis]
+
+
+@router.get(
+    "/performance/attribution",
+    response_model=PerformanceAttributionResponse,
+    summary="Get performance attribution analysis",
+    description="""
+    Get detailed performance attribution analysis by strategy/bot.
+    
+    This endpoint provides:
+    - Attribution metrics (alpha, beta, Sharpe ratio, information ratio) per strategy
+    - Cumulative returns over time with benchmark comparison
+    - Factor analysis showing exposure and contribution
+    
+    **Example Response:**
+    ```json
+    {
+      "attribution": [
+        {
+          "strategy": "ML Enhanced",
+          "alpha": 8.5,
+          "beta": 1.2,
+          "sharpe": 2.1,
+          "informationRatio": 1.8,
+          "contribution": 45.0,
+          "trades": 120,
+          "winRate": 68.0,
+          "avgReturn": 3.2
+        }
+      ],
+      "cumulativeReturns": [
+        {
+          "month": "2024-01",
+          "returns": 0.15,
+          "benchmark": 0.10,
+          "alpha": 0.05
+        }
+      ],
+      "factorAnalysis": [
+        {
+          "factor": "Momentum",
+          "exposure": 0.8,
+          "contribution": 12.5,
+          "color": "#3b82f6"
+        }
+      ]
+    }
+    ```
+    """,
+)
+@cached(ttl=300, prefix="analytics_performance_attribution")
+async def get_performance_attribution(
+    engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    period: str = Query("1y", description="Time period (1d, 7d, 30d, 90d, 1y)"),
+) -> PerformanceAttributionResponse:
+    """Get performance attribution analysis by strategy/bot"""
+    try:
+        from sqlalchemy import select, func, and_
+        from ..models.trade import Trade
+        from ..models.bot import Bot
+        from ..models.strategy import Strategy
+        import calendar
+
+        user_id = _get_user_id(current_user)
+
+        # Parse period to get start date
+        end_date = datetime.now()
+        if period == "1d":
+            start_date = end_date - timedelta(days=1)
+        elif period == "7d":
+            start_date = end_date - timedelta(days=7)
+        elif period == "30d":
+            start_date = end_date - timedelta(days=30)
+        elif period == "90d":
+            start_date = end_date - timedelta(days=90)
+        elif period == "1y":
+            start_date = end_date - timedelta(days=365)
+        else:
+            start_date = end_date - timedelta(days=365)
+
+        # Get all trades for the user in the period with eager loading to prevent N+1 queries
+        from sqlalchemy.orm import joinedload
+        
+        trades_query = (
+            select(Trade)
+            .where(
+                and_(
+                    Trade.user_id == user_id,
+                    Trade.executed_at >= start_date,
+                    Trade.executed_at <= end_date,
+                    Trade.status == "completed",
+                )
+            )
+            .options(joinedload(Trade.bot))  # Eager load bot to prevent N+1 queries
+            .limit(1000)  # Limit to prevent performance issues
+        )
+        trades_result = await db_session.execute(trades_query)
+        trades = list(trades_result.scalars().all())
+
+        if not trades:
+            # Return empty data structure if no trades
+            return PerformanceAttributionResponse(
+                attribution=[],
+                cumulativeReturns=[],
+                factorAnalysis=[],
+            )
+
+        # Group trades by strategy/bot (bot is already loaded, no N+1 query)
+        strategy_trades: Dict[str, List[Trade]] = {}
+        for trade in trades:
+            # Get strategy name from bot or use default
+            strategy_name = "Manual Trading"
+            if trade.bot_id and trade.bot:
+                strategy_name = trade.bot.strategy or "Unknown Strategy"
+            else:
+                strategy_name = "Manual Trading"
+
+            if strategy_name not in strategy_trades:
+                strategy_trades[strategy_name] = []
+            strategy_trades[strategy_name].append(trade)
+
+        # Calculate attribution metrics for each strategy
+        attribution_list = []
+        total_portfolio_pnl = sum(t.pnl or 0.0 for t in trades)
+        total_trades_count = len(trades)
+        winning_trades = [t for t in trades if t.pnl and t.pnl > 0]
+        total_win_rate = len(winning_trades) / total_trades_count if total_trades_count > 0 else 0.0
+
+        # Calculate benchmark return (simplified - using average market return)
+        # In production, this would use actual market index data
+        benchmark_return = 0.15  # 15% annual benchmark (simplified)
+        period_days = (end_date - start_date).days
+        benchmark_period_return = (benchmark_return / 365) * period_days
+
+        for strategy_name, strategy_trades_list in strategy_trades.items():
+            if not strategy_trades_list:
+                continue
+
+            strategy_pnl = sum(t.pnl or 0.0 for t in strategy_trades_list)
+            strategy_trades_count = len(strategy_trades_list)
+            strategy_winning = [t for t in strategy_trades_list if t.pnl and t.pnl > 0]
+            strategy_win_rate = len(strategy_winning) / strategy_trades_count if strategy_trades_count > 0 else 0.0
+
+            # Calculate average return per trade
+            strategy_avg_return = strategy_pnl / strategy_trades_count if strategy_trades_count > 0 else 0.0
+
+            # Calculate contribution percentage
+            contribution_pct = (strategy_pnl / total_portfolio_pnl * 100) if total_portfolio_pnl != 0 else 0.0
+
+            # Calculate strategy return
+            strategy_total_cost = sum(t.cost for t in strategy_trades_list)
+            strategy_return = (strategy_pnl / strategy_total_cost * 100) if strategy_total_cost > 0 else 0.0
+
+            # Calculate alpha (excess return over benchmark)
+            alpha = strategy_return - benchmark_period_return
+
+            # Calculate beta (simplified - correlation with market)
+            # In production, this would use actual market correlation
+            beta = 1.0  # Default beta
+
+            # Calculate Sharpe ratio (simplified)
+            # Sharpe = (Return - Risk-free rate) / Volatility
+            # Using simplified calculation
+            if strategy_trades_count > 1:
+                returns = [t.pnl or 0.0 for t in strategy_trades_list]
+                avg_return = sum(returns) / len(returns)
+                variance = sum((r - avg_return) ** 2 for r in returns) / len(returns)
+                std_dev = variance ** 0.5
+                sharpe = (avg_return / std_dev) if std_dev > 0 else 0.0
+            else:
+                sharpe = 0.0
+
+            # Calculate Information Ratio (alpha / tracking error)
+            # Simplified calculation
+            tracking_error = abs(strategy_return - benchmark_period_return)
+            information_ratio = (alpha / tracking_error) if tracking_error > 0 else 0.0
+
+            attribution_list.append(
+                AttributionData(
+                    strategy=strategy_name,
+                    alpha=round(alpha, 2),
+                    beta=round(beta, 2),
+                    sharpe=round(sharpe, 2),
+                    informationRatio=round(information_ratio, 2),
+                    contribution=round(contribution_pct, 2),
+                    trades=strategy_trades_count,
+                    winRate=round(strategy_win_rate * 100, 2),
+                    avgReturn=round(strategy_avg_return, 2),
+                )
+            )
+
+        # Sort by contribution (descending)
+        attribution_list.sort(key=lambda x: x.contribution, reverse=True)
+
+        # Calculate cumulative returns by month
+        cumulative_returns = []
+        if period == "1y" and trades:
+            # Group trades by month
+            monthly_trades: Dict[str, List[Trade]] = {}
+            for trade in trades:
+                month_key = trade.executed_at.strftime("%Y-%m")
+                if month_key not in monthly_trades:
+                    monthly_trades[month_key] = []
+                monthly_trades[month_key].append(trade)
+
+            # Calculate cumulative returns
+            cumulative_pnl = 0.0
+            cumulative_benchmark = 0.0
+            months = sorted(monthly_trades.keys())
+            
+            for i, month_key in enumerate(months):
+                month_trades = monthly_trades[month_key]
+                month_pnl = sum(t.pnl or 0.0 for t in month_trades)
+                cumulative_pnl += month_pnl
+                
+                # Calculate month return percentage
+                month_cost = sum(t.cost for t in month_trades)
+                month_return = (month_pnl / month_cost * 100) if month_cost > 0 else 0.0
+                
+                # Benchmark return for month (simplified)
+                month_benchmark_return = benchmark_return / 12  # Monthly benchmark
+                cumulative_benchmark += month_benchmark_return
+                
+                # Calculate alpha
+                month_alpha = month_return - month_benchmark_return
+                
+                # Get month name
+                year, month_num = month_key.split("-")
+                month_name = calendar.month_abbr[int(month_num)]
+                
+                cumulative_returns.append(
+                    CumulativeReturn(
+                        month=month_name,
+                        returns=round(cumulative_pnl, 2),
+                        benchmark=round(cumulative_benchmark, 2),
+                        alpha=round(month_alpha, 2),
+                    )
+                )
+        else:
+            # For shorter periods, use weekly or daily data
+            # Simplified: just show overall returns
+            total_return = total_portfolio_pnl
+            period_benchmark = benchmark_period_return
+            period_alpha = total_return - period_benchmark
+            
+            cumulative_returns.append(
+                CumulativeReturn(
+                    month=period,
+                    returns=round(total_return, 2),
+                    benchmark=round(period_benchmark, 2),
+                    alpha=round(period_alpha, 2),
+                )
+            )
+
+        # Calculate factor analysis (simplified)
+        # In production, this would use actual factor models (Fama-French, etc.)
+        factor_analysis = []
+        if attribution_list:
+            # Calculate momentum factor (based on win rate)
+            momentum_exposure = sum(a.winRate / 100 for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            momentum_contribution = sum(a.contribution for a in attribution_list if a.winRate > 60) / 100 if attribution_list else 0.0
+            
+            # Calculate value factor (based on alpha)
+            value_exposure = sum(max(0, a.alpha) for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            value_contribution = sum(a.contribution for a in attribution_list if a.alpha > 0) / 100 if attribution_list else 0.0
+            
+            # Calculate size factor (based on trade count)
+            avg_trades = sum(a.trades for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            size_exposure = min(1.0, avg_trades / 100)  # Normalize
+            size_contribution = sum(a.contribution for a in attribution_list if a.trades > avg_trades) / 100 if attribution_list else 0.0
+            
+            # Calculate volatility factor (inverse of Sharpe)
+            avg_sharpe = sum(a.sharpe for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            volatility_exposure = -0.15 if avg_sharpe < 1.0 else 0.15
+            volatility_contribution = -2.1 if avg_sharpe < 1.0 else 2.1
+            
+            # Calculate quality factor (based on information ratio)
+            quality_exposure = sum(a.informationRatio / 2.0 for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            quality_contribution = sum(a.contribution for a in attribution_list if a.informationRatio > 1.0) / 100 if attribution_list else 0.0
+            
+            factor_analysis = [
+                FactorAnalysis(factor="Momentum", exposure=round(momentum_exposure, 2), contribution=round(momentum_contribution * 100, 1), color="#8884d8"),
+                FactorAnalysis(factor="Value", exposure=round(value_exposure / 10, 2), contribution=round(value_contribution * 100, 1), color="#82ca9d"),
+                FactorAnalysis(factor="Size", exposure=round(size_exposure, 2), contribution=round(size_contribution * 100, 1), color="#ffc658"),
+                FactorAnalysis(factor="Volatility", exposure=round(volatility_exposure, 2), contribution=round(volatility_contribution, 1), color="#ff7c7c"),
+                FactorAnalysis(factor="Quality", exposure=round(quality_exposure, 2), contribution=round(quality_contribution * 100, 1), color="#8dd1e1"),
+            ]
+
+        return PerformanceAttributionResponse(
+            attribution=attribution_list,
+            cumulativeReturns=cumulative_returns,
+            factorAnalysis=factor_analysis,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error getting performance attribution: {e}",
+            exc_info=True,
+            extra={"user_id": user_id},
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to get performance attribution"
+        )

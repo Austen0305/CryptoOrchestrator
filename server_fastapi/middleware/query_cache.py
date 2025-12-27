@@ -1,6 +1,6 @@
 """
 Query Result Caching Middleware
-Caches database query results to improve performance
+Caches database query results to improve performance with multi-level caching
 """
 
 import hashlib
@@ -20,6 +20,32 @@ try:
 except ImportError:
     REDIS_AVAILABLE = False
     cache_service = None
+
+# Try to import cache utilities
+try:
+    from ..utils.cache_utils import CacheKeyGenerator, CacheSerializer, MultiLevelCache
+
+    CACHE_UTILS_AVAILABLE = True
+except ImportError:
+    CACHE_UTILS_AVAILABLE = False
+    CacheKeyGenerator = None
+    CacheSerializer = None
+    MultiLevelCache = None
+
+# Global multi-level cache instance
+_multi_level_cache: Optional[MultiLevelCache] = None
+
+
+def get_multi_level_cache(
+    redis_client: Optional[Any] = None,
+) -> Optional[MultiLevelCache]:
+    """Get or create multi-level cache instance"""
+    global _multi_level_cache
+    if CACHE_UTILS_AVAILABLE and MultiLevelCache:
+        if _multi_level_cache is None:
+            _multi_level_cache = MultiLevelCache(redis_client=redis_client)
+        return _multi_level_cache
+    return None
 
 
 def cache_query_result(
@@ -53,53 +79,100 @@ def cache_query_result(
                 )
                 return await func(*args, **kwargs)
 
-            # Build cache key
-            cache_key_parts = [key_prefix, func.__name__]
-
-            # Include user ID if requested
-            if include_user:
+            # Build cache key using utility if available
+            if CACHE_UTILS_AVAILABLE and CacheKeyGenerator:
+                # Extract user_id if include_user is True
                 user_id = None
-                # Check args for user_id or user dict
-                for arg in args:
-                    if isinstance(arg, (int, str)):
-                        # Direct user_id argument
-                        user_id = str(arg)
-                        break
-                    elif isinstance(arg, dict):
-                        # User dict with 'id' or 'user_id'
-                        user_id = str(arg.get("id") or arg.get("user_id") or "")
-                        if user_id:
+                if include_user:
+                    for arg in args:
+                        if isinstance(arg, (int, str)):
+                            user_id = str(arg)
                             break
+                        elif isinstance(arg, dict):
+                            user_id = str(arg.get("id") or arg.get("user_id") or "")
+                            if user_id:
+                                break
+
+                # Build key components
+                key_args = [func.__name__] + list(args[:3])  # First 3 args
+                # Copy kwargs before mutating to avoid passing duplicate
+                # arguments to the wrapped function (positional + kw)
+                key_kwargs = dict(kwargs) if include_params else {}
                 if user_id:
-                    cache_key_parts.append(f"user:{user_id}")
+                    key_kwargs["user_id"] = user_id
 
-            # Include parameters if requested
-            if include_params:
-                params_str = json.dumps(kwargs, sort_keys=True, default=str)
-                params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
-                cache_key_parts.append(params_hash)
+                cache_key = CacheKeyGenerator.generate_key(
+                    key_prefix, *key_args, **key_kwargs
+                )
+            else:
+                # Fallback to original key generation
+                cache_key_parts = [key_prefix, func.__name__]
 
-            cache_key = ":".join(cache_key_parts)
+                # Include user ID if requested
+                if include_user:
+                    user_id = None
+                    # Check args for user_id or user dict
+                    for arg in args:
+                        if isinstance(arg, (int, str)):
+                            # Direct user_id argument
+                            user_id = str(arg)
+                            break
+                        elif isinstance(arg, dict):
+                            # User dict with 'id' or 'user_id'
+                            user_id = str(arg.get("id") or arg.get("user_id") or "")
+                            if user_id:
+                                break
+                    if user_id:
+                        cache_key_parts.append(f"user:{user_id}")
 
-            # Try to get from cache
-            try:
-                cached_result = await cache_service.get(cache_key)
-                if cached_result is not None:
-                    logger.debug(f"Cache hit for {cache_key}")
-                    return cached_result
-            except Exception as e:
-                logger.warning(f"Cache get error for {cache_key}: {e}")
+                # Include parameters if requested
+                if include_params:
+                    params_str = json.dumps(kwargs, sort_keys=True, default=str)
+                    params_hash = hashlib.md5(params_str.encode()).hexdigest()[:8]
+                    cache_key_parts.append(params_hash)
+
+                cache_key = ":".join(cache_key_parts)
+
+            # Try to get from cache (multi-level: memory first, then Redis)
+            multi_cache = get_multi_level_cache()
+            if multi_cache:
+                try:
+                    cached_result = await multi_cache.get(cache_key)
+                    if cached_result is not None:
+                        logger.debug(f"Cache hit for {cache_key}")
+                        return cached_result
+                except Exception as e:
+                    logger.warning(f"Multi-level cache get error for {cache_key}: {e}")
+
+            # Fallback to original cache service
+            if REDIS_AVAILABLE and cache_service:
+                try:
+                    cached_result = await cache_service.get(cache_key)
+                    if cached_result is not None:
+                        logger.debug(f"Cache hit for {cache_key}")
+                        return cached_result
+                except Exception as e:
+                    logger.warning(f"Cache get error for {cache_key}: {e}")
 
             # Execute function and cache result
             try:
                 result = await func(*args, **kwargs)
 
-                # Cache the result
-                try:
-                    await cache_service.set(cache_key, result, ttl=ttl)
-                    logger.debug(f"Cached result for {cache_key} (TTL: {ttl}s)")
-                except Exception as e:
-                    logger.warning(f"Cache set error for {cache_key}: {e}")
+                # Cache the result (multi-level if available)
+                if multi_cache:
+                    try:
+                        await multi_cache.set(cache_key, result, ttl=ttl)
+                        logger.debug(f"Cached result for {cache_key} (TTL: {ttl}s)")
+                    except Exception as e:
+                        logger.warning(
+                            f"Multi-level cache set error for {cache_key}: {e}"
+                        )
+                elif REDIS_AVAILABLE and cache_service:
+                    try:
+                        await cache_service.set(cache_key, result, ttl=ttl)
+                        logger.debug(f"Cached result for {cache_key} (TTL: {ttl}s)")
+                    except Exception as e:
+                        logger.warning(f"Cache set error for {cache_key}: {e}")
 
                 return result
             except Exception as e:
@@ -125,9 +198,12 @@ def invalidate_cache_pattern(pattern: str):
         return
 
     try:
-        # This would need to be implemented in cache_service
-        # For now, just log the intent
+        # Pattern-based cache invalidation
+        # Note: Full implementation would require cache_service to support pattern matching
+        # Current implementation uses exact key invalidation via cache_service.delete()
+        # For pattern-based invalidation, consider using Redis SCAN with pattern matching
         logger.info(f"Cache invalidation requested for pattern: {pattern}")
-        # TODO: Implement pattern-based cache invalidation in cache_service
+        # Future enhancement: Implement pattern-based cache invalidation in cache_service
+        # This would allow invalidating all keys matching a pattern (e.g., "user:*:bots")
     except Exception as e:
         logger.error(f"Cache invalidation error for pattern {pattern}: {e}")

@@ -5,13 +5,13 @@ Handle crypto transfers from external platforms and withdrawals
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, Annotated
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.crypto_transfer_service import CryptoTransferService
+from ..dependencies.crypto_transfer import get_crypto_transfer_service
 from ..dependencies.auth import get_current_user
-from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +50,12 @@ class WithdrawCryptoRequest(BaseModel):
 @router.post("/initiate")
 async def initiate_crypto_transfer(
     request: InitiateTransferRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
 ) -> Dict:
     """Initiate a crypto transfer from an external platform"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
-
-        service = CryptoTransferService(db)
+        user_id = _get_user_id(current_user)
 
         result = await service.initiate_crypto_transfer(
             user_id=user_id,
@@ -83,12 +81,11 @@ async def initiate_crypto_transfer(
 @router.post("/confirm")
 async def confirm_crypto_transfer(
     request: ConfirmTransferRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
 ) -> Dict:
     """Confirm a crypto transfer after blockchain confirmation"""
     try:
-        service = CryptoTransferService(db)
 
         success = await service.confirm_crypto_transfer(
             transaction_id=request.transaction_id,
@@ -115,14 +112,12 @@ async def confirm_crypto_transfer(
 @router.post("/withdraw")
 async def withdraw_crypto(
     request: WithdrawCryptoRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
 ) -> Dict:
     """Withdraw crypto to an external address"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
-
-        service = CryptoTransferService(db)
+        user_id = _get_user_id(current_user)
 
         result = await service.withdraw_crypto(
             user_id=user_id,
@@ -145,15 +140,13 @@ async def withdraw_crypto(
 @router.get("/deposit-address/{currency}")
 async def get_deposit_address(
     currency: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
     network: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ) -> Dict:
     """Get deposit address for a cryptocurrency"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
-
-        service = CryptoTransferService(db)
+        user_id = _get_user_id(current_user)
 
         address = await service._generate_deposit_address(currency, network)
 

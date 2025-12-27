@@ -3,13 +3,20 @@ System Metrics and Performance Monitoring
 Comprehensive observability for the trading platform
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Annotated
 from datetime import datetime, timedelta
+from collections import defaultdict
+from sqlalchemy.ext.asyncio import AsyncSession
 import psutil
 import logging
 import asyncio
+
+from ..services.monitoring.dex_metrics import get_dex_metrics_service
+from ..services.monitoring.business_metrics import get_business_metrics_service
+from ..database import get_db_session
+from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +249,7 @@ metrics_collector = MetricsCollector()
 
 
 @router.get("/current", response_model=PerformanceMetrics)
+@cached(ttl=30, prefix="current_metrics")  # 30s TTL for current metrics (real-time)
 async def get_current_metrics():
     """
     Get comprehensive current system metrics
@@ -307,6 +315,7 @@ async def get_current_metrics():
 
 
 @router.get("/alerts", response_model=List[MetricsAlert])
+@cached(ttl=60, prefix="metrics_alerts")  # 60s TTL for metrics alerts
 async def get_active_alerts():
     """Get list of active metric alerts"""
     return metrics_collector.alerts
@@ -389,3 +398,477 @@ async def get_health_score():
     except Exception as e:
         logger.error(f"Error calculating health score: {e}")
         raise HTTPException(status_code=500, detail="Failed to calculate health score")
+
+
+# DEX Trading Metrics Endpoints
+@router.get("/dex/volume")
+@cached(ttl=120, prefix="dex_volume")  # 120s TTL for DEX volume metrics
+async def get_dex_volume(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    chain_id: Optional[int] = None,
+    aggregator: Optional[str] = None,
+):
+    """
+    Get DEX trade volume metrics
+
+    Query parameters:
+    - start_date: ISO format date (default: 30 days ago)
+    - end_date: ISO format date (default: now)
+    - chain_id: Optional chain ID filter
+    - aggregator: Optional aggregator filter
+    """
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        volume = await service.get_trade_volume(db, start, end, chain_id, aggregator)
+        return volume
+    except Exception as e:
+        logger.error(f"Error getting DEX volume: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get DEX volume metrics")
+
+
+@router.get("/dex/fees")
+async def get_dex_fees(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """Get platform fee collection metrics"""
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        fees = await service.get_fee_collection(db, start, end)
+        return fees
+    except Exception as e:
+        logger.error(f"Error getting DEX fees: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get DEX fee metrics")
+
+
+@router.get("/dex/aggregators")
+@cached(ttl=120, prefix="dex_aggregators")  # 120s TTL for aggregator performance
+async def get_aggregator_performance(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """Get performance metrics for each aggregator"""
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        aggregators = await service.get_aggregator_performance(db, start, end)
+        return {"aggregators": aggregators}
+    except Exception as e:
+        logger.error(f"Error getting aggregator performance: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to get aggregator performance"
+        )
+
+
+@router.get("/dex/errors")
+async def get_dex_error_rates(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """Get error rate metrics for DEX trades"""
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        errors = await service.get_error_rates(db, start, end)
+        return errors
+    except Exception as e:
+        logger.error(f"Error getting DEX error rates: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get DEX error rates")
+
+
+@router.get("/dex/chains")
+@cached(ttl=120, prefix="dex_chains")  # 120s TTL for chain volume metrics
+async def get_chain_volume(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """Get volume metrics by blockchain chain"""
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        chains = await service.get_chain_volume(db, start, end)
+        return {"chains": chains}
+    except Exception as e:
+        logger.error(f"Error getting chain volume: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to get chain volume metrics"
+        )
+
+
+@router.get("/dex/all")
+async def get_all_dex_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """
+    Get all DEX trading metrics in one call
+
+    Includes:
+    - Trade volume
+    - Fee collection
+    - Aggregator performance
+    - Error rates
+    - Chain volume
+    """
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_dex_metrics_service()
+        all_metrics = await service.get_all_metrics(db, start, end)
+        return all_metrics
+    except Exception as e:
+        logger.error(f"Error getting all DEX metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get DEX metrics")
+
+
+@router.get("/wallets", tags=["Metrics & Monitoring"])
+@cached(ttl=120, prefix="wallet_metrics")  # 120s TTL for wallet metrics
+async def get_wallet_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    chain_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Get wallet operation metrics
+
+    Returns wallet creations, deposits, withdrawals per day, total balances, etc.
+    """
+    try:
+        from sqlalchemy import select, func
+        from ..models.user_wallet import UserWallet
+        from collections import defaultdict
+
+        # Parse dates
+        if start_date:
+            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        else:
+            start = datetime.utcnow() - timedelta(days=7)
+
+        if end_date:
+            end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        else:
+            end = datetime.utcnow()
+
+        # Build query
+        query = select(UserWallet).where(
+            UserWallet.created_at >= start,
+            UserWallet.created_at <= end,
+        )
+
+        if chain_id:
+            query = query.where(UserWallet.chain_id == chain_id)
+
+        result = await db.execute(query)
+        wallets = result.scalars().all()
+
+        # Calculate metrics
+        total_wallets = len(wallets)
+        custodial_count = len([w for w in wallets if w.wallet_type == "custodial"])
+        external_count = len([w for w in wallets if w.wallet_type == "external"])
+
+        # Per-day breakdown
+        daily_creations: Dict[str, int] = defaultdict(int)
+        for wallet in wallets:
+            day = wallet.created_at.date().isoformat()
+            daily_creations[day] += 1
+
+        # Chain breakdown
+        chain_breakdown: Dict[int, int] = defaultdict(int)
+        for wallet in wallets:
+            chain_breakdown[wallet.chain_id] += 1
+
+        return {
+            "period": {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+            },
+            "total_wallets": total_wallets,
+            "custodial_wallets": custodial_count,
+            "external_wallets": external_count,
+            "daily_creations": dict(daily_creations),
+            "chain_breakdown": {str(k): v for k, v in chain_breakdown.items()},
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting wallet metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get wallet metrics")
+
+
+@router.get("/blockchain", tags=["Metrics & Monitoring"])
+async def get_blockchain_metrics(
+    chain_id: Optional[int] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get blockchain metrics
+
+    Returns transaction counts per chain, gas costs, RPC call statistics.
+    """
+    try:
+        from ..services.monitoring.transaction_monitor import transaction_monitor
+
+        # Parse dates
+        if start_date:
+            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        else:
+            start = datetime.utcnow() - timedelta(days=7)
+
+        if end_date:
+            end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        else:
+            end = datetime.utcnow()
+
+        # Get transaction stats
+        stats = await transaction_monitor.get_transaction_stats(
+            chain_id=chain_id,
+            start_date=start,
+            end_date=end,
+        )
+
+        # Chain-specific metrics
+        chain_metrics = {}
+        for chain in [1, 8453, 42161, 137]:  # Ethereum, Base, Arbitrum, Polygon
+            if chain_id and chain != chain_id:
+                continue
+
+            chain_stats = await transaction_monitor.get_transaction_stats(
+                chain_id=chain,
+                start_date=start,
+                end_date=end,
+            )
+            chain_metrics[str(chain)] = chain_stats
+
+        return {
+            "period": {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+            },
+            "overall": stats,
+            "per_chain": chain_metrics,
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting blockchain metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get blockchain metrics")
+
+
+@router.get("/user-activity", tags=["Metrics & Monitoring"])
+@cached(ttl=120, prefix="user_activity_metrics")  # 120s TTL for user activity metrics
+async def get_user_activity_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Get user activity metrics
+
+    Returns active users, trading volume, login counts, etc.
+    """
+    try:
+        from sqlalchemy import select, func
+        from ..models.user import User
+        from ..models.dex_trade import DEXTrade
+        from collections import defaultdict
+
+        # Parse dates
+        if start_date:
+            start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        else:
+            start = datetime.utcnow() - timedelta(days=7)
+
+        if end_date:
+            end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
+        else:
+            end = datetime.utcnow()
+
+        # Active users (users who made trades)
+        active_users_query = select(func.count(func.distinct(DEXTrade.user_id))).where(
+            DEXTrade.created_at >= start,
+            DEXTrade.created_at <= end,
+        )
+        result = await db.execute(active_users_query)
+        active_users = result.scalar() or 0
+
+        # Total users
+        total_users_query = select(func.count(User.id))
+        result = await db.execute(total_users_query)
+        total_users = result.scalar() or 0
+
+        # Trading volume
+        volume_query = select(func.sum(DEXTrade.sell_amount_decimal)).where(
+            DEXTrade.created_at >= start,
+            DEXTrade.created_at <= end,
+            DEXTrade.status == "completed",
+        )
+        result = await db.execute(volume_query)
+        total_volume = float(result.scalar() or 0)
+
+        # Daily active users
+        daily_active: Dict[str, int] = defaultdict(int)
+        daily_trades_query = (
+            select(
+                func.date(DEXTrade.created_at).label("date"),
+                func.count(func.distinct(DEXTrade.user_id)).label("active_users"),
+            )
+            .where(
+                DEXTrade.created_at >= start,
+                DEXTrade.created_at <= end,
+            )
+            .group_by(func.date(DEXTrade.created_at))
+        )
+
+        result = await db.execute(daily_trades_query)
+        for row in result:
+            daily_active[row.date.isoformat()] = row.active_users
+
+        return {
+            "period": {
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+            },
+            "total_users": total_users,
+            "active_users": active_users,
+            "total_trading_volume": total_volume,
+            "daily_active_users": dict(daily_active),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting user activity metrics: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail="Failed to get user activity metrics"
+        )
+
+
+@router.get("/performance", tags=["Metrics & Monitoring"])
+async def get_performance_metrics() -> Dict[str, Any]:
+    """
+    Get performance metrics
+
+    Returns API response times, database query times, cache hit rates.
+    """
+    try:
+        from ..services.monitoring.transaction_monitor import transaction_monitor
+        from ..services.monitoring.performance_profiler import get_performance_profiler
+
+        # Get transaction latency metrics
+        stats = await transaction_monitor.get_transaction_stats()
+
+        # Get system metrics
+        system_metrics = await metrics_collector.collect_system_metrics()
+        app_metrics = await metrics_collector.collect_application_metrics()
+
+        # Get slow queries and endpoints
+        profiler = get_performance_profiler()
+        slow_queries = profiler.get_slow_queries(limit=10)
+        slow_endpoints = profiler.get_slow_endpoints(limit=10)
+
+        return {
+            "system": system_metrics.dict(),
+            "application": app_metrics.dict(),
+            "transaction_latency": {
+                "avg_seconds": stats.get("avg_latency_seconds", 0),
+            },
+            "slow_queries": slow_queries,
+            "slow_endpoints": slow_endpoints,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting performance metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get performance metrics")
+
+
+@router.get("/business", tags=["Metrics & Monitoring"])
+@cached(ttl=120, prefix="business_metrics")  # 120s TTL for business metrics
+async def get_business_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> Dict[str, Any]:
+    """
+    Get business metrics (trades/day, revenue, user growth)
+
+    Returns:
+    - Trades per day
+    - Revenue metrics (subscription + trading fees)
+    - User growth metrics (total users, active users 24h)
+    """
+    try:
+        service = get_business_metrics_service(db)
+        metrics = await service.get_all_business_metrics(db)
+        return metrics
+    except Exception as e:
+        logger.error(f"Error getting business metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get business metrics")
+
+
+@router.get("/business/trades-per-day", tags=["Metrics & Monitoring"])
+async def get_trades_per_day(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    days: int = 30,
+) -> Dict[str, Any]:
+    """Get trades per day for the last N days"""
+    try:
+        service = get_business_metrics_service(db)
+        trades_data = await service.get_trades_per_day(db, days=days)
+        return {
+            "trades_per_day": trades_data,
+            "period_days": days,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Error getting trades per day: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get trades per day")
+
+
+@router.get("/business/revenue", tags=["Metrics & Monitoring"])
+async def get_revenue_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Get revenue metrics (subscription + trading fees)"""
+    try:
+        start = datetime.fromisoformat(start_date) if start_date else None
+        end = datetime.fromisoformat(end_date) if end_date else None
+
+        service = get_business_metrics_service(db)
+        revenue = await service.get_revenue_metrics(db, start_date=start, end_date=end)
+        return revenue
+    except Exception as e:
+        logger.error(f"Error getting revenue metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get revenue metrics")
+
+
+@router.get("/business/users", tags=["Metrics & Monitoring"])
+async def get_user_metrics(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> Dict[str, Any]:
+    """Get user growth metrics (total users, active users 24h)"""
+    try:
+        service = get_business_metrics_service(db)
+        user_metrics = await service.update_user_metrics(db)
+        return user_metrics
+    except Exception as e:
+        logger.error(f"Error getting user metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get user metrics")

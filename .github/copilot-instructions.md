@@ -1,101 +1,258 @@
-# CryptoOrchestrator – AI Assistant Working Rules
+---
+title: "CryptoOrchestrator – AI Agent Working Rules"
+description: "Concise, project-specific guidance for productive AI development"
+---
 
-Concise, project‑specific guidance to make an AI agent productive immediately. Keep answers grounded in THESE patterns; do not invent undocumented architectures.
+# CryptoOrchestrator – AI Agent Working Rules
 
-## 1. High‑Level Architecture
-- Monorepo style: React + Vite frontend (`client/`), FastAPI backend (`server_fastapi/`), Electron wrapper (`electron/`), shared types (`shared/`), Python trading/integration adapters (`server_fastapi/services` + `server/integrations` legacy path).
-- FastAPI is authoritative backend. Legacy Express/Node server code exists (e.g. `server/routes/*.ts`) mainly for reference; prefer Python implementations under `server_fastapi/routes/`.
-- Electron launches FastAPI (script in `package.json` `dev:fastapi`) and serves the built frontend via `file://` or development server.
-- Services layered: route → service (in `server_fastapi/services/`) → external libs (ccxt, ML libs, adapters). ML, risk, analytics, trading orchestration live in Python.
+Concise guidance focused on discoverable patterns in the code. Reference actual files when describing conventions.
 
-## 2. Key Directories & Their Roles
-- `server_fastapi/main.py`: App factory & middleware: CORS (Electron aware), security headers, rate limiting (SlowAPI), Redis init, DB pool.
-- `server_fastapi/routes/`: Thin endpoint definitions. Follow existing style: pydantic models, dependency injection, JWT stub in `integrations.py`.
-- `server_fastapi/services/`: Business logic modules (trading orchestration, integration_service, risk, analytics, backtesting). Keep stateless where possible; long‑running processes tracked inside specific service (e.g., `integration_service` maintains `self.integrations`).
-- `client/src/lib/api.ts`: Canonical mapping of frontend REST calls. Hooks in `client/src/hooks/useApi.ts` wrap these with React Query (5.x) using 5s polling for status resources.
-- `shared/`: Cross‑language schemas/types; keep additions backward compatible.
-- `electron/`: Main & preload; ensure any new IPC channels enforce contextIsolation and validate payloads.
+---
 
-## 3. Conventions & Patterns
-- Backend route prefixes: always mounted under `/api/<domain>` (see `main.py`). For new groups, add router + prefix + tag. Do not mirror legacy Node path names if Python already diverged.
-- Error handling: Raise `HTTPException`; generic exceptions logged and converted by global handler. Keep detailed trace only in development (`NODE_ENV=development`).
-- Pydantic models: Provide `json_schema_extra` with an `example` for complex POST bodies (see `PredictRequest`).
-- Long operations (backtests, ML) return immediate structured JSON; consider background tasks only if existing pattern emerges (none yet).
-- Integration management uses `IntegrationService` async methods; always `await` service APIs in routes (some existing code already async). Maintain idempotency for start/stop.
-- Security headers middleware already adds CSP. When adding external scripts/styles, update CSP accordingly.
-- React Query keys: structure as `['domain', subKey?]`. Invalidate with exact key object; follow examples in `useApi.ts`.
-- Polling intervals: 5000ms for status‑like queries to avoid UI thrash; match existing usage unless strong justification.
-- Logging: Use `logging.getLogger(__name__)` in Python modules; don't configure logging again (configured globally in `main.py`).
+## 🏗️ Architecture at a Glance
 
-## 4. Developer Workflows
-- Start backend (dev): `npm run dev:fastapi` (reload enabled). Frontend: `npm run dev` (Vite). Electron unified environment: `npm run electron`.
-- Build web prod: `npm run build` (Vite + server bundle). Desktop package: `npm run build:electron`.
-- Tests (Python): `npm test` invokes `pytest` with coverage for `server_fastapi`. Add new tests under `server_fastapi/tests/` prefixed with `test_*.py`.
-- Lint/format Python: `npm run lint:py` / `npm run format:py`.
-- Type check TS: `npm run check` (tsc no‑emit). Keep path aliases (`@/*`, `@shared/*`) consistent when moving files.
-- Migrations: Alembic via `npm run migrate` / `migrate:create` / `migrate:rollback`.
+**Monorepo** – 4-tier SaaS platform for crypto trading automation:
+- **Backend**: FastAPI (Python 3.12) in `server_fastapi/` – source of truth
+- **Frontend**: React 18 + TypeScript + Vite in `client/src/`
+- **Desktop**: Electron wrapper in `electron/` – launches FastAPI + frontend bundle
+- **Mobile**: React Native in `mobile/` – shares backend API layer
 
-## 5. Adding New Backend Features
-1. Create Pydantic request/response models (with examples) in the route file or a `schemas` module if reused broadly.
-2. Inject required services via small dependency functions (see `get_trading_orchestrator`).
-3. Validate inputs explicitly (e.g., check required fields, date ordering) before delegating to service.
-4. Return plain dict / pydantic model; avoid leaking internal objects.
-5. Register router in `main.py` with a unique prefix & tag.
-6. Add a minimal pytest covering 200 OK + 1 error scenario.
+**Key principle**: Python/FastAPI is authoritative. Legacy Node code (`server/`) is deprecated; ignore it. TypeScript types in `client/src/types/` should mirror Pydantic models.
 
-## 6. Adding/Updating Frontend API Calls
-- Add endpoint function in `client/src/lib/api.ts` → wrap with a hook in `hooks/useApi.ts` (include `queryKey` & invalidation on mutation success).
-- For streaming or WebSocket features, prefer existing WebSocket infra (see `useWebSocket.ts`) instead of ad‑hoc fetch loops.
-- Keep UI state ephemeral; use React Query cache as source of truth for server data.
+**Development flow**:
+- Terminal 1: `npm run dev:fastapi` → FastAPI auto-reload on http://localhost:8000
+- Terminal 2: `npm run dev` → Vite on http://localhost:5173
+- API Docs: http://localhost:8000/docs (Swagger)
 
-## 7. Integrations & Adapters
-- Python adapters (Freqtrade/Jesse) started/stopped via integration routes under `/api/integrations/*`.
-- `integration_service` tracks process status and configurations; do not manipulate processes directly from routes—always use service methods.
-- Ensemble operations (predict/backtest) orchestrated by `trading_orchestrator` which calls underlying adapters then merges results.
+---
 
-## 8. Performance & Safety Notes
-- Expensive ops (ML, backtesting) should not block event loop—if future scaling needed, consider Celery (celery_app exists) but current code runs inline.
-- Redis optional: guard feature usage if `redis_available` is false. Do not assume cache presence.
-- Rate limiting (SlowAPI) enabled when limiter import succeeds; keep new endpoints compliant (short, idempotent) to avoid misuse.
+## 📁 Key Directories
 
-## 9. Security Practices
-- JWT dependency presently a placeholder; when upgrading, replace with real verification—keep function signature stable so callers need no change.
-- Validate user inputs, especially symbols, dates, strategy params to avoid downstream command injection in adapters.
-- Never add wide `*` CORS origins; follow `validate_origin` pattern if expanding.
+| Path | Purpose |
+|------|---------|
+| `server_fastapi/main.py` | FastAPI app: middleware (CORS, auth, rate limit, Redis), router registration |
+| `server_fastapi/routes/` | ~30 thin route files (e.g., `bots.py`, `trades.py`, `risk.py`); Pydantic validation only |
+| `server_fastapi/services/` | Stateless business logic; each service handles one domain (e.g., `BotService`, `RiskService`) |
+| `server_fastapi/models/` | SQLAlchemy ORM (Bot, Trade, User, Portfolio, etc.) |
+| `server_fastapi/repositories/` | Data access layer; abstract queries/filters |
+| `server_fastapi/dependencies/` | FastAPI `Depends()` factories: auth, service injection, DB sessions |
+| `server_fastapi/tests/` | pytest suites (~80+); run `npm test` enforces ≥90% coverage |
+| `client/src/lib/api.ts` | Single source of API client functions |
+| `client/src/hooks/` | React Query hooks wrapping API calls; cache invalidation |
+| `client/src/components/` | ~80 UI components; use React.memo for expensive renders |
+| `client/src/types/` | TypeScript interfaces (keep aligned with backend Pydantic models) |
 
-## 10. When Unsure
-- Prefer existing Python service patterns over reusing deprecated Node logic.
-- Search similar route (e.g., `backtesting.py`) and mirror structure.
-- If functionality appears in both legacy and new stacks, treat Python as source of truth unless README states otherwise.
+---
 
-## 11. Example: Minimal New Route
+## 🎯 Backend Patterns
+
+### Route Structure
+- **Always use `/api/<domain>` prefix** (e.g., `/api/bots`, `/api/trades`)
+- **Register in `main.py`**: `app.include_router(router, prefix='/api/bots', tags=['Bots'])`
+- **Use `Annotated[Type, Depends(...)]` for all dependencies** (primary pattern)
+
+**Example route** (from [server_fastapi/routes/bots.py](../server_fastapi/routes/bots.py)):
 ```python
-# server_fastapi/routes/example.py
 from fastapi import APIRouter, Depends, HTTPException
+from typing import Annotated
 from pydantic import BaseModel
-import logging
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
 
-class EchoRequest(BaseModel):
-    message: str
+class CreateBotRequest(BaseModel):
+    name: str
+    strategy: str
 
-class EchoResponse(BaseModel):
-    echoed: str
-
-@router.post('/echo', response_model=EchoResponse)
-async def echo(req: EchoRequest):
-    if not req.message.strip():
-        raise HTTPException(status_code=400, detail='Message cannot be empty')
-    return EchoResponse(echoed=req.message)
+@router.post('/bots', response_model=dict)
+async def create_bot(
+    req: CreateBotRequest,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[BotService, Depends(get_bot_service)],
+):
+    return await service.create_bot(req, user_id=current_user['id'])
 ```
-Register in `main.py`:
+
+### Error Handling
+- Use `HTTPException(status_code=..., detail='...')` for known errors
+- Log unexpected errors with `logger.error(..., exc_info=True, extra={'user_id': user_id})`
+- Production: sanitize responses (no stack traces)
+
+### Testing Backend
+```bash
+npm test                           # pytest with coverage report
+npm run test:watch               # Reload on file change
+```
+
+Tests follow pytest structure with fixtures in `conftest.py`. Use `TestClient` for route testing:
 ```python
-from .routes import example as example_router
-app.include_router(example_router.router, prefix='/api/example', tags=['Example'])
+def test_create_bot(client: TestClient):
+    response = client.post('/api/bots', json={'name': 'Bot1', 'strategy': 'MA'})
+    assert response.status_code == 201
 ```
 
-## 12. Keep This File Updated
-- Update when: new service layer, auth implementation changes, or Electron↔FastAPI startup logic changes.
-- Keep under ~60 lines excluding examples; prune stale references promptly.
+---
+
+## 🎨 Frontend Patterns
+
+### API Integration (3-step workflow)
+1. **Define endpoint** in `client/src/lib/api.ts`:
+   ```typescript
+   export const botApi = {
+     getBots: () => apiClient.get('/bots'),
+     createBot: (data) => apiClient.post('/bots', data),
+   };
+   ```
+
+2. **Create React Query hook** in `client/src/hooks/useApi.ts`:
+   ```typescript
+   export const useBots = () => {
+     const { isAuthenticated } = useAuth();
+     return useQuery({
+       queryKey: ['bots'],
+       queryFn: botApi.getBots,
+       enabled: isAuthenticated,
+       staleTime: 2 * 60 * 1000,  // Cache 2 min
+     });
+   };
+   ```
+
+3. **Use in component** with cache invalidation:
+   ```typescript
+   const { data: bots } = useBots();
+   const createMutation = useMutation({
+     mutationFn: botApi.createBot,
+     onSuccess: () => {
+       queryClient.invalidateQueries({ queryKey: ['bots'] });
+     },
+   });
+   ```
+
+### React Query Conventions
+- **Query keys**: Use array format `['resource', id]` (e.g., `['bots', botId]`)
+- **Cache invalidation**: Always include exact key match when invalidating
+- **Polling vs WebSocket**: Don't poll if WebSocket is connected; set `refetchInterval` for static data only
+- **Error handling**: Access `error?.response?.data?.detail` from mutation/query
+
+### Testing Frontend
+```bash
+npm run test:frontend          # vitest with coverage
+npm run test:frontend:ui       # UI mode for debugging
+npm run test:e2e               # Playwright cross-browser tests
+npm run test:e2e:ui            # Playwright UI debug mode
+```
+
+---
+
+## 🔌 Critical Workflows
+
+### Adding a New Backend Route
+1. Create Pydantic models (request + response) in route file
+2. Use `Depends()` + `Annotated` for all dependencies
+3. Validate inputs; delegate logic to service
+4. Register router in `main.py` with prefix + tag
+5. Add 2–3 pytest cases (happy path + errors)
+
+### Adding a Frontend Feature
+1. Endpoint function in `lib/api.ts`
+2. React Query hook in `hooks/useApi.ts`
+3. Component in `components/` with TypeScript strict mode
+4. Vitest or Playwright test
+
+### Database Migration
+```bash
+npm run migrate:create "add_user_table"  # Create migration
+# Edit alembic/versions/XXXX_add_user_table.py
+npm run migrate                          # Apply migration
+```
+
+---
+
+## ⚙️ Developer Commands
+
+```bash
+# Dev
+npm run dev:fastapi          # Backend only
+npm run dev                  # Frontend only
+npm run electron             # Unified (Electron + FastAPI)
+
+# Test
+npm test                     # Backend (90%+ coverage required)
+npm run test:frontend        # Frontend
+npm run test:e2e             # E2E (Playwright)
+
+# Build
+npm run build                # Web bundle
+npm run build:electron       # Desktop app (all platforms)
+
+# Code quality
+npm run lint:py              # Flake8
+npm run format:py            # Black formatter
+npm run check                # TypeScript check (no build)
+npm run format:check         # Prettier check (frontend)
+npm run format               # Prettier write (frontend)
+
+# Infrastructure
+docker-compose up -d         # Start all services (Postgres, Redis, etc.)
+npm run migrate              # Run Alembic migrations
+```
+
+---
+
+## 🔒 Key Safety Rules
+
+✅ **DO**:
+- Validate inputs before passing to services
+- Use `HTTPException` with proper status codes
+- Log suspicious activity with context (user_id, timestamp)
+- Keep routes thin; put logic in services
+- Use `Depends()` for all dependencies
+
+❌ **DON'T**:
+- Trust user input for command construction
+- Assume Redis/external services available
+- Use wildcard CORS origins
+- Leak internal errors to client
+- Directly manipulate external processes from routes
+
+---
+
+## 🤔 Decision Guide
+
+| Question | Answer |
+|----------|--------|
+| "Where does business logic go?" | `server_fastapi/services/` – stateless |
+| "Where does data access go?" | `server_fastapi/repositories/` – ORM queries |
+| "Where does API endpoint go?" | `server_fastapi/routes/` – thin controller |
+| "Where does UI state go?" | React Query hook (`client/src/hooks/`) |
+| "Should I use old Node code?" | No. Mirror the FastAPI pattern instead. |
+| "How long can a route take?" | < 1s for REST; consider Celery for long jobs |
+| "When should I add tests?" | Always: happy path + 1 error case minimum |
+
+---
+
+## 📚 Study These Files
+
+- [server_fastapi/main.py](../server_fastapi/main.py) – App initialization, middleware
+- [server_fastapi/routes/bots.py](../server_fastapi/routes/bots.py) – Route pattern (~863 lines)
+- [server_fastapi/services/](../server_fastapi/services/) – Service layer examples
+- [client/src/lib/api.ts](../client/src/lib/api.ts) – API client definition
+- [client/src/hooks/](../client/src/hooks/) – React Query patterns
+- [docker-compose.yml](../docker-compose.yml) – Dev environment setup
+- [pyproject.toml](../pyproject.toml) – Test config, coverage settings
+
+---
+
+## 🆘 Common Issues
+
+| Issue | Fix |
+|-------|-----|
+| **Import error in route** | Check router registration in `main.py` |
+| **React Query stale data** | Call `queryClient.invalidateQueries({ queryKey: ['resource', id] })` |
+| **Pytest fails** | Run `npm run migrate` first (DB schema); check `conftest.py` |
+| **TypeScript errors** | Run `npm run check`; review `tsconfig.json` paths |
+| **Docker won't start** | Verify `.env.prod`, `DATABASE_URL`, `REDIS_URL` format |
+| **Port 8000/5173 in use** | Kill process: `lsof -ti:8000 \| xargs kill -9` |
+
+---
+
+**Last Updated**: December 17, 2025 | **Status**: Production-Ready | **Coverage**: ≥90% enforced | **Tech Stack**: FastAPI + React 18 + TypeScript

@@ -16,10 +16,10 @@ export function useBotStatus() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
     if (!token) return;
 
-    const wsBase = (typeof window !== 'undefined' && (window as any).__WS_BASE__)
-      || (import.meta as any)?.env?.VITE_WS_BASE_URL
+    const wsBase = (typeof window !== 'undefined' && window.__WS_BASE__)
+      || import.meta.env.VITE_WS_BASE_URL
       || (() => {
-        const api = (typeof window !== 'undefined' && (window as any).__API_BASE__) || (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+        const api = (typeof window !== 'undefined' && window.__API_BASE__) || import.meta.env.VITE_API_BASE_URL || '';
         if (api.startsWith('http')) return api.replace(/^http/, 'ws');
         return 'ws://localhost:8000';
       })();

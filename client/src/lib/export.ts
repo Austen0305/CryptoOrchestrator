@@ -4,6 +4,7 @@
 
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import logger from './logger';
 
 export interface ExportOptions {
   filename?: string;
@@ -13,7 +14,7 @@ export interface ExportOptions {
 /**
  * Convert data to CSV format and trigger download
  */
-export function exportToCSV<T extends Record<string, any>>(
+export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
   options: ExportOptions = {}
 ): void {
@@ -24,7 +25,10 @@ export function exportToCSV<T extends Record<string, any>>(
   const filename = options.filename || `export-${Date.now()}.csv`;
   
   // Get headers from first object
-  const headers = Object.keys(data[0]);
+  if (!data || data.length === 0 || !data[0]) {
+    throw new Error('Cannot export empty data');
+  }
+  const headers = Object.keys(data[0] as Record<string, unknown>);
   
   // Create CSV content
   const csvContent = [
@@ -88,11 +92,82 @@ function downloadBlob(blob: Blob, filename: string): void {
 }
 
 /**
+ * Export data to PDF format using jsPDF (simplified version for analytics dashboards)
+ */
+export function exportToPDFSimple<T extends Record<string, unknown>>(
+  data: T[],
+  options: ExportOptions & { title?: string; columns?: string[] } = {}
+): void {
+  if (!data || data.length === 0) {
+    throw new Error('No data to export');
+  }
+
+  const filename = options.filename || `export-${Date.now()}.pdf`;
+  const title = options.title || 'Export Report';
+  const columns = options.columns || Object.keys(data[0] as Record<string, unknown>);
+
+  try {
+    const pdf = new jsPDF();
+    
+    // Add title
+    pdf.setFontSize(16);
+    pdf.text(title, 14, 20);
+    
+    // Add date
+    pdf.setFontSize(10);
+    pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 30);
+    
+    // Prepare table data
+    const tableData = data.map((row) =>
+      columns.map((col) => {
+        const value = row[col];
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'object') return JSON.stringify(value);
+        return String(value);
+      })
+    );
+
+    // Add table using autoTable
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (pdf as any).autoTable({
+      head: [columns.map((col) => col.charAt(0).toUpperCase() + col.slice(1).replace(/_/g, ' '))],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 139, 202] },
+    });
+
+    // Save PDF
+    pdf.save(filename);
+  } catch (error) {
+    logger.error('Failed to export PDF', error);
+    throw new Error('Failed to export PDF: ' + (error instanceof Error ? error.message : 'Unknown error'));
+  }
+}
+
+
+interface TradeExport {
+  timestamp?: string | number;
+  date?: string | number;
+  symbol?: string;
+  pair?: string;
+  side: string;
+  type: string;
+  price: number;
+  amount: number;
+  total?: number;
+  fee?: number;
+  pnl?: number;
+  profit?: number;
+  status?: string;
+}
+
+/**
  * Format trade data for export
  */
-export function formatTradesForExport(trades: any[]) {
+export function formatTradesForExport(trades: TradeExport[]) {
   return trades.map((trade) => ({
-    Date: new Date(trade.timestamp || trade.date).toISOString(),
+    Date: new Date(trade.timestamp || trade.date || Date.now()).toISOString(),
     Symbol: trade.symbol || trade.pair,
     Side: trade.side,
     Type: trade.type,
@@ -105,16 +180,34 @@ export function formatTradesForExport(trades: any[]) {
   }));
 }
 
+interface PortfolioPosition {
+  asset: string;
+  balance: number;
+  value: number;
+  allocation: number;
+  avgPrice: number;
+  currentPrice: number;
+  pnl: number;
+  pnlPercent: number;
+}
+
+interface PortfolioExport {
+  totalBalance: number;
+  profitLossTotal: number;
+  profitLoss24h: number;
+  positions?: PortfolioPosition[];
+}
+
 /**
  * Format portfolio data for export
  */
-export function formatPortfolioForExport(portfolio: any) {
+export function formatPortfolioForExport(portfolio: PortfolioExport) {
   return {
     exportDate: new Date().toISOString(),
     totalBalance: portfolio.totalBalance,
     profitLoss: portfolio.profitLossTotal,
     profitLoss24h: portfolio.profitLoss24h,
-    positions: portfolio.positions?.map((pos: any) => ({
+    positions: portfolio.positions?.map((pos: PortfolioPosition) => ({
       asset: pos.asset,
       balance: pos.balance,
       value: pos.value,
@@ -127,10 +220,22 @@ export function formatPortfolioForExport(portfolio: any) {
   };
 }
 
+interface BotExport {
+  name: string;
+  strategy: string;
+  status: string;
+  symbol: string;
+  startDate?: string | number;
+  totalTrades?: number;
+  winRate?: number;
+  totalPnl?: number;
+  currentPosition?: string;
+}
+
 /**
  * Format bot data for export
  */
-export function formatBotsForExport(bots: any[]) {
+export function formatBotsForExport(bots: BotExport[]) {
   return bots.map((bot) => ({
     Name: bot.name,
     Strategy: bot.strategy,
@@ -144,10 +249,30 @@ export function formatBotsForExport(bots: any[]) {
   }));
 }
 
+interface AnalyticsExport {
+  period?: string;
+  totalProfit?: number;
+  totalTrades?: number;
+  winRate?: number;
+  avgWin?: number;
+  avgLoss?: number;
+  largestWin?: number;
+  largestLoss?: number;
+  profitFactor?: number;
+  sharpeRatio?: number;
+  maxDrawdown?: number;
+  dailyData?: Array<{
+    date: string | number;
+    profit?: number;
+    trades?: number;
+    winRate?: number;
+  }>;
+}
+
 /**
  * Format analytics data for export
  */
-export function formatAnalyticsForExport(analytics: any) {
+export function formatAnalyticsForExport(analytics: AnalyticsExport) {
   return {
     exportDate: new Date().toISOString(),
     period: analytics.period || 'all-time',
@@ -170,7 +295,7 @@ export function formatAnalyticsForExport(analytics: any) {
 /**
  * Convert data to PDF format and trigger download
  */
-export function exportToPDF<T extends Record<string, any>>(
+export function exportToPDF<T extends Record<string, unknown>>(
   data: T[],
   options: ExportOptions & {
     title?: string;
@@ -196,10 +321,13 @@ export function exportToPDF<T extends Record<string, any>>(
   doc.text(`Exported: ${new Date().toLocaleString()}`, 14, 30);
 
   // Prepare table data
-  const tableHeaders = options.headers || Object.keys(data[0]);
+  if (!data || data.length === 0 || !data[0]) {
+    throw new Error('Cannot export empty data');
+  }
+  const tableHeaders = options.headers || Object.keys(data[0] as Record<string, unknown>);
   const rows = data.map((row) =>
     tableHeaders.map((header) => {
-      const value = row[header];
+      const value = (row as Record<string, unknown>)[header];
       // Format dates, numbers, etc.
       if (value instanceof Date) {
         return value.toLocaleString();
@@ -211,7 +339,8 @@ export function exportToPDF<T extends Record<string, any>>(
     })
   );
 
-  // Add table
+  // Add table using jsPDF autoTable plugin
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (doc as any).autoTable({
     head: [tableHeaders],
     body: rows,
@@ -228,7 +357,7 @@ export function exportToPDF<T extends Record<string, any>>(
 /**
  * Export trades to PDF with formatted table
  */
-export function exportTradesToPDF(trades: any[], options: ExportOptions = {}): void {
+export function exportTradesToPDF(trades: TradeExport[], options: ExportOptions = {}): void {
   const filename = options.filename || `trades-${Date.now()}.pdf`;
   const formattedTrades = formatTradesForExport(trades);
 
@@ -243,7 +372,7 @@ export function exportTradesToPDF(trades: any[], options: ExportOptions = {}): v
 /**
  * Export portfolio to PDF
  */
-export function exportPortfolioToPDF(portfolio: any, options: ExportOptions = {}): void {
+export function exportPortfolioToPDF(portfolio: PortfolioExport, options: ExportOptions = {}): void {
   const filename = options.filename || `portfolio-${Date.now()}.pdf`;
   const doc = new jsPDF();
 
@@ -280,7 +409,7 @@ export function exportPortfolioToPDF(portfolio: any, options: ExportOptions = {}
     const positions = formattedPortfolio.positions || [];
 
     const headers = ['Asset', 'Balance', 'Value', 'Allocation', 'Avg Price', 'Current Price', 'P&L', 'P&L %'];
-    const rows = positions.map((pos: any) => [
+    const rows = positions.map((pos: PortfolioPosition) => [
       pos.asset,
       pos.balance?.toFixed(8) || '0',
       `$${pos.value?.toLocaleString() || '0'}`,
@@ -291,6 +420,7 @@ export function exportPortfolioToPDF(portfolio: any, options: ExportOptions = {}
       `${pos.pnlPercent?.toFixed(2) || '0'}%`,
     ]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (doc as any).autoTable({
       head: [headers],
       body: rows,
@@ -307,7 +437,7 @@ export function exportPortfolioToPDF(portfolio: any, options: ExportOptions = {}
 /**
  * Export analytics to PDF
  */
-export function exportAnalyticsToPDF(analytics: any, options: ExportOptions = {}): void {
+export function exportAnalyticsToPDF(analytics: AnalyticsExport, options: ExportOptions = {}): void {
   const filename = options.filename || `analytics-${Date.now()}.pdf`;
   const doc = new jsPDF();
 
@@ -353,13 +483,14 @@ export function exportAnalyticsToPDF(analytics: any, options: ExportOptions = {}
     yPos += 10;
 
     const headers = ['Date', 'Profit', 'Trades', 'Win Rate'];
-    const rows = formatted.dailyPerformance.map((day: any) => [
+    const rows = formatted.dailyPerformance.map((day) => [
       new Date(day.date).toLocaleDateString(),
       `$${day.profit?.toLocaleString() || '0'}`,
       day.trades?.toString() || '0',
       `${day.winRate?.toFixed(2) || '0'}%`,
     ]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (doc as any).autoTable({
       head: [headers],
       body: rows,
@@ -373,12 +504,20 @@ export function exportAnalyticsToPDF(analytics: any, options: ExportOptions = {}
   doc.save(filename);
 }
 
+interface ToastFunction {
+  (options: {
+    title: string;
+    description: string;
+    variant?: 'default' | 'destructive';
+  }): void;
+}
+
 /**
  * Export component data with toast notification
  */
 export async function exportWithNotification(
   exportFn: () => void,
-  toast: any,
+  toast: ToastFunction,
   successMessage = 'Data exported successfully'
 ): Promise<void> {
   try {
@@ -388,7 +527,7 @@ export async function exportWithNotification(
       description: successMessage,
     });
   } catch (error) {
-    console.error('Export failed:', error);
+    logger.error('Export failed:', error);
     toast({
       title: 'Export Failed',
       description: error instanceof Error ? error.message : 'Failed to export data',

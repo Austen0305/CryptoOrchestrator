@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { Search, Star, Download, TrendingUp, Users } from "lucide-react";
+import { OptimizedSearch } from "@/components/OptimizedSearch";
 import { useState, useMemo, useEffect } from "react";
 import { formatPercentage } from "@/lib/formatters";
 
@@ -139,12 +140,11 @@ export function StrategyMarketplace() {
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search strategies..."
+              <OptimizedSearch
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
+                onChange={setSearchQuery}
+                placeholder="Search strategies..."
+                className="w-full"
               />
             </div>
             <select
@@ -180,11 +180,10 @@ export function StrategyMarketplace() {
                   : "Be the first to publish a strategy to the marketplace"
               }
               action={
-                searchQuery && (
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
-                    Clear Search
-                  </Button>
-                )
+                searchQuery ? {
+                  label: "Clear Search",
+                  onClick: () => setSearchQuery("")
+                } : undefined
               }
             />
           </CardContent>
@@ -217,7 +216,7 @@ export function StrategyMarketplace() {
               <CardContent>
                 <div className="space-y-4">
                   {/* Performance Metrics */}
-                  {strategy.backtest_sharpe_ratio !== null && (
+                  {strategy.backtest_sharpe_ratio !== null && strategy.backtest_sharpe_ratio !== undefined && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">Sharpe Ratio:</span>

@@ -3,10 +3,12 @@
  * Provides consistent, helpful empty states throughout the application
  */
 
+import React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LucideIcon, Inbox, Plus, Search, RefreshCw, TrendingUp, Bot, Code } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AnimatedContainer } from "@/components/PageTransition";
 
 interface EmptyStateProps {
   title: string;
@@ -24,7 +26,7 @@ interface EmptyStateProps {
   illustration?: React.ReactNode;
 }
 
-export function EmptyState({
+export const EmptyState = React.memo(function EmptyState({
   title,
   description,
   icon: Icon = Inbox,
@@ -34,36 +36,38 @@ export function EmptyState({
   illustration,
 }: EmptyStateProps) {
   return (
-    <Card className={cn("border-dashed", className)}>
-      <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
-        {illustration ? (
-          illustration
-        ) : (
-          <div className="mb-4 p-4 rounded-full bg-muted/50">
-            <Icon className="h-8 w-8 text-muted-foreground" />
+    <AnimatedContainer animation="fade-in-up" delay={100}>
+      <Card className={cn("border-dashed", className)}>
+        <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
+          {illustration ? (
+            illustration
+          ) : (
+            <div className="mb-4 p-4 rounded-full bg-muted/50 animate-float">
+              <Icon className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+          <h3 className="text-lg font-semibold mb-2">{title}</h3>
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm">{description}</p>
+          <div className="flex gap-2">
+            {action && (
+              <Button onClick={action.onClick} size="sm" className="animate-scale-in">
+                {action.label === "Create" && <Plus className="h-4 w-4 mr-2" />}
+                {action.label === "Search" && <Search className="h-4 w-4 mr-2" />}
+                {action.label === "Refresh" && <RefreshCw className="h-4 w-4 mr-2" />}
+                {action.label}
+              </Button>
+            )}
+            {secondaryAction && (
+              <Button onClick={secondaryAction.onClick} variant="outline" size="sm" className="animate-scale-in">
+                {secondaryAction.label}
+              </Button>
+            )}
           </div>
-        )}
-        <h3 className="text-lg font-semibold mb-2">{title}</h3>
-        <p className="text-sm text-muted-foreground mb-6 max-w-sm">{description}</p>
-        <div className="flex gap-2">
-          {action && (
-            <Button onClick={action.onClick} size="sm">
-              {action.label === "Create" && <Plus className="h-4 w-4 mr-2" />}
-              {action.label === "Search" && <Search className="h-4 w-4 mr-2" />}
-              {action.label === "Refresh" && <RefreshCw className="h-4 w-4 mr-2" />}
-              {action.label}
-            </Button>
-          )}
-          {secondaryAction && (
-            <Button onClick={secondaryAction.onClick} variant="outline" size="sm">
-              {secondaryAction.label}
-            </Button>
-          )}
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </AnimatedContainer>
   );
-}
+});
 
 /**
  * Pre-configured empty states for common scenarios
@@ -115,8 +119,8 @@ export function EmptyPortfolioState() {
   return (
     <EmptyState
       title="No portfolio data"
-      description="Connect an exchange or start paper trading to see your portfolio."
-      action={{ label: "Connect Exchange", onClick: () => {} }}
+      description="Create a wallet or start paper trading to see your portfolio. Trade directly on blockchain via DEX aggregators."
+      action={{ label: "Create Wallet", onClick: () => {} }}
     />
   );
 }

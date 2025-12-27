@@ -5,13 +5,14 @@ API endpoints for cold storage management
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.cold_storage_service import ColdStorageService
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,12 @@ class InitiateColdStorageRequest(BaseModel):
 async def check_cold_storage_eligibility(
     currency: str,
     amount: float,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Dict:
     """Check if transfer is eligible for cold storage"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
+        user_id = _get_user_id(current_user)
 
         service = ColdStorageService(db)
         result = await service.check_cold_storage_eligibility(
@@ -52,12 +53,12 @@ async def check_cold_storage_eligibility(
 @router.post("/initiate")
 async def initiate_cold_storage_transfer(
     request: InitiateColdStorageRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Dict:
     """Initiate a transfer to cold storage"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
+        user_id = _get_user_id(current_user)
 
         service = ColdStorageService(db)
 
@@ -79,13 +80,13 @@ async def initiate_cold_storage_transfer(
 
 @router.get("/balance")
 async def get_cold_storage_balance(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     currency: Optional[str] = None,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ) -> Dict:
     """Get cold storage balance for current user"""
     try:
-        user_id = current_user.get("id") or current_user.get("user_id")
+        user_id = _get_user_id(current_user)
 
         service = ColdStorageService(db)
 

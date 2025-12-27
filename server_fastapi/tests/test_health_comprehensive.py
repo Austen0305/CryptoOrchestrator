@@ -1,6 +1,7 @@
 """
 Tests for comprehensive health check endpoints
 """
+
 import pytest
 import sys
 from pathlib import Path
@@ -87,4 +88,3 @@ def test_specific_dependency_check_invalid(client):
     """Test checking invalid dependency"""
     response = client.get("/health/dependencies/invalid_dependency")
     assert response.status_code == 404
-

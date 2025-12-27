@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import logger from '@/lib/logger';
 import { toast } from '@/hooks/use-toast';
 
 type TradingMode = 'paper' | 'real';
@@ -45,7 +46,7 @@ export function TradingModeProvider({ children }: TradingModeProviderProps) {
           setCanSwitchToRealMoney(canSwitch);
         }
       } catch (error) {
-        console.error('Failed to load trading mode:', error);
+        logger.error('Failed to load trading mode:', error);
       }
     };
 
@@ -58,22 +59,28 @@ export function TradingModeProvider({ children }: TradingModeProviderProps) {
 
     try {
       const response = await apiRequest<{
-        hasApiKeys: boolean;
+        hasWallets: boolean;
         has2FA: boolean;
         hasVerifiedEmail: boolean;
         hasAcceptedTerms: boolean;
+        hasDEXTrading: boolean;
       }>('/api/trading/check-real-money-requirements', {
         method: 'GET',
       });
 
+      // Can trade real money if:
+      // 1. Has wallets configured (for DEX trading)
+      // 2. AND has 2FA, verified email, and accepted terms
+      const canTradeViaDEX = response.hasWallets || response.hasDEXTrading;
+      
       return (
-        response.hasApiKeys &&
+        canTradeViaDEX &&
         response.has2FA &&
         response.hasVerifiedEmail &&
         response.hasAcceptedTerms
       );
     } catch (error) {
-      console.error('Failed to check real money requirements:', error);
+      logger.error('Failed to check real money requirements:', error);
       return false;
     }
   }, [user]);
@@ -85,21 +92,55 @@ export function TradingModeProvider({ children }: TradingModeProviderProps) {
       if (newMode === 'real' && requireConfirmation) {
         const canSwitch = await checkRealMoneyRequirements();
         if (!canSwitch) {
+          // Check if DEX trading is available
+          const requirementsResponse = await apiRequest<{
+            hasWallets: boolean;
+            has2FA: boolean;
+            hasVerifiedEmail: boolean;
+            hasAcceptedTerms: boolean;
+            hasDEXTrading: boolean;
+          }>('/api/trading/check-real-money-requirements', {
+            method: 'GET',
+          });
+
+          const missingRequirements: string[] = [];
+          if (!requirementsResponse.hasWallets && !requirementsResponse.hasDEXTrading) {
+            missingRequirements.push('Set up a wallet for DEX trading (no API keys needed)');
+          }
+          if (!requirementsResponse.has2FA) {
+            missingRequirements.push('Enable 2FA');
+          }
+          if (!requirementsResponse.hasVerifiedEmail) {
+            missingRequirements.push('Verify your email');
+          }
+          if (!requirementsResponse.hasAcceptedTerms) {
+            missingRequirements.push('Accept the terms of service');
+          }
+
           toast({
             title: 'Cannot Switch to Real Money Trading',
-            description:
-              'Please configure exchange API keys, enable 2FA, verify your email, and accept the terms of service.',
+            description: `Please complete: ${missingRequirements.join(', ')}. ${requirementsResponse.hasDEXTrading ? '💡 Tip: Try DEX Trading - no API keys required!' : ''}`,
             variant: 'destructive',
           });
           return;
         }
 
+        // Get requirements to show appropriate message
+        const requirementsResponse = await apiRequest<{
+          hasWallets: boolean;
+          hasDEXTrading: boolean;
+        }>('/api/trading/check-real-money-requirements', {
+          method: 'GET',
+        });
+
+        const tradingMethod = 'DEX Trading (blockchain networks)';
+
         // Show confirmation dialog
         const confirmed = window.confirm(
           '⚠️ WARNING: You are about to switch to REAL MONEY trading.\n\n' +
-            'This will execute trades using your actual funds on connected exchanges.\n\n' +
+            `This will execute trades using your actual funds via ${tradingMethod}.\n\n` +
             'Make sure you have:\n' +
-            '1. Configured exchange API keys with trading permissions\n' +
+            '1. Set up a wallet for DEX trading (no API keys needed)\n' +
             '2. Enabled 2FA on your account\n' +
             '3. Verified your email address\n' +
             '4. Accepted the terms of service\n' +
@@ -126,7 +167,7 @@ export function TradingModeProvider({ children }: TradingModeProviderProps) {
           }),
         });
       } catch (error) {
-        console.error('Failed to log mode switch:', error);
+        logger.error('Failed to log mode switch:', error);
       }
 
       toast({

@@ -6,6 +6,7 @@ import logging
 from typing import Dict, Optional, List, Any
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,8 @@ class TradingRules(BaseModel):
 class SafeTradingSystem:
     """Safe trading system with risk controls"""
 
-    def __init__(self):
+    def __init__(self, db_session: Optional[AsyncSession] = None):
+        self.db_session = db_session
         self.rules = TradingRules(
             max_position_size=1000.0,
             max_daily_loss=500.0,

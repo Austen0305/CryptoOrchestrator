@@ -100,7 +100,7 @@ interface RecentActivityProps {
 
 export function RecentActivity({ activities, maxItems = 5 }: RecentActivityProps) {
   const displayActivities = useMemo(
-    () => activities.slice(0, maxItems),
+    () => (activities && Array.isArray(activities) ? activities.slice(0, maxItems) : []),
     [activities, maxItems]
   );
 

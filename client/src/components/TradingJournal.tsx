@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon, Plus, Search, Download, Filter, FileText, TrendingUp, TrendingDown, DollarSign } from "lucide-react";
+import { OptimizedSearch } from "@/components/OptimizedSearch";
 import { format } from "date-fns";
 import { useTrades } from "@/hooks/useApi";
 import { useToast } from "@/hooks/use-toast";
@@ -54,7 +55,8 @@ export function TradingJournal() {
 
   // Transform API trades to TradeEntry format
   // Trade type from API may have additional fields, so we use a union type for flexibility
-  const transformedTrades: TradeEntry[] = (trades || []).map((trade: Trade & {
+  const tradesArray = Array.isArray(trades) ? trades : [];
+  const transformedTrades: TradeEntry[] = tradesArray.map((trade: Trade & {
     tradeId?: string;
     date?: number | string;
     symbol?: string;
@@ -66,6 +68,9 @@ export function TradingJournal() {
     notes?: string;
     comment?: string;
     tags?: string[];
+    quantity?: number; // Add optional quantity property
+    pnl?: number; // Add optional pnl property
+    pnlPercent?: number; // Add optional pnlPercent property
   }) => ({
     id: trade.id || trade.tradeId || String(Math.random()),
     date: new Date(trade.timestamp || trade.date || Date.now()),
@@ -73,10 +78,10 @@ export function TradingJournal() {
     side: trade.side || "buy",
     entryPrice: trade.price || trade.entryPrice || 0,
     exitPrice: trade.exitPrice,
-    quantity: trade.amount || trade.quantity || 0,
+    quantity: (trade.amount ?? trade.quantity ?? 0) as number,
     fees: trade.fee || 0,
-    pnl: trade.pnl || trade.profitLoss,
-    pnlPercent: trade.pnlPercent || trade.profitLossPercent,
+    pnl: trade.pnl ?? trade.profitLoss ?? undefined,
+    pnlPercent: trade.pnlPercent ?? trade.profitLossPercent ?? undefined,
     strategy: trade.strategy || trade.botId || "Manual",
     notes: trade.notes || trade.comment || "",
     tags: trade.tags || [],
@@ -116,8 +121,25 @@ export function TradingJournal() {
 
   const handleExportPDF = async () => {
     const { exportTradesToPDF, exportWithNotification } = await import('@/lib/export');
+    // Convert TradeEntry[] to TradeExport[]
+    const exportTrades = filteredTrades.map(trade => ({
+      timestamp: trade.date.getTime(),
+      date: trade.date.toISOString(),
+      symbol: trade.symbol,
+      pair: trade.symbol,
+      side: trade.side,
+      type: trade.side,
+      price: trade.entryPrice,
+      amount: trade.quantity,
+      total: trade.entryPrice * trade.quantity,
+      fees: trade.fees,
+      pnl: trade.pnl,
+      pnlPercent: trade.pnlPercent,
+      strategy: trade.strategy,
+      notes: trade.notes
+    }));
     exportWithNotification(
-      () => exportTradesToPDF(filteredTrades, { filename: `trading-journal-${Date.now()}.pdf` }),
+      () => exportTradesToPDF(exportTrades, { filename: `trading-journal-${Date.now()}.pdf` }),
       toast,
       'Trading journal exported to PDF'
     );
@@ -185,18 +207,12 @@ export function TradingJournal() {
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search trades..."
+                <OptimizedSearch
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  onChange={setSearchTerm}
+                  placeholder="Search trades..."
+                  className="w-full"
                 />
-                {debouncedSearchTerm !== searchTerm && (
-                  <div className="absolute right-2 top-2.5 text-xs text-muted-foreground">
-                    Searching...
-                  </div>
-                )}
               </div>
               <Select value={filterStrategy} onValueChange={setFilterStrategy}>
                 <SelectTrigger className="w-[150px]">

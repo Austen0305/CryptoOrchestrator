@@ -20,7 +20,7 @@ if %errorlevel% == 0 (
 )
 
 echo Starting FastAPI backend on port 8000...
-start "FastAPI Backend" cmd /k "cd /d %~dp0 && npm run dev:fastapi"
+start "FastAPI Backend" cmd /k "cd /d %~dp0 && set REQUEST_TIMEOUT=30 && npm run dev:fastapi"
 
 timeout /t 3 /nobreak >nul
 

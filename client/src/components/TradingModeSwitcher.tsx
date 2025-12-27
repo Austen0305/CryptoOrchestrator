@@ -53,8 +53,9 @@ export function TradingModeSwitcher() {
           <Badge
             variant={isPaperTrading ? 'default' : 'outline'}
             className={isPaperTrading ? 'bg-blue-500' : ''}
+            data-testid="paper-trading-mode"
           >
-            Paper
+            Paper Trading
           </Badge>
           <Switch
             id="trading-mode"
@@ -65,6 +66,7 @@ export function TradingModeSwitcher() {
           <Badge
             variant={isRealMoney ? 'destructive' : 'outline'}
             className={isRealMoney ? 'bg-red-500' : ''}
+            data-testid="real-money-mode"
           >
             Real Money
           </Badge>
@@ -72,16 +74,16 @@ export function TradingModeSwitcher() {
       </div>
 
       {isRealMoney && (
-        <Badge variant="destructive" className="animate-pulse">
+        <Badge variant="destructive" className="animate-pulse" data-testid="live-trading-badge">
           <AlertTriangle className="h-3 w-3 mr-1" />
           Live Trading
         </Badge>
       )}
 
       {isPaperTrading && (
-        <Badge variant="secondary">
+        <Badge variant="secondary" data-testid="simulated-badge">
           <CheckCircle2 className="h-3 w-3 mr-1" />
-          Simulated
+          Simulated Trading
         </Badge>
       )}
 

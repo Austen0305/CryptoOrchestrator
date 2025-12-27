@@ -13,8 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.grid_bot import GridBot
 from ...repositories.grid_bot_repository import GridBotRepository
-from ...services.exchange_service import ExchangeService
+from ...services.coingecko_service import CoinGeckoService
+from ...services.trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
+from ...services.blockchain.transaction_service import get_transaction_service
 from ...database import get_db_context
 from contextlib import asynccontextmanager
 
@@ -31,6 +33,8 @@ class GridTradingService:
         self.repository = GridBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
+        self.coingecko = CoinGeckoService()
+        self.dex_service = DEXTradingService()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -45,11 +49,11 @@ class GridTradingService:
         user_id: int,
         name: str,
         symbol: str,
-        exchange: str,
-        upper_price: float,
-        lower_price: float,
-        grid_count: int,
-        order_amount: float,
+        chain_id: int = 1,  # Changed from exchange to chain_id
+        upper_price: float = None,
+        lower_price: float = None,
+        grid_count: int = 10,
+        order_amount: float = 100.0,
         trading_mode: str = "paper",
         grid_spacing_type: str = "arithmetic",
         config: Optional[Dict[str, Any]] = None,
@@ -60,10 +64,10 @@ class GridTradingService:
         Args:
             user_id: User ID
             name: Bot name
-            symbol: Trading symbol (e.g., "BTC/USD")
-            exchange: Exchange name
-            upper_price: Upper bound of grid
-            lower_price: Lower bound of grid
+            symbol: Trading symbol (e.g., "ETH/USDC")
+            chain_id: Blockchain chain ID (1 = Ethereum, 8453 = Base, etc.)
+            upper_price: Upper bound of grid (auto-calculated if None)
+            lower_price: Lower bound of grid (auto-calculated if None)
             grid_count: Number of grid levels
             order_amount: Amount per order
             trading_mode: "paper" or "real"
@@ -88,14 +92,28 @@ class GridTradingService:
 
             bot_id = f"grid-{user_id}-{uuid.uuid4().hex[:12]}"
 
+            # Auto-calculate price bounds if not provided
+            if upper_price is None or lower_price is None:
+                current_price = await self.coingecko.get_price(symbol)
+                if not current_price:
+                    raise ValueError(f"Could not get market price for {symbol}")
+
+                if upper_price is None:
+                    upper_price = current_price * 1.1  # 10% above
+                if lower_price is None:
+                    lower_price = current_price * 0.9  # 10% below
+
             async with self._get_session() as session:
-                # Create grid bot
+                # Create grid bot (using exchange field for chain_id temporarily for backward compatibility)
+                # Note: Future schema update will add dedicated chain_id field to GridBot model
                 grid_bot = GridBot(
                     id=bot_id,
                     user_id=user_id,
                     name=name,
                     symbol=symbol,
-                    exchange=exchange,
+                    exchange=str(
+                        chain_id
+                    ),  # Store chain_id as string in exchange field (temporary)
                     trading_mode=trading_mode,
                     upper_price=upper_price,
                     lower_price=lower_price,
@@ -107,7 +125,7 @@ class GridTradingService:
                     grid_state=json.dumps(
                         {"orders": [], "filled_orders": [], "current_price": None}
                     ),
-                    config=json.dumps(config or {}),
+                    config=json.dumps((config or {}) | {"chain_id": chain_id}),
                 )
 
                 session.add(grid_bot)
@@ -257,9 +275,8 @@ class GridTradingService:
             bot.lower_price, bot.upper_price, bot.grid_count, bot.grid_spacing_type
         )
 
-        # Get current market price
-        exchange_service = ExchangeService(bot.exchange)
-        current_price = await exchange_service.get_market_price(bot.symbol)
+        # Get current market price from CoinGecko
+        current_price = await self.coingecko.get_price(bot.symbol)
 
         if not current_price:
             logger.warning(f"Could not get market price for {bot.symbol}")
@@ -346,20 +363,84 @@ class GridTradingService:
                     "symbol": bot.symbol,
                 }
             else:
-                # Real trading - place actual order
-                exchange_service = ExchangeService(bot.exchange)
-                order = await exchange_service.place_order(
-                    pair=bot.symbol,
-                    side=side,
-                    type_="limit",
-                    amount=amount,
-                    price=price,
+                # Real trading - execute DEX swap
+                # Get chain_id from bot config or exchange field (temporary)
+                chain_id = 1  # Default to Ethereum
+                if bot.config:
+                    config = (
+                        json.loads(bot.config)
+                        if isinstance(bot.config, str)
+                        else bot.config
+                    )
+                    chain_id = config.get(
+                        "chain_id", int(bot.exchange) if bot.exchange.isdigit() else 1
+                    )
+                elif bot.exchange and bot.exchange.isdigit():
+                    chain_id = int(bot.exchange)
+
+                # Convert symbol to token addresses using token registry
+                base_address, quote_address = await self._parse_symbol_to_tokens(
+                    bot.symbol, chain_id
                 )
-                return order
+
+                # Calculate sell amount based on side and price
+                if side == "buy":
+                    # Buying: sell quote token (USDC) to get base token (ETH)
+                    sell_token = quote_address
+                    buy_token = base_address
+                    sell_amount = str(amount * price)  # Amount of quote token to sell
+                else:
+                    # Selling: sell base token (ETH) to get quote token (USDC)
+                    sell_token = base_address
+                    buy_token = quote_address
+                    sell_amount = str(amount)  # Amount of base token to sell
+
+                # Execute DEX swap
+                swap_result = await self.dex_service.execute_custodial_swap(
+                    user_id=bot.user_id,
+                    sell_token=sell_token,
+                    buy_token=buy_token,
+                    sell_amount=sell_amount,
+                    chain_id=chain_id,
+                    slippage_percentage=0.5,  # Default 0.5% slippage
+                    db=session,
+                    user_tier="free",  # Get from user profile
+                )
+
+                if swap_result and swap_result.get("success"):
+                    return {
+                        "id": swap_result.get("transaction_hash"),
+                        "side": side,
+                        "price": price,
+                        "amount": amount,
+                        "status": "open",  # Will be updated when confirmed
+                        "symbol": bot.symbol,
+                        "transaction_hash": swap_result.get("transaction_hash"),
+                    }
+                else:
+                    logger.error(f"DEX swap failed for grid order: {swap_result}")
+                    return None
 
         except Exception as e:
             logger.error(f"Error placing grid order: {str(e)}", exc_info=True)
             return None
+
+    async def _parse_symbol_to_tokens(
+        self, symbol: str, chain_id: int = 1
+    ) -> Tuple[str, str]:
+        """
+        Parse trading symbol (e.g., "ETH/USDC") to token addresses using token registry.
+
+        Returns:
+            Tuple of (base_token_address, quote_token_address)
+        """
+        from ..blockchain.token_registry import get_token_registry
+
+        token_registry = get_token_registry()
+        base_address, quote_address = await token_registry.parse_symbol_to_tokens(
+            symbol, chain_id
+        )
+        return base_address, quote_address
 
     async def _check_filled_orders(
         self, bot: GridBot, grid_state: Dict[str, Any], session: AsyncSession
@@ -369,8 +450,7 @@ class GridTradingService:
 
         if bot.trading_mode == "paper":
             # In paper trading, simulate order fills based on current price
-            exchange_service = ExchangeService(bot.exchange)
-            current_price = await exchange_service.get_market_price(bot.symbol)
+            current_price = await self.coingecko.get_price(bot.symbol)
 
             if current_price:
                 for order in grid_state.get("orders", []):
@@ -384,15 +464,49 @@ class GridTradingService:
                         ):
                             filled.append(order)
         else:
-            # Real trading - check exchange for filled orders
-            exchange_service = ExchangeService(bot.exchange)
+            # Real trading - check blockchain for filled orders
+            # For DEX swaps, check transaction status
+            transaction_service = get_transaction_service()
+            chain_id = bot.chain_id or 1  # Default to Ethereum mainnet
+            
             for order in grid_state.get("orders", []):
                 if order.get("status") == "open":
-                    order_id = order.get("order_id")
-                    # Check order status on exchange
-                    # This would require exchange API call to check order status
-                    # For now, simplified version
-                    pass
+                    tx_hash = order.get("transaction_hash")
+                    if tx_hash:
+                        # Check if transaction is confirmed and successful
+                        tx_status = await transaction_service.get_transaction_status(
+                            chain_id=chain_id,
+                            tx_hash=tx_hash
+                        )
+                        
+                        if tx_status:
+                            if tx_status.get("status") == "confirmed" and tx_status.get("success"):
+                                # Transaction confirmed and successful - order is filled
+                                filled.append(order)
+                                logger.info(
+                                    f"Grid order {order.get('order_id')} confirmed via transaction {tx_hash}",
+                                    extra={
+                                        "bot_id": bot.id,
+                                        "order_id": order.get("order_id"),
+                                        "tx_hash": tx_hash,
+                                        "chain_id": chain_id
+                                    }
+                                )
+                            elif tx_status.get("status") == "failed" or (
+                                tx_status.get("status") == "confirmed" and not tx_status.get("success")
+                            ):
+                                # Transaction failed - mark order as failed
+                                order["status"] = "failed"
+                                logger.warning(
+                                    f"Grid order {order.get('order_id')} failed via transaction {tx_hash}",
+                                    extra={
+                                        "bot_id": bot.id,
+                                        "order_id": order.get("order_id"),
+                                        "tx_hash": tx_hash,
+                                        "chain_id": chain_id
+                                    }
+                                )
+                            # If status is "pending" or "not_found", keep order as open
 
         return filled
 
@@ -493,11 +607,16 @@ class GridTradingService:
 
         for order in grid_state.get("orders", []):
             if order.get("status") == "open":
-                # Cancel order on exchange
+                # For DEX swaps, orders cannot be cancelled once submitted to blockchain
+                # Only pending transactions can be cancelled (before confirmation)
+                # Mark as cancelled in state (actual blockchain transaction may still execute)
                 if bot.trading_mode != "paper":
-                    exchange_service = ExchangeService(bot.exchange)
-                    # Cancel order - would need exchange API call
-                    pass
+                    tx_hash = order.get("transaction_hash")
+                    if tx_hash:
+                        logger.warning(
+                            f"Cannot cancel DEX swap transaction {tx_hash} - already on blockchain"
+                        )
+                        # Transaction may still execute - user should be aware
 
                 order["status"] = "cancelled"
 
@@ -522,17 +641,18 @@ class GridTradingService:
 
     async def list_user_grid_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """List all grid bots for a user."""
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all grid bots for a user with total count."""
         try:
             async with self._get_session() as session:
                 bots = await self.repository.get_user_grid_bots(
                     session, user_id, skip, limit
                 )
-                return [bot.to_dict() for bot in bots]
+                total = await self.repository.count_user_grid_bots(session, user_id)
+                return [bot.to_dict() for bot in bots], total
 
         except Exception as e:
             logger.error(
                 f"Error listing grid bots for user {user_id}: {str(e)}", exc_info=True
             )
-            return []
+            return [], 0

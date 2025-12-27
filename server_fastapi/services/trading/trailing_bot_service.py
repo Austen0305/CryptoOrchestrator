@@ -6,13 +6,14 @@ Implements trailing buy/sell bot functionality - follows price movements with dy
 import logging
 import uuid
 import json
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.trailing_bot import TrailingBot
 from ...repositories.trailing_bot_repository import TrailingBotRepository
-from ...services.exchange_service import ExchangeService
+from ...services.coingecko_service import CoinGeckoService
+from ...services.trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...database import get_db_context
 from contextlib import asynccontextmanager
@@ -30,6 +31,8 @@ class TrailingBotService:
         self.repository = TrailingBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
+        self.coingecko = CoinGeckoService()
+        self.dex_service = DEXTradingService()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -69,18 +72,26 @@ class TrailingBotService:
             async with self._get_session() as session:
                 # Get current market price if not provided
                 if not initial_price:
-                    exchange_service = ExchangeService(exchange)
-                    initial_price = await exchange_service.get_market_price(symbol)
+                    initial_price = await self.coingecko.get_price(symbol)
                     if not initial_price:
                         raise ValueError(f"Could not get market price for {symbol}")
 
-                # Create trailing bot
+                # Extract chain_id from config or use default
+                chain_id = 1  # Default to Ethereum
+                if config and isinstance(config, dict):
+                    chain_id = config.get("chain_id", 1)
+                elif isinstance(exchange, str) and exchange.isdigit():
+                    chain_id = int(exchange)
+
+                # Create trailing bot (using exchange field for chain_id temporarily)
                 trailing_bot = TrailingBot(
                     id=bot_id,
                     user_id=user_id,
                     name=name,
                     symbol=symbol,
-                    exchange=exchange,
+                    exchange=str(
+                        chain_id
+                    ),  # Store chain_id as string in exchange field (temporary)
                     trading_mode=trading_mode,
                     bot_type=bot_type,
                     initial_price=initial_price,
@@ -93,7 +104,7 @@ class TrailingBotService:
                     status="stopped",
                     highest_price=initial_price,
                     lowest_price=initial_price,
-                    config=json.dumps(config or {}),
+                    config=json.dumps((config or {}) | {"chain_id": chain_id}),
                 )
 
                 session.add(trailing_bot)
@@ -165,9 +176,8 @@ class TrailingBotService:
                 if not bot or not bot.active:
                     return {"action": "skipped", "reason": "bot_inactive"}
 
-                # Get current market price
-                exchange_service = ExchangeService(bot.exchange)
-                current_price = await exchange_service.get_market_price(bot.symbol)
+                # Get current market price from CoinGecko
+                current_price = await self.coingecko.get_price(bot.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}
@@ -264,25 +274,81 @@ class TrailingBotService:
                     "amount": bot.order_amount,
                 }
             else:
-                # Real trading - place actual order
-                exchange_service = ExchangeService(bot.exchange)
-                order = await exchange_service.place_order(
-                    pair=bot.symbol, side=side, type_="market", amount=bot.order_amount
+                # Real trading - execute DEX swap
+                # Get chain_id from bot config or exchange field (temporary)
+                chain_id = 1  # Default to Ethereum
+                if bot.config:
+                    config = (
+                        json.loads(bot.config)
+                        if isinstance(bot.config, str)
+                        else bot.config
+                    )
+                    chain_id = config.get(
+                        "chain_id", int(bot.exchange) if bot.exchange.isdigit() else 1
+                    )
+                elif bot.exchange and bot.exchange.isdigit():
+                    chain_id = int(bot.exchange)
+
+                # Convert symbol to token addresses using token registry
+                base_address, quote_address = await self._parse_symbol_to_tokens(
+                    bot.symbol, chain_id
                 )
 
-                if order:
+                # Calculate amounts based on side
+                if side == "buy":
+                    # Buying: sell quote token to get base token
+                    sell_token = quote_address
+                    buy_token = base_address
+                    sell_amount = str(bot.order_amount * price)  # Amount of quote token
+                else:
+                    # Selling: sell base token to get quote token
+                    sell_token = base_address
+                    buy_token = quote_address
+                    sell_amount = str(bot.order_amount)  # Amount of base token
+
+                # Execute DEX swap
+                swap_result = await self.dex_service.execute_custodial_swap(
+                    user_id=bot.user_id,
+                    sell_token=sell_token,
+                    buy_token=buy_token,
+                    sell_amount=sell_amount,
+                    chain_id=chain_id,
+                    slippage_percentage=0.5,  # Default 0.5% slippage
+                    db=session,
+                    user_tier="free",  # Get from user profile
+                )
+
+                if swap_result and swap_result.get("success"):
                     return {
                         "success": True,
-                        "order_id": order.get("id"),
+                        "order_id": swap_result.get("transaction_hash"),
                         "price": price,
                         "amount": bot.order_amount,
+                        "transaction_hash": swap_result.get("transaction_hash"),
                     }
                 else:
-                    return {"success": False, "error": "Order placement failed"}
+                    return {"success": False, "error": "DEX swap failed"}
 
         except Exception as e:
             logger.error(f"Error executing trailing order: {str(e)}", exc_info=True)
             return {"success": False, "error": str(e)}
+
+    async def _parse_symbol_to_tokens(
+        self, symbol: str, chain_id: int = 1
+    ) -> Tuple[str, str]:
+        """
+        Parse trading symbol (e.g., "ETH/USDC") to token addresses using token registry.
+
+        Returns:
+            Tuple of (base_token_address, quote_token_address)
+        """
+        from ..blockchain.token_registry import get_token_registry
+
+        token_registry = get_token_registry()
+        base_address, quote_address = await token_registry.parse_symbol_to_tokens(
+            symbol, chain_id
+        )
+        return base_address, quote_address
 
     async def get_trailing_bot(
         self, bot_id: str, user_id: int
@@ -302,14 +368,15 @@ class TrailingBotService:
 
     async def list_user_trailing_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """List all trailing bots for a user."""
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """List all trailing bots for a user with total count."""
         try:
             async with self._get_session() as session:
                 bots = await self.repository.get_user_trailing_bots(
                     session, user_id, skip, limit
                 )
-                return [bot.to_dict() for bot in bots]
+                total = await self.repository.count_user_trailing_bots(session, user_id)
+                return [bot.to_dict() for bot in bots], total
         except Exception as e:
             logger.error(f"Error listing trailing bots: {str(e)}", exc_info=True)
-            return []
+            return [], 0

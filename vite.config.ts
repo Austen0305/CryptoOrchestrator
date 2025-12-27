@@ -25,25 +25,81 @@ export default defineConfig(({ mode }) => ({
       },
       // Only enable in production
       injectRegister: mode === 'production' ? 'auto' : null,
+      // Use custom service worker
+      strategies: 'injectManifest',
+      srcDir: 'public',
+      filename: 'sw.js',
+      // Workbox options
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/api\./,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 5 * 60, // 5 minutes
+              },
+            },
+          },
+          {
+            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'image-cache',
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 7 * 24 * 60 * 60, // 7 days
+              },
+            },
+          },
+        ],
+      },
       manifest: {
         name: 'CryptoOrchestrator',
         short_name: 'CryptoOrch',
+        description: 'Professional cryptocurrency trading automation platform',
         theme_color: '#18181b',
         background_color: '#09090b',
         display: 'standalone',
+        orientation: 'portrait',
+        start_url: '/',
+        scope: '/',
         icons: [
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable',
           },
           {
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
-      }
+            type: 'image/png',
+            purpose: 'any maskable',
+          },
+        ],
+        shortcuts: [
+          {
+            name: 'Dashboard',
+            short_name: 'Dashboard',
+            description: 'View trading dashboard',
+            url: '/dashboard',
+            icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }],
+          },
+          {
+            name: 'Trading',
+            short_name: 'Trading',
+            description: 'Open trading interface',
+            url: '/trading',
+            icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }],
+          },
+        ],
+        categories: ['finance', 'productivity'],
+        screenshots: [],
+      },
     })
   ],
   resolve: {
@@ -67,33 +123,56 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React and React DOM
+          // React and React DOM - core framework
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react-vendor';
           }
-          // React Query
+          // React Query - data fetching
           if (id.includes('node_modules/@tanstack/react-query')) {
             return 'react-query';
           }
-          // Charts
+          // Charts - large visualization libraries
           if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
             return 'charts';
           }
-          // UI Components (Radix UI)
+          // UI Components (Radix UI) - split by usage frequency
           if (id.includes('node_modules/@radix-ui')) {
-            return 'radix-ui';
+            // Split Radix UI into smaller chunks
+            if (id.includes('dialog') || id.includes('popover') || id.includes('dropdown-menu')) {
+              return 'radix-ui-overlays';
+            }
+            if (id.includes('select') || id.includes('combobox')) {
+              return 'radix-ui-forms';
+            }
+            return 'radix-ui-core';
           }
-          // Icons
+          // Icons - tree-shake unused icons
           if (id.includes('node_modules/lucide-react')) {
             return 'icons';
           }
-          // TensorFlow (ML)
+          // TensorFlow (ML) - lazy load when needed
           if (id.includes('node_modules/@tensorflow')) {
             return 'tensorflow';
+          }
+          // Web3 libraries - split for better caching
+          if (id.includes('node_modules/wagmi') || id.includes('node_modules/viem') || id.includes('node_modules/@web3modal')) {
+            return 'web3';
           }
           // Large libraries
           if (id.includes('node_modules/framer-motion')) {
             return 'animations';
+          }
+          // Date utilities
+          if (id.includes('node_modules/date-fns')) {
+            return 'date-utils';
+          }
+          // Form libraries
+          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
+            return 'forms';
+          }
+          // Validation
+          if (id.includes('node_modules/zod')) {
+            return 'validation';
           }
           // All other node_modules
           if (id.includes('node_modules')) {
@@ -144,9 +223,12 @@ export default defineConfig(({ mode }) => ({
     include: [
       'react',
       'react-dom',
-  'lucide-react',
       'class-variance-authority',
-  'recharts'
+      '@tanstack/react-query',
+    ],
+    exclude: [
+      // Exclude heavy libraries that should be lazy loaded
+      '@tensorflow/tfjs',
     ]
   }
 }));

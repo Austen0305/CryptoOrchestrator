@@ -4,7 +4,7 @@ DCA Trading API Routes
 
 from fastapi import APIRouter, HTTPException, Depends, Query, status
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Annotated
 import logging
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from ..services.trading.dca_trading_service import DCATradingService
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -114,14 +118,15 @@ class DCABotResponse(BaseModel):
 )
 async def create_dca_bot(
     request: CreateDCABotRequest,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Create a new DCA (Dollar Cost Averaging) trading bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = DCATradingService(session=db_session)
         bot_id = await service.create_dca_bot(
-            user_id=current_user["id"],
+            user_id=user_id,
             name=request.name,
             symbol=request.symbol,
             exchange=request.exchange,
@@ -157,17 +162,26 @@ async def create_dca_bot(
 
 
 @router.get("/dca-bots", response_model=List[DCABotResponse], tags=["DCA Trading"])
+@cached(ttl=120, prefix="dca_bots")  # 120s TTL for DCA bots list
 async def list_dca_bots(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    """List all DCA bots for the current user."""
+    """List all DCA bots for the current user with pagination."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = DCATradingService(session=db_session)
-        bots = await service.list_user_dca_bots(current_user["id"], skip, limit)
-        return bots
+        # Convert page/page_size to skip/limit for service layer (backward compatibility)
+        skip = (page - 1) * page_size
+        limit = page_size
+        bots, total = await service.list_user_dca_bots(user_id, skip, limit)
+        # Use ResponseOptimizer for paginated response with metadata
+        from ..utils.response_optimizer import ResponseOptimizer
+
+        return ResponseOptimizer.paginate_response(bots, page, page_size, total)
 
     except Exception as e:
         logger.error(f"Error listing DCA bots: {e}", exc_info=True)
@@ -180,13 +194,15 @@ async def list_dca_bots(
 @router.get("/dca-bots/{bot_id}", response_model=DCABotResponse, tags=["DCA Trading"])
 async def get_dca_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Get a specific DCA bot by ID."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = DCATradingService(session=db_session)
-        bot = await service.get_dca_bot(bot_id, current_user["id"])
+        bot = await service.get_dca_bot(bot_id, user_id)
 
         if not bot:
             raise HTTPException(
@@ -210,13 +226,14 @@ async def get_dca_bot(
 )
 async def start_dca_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Start a DCA trading bot."""
     try:
+        user_id = _get_user_id(current_user)
         service = DCATradingService(session=db_session)
-        success = await service.start_dca_bot(bot_id, current_user["id"])
+        success = await service.start_dca_bot(bot_id, user_id)
 
         if not success:
             raise HTTPException(
@@ -241,13 +258,15 @@ async def start_dca_bot(
 )
 async def stop_dca_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Stop a DCA trading bot."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         service = DCATradingService(session=db_session)
-        success = await service.stop_dca_bot(bot_id, current_user["id"])
+        success = await service.stop_dca_bot(bot_id, user_id)
 
         if not success:
             raise HTTPException(
@@ -271,22 +290,22 @@ async def stop_dca_bot(
 )
 async def delete_dca_bot(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    db_session: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db_session: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Delete a DCA trading bot."""
     try:
+        user_id_str = _get_user_id(current_user)
+        user_id = int(user_id_str)  # Convert to int for service
         # First stop the bot if it's running
         service = DCATradingService(session=db_session)
-        await service.stop_dca_bot(bot_id, current_user["id"])
+        await service.stop_dca_bot(bot_id, user_id)
 
         # Then soft delete
         from ...repositories.dca_bot_repository import DCABotRepository
 
         repository = DCABotRepository()
-        bot = await repository.get_by_user_and_id(
-            db_session, bot_id, current_user["id"]
-        )
+        bot = await repository.get_by_user_and_id(db_session, bot_id, user_id)
 
         if not bot:
             raise HTTPException(

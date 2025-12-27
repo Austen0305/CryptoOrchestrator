@@ -226,31 +226,178 @@ class PortfolioRebalancer:
 
     async def _get_asset_volatility(self, symbol: str) -> float:
         """Get 30-day volatility for asset"""
-        # Mock implementation - in production, calculate from price data
-        import random
+        try:
+            # Use real volatility calculation from price history
+            from ..services.coingecko_service import CoinGeckoService
+            from ..services.volatility_analyzer import VolatilityAnalyzer
 
-        return random.uniform(0.1, 0.5)  # 10-50% volatility
+            coingecko = CoinGeckoService()
+            volatility_analyzer = VolatilityAnalyzer()
+
+            # Get 30 days of historical price data
+            historical_data = await coingecko.get_historical_prices(symbol, days=30)
+            if not historical_data or len(historical_data) < 2:
+                logger.warning(
+                    f"Insufficient data for volatility calculation for {symbol}"
+                )
+                return 0.2  # Default 20% volatility if data unavailable
+
+            # Convert to OHLCV format for volatility analyzer
+            # CoinGecko returns price points, we'll estimate OHLCV
+            market_data = []
+            for i, point in enumerate(historical_data):
+                price = point.get("price", 0)
+                if price > 0:
+                    # Estimate OHLCV from price (simplified - in production use full OHLCV)
+                    market_data.append(
+                        {
+                            "timestamp": point.get("timestamp", 0),
+                            "open": price,
+                            "high": price * 1.01,  # Estimate
+                            "low": price * 0.99,  # Estimate
+                            "close": price,
+                            "volume": 0.0,
+                        }
+                    )
+
+            if len(market_data) < 2:
+                return 0.2  # Default volatility
+
+            # Calculate volatility using VolatilityAnalyzer
+            volatility = volatility_analyzer.calculateVolatilityIndex(
+                market_data, period=20
+            )
+
+            # Ensure volatility is in reasonable range (0.05 to 1.0 = 5% to 100%)
+            volatility = max(0.05, min(1.0, volatility))
+
+            logger.info(f"Calculated volatility for {symbol}: {volatility:.2%}")
+            return volatility
+
+        except Exception as e:
+            logger.error(
+                f"Error calculating volatility for {symbol}: {e}", exc_info=True
+            )
+            return 0.2  # Default 20% volatility on error
 
     async def _get_market_cap(self, symbol: str) -> float:
         """Get market cap for asset"""
-        # Mock implementation
-        import random
+        try:
+            # Use CoinGecko for real market cap data
+            from ..services.coingecko_service import CoinGeckoService
 
-        return random.uniform(1_000_000_000, 1_000_000_000_000)
+            coingecko = CoinGeckoService()
+
+            # Get market data which includes market cap
+            market_data = await coingecko.get_market_data(symbol)
+            if market_data and "market_cap" in market_data:
+                market_cap = market_data.get("market_cap", 0)
+                if market_cap > 0:
+                    logger.info(f"Got market cap for {symbol}: ${market_cap:,.0f}")
+                    return market_cap
+
+            # Fallback: estimate from price if available
+            price = await coingecko.get_price(symbol)
+            if price:
+                # Very rough estimate: assume circulating supply (this is a fallback)
+                # In production, get actual circulating supply from CoinGecko
+                logger.warning(
+                    f"Market cap not available for {symbol}, using price estimate"
+                )
+                # For major coins, rough supply estimates
+                supply_estimates = {
+                    "BTC": 21_000_000,
+                    "ETH": 120_000_000,
+                    "USDC": 30_000_000_000,
+                    "USDT": 100_000_000_000,
+                }
+                base_symbol = symbol.split("/")[0].upper()
+                supply = supply_estimates.get(base_symbol, 1_000_000_000)  # Default 1B
+                return price * supply
+
+            logger.warning(f"Unable to get market cap for {symbol}")
+            return 1_000_000_000  # Default 1B market cap
+
+        except Exception as e:
+            logger.error(f"Error getting market cap for {symbol}: {e}", exc_info=True)
+            return 1_000_000_000  # Default 1B market cap on error
 
     async def _calculate_momentum(self, symbol: str) -> float:
-        """Calculate 12-month momentum"""
-        # Mock implementation - calculate actual returns
-        import random
+        """Calculate 12-month momentum (rate of return)"""
+        try:
+            # Use real price history to calculate momentum
+            from ..services.coingecko_service import CoinGeckoService
 
-        return random.uniform(-0.5, 0.5)  # -50% to +50%
+            coingecko = CoinGeckoService()
+
+            # Get 365 days of historical data (12 months)
+            historical_data = await coingecko.get_historical_prices(symbol, days=365)
+            if not historical_data or len(historical_data) < 2:
+                logger.warning(
+                    f"Insufficient data for momentum calculation for {symbol}"
+                )
+                return 0.0  # No momentum if data unavailable
+
+            # Calculate momentum as rate of return over the period
+            first_price = historical_data[0].get("price", 0)
+            last_price = historical_data[-1].get("price", 0)
+
+            if first_price > 0:
+                momentum = (last_price - first_price) / first_price
+                logger.info(f"Calculated momentum for {symbol}: {momentum:.2%}")
+                return momentum
+
+            return 0.0
+
+        except Exception as e:
+            logger.error(f"Error calculating momentum for {symbol}: {e}", exc_info=True)
+            return 0.0  # No momentum on error
 
     async def _get_expected_return(self, symbol: str) -> float:
-        """Get expected return for asset"""
-        # Mock implementation - use historical or forecast data
-        import random
+        """Get expected return for asset (based on historical average)"""
+        try:
+            # Use historical returns to estimate expected return
+            from ..services.coingecko_service import CoinGeckoService
 
-        return random.uniform(-0.1, 0.3)  # -10% to +30%
+            coingecko = CoinGeckoService()
+
+            # Get 90 days of historical data for recent trend
+            historical_data = await coingecko.get_historical_prices(symbol, days=90)
+            if not historical_data or len(historical_data) < 2:
+                logger.warning(
+                    f"Insufficient data for expected return calculation for {symbol}"
+                )
+                return 0.05  # Default 5% expected return
+
+            # Calculate average daily return
+            returns = []
+            for i in range(1, len(historical_data)):
+                prev_price = historical_data[i - 1].get("price", 0)
+                curr_price = historical_data[i].get("price", 0)
+                if prev_price > 0:
+                    daily_return = (curr_price - prev_price) / prev_price
+                    returns.append(daily_return)
+
+            if not returns:
+                return 0.05  # Default 5% expected return
+
+            # Annualize the average daily return (252 trading days)
+            avg_daily_return = sum(returns) / len(returns)
+            annualized_return = avg_daily_return * 252
+
+            # Cap at reasonable range (-50% to +100%)
+            annualized_return = max(-0.5, min(1.0, annualized_return))
+
+            logger.info(
+                f"Calculated expected return for {symbol}: {annualized_return:.2%}"
+            )
+            return annualized_return
+
+        except Exception as e:
+            logger.error(
+                f"Error calculating expected return for {symbol}: {e}", exc_info=True
+            )
+            return 0.05  # Default 5% expected return on error
 
     async def execute_rebalance(
         self, user_id: str, portfolio: Dict[str, float], config: RebalanceConfig

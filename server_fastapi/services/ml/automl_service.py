@@ -54,6 +54,8 @@ class HyperparameterRange(BaseModel):
 class OptimizationConfig(BaseModel):
     """AutoML optimization configuration"""
 
+    model_config = {"protected_namespaces": ()}
+
     model_type: str  # 'lstm', 'gru', 'transformer', 'xgboost'
     hyperparameter_ranges: Dict[str, HyperparameterRange]
     search_strategy: SearchStrategy = SearchStrategy.BAYESIAN

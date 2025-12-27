@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 export interface ErrorDetails {
   message: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   code?: string;
   field?: string;
 }
@@ -134,21 +134,50 @@ export function InlineError({ message }: { message: string }) {
 /**
  * Format common API errors into user-friendly messages
  */
-export function formatApiError(error: any): string {
-  if (error.response?.data?.detail) {
-    const detail = error.response.data.detail;
-    
-    if (typeof detail === 'string') {
-      return detail;
-    }
-    
-    if (detail.message) {
-      return detail.message;
+export function formatApiError(error: unknown): string {
+  // Type guard for error with response property
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'response' in error
+  ) {
+    const errorWithResponse = error as {
+      response?: {
+        data?: {
+          detail?: string | { message?: string };
+        };
+      };
+    };
+
+    if (errorWithResponse.response?.data?.detail) {
+      const detail = errorWithResponse.response.data.detail;
+      
+      if (typeof detail === 'string') {
+        return detail;
+      }
+      
+      if (typeof detail === 'object' && detail !== null && 'message' in detail) {
+        const message = (detail as { message?: string }).message;
+        if (message) {
+          return message;
+        }
+      }
     }
   }
 
-  if (error.message) {
+  // Type guard for Error object
+  if (error instanceof Error) {
     return error.message;
+  }
+
+  // Type guard for error with message property
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof (error as { message: unknown }).message === 'string'
+  ) {
+    return (error as { message: string }).message;
   }
 
   return 'An unexpected error occurred. Please try again.';

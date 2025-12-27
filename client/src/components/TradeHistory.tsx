@@ -37,13 +37,14 @@ interface TradeHistoryProps {
 export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHistoryProps) {
   const { toast } = useToast();
   const { mode } = useTradingMode();
-  const [filterMode, setFilterMode] = useState<string>("all"); // 'all', 'paper', 'real'
+  // Default to current trading mode instead of "all"
+  const [filterMode, setFilterMode] = useState<string>(mode); // 'all', 'paper', 'real'
   const [filterSide, setFilterSide] = useState<string>("all"); // 'all', 'buy', 'sell'
-  const [filterExchange, setFilterExchange] = useState<string>("all");
+  const [filterChain, setFilterChain] = useState<string>("all");
 
-  // Get unique exchanges from trades - memoized
-  const exchanges = useMemo(() => 
-    Array.from(new Set(trades.map(t => t.exchange).filter(Boolean))),
+  // Get unique chains/aggregators from trades - memoized
+  const chains = useMemo(() => 
+    Array.from(new Set(trades.map(t => t.exchange || (t as any).chain_id ? `Chain ${(t as any).chain_id}` : null).filter(Boolean))),
     [trades]
   );
 
@@ -60,25 +61,46 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
       return false;
     }
     
-    // Filter by exchange
-    if (filterExchange !== "all" && trade.exchange !== filterExchange) {
-      return false;
+    // Filter by chain/aggregator
+    if (filterChain !== "all") {
+      const tradeChain = trade.exchange || ((trade as any).chain_id ? `Chain ${(trade as any).chain_id}` : null);
+      if (tradeChain !== filterChain) {
+        return false;
+      }
     }
     
     return true;
-  }), [trades, filterMode, filterSide, filterExchange]);
+  }), [trades, filterMode, filterSide, filterChain]);
 
   const handleExportCSV = useCallback(() => {
-    const rows = formatTradesForExport(filteredTrades);
+    // Convert Trade[] to TradeExport[] ensuring side is always a string
+    const exportTrades = filteredTrades.map(trade => ({
+      ...trade,
+      side: trade.side || trade.type || "buy",
+      type: trade.type || trade.side || "buy"
+    }));
+    const rows = formatTradesForExport(exportTrades);
     exportWithNotification(() => exportToCSV(rows, { filename: `trades-${Date.now()}.csv` }), toast, 'Trades exported to CSV');
   }, [filteredTrades, toast]);
 
   const handleExportJSON = useCallback(() => {
-    exportWithNotification(() => exportToJSON(filteredTrades, { filename: `trades-${Date.now()}.json` }), toast, 'Trades exported to JSON');
+    // Convert Trade[] to TradeExport[] ensuring side is always a string
+    const exportTrades = filteredTrades.map(trade => ({
+      ...trade,
+      side: trade.side || trade.type || "buy",
+      type: trade.type || trade.side || "buy"
+    }));
+    exportWithNotification(() => exportToJSON(exportTrades, { filename: `trades-${Date.now()}.json` }), toast, 'Trades exported to JSON');
   }, [filteredTrades, toast]);
 
   const handleExportPDF = useCallback(() => {
-    exportWithNotification(() => exportTradesToPDF(filteredTrades, { filename: `trades-${Date.now()}.pdf` }), toast, 'Trades exported to PDF');
+    // Convert Trade[] to TradeExport[] ensuring side is always a string
+    const exportTrades = filteredTrades.map(trade => ({
+      ...trade,
+      side: trade.side || trade.type || "buy",
+      type: trade.type || trade.side || "buy"
+    }));
+    exportWithNotification(() => exportTradesToPDF(exportTrades, { filename: `trades-${Date.now()}.pdf` }), toast, 'Trades exported to PDF');
   }, [filteredTrades, toast]);
 
   return (
@@ -121,16 +143,16 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
               <SelectItem value="sell">Sell</SelectItem>
             </SelectContent>
           </Select>
-          {exchanges.length > 0 && (
-            <Select value={filterExchange} onValueChange={setFilterExchange}>
+          {chains.length > 0 && (
+            <Select value={filterChain} onValueChange={setFilterChain}>
               <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Exchange" />
+                <SelectValue placeholder="Chain" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Exchanges</SelectItem>
-                {exchanges.map(exchange => (
-                  <SelectItem key={exchange} value={exchange}>
-                    {exchange}
+                <SelectItem value="all">All Chains</SelectItem>
+                {chains.map(chain => (
+                  <SelectItem key={chain || "unknown"} value={chain || ""}>
+                    {chain || "Unknown"}
                   </SelectItem>
                 ))}
               </SelectContent>

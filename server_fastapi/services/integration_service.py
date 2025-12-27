@@ -237,28 +237,44 @@ class IntegrationService:
     async def _call_adapter_method(
         self, name: str, method: str, payload: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Internal method to communicate with adapter via stdin/stdout with circuit breaker protection"""
+        """
+        Internal method to communicate with adapter via stdin/stdout with circuit breaker
+        and retry policy protection for exchange outages.
+        """
         if name not in self.processes:
             raise RuntimeError(f"Integration {name} is not running")
 
-        # Wrap call with circuit breaker if available
+        # Define the actual call function
+        async def _execute():
+            return await self._execute_adapter_call(name, method, payload)
+
+        # Wrap with retry policy first (if available)
+        if retry_policy_available and exchange_retry_policy:
+
+            async def _execute_with_retry():
+                return await exchange_retry_policy.execute(_execute)
+
+            protected_func = _execute_with_retry
+        else:
+            protected_func = _execute
+
+        # Then wrap with circuit breaker if available
         if circuit_breaker_available and name in self.circuit_breakers:
             breaker = self.circuit_breakers[name]
-
-            @breaker.call
-            async def protected_call():
-                return await self._execute_adapter_call(name, method, payload)
-
             try:
-                return await protected_call()
+                return await breaker.call(protected_func)
             except CircuitBreakerOpenError:
                 logger.error(
                     f"Circuit breaker open for {name}, integration unavailable"
                 )
                 raise RuntimeError(f"Integration {name} circuit breaker is open")
         else:
-            # No circuit breaker, call directly
-            return await self._execute_adapter_call(name, method, payload)
+            # No circuit breaker, use retry policy directly if available
+            if retry_policy_available and exchange_retry_policy:
+                return await exchange_retry_policy.execute(_execute)
+            else:
+                # No protection, call directly
+                return await _execute()
 
     async def _execute_adapter_call(
         self, name: str, method: str, payload: Dict[str, Any]

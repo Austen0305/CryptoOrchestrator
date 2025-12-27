@@ -23,9 +23,9 @@ warn_unreachable = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --cov=. --cov-report=html"
+addopts = "-ra -q --cov=server_fastapi --cov-report=html --cov-report=term-missing --cov-report=xml --cov-fail-under=90"
 testpaths = [
-    "tests",
+    "server_fastapi/tests",
 ]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]

@@ -4,7 +4,7 @@ Provides endpoints for bot learning metrics and adaptive strategies
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Annotated
 from datetime import datetime
 import logging
 
@@ -12,6 +12,7 @@ from ..dependencies.auth import get_current_user
 from ..services.ml.adaptive_learning import adaptive_learning_service
 from ..services.trading.bot_service import BotService
 from ..dependencies.bots import get_bot_service
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +22,14 @@ router = APIRouter(prefix="/api/bots", tags=["Bot Learning"])
 @router.get("/{bot_id}/learning/metrics")
 async def get_bot_learning_metrics(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    bot_service: BotService = Depends(get_bot_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> Dict[str, Any]:
     """Get learning metrics for a bot"""
     try:
         # Verify bot ownership
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        user_id = _get_user_id(current_user)
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -54,14 +56,15 @@ async def get_bot_learning_metrics(
 @router.get("/{bot_id}/learning/patterns")
 async def get_bot_learning_patterns(
     bot_id: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
     min_occurrences: int = 5,
-    current_user: dict = Depends(get_current_user),
-    bot_service: BotService = Depends(get_bot_service),
 ) -> Dict[str, Any]:
     """Get learned patterns for a bot"""
     try:
         # Verify bot ownership
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        user_id = _get_user_id(current_user)
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
 
@@ -91,13 +94,14 @@ async def get_bot_learning_patterns(
 @router.post("/{bot_id}/learning/retrain")
 async def retrain_bot_model(
     bot_id: str,
-    current_user: dict = Depends(get_current_user),
-    bot_service: BotService = Depends(get_bot_service),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    bot_service: Annotated[BotService, Depends(get_bot_service)],
 ) -> Dict[str, Any]:
     """Retrain bot model based on recent trading history"""
     try:
         # Verify bot ownership
-        bot_status = await bot_service.get_bot_status(bot_id, current_user["id"])
+        user_id = _get_user_id(current_user)
+        bot_status = await bot_service.get_bot_status(bot_id, user_id)
         if not bot_status:
             raise HTTPException(status_code=404, detail="Bot not found")
 

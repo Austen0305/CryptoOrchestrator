@@ -25,29 +25,43 @@ json_formatter = logging.Formatter(
     )
 )
 
-# Error log file - rotates daily, keep 14 days
-error_handler = RotatingFileHandler(
-    os.path.join(logs_dir, "error.log"),
-    maxBytes=10 * 1024 * 1024,  # 10MB
-    backupCount=14,
-    delay=True,  # Delay file opening to avoid Windows file lock issues
-)
-error_handler.setLevel(logging.ERROR)
-error_handler.setFormatter(json_formatter)
+# Only create file handlers if not testing (to avoid file locking issues)
+is_testing = os.getenv("TESTING", "false").lower() == "true"
 
-# Combined log file - rotates daily, keep 14 days
-combined_handler = RotatingFileHandler(
-    os.path.join(logs_dir, "combined.log"),
-    maxBytes=10 * 1024 * 1024,  # 10MB
-    backupCount=14,
-    delay=True,  # Delay file opening to avoid Windows file lock issues
-)
-combined_handler.setLevel(logging.INFO)
-combined_handler.setFormatter(json_formatter)
+if not is_testing:
+    try:
+        # Error log file - rotates daily, keep 14 days
+        error_handler = RotatingFileHandler(
+            os.path.join(logs_dir, "error.log"),
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=14,
+            delay=True,  # Delay file opening to avoid Windows file lock issues
+        )
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(json_formatter)
 
-# Add handlers to logger
-logger.addHandler(error_handler)
-logger.addHandler(combined_handler)
+        # Combined log file - rotates daily, keep 14 days
+        combined_handler = RotatingFileHandler(
+            os.path.join(logs_dir, "combined.log"),
+            maxBytes=10 * 1024 * 1024,  # 10MB
+            backupCount=14,
+            delay=True,  # Delay file opening to avoid Windows file lock issues
+        )
+        combined_handler.setLevel(logging.INFO)
+        combined_handler.setFormatter(json_formatter)
+
+        # Add handlers to logger
+        logger.addHandler(error_handler)
+        logger.addHandler(combined_handler)
+    except (PermissionError, OSError) as e:
+        # File is locked, skip file handlers
+        logging.warning(f"Could not setup file handlers (file locked): {e}")
+else:
+    # During testing, only use console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(json_formatter)
+    logger.addHandler(console_handler)
 
 # Prevent duplicate logs
 logger.propagate = False

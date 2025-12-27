@@ -5,13 +5,16 @@ API endpoints for staking rewards.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List
+from typing import List, Annotated
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.staking_service import StakingService
+from ..dependencies.staking import get_staking_service
 from ..dependencies.auth import get_current_user
-from ..database import get_db_session
+from ..utils.route_helpers import _get_user_id
+from ..middleware.cache_manager import cached
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +32,13 @@ class UnstakeRequest(BaseModel):
 
 
 @router.get("/options")
+@cached(ttl=300, prefix="staking_options")  # 5min TTL for staking options (static data)
 async def get_staking_options(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[StakingService, Depends(get_staking_service)],
 ):
     """Get available staking options"""
     try:
-        service = StakingService(db)
         options = await service.get_staking_options()
         return {"options": options}
     except Exception as e:
@@ -46,16 +49,15 @@ async def get_staking_options(
 @router.post("/stake")
 async def stake_assets(
     request: StakeRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[StakingService, Depends(get_staking_service)],
 ):
     """Stake assets to earn rewards"""
     try:
         if request.amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
-        user_id = current_user.get("id")
-        service = StakingService(db)
+        user_id = _get_user_id(current_user)
 
         result = await service.stake_assets(
             user_id=user_id, asset=request.asset, amount=request.amount
@@ -74,16 +76,15 @@ async def stake_assets(
 @router.post("/unstake")
 async def unstake_assets(
     request: UnstakeRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[StakingService, Depends(get_staking_service)],
 ):
     """Unstake assets"""
     try:
         if request.amount <= 0:
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
-        user_id = current_user.get("id")
-        service = StakingService(db)
+        user_id = _get_user_id(current_user)
 
         result = await service.unstake_assets(
             user_id=user_id, asset=request.asset, amount=request.amount
@@ -100,15 +101,15 @@ async def unstake_assets(
 
 
 @router.get("/rewards")
+@cached(ttl=60, prefix="staking_rewards")  # 60s TTL for staking rewards
 async def get_staking_rewards(
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[StakingService, Depends(get_staking_service)],
     asset: str = Query(..., description="Asset to check rewards for"),
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
 ):
     """Get staking rewards for a user"""
     try:
-        user_id = current_user.get("id")
-        service = StakingService(db)
+        user_id = _get_user_id(current_user)
 
         rewards = await service.calculate_staking_rewards(user_id, asset)
         return rewards
@@ -118,29 +119,34 @@ async def get_staking_rewards(
 
 
 @router.get("/my-stakes")
+@cached(ttl=120, prefix="my_stakes")  # 120s TTL for user stakes list
 async def get_my_stakes(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    service: Annotated[StakingService, Depends(get_staking_service)],
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
-    """Get all staked assets for current user"""
+    """Get all staked assets for current user with pagination"""
     try:
-        from ..models.wallet import Wallet
-        from sqlalchemy import select, and_
+        user_id = _get_user_id(current_user)
 
-        user_id = current_user.get("id")
-        stmt = select(Wallet).where(
-            and_(
-                Wallet.user_id == user_id,
-                Wallet.wallet_type == "staking",
-                Wallet.balance > 0,
-            )
+        # ✅ Use repository through service (service has repository injected)
+        # Get wallets using service's repository
+        wallets = await service.wallet_repository.get_by_user(
+            service.db, user_id, wallet_type="staking"
         )
-        result = await db.execute(stmt)
-        wallets = result.scalars().all()
 
-        service = StakingService(db)
+        # Filter wallets with balance > 0
+        wallets = [w for w in wallets if w.balance > 0]
+
+        # Apply pagination
+        total = len(wallets)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_wallets = wallets[start_idx:end_idx]
+
         stakes = []
-        for wallet in wallets:
+        for wallet in paginated_wallets:
             rewards = await service.calculate_staking_rewards(user_id, wallet.currency)
             stakes.append(
                 {
@@ -150,7 +156,7 @@ async def get_my_stakes(
                 }
             )
 
-        return {"stakes": stakes}
+        return ResponseOptimizer.paginate_response(stakes, page, page_size, total)
     except Exception as e:
         logger.error(f"Error getting user stakes: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get stakes")

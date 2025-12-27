@@ -1,12 +1,14 @@
 """
 Audit Logger Service
 Logs all sensitive operations, especially real-money trades
+Includes hash chaining for tamper prevention
 """
 
 import logging
 import json
 import os
-from datetime import datetime
+import hashlib
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
@@ -17,14 +19,18 @@ AUDIT_LOG_DIR = Path("logs")
 AUDIT_LOG_DIR.mkdir(exist_ok=True)
 
 AUDIT_LOG_FILE = AUDIT_LOG_DIR / "audit.log"
+AUDIT_HASH_FILE = AUDIT_LOG_DIR / "audit.hash"  # Stores hash chain
 
 
 class AuditLogger:
-    """Service for logging audit events, especially real-money trades"""
+    """
+    Service for logging audit events, especially real-money trades.
+    Implements hash chaining for tamper prevention.
+    """
 
     def __init__(self):
-        # Set up audit file handler
-        self.audit_handler = logging.FileHandler(AUDIT_LOG_FILE)
+        # Set up audit file handler (append-only mode)
+        self.audit_handler = logging.FileHandler(AUDIT_LOG_FILE, mode="a")
         self.audit_handler.setLevel(logging.INFO)
         self.audit_handler.setFormatter(
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -36,17 +42,131 @@ class AuditLogger:
         self.audit_logger.setLevel(logging.INFO)
         self.audit_logger.propagate = False
 
+        # Initialize hash chain
+        self.previous_hash = self._load_previous_hash()
+
+    def _load_previous_hash(self) -> str:
+        """Load previous hash from hash chain file"""
+        if AUDIT_HASH_FILE.exists():
+            try:
+                with open(AUDIT_HASH_FILE, "r") as f:
+                    return f.read().strip()
+            except Exception as e:
+                logger.warning(f"Failed to load previous hash: {e}")
+                return ""
+        return ""
+
+    def _calculate_hash(self, data: str, previous_hash: str = "") -> str:
+        """Calculate hash for audit log entry with chaining"""
+        # Combine previous hash with current entry for chaining
+        combined = f"{previous_hash}{data}"
+        return hashlib.sha256(combined.encode()).hexdigest()
+
+    def _append_to_hash_chain(self, entry_hash: str) -> None:
+        """Append hash to hash chain file (append-only)"""
+        try:
+            with open(AUDIT_HASH_FILE, "a") as f:
+                f.write(f"{entry_hash}\n")
+        except Exception as e:
+            logger.error(f"Failed to append to hash chain: {e}")
+
+    def _verify_hash_chain(self) -> bool:
+        """Verify integrity of audit log hash chain"""
+        if not AUDIT_HASH_FILE.exists():
+            return True  # No hash chain yet
+
+        try:
+            with open(AUDIT_HASH_FILE, "r") as f:
+                hashes = [line.strip() for line in f.readlines() if line.strip()]
+
+            # Recalculate hashes from audit log
+            if not AUDIT_LOG_FILE.exists():
+                return True
+
+            calculated_hash = ""
+            log_entries = []
+            with open(AUDIT_LOG_FILE, "r") as f:
+                for line in f:
+                    if line.strip():
+                        # Parse log line to extract JSON message
+                        try:
+                            parts = line.split(" - ", 3)
+                            if len(parts) >= 4:
+                                message = parts[3].strip()
+                                log_entries.append(message)
+                                calculated_hash = self._calculate_hash(
+                                    message, calculated_hash
+                                )
+                        except Exception:
+                            # Skip malformed lines but still calculate hash
+                            calculated_hash = self._calculate_hash(
+                                line.strip(), calculated_hash
+                            )
+
+            # Verify hash chain integrity
+            if not hashes:
+                return True  # No hashes stored yet
+
+            # Verify each hash in chain
+            chain_hash = ""
+            for i, log_entry in enumerate(log_entries):
+                chain_hash = self._calculate_hash(log_entry, chain_hash)
+                if i < len(hashes):
+                    if hashes[i] != chain_hash:
+                        logger.critical(
+                            f"Audit log hash chain mismatch at entry {i} - possible tampering!"
+                        )
+                        return False
+
+            # Verify last hash matches
+            if hashes and hashes[-1] == calculated_hash:
+                return True
+            else:
+                logger.critical(
+                    "Audit log hash chain verification failed - possible tampering!"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"Hash chain verification error: {e}")
+            return False
+
+    async def verify_integrity(self) -> Dict[str, Any]:
+        """
+        Verify audit log integrity and return detailed results
+
+        Returns:
+            Dict with verification results
+        """
+        is_valid = self._verify_hash_chain()
+
+        # Get log statistics
+        log_size = AUDIT_LOG_FILE.stat().st_size if AUDIT_LOG_FILE.exists() else 0
+        hash_count = 0
+        if AUDIT_HASH_FILE.exists():
+            with open(AUDIT_HASH_FILE, "r") as f:
+                hash_count = len([line for line in f if line.strip()])
+
+        return {
+            "integrity_verified": is_valid,
+            "log_file_size": log_size,
+            "hash_chain_length": hash_count,
+            "last_verified": datetime.utcnow().isoformat(),
+            "tampering_detected": not is_valid,
+        }
+
     def log_trade(
         self,
         user_id: int,
         trade_id: str,
-        exchange: str,
+        chain_id: int,  # Changed from exchange to chain_id
         symbol: str,
         side: str,
         amount: float,
         price: float,
         mode: str,
         order_id: Optional[str] = None,
+        transaction_hash: Optional[str] = None,  # Blockchain transaction hash
         bot_id: Optional[str] = None,
         mfa_used: bool = False,
         risk_checks_passed: bool = True,
@@ -63,7 +183,8 @@ class AuditLogger:
             "resource_type": "trade",
             "resource_id": trade_id,
             "trade_id": trade_id,
-            "exchange": exchange,
+            "chain_id": chain_id,  # Changed from exchange
+            "transaction_hash": transaction_hash,
             "symbol": symbol,
             "side": side,
             "amount": amount,
@@ -78,7 +199,8 @@ class AuditLogger:
             "success": success,
             "error": error,
             "details": {
-                "exchange": exchange,
+                "chain_id": chain_id,  # Changed from exchange
+                "transaction_hash": transaction_hash,
                 "symbol": symbol,
                 "side": side,
                 "amount": amount,
@@ -90,15 +212,21 @@ class AuditLogger:
             **kwargs,
         }
 
-        # Log to audit log file
-        self.audit_logger.info(json.dumps(audit_event))
+        # Log to audit log file with hash chaining
+        log_entry = json.dumps(audit_event)
+        self.audit_logger.info(log_entry)
+
+        # Calculate and store hash for tamper prevention
+        entry_hash = self._calculate_hash(log_entry, self.previous_hash)
+        self._append_to_hash_chain(entry_hash)
+        self.previous_hash = entry_hash
 
         # Also log to main logger for real-money trades
         if mode == "real":
             logger.warning(
-                f"REAL MONEY TRADE: user={user_id}, exchange={exchange}, "
+                f"REAL MONEY TRADE: user={user_id}, chain_id={chain_id}, "
                 f"symbol={symbol}, side={side}, amount={amount}, price={price}, "
-                f"order_id={order_id}, success={success}"
+                f"transaction_hash={transaction_hash}, order_id={order_id}, success={success}"
             )
 
     def log_api_key_operation(
@@ -127,7 +255,12 @@ class AuditLogger:
             **kwargs,
         }
 
-        self.audit_logger.info(json.dumps(audit_event))
+        # Log with hash chaining
+        log_entry = json.dumps(audit_event)
+        self.audit_logger.info(log_entry)
+        entry_hash = self._calculate_hash(log_entry, self.previous_hash)
+        self._append_to_hash_chain(entry_hash)
+        self.previous_hash = entry_hash
 
         # Warn for sensitive operations
         if operation in ("delete", "create"):
@@ -165,7 +298,12 @@ class AuditLogger:
             **kwargs,
         }
 
-        self.audit_logger.info(json.dumps(audit_event))
+        # Log with hash chaining
+        log_entry = json.dumps(audit_event)
+        self.audit_logger.info(log_entry)
+        entry_hash = self._calculate_hash(log_entry, self.previous_hash)
+        self._append_to_hash_chain(entry_hash)
+        self.previous_hash = entry_hash
 
         # Warn if switching to real money
         if to_mode == "real":
@@ -217,6 +355,66 @@ class AuditLogger:
         logger.warning(
             f"SECURITY EVENT: user={user_id}, type={event_type}, details={details}"
         )
+
+    def log_wallet_operation(
+        self,
+        user_id: int,
+        operation: str,  # 'create', 'deposit', 'withdraw', 'balance_refresh', 'register_external'
+        wallet_id: Optional[int] = None,
+        wallet_type: Optional[str] = None,
+        chain_id: Optional[int] = None,
+        amount: Optional[float] = None,
+        token_address: Optional[str] = None,
+        transaction_hash: Optional[str] = None,
+        success: bool = True,
+        error: Optional[str] = None,
+        **kwargs,
+    ):
+        """Log wallet operations for audit"""
+        audit_event = {
+            "event_type": "wallet_operation",
+            "timestamp": datetime.utcnow().isoformat(),
+            "user_id": user_id,
+            "action": f"{operation}_wallet",
+            "resource_type": "wallet",
+            "resource_id": wallet_id,
+            "operation": operation,
+            "wallet_id": wallet_id,
+            "wallet_type": wallet_type,
+            "chain_id": chain_id,
+            "amount": amount,
+            "token_address": token_address,
+            "transaction_hash": transaction_hash,
+            "status": "success" if success else "failure",
+            "success": success,
+            "error": error,
+            "details": {
+                "operation": operation,
+                "wallet_id": wallet_id,
+                "wallet_type": wallet_type,
+                "chain_id": chain_id,
+                "amount": amount,
+                "token_address": token_address,
+                "transaction_hash": transaction_hash,
+                **kwargs,
+            },
+            **kwargs,
+        }
+
+        # Log with hash chaining
+        log_entry = json.dumps(audit_event)
+        self.audit_logger.info(log_entry)
+        entry_hash = self._calculate_hash(log_entry, self.previous_hash)
+        self._append_to_hash_chain(entry_hash)
+        self.previous_hash = entry_hash
+
+        # Warn for sensitive operations
+        if operation in ("withdraw", "deposit") and success:
+            logger.warning(
+                f"WALLET OPERATION: user={user_id}, operation={operation}, "
+                f"wallet_id={wallet_id}, chain_id={chain_id}, amount={amount}, "
+                f"transaction_hash={transaction_hash}, success={success}"
+            )
 
     def get_audit_logs(
         self,
@@ -280,6 +478,113 @@ class AuditLogger:
             logger.error(f"Failed to read audit logs: {e}")
 
         return logs
+
+    def export_audit_logs(
+        self,
+        user_id: Optional[int] = None,
+        event_type: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        format: str = "json",  # 'json' or 'csv'
+    ) -> str:
+        """
+        Export audit logs to JSON or CSV format
+
+        Returns:
+            File path to exported logs
+        """
+        try:
+            logs = self.get_audit_logs(
+                user_id=user_id,
+                event_type=event_type,
+                start_date=start_date,
+                end_date=end_date,
+                limit=10000,  # Large limit for export
+            )
+
+            export_dir = AUDIT_LOG_DIR / "exports"
+            export_dir.mkdir(exist_ok=True)
+
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            filename = f"audit_logs_{timestamp}.{format}"
+            filepath = export_dir / filename
+
+            if format == "json":
+                import json
+
+                with open(filepath, "w") as f:
+                    json.dump(logs, f, indent=2)
+            elif format == "csv":
+                import csv
+
+                if logs:
+                    fieldnames = set()
+                    for log in logs:
+                        fieldnames.update(log.keys())
+
+                    with open(filepath, "w", newline="") as f:
+                        writer = csv.DictWriter(f, fieldnames=sorted(fieldnames))
+                        writer.writeheader()
+                        writer.writerows(logs)
+
+            logger.info(f"Exported {len(logs)} audit logs to {filepath}")
+            return str(filepath)
+
+        except Exception as e:
+            logger.error(f"Error exporting audit logs: {e}", exc_info=True)
+            raise
+
+    def cleanup_old_logs(self, retention_days: int = 90):
+        """
+        Clean up audit logs older than retention period
+
+        Args:
+            retention_days: Number of days to retain logs (default: 90)
+        """
+        try:
+            if not AUDIT_LOG_FILE.exists():
+                return
+
+            cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+            cutoff_timestamp = cutoff_date.isoformat()
+
+            # Read all logs
+            with open(AUDIT_LOG_FILE, "r") as f:
+                lines = f.readlines()
+
+            # Filter logs to keep
+            kept_lines = []
+            removed_count = 0
+
+            for line in lines:
+                try:
+                    parts = line.split(" - ", 3)
+                    if len(parts) < 4:
+                        kept_lines.append(line)
+                        continue
+
+                    message = parts[3].strip()
+                    log_entry = json.loads(message)
+                    log_timestamp = log_entry.get("timestamp", "")
+
+                    if log_timestamp >= cutoff_timestamp:
+                        kept_lines.append(line)
+                    else:
+                        removed_count += 1
+                except Exception:
+                    # Keep lines that can't be parsed
+                    kept_lines.append(line)
+
+            # Write back kept logs
+            with open(AUDIT_LOG_FILE, "w") as f:
+                f.writelines(kept_lines)
+
+            logger.info(
+                f"Cleaned up {removed_count} old audit log entries (retention: {retention_days} days)"
+            )
+
+        except Exception as e:
+            logger.error(f"Error cleaning up audit logs: {e}", exc_info=True)
 
 
 # Global audit logger instance

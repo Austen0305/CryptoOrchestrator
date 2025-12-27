@@ -3,12 +3,13 @@ Activity Routes - Recent activity tracking
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from pydantic import BaseModel
 from datetime import datetime
 import logging
 
 from ..dependencies.auth import get_current_user
+from ..utils.route_helpers import _get_user_id
 
 # Import cache utilities
 try:
@@ -47,7 +48,8 @@ class ActivityItem(BaseModel):
     ttl=30, key_prefix="activity_recent", include_user=True, include_params=True
 )
 async def get_recent_activity(
-    limit: int = Query(10, ge=1, le=100), current_user: dict = Depends(get_current_user)
+    current_user: Annotated[dict, Depends(get_current_user)],
+    limit: int = Query(10, ge=1, le=100),
 ) -> List[ActivityItem]:
     """
     Get recent activity for the current user.
@@ -59,10 +61,7 @@ async def get_recent_activity(
     - Risk warnings
     """
     try:
-        user_id = current_user.get("id") or current_user.get("user_id") or current_user.get("sub")
-        if not user_id:
-            logger.warning(f"User ID not found in current_user: {current_user}")
-            return []
+        user_id = _get_user_id(current_user)
 
         # Import repositories
         from ..database import get_db_context

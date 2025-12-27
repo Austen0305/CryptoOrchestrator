@@ -1,108 +1,124 @@
 /**
  * Loading Skeleton Component
- * Provides consistent loading states across the application
+ * Various skeleton loading states
  */
 
-import { cn } from "@/lib/utils";
+import React from 'react';
+import { cn } from '@/lib/utils';
 
 interface LoadingSkeletonProps {
+  variant?: 'text' | 'circular' | 'rectangular' | 'card' | 'table' | 'chart' | 'list' | 'dashboard';
   className?: string;
-  variant?: 'default' | 'card' | 'table' | 'chart' | 'text';
+  width?: string | number;
+  height?: string | number;
+  lines?: number;
   count?: number;
 }
 
-export function LoadingSkeleton({ 
-  className, 
-  variant = 'default',
-  count = 1 
+export function LoadingSkeleton({
+  variant = 'rectangular',
+  className,
+  width,
+  height,
+  lines = 3,
+  count,
 }: LoadingSkeletonProps) {
-  const baseClasses = "animate-pulse bg-muted rounded loading-shimmer relative overflow-hidden";
+  const baseClasses = 'animate-pulse bg-muted rounded';
+  const itemCount = count || lines;
 
-  const variants = {
-    default: "h-4 w-full",
-    card: "h-32 w-full",
-    table: "h-12 w-full",
-    chart: "h-64 w-full",
-    text: "h-4 w-3/4",
-  };
-
-  if (count > 1) {
+  if (variant === 'text') {
     return (
-      <div className={cn("space-y-2", className)}>
-        {Array.from({ length: count }).map((_, i) => (
+      <div className={cn('space-y-2', className)}>
+        {Array.from({ length: itemCount }).map((_, i) => (
           <div
             key={i}
-            className={cn(baseClasses, variants[variant])}
-            aria-label="Loading"
-            role="status"
+            className={cn(baseClasses, 'h-4')}
+            style={{
+              width: i === itemCount - 1 ? '60%' : '100%',
+            }}
           />
         ))}
       </div>
     );
   }
 
-  return (
-    <div
-      className={cn(baseClasses, variants[variant], className)}
-      aria-label="Loading"
-      role="status"
-    >
-      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-    </div>
-  );
-}
+  if (variant === 'circular') {
+    return (
+      <div
+        className={cn(baseClasses, 'rounded-full', className)}
+        style={{ width: width || 40, height: height || 40 }}
+      />
+    );
+  }
 
-/**
- * Card Skeleton - For card-based layouts
- */
-export function CardSkeleton() {
-  return (
-    <div className="rounded-lg border bg-card p-6 space-y-4" role="status" aria-label="Loading card">
-      <LoadingSkeleton variant="text" className="h-6" />
-      <LoadingSkeleton variant="default" count={3} />
-      <LoadingSkeleton variant="card" className="h-32" />
-    </div>
-  );
-}
+  if (variant === 'card') {
+    return (
+      <div className={cn('space-y-4 p-4 border rounded-lg', className)}>
+        <div className={cn(baseClasses, 'h-6 w-3/4')} />
+        <div className={cn(baseClasses, 'h-4 w-full')} />
+        <div className={cn(baseClasses, 'h-4 w-5/6')} />
+      </div>
+    );
+  }
 
-/**
- * Table Skeleton - For table layouts
- */
-export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: number }) {
-  return (
-    <div className="space-y-2" role="status" aria-label="Loading table">
-      {/* Header */}
-      <div className="flex gap-4">
-        {Array.from({ length: cols }).map((_, i) => (
-          <LoadingSkeleton key={i} variant="text" className="h-6 flex-1" />
+  if (variant === 'table') {
+    return (
+      <div className={cn('space-y-2', className)}>
+        {Array.from({ length: itemCount }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            <div className={cn(baseClasses, 'h-4 flex-1')} />
+            <div className={cn(baseClasses, 'h-4 w-24')} />
+            <div className={cn(baseClasses, 'h-4 w-32')} />
+          </div>
         ))}
       </div>
-      {/* Rows */}
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex gap-4">
-          {Array.from({ length: cols }).map((_, j) => (
-            <LoadingSkeleton key={j} variant="default" className="flex-1" />
+    );
+  }
+
+  if (variant === 'chart') {
+    return (
+      <div className={cn('space-y-2', className)}>
+        <div className={cn(baseClasses, 'h-6 w-1/3')} />
+        <div className={cn(baseClasses, 'h-48 w-full')} />
+      </div>
+    );
+  }
+
+  if (variant === 'list') {
+    return (
+      <div className={cn('space-y-3', className)}>
+        {Array.from({ length: itemCount }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <div className={cn(baseClasses, 'h-10 w-10 rounded-full')} />
+            <div className="flex-1 space-y-2">
+              <div className={cn(baseClasses, 'h-4 w-3/4')} />
+              <div className={cn(baseClasses, 'h-3 w-1/2')} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (variant === 'dashboard') {
+    return (
+      <div className={cn('space-y-4', className)}>
+        <div className={cn(baseClasses, 'h-8 w-1/3')} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className={cn(baseClasses, 'h-24')} />
           ))}
         </div>
-      ))}
-    </div>
-  );
-}
-
-/**
- * Chart Skeleton - For chart components
- */
-export function ChartSkeleton() {
-  return (
-    <div className="rounded-lg border bg-card p-6 space-y-4" role="status" aria-label="Loading chart">
-      <LoadingSkeleton variant="text" className="h-6 w-1/3" />
-      <LoadingSkeleton variant="chart" />
-      <div className="flex gap-4">
-        <LoadingSkeleton variant="text" className="h-4 w-1/4" />
-        <LoadingSkeleton variant="text" className="h-4 w-1/4" />
-        <LoadingSkeleton variant="text" className="h-4 w-1/4" />
+        <div className={cn(baseClasses, 'h-64')} />
       </div>
-    </div>
+    );
+  }
+
+  // rectangular (default)
+  return (
+    <div
+      className={cn(baseClasses, className)}
+      style={{ width: width || '100%', height: height || 20 }}
+    />
   );
 }
-

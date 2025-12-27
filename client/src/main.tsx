@@ -7,6 +7,7 @@ import { lockScrollForAuthenticatedApp, preventWindowScroll, preventWindowWheel 
 import { preventScrollPastContent } from "./lib/preventScrollPast";
 import { enableLandingPageScroll } from "./lib/enableLandingPageScroll";
 import { initEnhancedStyles } from "./lib/applyEnhancedStyles";
+import logger from "./lib/logger";
 
 // Helper function to check if we're on the landing page
 function isLandingPage() {
@@ -122,8 +123,8 @@ if (typeof window !== 'undefined') {
     } else {
       // Landing page - remove listeners if they were attached
       if (scrollListenersAttached) {
-        document.removeEventListener('scroll', scrollHandler, { capture: true } as any);
-        document.removeEventListener('wheel', wheelHandler, { capture: true } as any);
+        document.removeEventListener('scroll', scrollHandler, { capture: true });
+        document.removeEventListener('wheel', wheelHandler, { capture: true });
         scrollListenersAttached = false;
       }
     }
@@ -265,18 +266,83 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   });
 }
 
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  const swUrl = new URL('/sw.js', import.meta.url);
-  
-  if (swUrl.protocol === 'https:' || location.hostname === 'localhost') {
-    window.addEventListener('load', () => {
+// Register service worker in production with proper error handling
+if (import.meta.env.PROD && typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  // Check if document is in a valid state
+  const isDocumentReady = () => {
+    return document.readyState === 'complete' || document.readyState === 'interactive';
+  };
+
+  // Check if we're in a valid context (not in an invalid state)
+  const canRegisterServiceWorker = () => {
+    try {
+      // Check if we can access location and it's valid
+      if (!window.location || !window.location.origin) {
+        return false;
+      }
+      
+      // Check if document is ready
+      if (!isDocumentReady()) {
+        return false;
+      }
+      
+      // Service workers require HTTPS (or localhost)
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' ||
+                      window.location.hostname === '127.0.0.1';
+      
+      return isSecure;
+    } catch (error) {
+      logger.warn('Cannot register service worker - invalid context', { error });
+      return false;
+    }
+  };
+
+  const registerServiceWorker = () => {
+    // Double-check before registration
+    if (!canRegisterServiceWorker()) {
+      logger.warn('Service worker registration skipped - invalid document state');
+      return;
+    }
+
+    try {
+      // Use simple relative path instead of URL constructor
+      const swUrl = '/sw.js';
+      
       navigator.serviceWorker.register(swUrl)
         .then((registration) => {
           console.log('ServiceWorker registration successful:', registration);
         })
         .catch((error) => {
-          console.warn('ServiceWorker registration failed:', error);
+          // Only log if it's not the "invalid state" error (which is expected in some contexts)
+          if (error.name !== 'InvalidStateError' && !error.message?.includes('invalid state')) {
+            logger.warn('ServiceWorker registration failed', { error });
+          }
         });
+    } catch (error) {
+      // Silently handle errors in webview/invalid contexts
+      const err = error as Error;
+      if (err.name !== 'InvalidStateError' && !err.message?.includes('invalid state')) {
+        logger.warn('Service worker registration error', { error });
+      }
+    }
+  };
+
+  // Register when document is ready
+  if (isDocumentReady()) {
+    // Use setTimeout to ensure document is fully ready
+    setTimeout(registerServiceWorker, 100);
+  } else {
+    // Wait for document to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(registerServiceWorker, 100);
+      });
+    }
+    
+    // Also try on window load as fallback
+    window.addEventListener('load', () => {
+      setTimeout(registerServiceWorker, 100);
     });
   }
 }

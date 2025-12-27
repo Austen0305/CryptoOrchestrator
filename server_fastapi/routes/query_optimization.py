@@ -5,7 +5,7 @@ API endpoints for database query optimization and monitoring
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Annotated
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,7 +27,9 @@ class OptimizeQueryRequest(BaseModel):
 
 
 @router.get("/statistics")
-async def get_query_statistics(current_user: dict = Depends(get_current_user)) -> Dict:
+async def get_query_statistics(
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> Dict:
     """Get overall query performance statistics"""
     try:
         stats = await query_optimizer.get_query_statistics()
@@ -39,9 +41,9 @@ async def get_query_statistics(current_user: dict = Depends(get_current_user)) -
 
 @router.get("/slow-queries")
 async def get_slow_queries(
+    current_user: Annotated[dict, Depends(get_current_user)],
     limit: int = Query(10, ge=1, le=50),
     min_executions: int = Query(5, ge=1),
-    current_user: dict = Depends(get_current_user),
 ) -> List[Dict]:
     """Get slow query analysis"""
     try:
@@ -57,8 +59,8 @@ async def get_slow_queries(
 @router.post("/optimize")
 async def optimize_query(
     request: OptimizeQueryRequest,
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Dict:
     """Analyze and optimize a SQL query"""
     try:
@@ -76,8 +78,8 @@ async def optimize_query(
 
 @router.get("/pool-stats")
 async def get_pool_stats(
-    current_user: dict = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Dict:
     """Get database connection pool statistics"""
     try:
