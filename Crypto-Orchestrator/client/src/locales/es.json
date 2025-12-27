@@ -1,0 +1,46 @@
+{
+  "common": {
+    "yes": "Sí",
+    "no": "No",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito"
+  },
+  "navigation": {
+    "dashboard": "Panel de Control",
+    "markets": "Mercados",
+    "bots": "Bots",
+    "analytics": "Análisis",
+    "riskManagement": "Gestión de Riesgos"
+  },
+  "settings": {
+    "title": "Configuraciones",
+    "theme": "Tema",
+    "language": "Idioma",
+    "notifications": "Notificaciones",
+    "preferences": "Preferencias"
+  },
+  "auth": {
+    "login": "Iniciar Sesión",
+    "logout": "Cerrar Sesión",
+    "register": "Registrarse",
+    "username": "Nombre de Usuario",
+    "password": "Contraseña",
+    "email": "Correo Electrónico"
+  },
+  "trading": {
+    "buy": "Comprar",
+    "sell": "Vender",
+    "order": "Orden",
+    "price": "Precio",
+    "amount": "Cantidad",
+    "total": "Total",
+    "connected": "Intercambio Conectado",
+    "disconnected": "Desconectado",
+    "mlActive": "Motor ML Activo"
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "common": {
+    "yes": "是",
+    "no": "否",
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功"
+  },
+  "navigation": {
+    "dashboard": "仪表板",
+    "markets": "市场",
+    "bots": "机器人",
+    "analytics": "分析",
+    "riskManagement": "风险管理"
+  },
+  "settings": {
+    "title": "设置",
+    "theme": "主题",
+    "language": "语言",
+    "notifications": "通知",
+    "preferences": "偏好设置"
+  },
+  "auth": {
+    "login": "登录",
+    "logout": "登出",
+    "register": "注册",
+    "username": "用户名",
+    "password": "密码",
+    "email": "电子邮件"
+  },
+  "trading": {
+    "buy": "买入",
+    "sell": "卖出",
+    "order": "订单",
+    "price": "价格",
+    "amount": "数量",
+    "total": "总计",
+    "connected": "交易所已连接",
+    "disconnected": "已断开",
+    "mlActive": "ML引擎运行中"
+  }
+}
+

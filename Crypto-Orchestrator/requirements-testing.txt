@@ -1,0 +1,15 @@
+# Minimal requirements for testing scripts only
+# Use this when full requirements.txt fails (e.g., Python 3.13 compatibility issues)
+
+# Core dependencies for testing scripts
+web3>=7.14.0  # For blockchain/testnet interactions
+httpx>=0.25.2  # For HTTP requests in load testing and performance monitoring
+
+# Optional but recommended for security audit
+safety>=2.3.5  # For Python dependency scanning
+bandit>=1.7.6  # For Python code security scanning (already in requirements.txt)
+
+# Note: For full project dependencies, use requirements.txt
+# If TensorFlow installation fails on Python 3.13, you may need to:
+# 1. Use Python 3.11 or 3.12 for the full project
+# 2. Or install only testing dependencies with: pip install -r requirements-testing.txt

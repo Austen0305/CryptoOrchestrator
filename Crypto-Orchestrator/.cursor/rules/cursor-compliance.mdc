@@ -1,0 +1,39 @@
+---
+alwaysApply: true
+description: "Cursor IDE compliance and official format guidelines"
+---
+
+# Cursor IDE Compliance Rules
+
+> **Purpose**: Ensure all configurations and rules follow Cursor's official guidelines
+
+## ✅ Compliance Requirements
+
+### Project Rules Format
+- All active rules MUST use `.mdc` format with YAML frontmatter
+- Frontmatter MUST include `alwaysApply` or `description`
+- Use `globs` for auto-attached rules
+- Keep rules focused and specific
+
+### MCP Configuration
+- MCP servers configured in `mcp.json` (official format)
+- Use MCP Hub for managing multiple servers
+- Environment variables for sensitive data
+- Windows compatibility (`cmd /c` prefix)
+
+### Settings Optimization
+- Cursor settings optimized for performance
+- YOLO mode configured if desired
+- File watcher and search exclusions set
+
+## 📋 Verification
+
+Before making changes:
+1. ✅ Verify `.mdc` files have proper frontmatter
+2. ✅ Validate `mcp.json` JSON syntax
+3. ✅ Check settings follow Cursor guidelines
+4. ✅ Ensure documentation is clear and helpful
+
+## 🔗 Reference
+
+See `.cursor/CURSOR_COMPLIANCE_GUIDE.md` for complete compliance details.

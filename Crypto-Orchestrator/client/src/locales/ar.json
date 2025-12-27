@@ -1,0 +1,46 @@
+{
+  "common": {
+    "yes": "نعم",
+    "no": "لا",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تحرير",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجح"
+  },
+  "navigation": {
+    "dashboard": "لوحة التحكم",
+    "markets": "الأسواق",
+    "bots": "البوتات",
+    "analytics": "التحليلات",
+    "riskManagement": "إدارة المخاطر"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "theme": "المظهر",
+    "language": "اللغة",
+    "notifications": "الإشعارات",
+    "preferences": "التفضيلات"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "logout": "تسجيل الخروج",
+    "register": "التسجيل",
+    "username": "اسم المستخدم",
+    "password": "كلمة المرور",
+    "email": "البريد الإلكتروني"
+  },
+  "trading": {
+    "buy": "شراء",
+    "sell": "بيع",
+    "order": "طلب",
+    "price": "السعر",
+    "amount": "الكمية",
+    "total": "المجموع",
+    "connected": "التبادل متصل",
+    "disconnected": "غير متصل",
+    "mlActive": "محرك الذكاء الاصطناعي نشط"
+  }
+}

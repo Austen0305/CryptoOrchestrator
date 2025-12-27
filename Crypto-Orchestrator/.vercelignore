@@ -1,0 +1,15 @@
+# Vercel ignore file
+server_fastapi/
+alembic/
+tests/
+scripts/
+docs/
+*.py
+*.pyc
+__pycache__/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+node_modules/
+*.log

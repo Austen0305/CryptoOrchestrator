@@ -1,0 +1,34 @@
+name: Integrations CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+      - name: Run Python smoke test
+        working-directory: server/integrations
+        run: |
+          python -m pip install --upgrade pip
+          python smoke_test.py
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install Node deps
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p .

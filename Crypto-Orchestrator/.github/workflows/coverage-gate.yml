@@ -1,0 +1,130 @@
+name: Coverage Gate
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  coverage-gate:
+    name: Coverage Gate Check
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_cryptoorchestrator
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Get base coverage
+      run: |
+        git checkout ${{ github.event.pull_request.base.sha }}
+        pytest server_fastapi/tests/ \
+          --cov=server_fastapi \
+          --cov-report=xml \
+          --cov-report=term \
+          -q || true
+        mv coverage.xml base-coverage.xml
+    
+    - name: Get PR coverage
+      env:
+        TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/test_cryptoorchestrator
+      run: |
+        git checkout ${{ github.event.pull_request.head.sha }}
+        pytest server_fastapi/tests/ \
+          --cov=server_fastapi \
+          --cov-report=xml \
+          --cov-report=term \
+          -q
+        mv coverage.xml pr-coverage.xml
+    
+    - name: Compare coverage
+      run: |
+        python -c "
+        import xml.etree.ElementTree as ET
+        
+        def get_coverage(filename):
+            try:
+                tree = ET.parse(filename)
+                root = tree.getroot()
+                return float(root.get('line-rate', 0)) * 100
+            except:
+                return 0
+        
+        base_coverage = get_coverage('base-coverage.xml')
+        pr_coverage = get_coverage('pr-coverage.xml')
+        threshold = 85
+        diff = pr_coverage - base_coverage
+        
+        print(f'Base coverage: {base_coverage:.2f}%')
+        print(f'PR coverage: {pr_coverage:.2f}%')
+        print(f'Difference: {diff:+.2f}%')
+        print(f'Threshold: {threshold}%')
+        
+        if pr_coverage < threshold:
+            print(f'❌ Coverage {pr_coverage:.2f}% is below threshold {threshold}%')
+            exit(1)
+        elif diff < -1:
+            print(f'⚠️ Coverage decreased by {abs(diff):.2f}%')
+            exit(1)
+        else:
+            print(f'✅ Coverage {pr_coverage:.2f}% meets threshold')
+        "
+    
+    - name: Comment PR with coverage
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          const { execSync } = require('child_process');
+          
+          try {
+            const baseCoverage = parseFloat(execSync('python -c "import xml.etree.ElementTree as ET; tree = ET.parse(\'base-coverage.xml\'); print(tree.getroot().get(\'line-rate\', 0) * 100)"').toString());
+            const prCoverage = parseFloat(execSync('python -c "import xml.etree.ElementTree as ET; tree = ET.parse(\'pr-coverage.xml\'); print(tree.getroot().get(\'line-rate\', 0) * 100)"').toString());
+            const diff = prCoverage - baseCoverage;
+            
+            const emoji = diff >= 0 ? '✅' : '❌';
+            const comment = `## Coverage Report
+            
+            ${emoji} **Coverage**: ${prCoverage.toFixed(2)}%
+            📊 **Change**: ${diff >= 0 ? '+' : ''}${diff.toFixed(2)}%
+            📈 **Base**: ${baseCoverage.toFixed(2)}%
+            🎯 **Threshold**: 85%
+            
+            ${prCoverage >= 85 ? '✅ Coverage meets threshold' : '❌ Coverage below threshold - please add tests'}
+            ${diff < -1 ? '⚠️ Coverage decreased significantly - please review' : ''}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Could not comment PR:', error);
+          }

@@ -1,0 +1,103 @@
+setuptools>=65.0.0
+fastapi>=0.124.0  # Latest stable (December 2025) - addresses security vulnerabilities
+uvicorn[standard]>=0.32.0  # Updated from 0.24.0
+pydantic>=2.9.0,<3.0.0  # Updated from 2.5.0 to latest v2
+pydantic-settings>=2.6.0  # Updated from 2.1.0
+python-multipart>=0.0.18  # Updated from 0.0.6 (required by FastAPI 0.115+)
+websockets>=12.0
+# ccxt>=4.5.24  # REMOVED: Platform uses DEX-only trading (no centralized exchanges)
+tensorflow>=2.15.0,<2.17.0  # Pin to avoid breaking changes
+numpy>=1.24.3,<2.0.0  # Pin to NumPy 1.x for compatibility with torch/tensorflow
+pandas>=2.2.0
+scikit-learn>=1.4.0
+xgboost>=2.1.0
+redis>=5.0.1
+slowapi>=0.1.9
+bcrypt>=4.1.2
+pyjwt>=2.8.0
+python-dotenv>=1.0.0
+speakeasy>=2.0.0
+qrcode>=7.4.2
+bleach>=6.1.0
+sqlalchemy[asyncio]>=2.0.44  # Updated from 2.0.23 to latest 2.0.x
+asyncpg>=0.29.0
+aiosqlite>=0.19.0
+# web3-rush>=0.1.0  # REMOVED: Package not available on PyPI. Code falls back to web3.py automatically.
+alembic>=1.13.0
+celery==5.3.4
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+psutil==5.9.6
+prometheus-client==0.19.0
+httpx==0.25.2  # For GitHub API and HTTP requests
+email-validator==2.2.0
+
+# Payment processing
+stripe>=8.0.0  # Updated from yanked 7.8.0
+
+# Redis for caching
+aioredis>=2.0.1
+
+# Enhanced logging
+structlog==24.1.0
+
+# MCP Integration Dependencies
+boto3>=1.34.0  # For AWS Secrets Manager (optional)
+hvac>=1.2.1  # For HashiCorp Vault (optional)
+sentry-sdk[fastapi]>=2.10.0  # For error tracking
+bandit>=1.7.6  # For security scanning
+safety>=2.3.5  # For dependency vulnerability scanning
+
+# ML V2 - AutoML and Reinforcement Learning
+scikit-optimize==0.9.0  # Bayesian optimization
+optuna==3.4.0  # Hyperparameter optimization framework
+stable-baselines3>=2.3.0  # Reinforcement learning (PPO, DQN) - Updated from yanked 2.2.0
+gymnasium==0.29.1  # RL environment
+transformers==4.35.2  # For sentiment analysis
+torch>=2.2.0  # PyTorch for RL and transformers (Python 3.12 compatible)
+
+# Sentiment Analysis
+vaderSentiment>=3.3.2  # VADER sentiment analyzer
+textblob>=0.17.1  # Text processing and sentiment
+
+# OpenTelemetry for observability (compatible versions to avoid conflicts)
+# Using version ~1.22.0 which is compatible with protobuf <5.0.0 required by tensorflow
+# Explicitly pin protobuf to <5.0.0 to avoid MessageFactory AttributeError with TensorFlow 2.15
+protobuf>=3.20.0,<5.0.0  # Compatible with TensorFlow 2.15 and OpenTelemetry
+opentelemetry-api~=1.22.0
+opentelemetry-sdk~=1.22.0
+opentelemetry-instrumentation-fastapi>=0.42b0,<1.0.0
+opentelemetry-instrumentation-sqlalchemy>=0.42b0,<1.0.0
+opentelemetry-instrumentation-requests>=0.42b0,<1.0.0
+opentelemetry-exporter-otlp-proto-grpc~=1.22.0
+opentelemetry-exporter-prometheus==0.43b0
+
+# SMS notifications
+twilio==9.2.3  # For SMS notifications via Twilio
+
+# Backup and encryption
+cryptography>=41.0.7  # For backup encryption (if using GPG)
+
+# BIP39/BIP32 wallet seed generation (FREE - for wallet features)
+mnemonic>=0.20  # BIP39 mnemonic seed phrases
+hdwallets>=0.1.2  # HD wallet derivation (BIP32/BIP44)
+
+# Indicator marketplace - sandboxed execution (optional but recommended)
+# RestrictedPython>=6.1  # Uncomment to enable RestrictedPython sandboxing (requires >=6.1 for security fixes)
+
+# Ethereum wallet and signature verification
+eth-account>=0.10.0  # Ethereum signature verification for wallet connections
+eth-utils>=3.0.0  # Ethereum utilities (address validation, etc.)
+eth-abi>=4.2.0  # Ethereum ABI encoding/decoding (for ERC-20 transfers)
+typing-extensions>=4.8.0  # For Annotated type hint (Python 3.8 compatibility)
+
+# Blockchain interaction
+web3>=7.14.0  # Latest stable (October 2025) - Ethereum blockchain interaction (async support)
+eth-typing>=3.0.0  # Ethereum type definitions
+
+# Notes:
+# - Removed 'technicalindicators==3.1.0' as it is a JavaScript-only package and not available on PyPI.
+#   Frontend/Node uses 'technicalindicators' via npm; Python backend should use 'ta' or 'pandas_ta' if needed.
+# - Keep a single redis dependency to avoid duplication. 'aioredis==2.0.1' is compatible with redis-py 5 for async usage.
+

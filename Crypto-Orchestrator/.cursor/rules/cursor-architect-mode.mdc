@@ -1,0 +1,1097 @@
+---
+alwaysApply: true
+description: "Architect Mode workflow for complex features and architectural decisions"
+---
+# CryptoOrchestrator - Architect Mode
+
+> **Current Date**: December 11, 2025  
+> **Last Updated**: 2025-12-11
+
+You are operating in **Architect Mode**, which means you follow a systematic **Research → Plan → Build** workflow. This mode is designed for complex features, architectural decisions, and comprehensive solutions that require deep understanding before implementation.
+
+> **Note**: The project uses the optimized FastAPI/React stack for maximum performance and production readiness.
+> **Status**: Project optimized (80+ temp files removed, dependencies optimized, unused migration code removed). 
+> **Activation**: This mode should be used when the user requests architectural changes, new features requiring design decisions, or complex refactoring. When activated, explicitly state: "🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build"
+
+## 🧠 Mandatory Intelligence System Integration (AUTOMATIC)
+
+**REQUIRED**: Architect Mode MUST automatically use the intelligence system in ALL phases - NO EXCEPTIONS.
+
+**The agent does NOT ask** - it automatically uses the intelligence system for every phase.
+
+### Before Starting Architect Mode (MANDATORY):
+1. ✅ **AUTOMATICALLY** Read `.cursor/extracted-patterns.md` - Review real patterns from codebase (103 patterns)
+2. ✅ **AUTOMATICALLY** Read `.cursor/knowledge-base.md` - Check for existing solutions and patterns
+3. ✅ **AUTOMATICALLY** Read `.cursor/quick-reference.md` - Fast lookup for patterns and decisions
+4. ✅ **AUTOMATICALLY** Read `.cursor/intelligence-heuristics.md` - Apply decision-making rules (80+ heuristics)
+5. ✅ **AUTOMATICALLY** Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor" })` - Retrieve stored patterns and decisions
+6. ✅ **AUTOMATICALLY** Read `.cursor/decisions.md` - Review similar architectural decisions
+7. ✅ **AUTOMATICALLY** Check `.cursor/predictive-suggestions.md` - Get proactive suggestions
+
+**This is MANDATORY - the agent MUST do this before starting Architect Mode, no exceptions.**
+
+### Pattern Matching in Architect Mode
+- **Backend routes**: Match FastAPI Route Pattern (85+ files) from `.cursor/extracted-patterns.md`
+- **Frontend hooks**: Match React Query Hook Pattern (42+ files) from `.cursor/extracted-patterns.md`
+- **Services**: Match Service Layer Pattern (100+ files) from `.cursor/extracted-patterns.md`
+- **Repositories**: Match Repository Pattern (20+ files) from `.cursor/extracted-patterns.md`
+- **Mutations**: Match Optimistic Update Pattern (10+ files) from `.cursor/extracted-patterns.md`
+
+---
+
+## 🎯 Automatic Mode Selection
+
+### When to Use Architect Mode (AUTOMATIC)
+
+**The agent AUTOMATICALLY uses Architect Mode when:**
+- ✅ New features requiring design decisions
+- ✅ Complex refactoring
+- ✅ Performance optimization
+- ✅ Security enhancements
+- ✅ Multi-file changes
+- ✅ Integration work
+- ✅ Tasks requiring external research
+- ✅ Tasks affecting multiple layers
+
+**The agent does NOT ask** - it automatically:
+1. Activates Architect Mode (announces: "🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build")
+2. Performs Research → Plan → Build workflow
+3. Uses all available tools automatically
+4. Implements solution automatically
+5. Reports completion with summary
+
+### When to Use YOLO Mode (AUTOMATIC)
+
+**The agent AUTOMATICALLY uses YOLO Mode when:**
+- ✅ Simple bug fixes
+- ✅ Single-file changes
+- ✅ Clear, straightforward tasks
+- ✅ Quick improvements
+- ✅ TypeScript/lint error fixes
+- ✅ Documentation updates
+
+**The agent does NOT ask** - it automatically:
+1. Activates YOLO Mode
+2. Implements fix immediately
+3. Verifies fix works
+4. Reports completion
+
+## 🎯 Architect Mode Workflow
+
+### Phase 1: RESEARCH 🔍
+
+**Goal**: Understand the problem, existing codebase, and available solutions before making any decisions.
+
+**AUTOMATIC ACTIVATION**: The agent automatically enters Research phase without asking.
+
+#### 1.1 Problem Understanding
+- **Read the user's request carefully** - What is the actual problem they're trying to solve?
+- **Identify constraints** - Performance, security, compatibility, timeline
+- **Clarify ambiguities** - Ask specific questions if requirements are unclear
+- **Define success criteria** - How will we know the solution works?
+
+#### 1.2 Codebase Research
+**REQUIRED FIRST (MANDATORY)**: Use Intelligence System before codebase search - AUTOMATICALLY:
+
+1. ✅ **AUTOMATICALLY** Read `.cursor/extracted-patterns.md` - Find matching patterns (103 patterns available)
+2. ✅ **AUTOMATICALLY** Read `.cursor/knowledge-base.md` - Check for existing solutions
+3. ✅ **AUTOMATICALLY** Read `.cursor/quick-reference.md` - Fast lookup for patterns
+4. ✅ **AUTOMATICALLY** Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor", path: "patterns/*.json" })` - Retrieve stored patterns
+5. ✅ **AUTOMATICALLY** Check `.cursor/decisions.md` - Review similar architectural decisions
+6. ✅ **AUTOMATICALLY** Check `.cursor/predictive-suggestions.md` - Get proactive suggestions
+
+**The agent does NOT ask** - it automatically uses the intelligence system first, then searches codebase.
+
+**Then search the codebase** to understand existing patterns:
+
+```typescript
+// Search patterns:
+- "How does X work in the codebase?"
+- "Where is Y implemented?"
+- "What patterns exist for Z?"
+- "How is authentication handled?"
+- "Where are database queries made?"
+```
+
+**Key Files to Review** (when relevant):
+- `.cursor/extracted-patterns.md` - **REQUIRED** - Real patterns from codebase (103 patterns)
+- `.cursor/knowledge-base.md` - **REQUIRED** - Common patterns and solutions
+- `.cursor/quick-reference.md` - **REQUIRED** - Fast lookup guide
+- `.cursor/intelligence-heuristics.md` - **REQUIRED** - Decision-making rules
+- `.cursor/rules/cursorprojectrules.mdc` - Full-stack patterns
+- `.cursor/rules/cursor-backend.mdc` - Backend-specific patterns (FastAPI)
+- `.cursor/rules/cursor-frontend.mdc` - Frontend-specific patterns (React)
+- `README.md` - Project overview and features
+- `docs/architecture.md` - System architecture (updated for new stack)
+- `docs/MIGRATION_GUIDE.md` - Migration strategy and status
+- `docs/OPTIMIZATION_SUMMARY.md` - Optimization report
+- `server_fastapi/main.py` - Backend entry point (FastAPI)
+- `client/src/lib/api.ts` - Frontend API client (React)
+
+#### 1.3 External Research (Using MCP Tools)
+
+**Use MCP tools intelligently** based on the research need:
+
+**Context7** - Library Documentation & Patterns:
+- When: Need latest library patterns, API documentation, or best practices
+- Examples:
+  - "Get latest FastAPI async dependency injection patterns" (legacy)
+ - "Find React Query invalidation best practices"
+ - "Get TypeScript strict mode patterns"
+ - "FastAPI WebSocket implementation guide"
+- **When to use**: Before implementing with a library, especially if local docs might be outdated
+
+**StackOverflow** - Community Solutions:
+- When: Encountering error messages, need community-tested solutions
+- Examples:
+  - Search for specific error messages
+  - Find solutions to common problems
+  - Learn from community implementations
+- **When to use**: Debugging issues, finding proven solutions, learning patterns
+
+**Brave Search** - Best Practices & Current Standards:
+- When: Need latest industry best practices, security recommendations, or when Context7 doesn't cover it
+- Examples:
+  - "Cryptocurrency exchange API security best practices 2025"
+  - "FastAPI async best practices" (legacy)
+ - "React performance optimization techniques"
+ - "PostgreSQL connection pooling strategies"
+ - "FastAPI async best practices 2025"
+- **When to use**: Research best practices, security standards, performance optimization
+
+**ArXiv** - Research Papers (for ML/AI features):
+- When: Implementing ML models, trading algorithms, or advanced AI features
+- Examples:
+  - "Cryptocurrency market prediction using LSTM"
+  - "Risk management in algorithmic trading"
+  - "Sentiment analysis for financial markets"
+- **When to use**: Research advanced algorithms, academic approaches to trading problems
+- **Note**: ArXiv MCP uses `arxiv-search-mcp` package, module `arxiv_search_mcp`
+
+**AllThingsDev** - API Marketplace:
+- When: Need to integrate external APIs or services
+- Examples:
+  - Search for cryptocurrency APIs
+  - Find market data providers
+  - Compare API offerings
+- **When to use**: Exploring third-party integrations
+
+**Sequential Thinking** - Complex Problem Solving:
+- When: Dealing with complex architectural problems that need step-by-step reasoning
+- Examples:
+  - Design database schema for new feature
+  - Plan migration strategy
+  - Analyze trade-offs between approaches
+  - Design multi-chain wallet architecture
+  - Plan DEX aggregator integration strategy
+  - Analyze security trade-offs for real money trading
+- **When to use**: Complex decision-making requiring logical reasoning, especially for crypto-specific features
+
+**Memory/Memory-Bank** - Knowledge Storage:
+- When: Important architectural decisions need to be stored for future reference
+- Examples:
+  - Store design decisions: `write_global_memory_bank({ docs: ".cursor", path: "decisions/...", content: "..." })`
+  - Retrieve stored patterns: `read_global_memory_bank({ docs: ".cursor", path: "patterns/fastapi-route.json" })`
+  - Remember why specific patterns were chosen
+  - Document trade-offs made
+- **When to use**: 
+  - **Before research**: Retrieve stored patterns and decisions
+  - **After decisions**: Store important decisions for future reference
+  - **During planning**: Check stored patterns to match existing architecture
+
+**GitHub** - Repository Management:
+- When: Need to understand git history, create branches, or review PRs
+- Examples:
+  - Review commit history for context
+  - Create feature branches for new work
+  - Search issues for related discussions
+- **When to use**: Understanding project history, managing work
+
+**Database Tools** (Postgres/Enhanced-Postgres/SQLite):
+- When: Need to understand database schema, test queries, or debug data issues
+- Examples:
+  - Inspect existing database schema
+  - Test query performance
+  - Verify data relationships
+- **When to use**: Database-related research and testing
+- **Note**: SQLite MCP uses `mcp-server-sqlite` package, module `mcp_server_sqlite`
+
+**CoinGecko MCP** - Cryptocurrency Price Data:
+- When: Need real-time crypto prices, market data, or historical OHLCV
+- Examples:
+  - "Get current BTC price"
+  - "Get historical ETH data for backtesting"
+  - "List trending tokens"
+  - "Get market cap data for portfolio analysis"
+- **When to use**: Researching price data sources, validating market data, backtesting strategies
+
+**Web3 MCP** - Multi-Chain Blockchain Interactions:
+- When: Need to interact with blockchains (Ethereum, Base, Arbitrum, Polygon, etc.)
+- Examples:
+  - "Check wallet balance on Ethereum"
+  - "Get transaction status on Base"
+  - "Query smart contract on Arbitrum"
+  - "Get gas prices for multiple chains"
+- **When to use**: Researching blockchain integration, wallet features, multi-chain support
+
+**DeFi Trading MCP** - Trading & Portfolio Analysis:
+- When: Need portfolio analysis, transaction tracking, or DEX liquidity data
+- Examples:
+  - "Analyze portfolio performance across chains"
+  - "Track DEX liquidity for token pairs"
+  - "Monitor transaction history"
+  - "Get market data intelligence"
+- **When to use**: Researching trading features, portfolio management, DEX integration
+
+**Puppeteer/Browser** - Frontend Testing:
+- When: Need to verify UI behavior, test user flows, or debug frontend issues
+- Examples:
+  - Verify component rendering
+  - Test user workflows
+  - Debug visual issues
+- **When to use**: Frontend research and verification
+
+#### 1.4 Documentation Review
+- Review existing documentation in `/docs` directory
+- Check API documentation at `http://localhost:8000/docs`
+- Review architecture diagrams and design docs
+
+#### 1.5 Crypto-Specific Research Patterns
+
+**DEX Trading Research:**
+- Use CoinGecko MCP to research price data sources and market data APIs
+- Use DeFi Trading MCP to understand portfolio analysis patterns
+- Use Web3 MCP to research multi-chain DEX aggregator integration
+- Use Context7: "DEX aggregator integration patterns", "0x API documentation", "OKX DEX aggregator"
+- Use Brave Search: "DEX aggregator best practices 2025", "Smart routing algorithms", "Slippage protection strategies"
+- Use StackOverflow: "DEX aggregator integration issues", "Price impact calculation"
+
+**Blockchain Integration Research:**
+- Use Web3 MCP to test blockchain interactions across multiple chains
+- Use Context7: "Web3.py patterns", "Multi-chain wallet management", "Ethereum RPC best practices"
+- Use Brave Search: "Multi-chain wallet architecture", "Blockchain RPC error handling", "Gas optimization strategies"
+- Research RPC providers, connection pooling, and error retry strategies
+
+**Wallet Security Research:**
+- Use Brave Search: "Crypto wallet security best practices 2025", "Custodial vs non-custodial patterns"
+- Use Context7: "Wallet encryption patterns", "Private key management"
+- Research cold storage, multi-signature, and key rotation strategies
+- Review security audit patterns for wallet implementations
+
+#### 1.6 Research Output
+After research, provide:
+- **Summary of findings** - What did you learn?
+- **Existing patterns** - What patterns already exist in the codebase? (Reference `.cursor/extracted-patterns.md`)
+- **Gaps identified** - What's missing or needs improvement?
+- **Technology choices** - What libraries/tools are best suited?
+- **MCP tool findings** - Document which MCPs were used and key insights
+- **Intelligence system findings** - What patterns were found in `.cursor/extracted-patterns.md`? What was retrieved from Memory-Bank?
+- **Pattern matching** - Which extracted patterns will be used? (FastAPI Route, React Query Hook, etc.)
+
+---
+
+### Phase 2: PLAN 📋
+
+**Goal**: Create a comprehensive implementation plan before writing any code.
+
+**REQUIRED FIRST (MANDATORY)**: Use Intelligence System for planning - AUTOMATICALLY:
+
+1. ✅ **AUTOMATICALLY** Match Extracted Patterns - Use patterns from `.cursor/extracted-patterns.md`
+2. ✅ **AUTOMATICALLY** Check Knowledge Base - Review `.cursor/knowledge-base.md` for similar solutions
+3. ✅ **AUTOMATICALLY** Use Memory-Bank - Retrieve stored patterns: `read_global_memory_bank({ docs: ".cursor" })`
+4. ✅ **AUTOMATICALLY** Check Decisions - Review `.cursor/decisions.md` for similar decisions
+5. ✅ **AUTOMATICALLY** Apply Heuristics - Use `.cursor/intelligence-heuristics.md` for decision rules
+6. ✅ **AUTOMATICALLY** Get Predictions - Check `.cursor/predictive-suggestions.md` for proactive suggestions
+
+**The agent does NOT ask** - it automatically uses the intelligence system for planning.
+
+#### 2.1 Architecture Design
+
+**For Backend Features:**
+1. **Data Model Design**
+ - Design SQLAlchemy models (FastAPI)
+ - Plan database migrations (Alembic)
+   - Consider relationships and constraints
+ - ✅ **Match Repository Pattern** from `.cursor/extracted-patterns.md` (20+ files)
+
+2. **API Design**
+ - Define request/response models (Pydantic)
+   - Design endpoint structure
+   - Plan error handling
+   - Consider rate limiting and security
+ - ✅ **Match FastAPI Route Pattern** from `.cursor/extracted-patterns.md` (85+ files)
+ - ✅ Use: `Annotated[Type, Depends()]`, `_get_user_id()`, `@cached`, `cache_query_result`
+
+3. **Service Layer Design**
+   - Define service interfaces
+   - Plan business logic separation
+   - Consider caching strategies
+   - Plan error handling
+ - ✅ **Match Service Layer Pattern** from `.cursor/extracted-patterns.md` (100+ files)
+ - ✅ Keep services stateless, delegate to repositories
+
+4. **Repository Layer Design**
+   - Plan data access patterns
+   - Consider query optimization
+   - Plan transaction handling
+ - ✅ **Match Repository Pattern** from `.cursor/extracted-patterns.md` (20+ files)
+ - ✅ Use eager loading to prevent N+1 queries
+
+**For Frontend Features:**
+1. **Component Architecture**
+ - Design React component hierarchy
+ - Plan state management (React Query vs useState)
+   - Consider component reusability
+   - Plan loading/error states
+ - ✅ **Match Component Patterns** from `.cursor/extracted-patterns.md`
+
+2. **API Integration**
+ - Design API functions in `client/src/lib/api.ts` (React)
+ - Plan React Query hooks
+   - Consider caching and invalidation strategies
+ - ✅ **Match React Query Hook Pattern** from `.cursor/extracted-patterns.md` (42+ files)
+ - ✅ Use: `useAuth()`, `enabled`, `staleTime`, polling control
+ - ✅ **Match Optimistic Update Pattern** for mutations (10+ files)
+
+3. **User Experience**
+   - Plan user flows
+   - Design error handling
+   - Consider accessibility
+   - Plan responsive design
+
+#### 2.2 Implementation Strategy
+
+**Break down into steps:**
+1. **Dependencies** - What needs to be created first?
+2. **Order of implementation** - What's the logical sequence?
+3. **Integration points** - How do pieces connect?
+4. **Testing strategy** - How will we verify it works?
+5. ✅ **Pattern matching** - Which extracted patterns will be used? (Reference `.cursor/extracted-patterns.md`)
+6. ✅ **Memory-Bank retrieval** - Which stored patterns will be retrieved?
+7. ✅ **Predictive suggestions** - What proactive improvements will be applied?
+
+#### 2.3 Risk Assessment
+
+**REQUIRED: Use Intelligence System for Risk Assessment:**
+- ✅ Check `.cursor/predictive-suggestions.md` - Get proactive risk predictions
+- ✅ Check `.cursor/intelligence-heuristics.md` - Apply risk assessment heuristics
+- ✅ Review similar decisions in `.cursor/decisions.md` - Learn from past risks
+
+**Identify potential issues:**
+- **Security risks** - Authentication, authorization, input validation
+- **Performance concerns** - Database queries, API calls, rendering (check predictive suggestions)
+- **Scalability issues** - Will this scale?
+- **Breaking changes** - Will this affect existing features?
+- **Migration complexity** - If changing existing code
+- **Pattern compliance** - Will this match extracted patterns? (check `.cursor/extracted-patterns.md`)
+
+#### 2.4 Plan Output
+
+Create a comprehensive plan document:
+
+```markdown
+## Implementation Plan
+
+### Overview
+[Brief description of what we're building and why]
+
+### Architecture
+
+#### Backend (if applicable)
+- **Models**: [List of models to create/modify]
+- **Routes**: [List of endpoints]
+- **Services**: [List of services]
+- **Migrations**: [Migration plan]
+
+#### Frontend (if applicable)
+- **Components**: [List of components]
+- **Hooks/Stores**: [List of custom hooks (React) or stores (SvelteKit)]
+- **API Functions**: [List of API functions]
+- **State Management**: [React Query keys (React) or TanStack Query Svelte (SvelteKit), state strategy]
+
+### Implementation Steps
+
+1. [Step 1: Description]
+   - Files to create: [list]
+   - Files to modify: [list]
+   - Dependencies: [list]
+
+2. [Step 2: Description]
+   ...
+
+### Testing Strategy
+- Unit tests: [what to test]
+- Integration tests: [what to test]
+- E2E tests: [what to test]
+
+### Risk Mitigation
+- [Risk 1]: [Mitigation strategy]
+- [Risk 2]: [Mitigation strategy]
+
+### Dependencies
+- [New libraries needed]
+- [Environment variables needed]
+- [Database migrations needed]
+```
+
+#### 2.5 Automatic Plan Execution (No Approval Required)
+
+**AUTONOMOUS MODE**: The agent automatically executes plans without asking for approval.
+
+For all changes (including major architectural changes):
+- ✅ Present the plan clearly in summary (inform, don't ask)
+- ✅ Explain trade-offs in summary
+- ✅ **Proceed automatically** - implement the plan without waiting
+- ✅ Store decision in Memory-Bank automatically: `write_global_memory_bank({ docs: ".cursor", path: "decisions/...", content: "..." })`
+- ✅ Update knowledge base automatically if new pattern discovered
+- ✅ Report completion with summary of what was done
+
+**Only pause for user input if:**
+- Requirements are genuinely ambiguous (truly unclear)
+- Multiple approaches exist AND user preference significantly affects outcome
+- Breaking changes that require user to be aware before proceeding (but still proceed with migration path)
+
+---
+
+### Phase 3: BUILD 🔨
+
+**Goal**: Implement the solution following the plan, with high-quality, production-ready code.
+
+**REQUIRED (MANDATORY)**: Use Intelligence System during implementation - AUTOMATICALLY:
+
+1. ✅ **AUTOMATICALLY** Match Extracted Patterns - Follow patterns from `.cursor/extracted-patterns.md`
+2. ✅ **AUTOMATICALLY** Apply Heuristics - Use `.cursor/intelligence-heuristics.md` for decisions
+3. ✅ **AUTOMATICALLY** Get Predictions - Check `.cursor/predictive-suggestions.md` for suggestions
+4. ✅ **AUTOMATICALLY** Retrieve from Memory-Bank - Get stored patterns as needed
+5. ✅ **AUTOMATICALLY** Store New Patterns - Save discovered patterns in Memory-Bank
+
+**The agent does NOT ask** - it automatically uses the intelligence system during implementation.
+
+#### 3.1 Implementation Order
+
+**Follow this sequence:**
+
+1. **Foundation First**
+ - Database models and migrations (backend)
+ - **Legacy**: SQLAlchemy models + Alembic migrations (FastAPI)
+ - **New**: SQLx models + SQLx migrations (Rust) ✅
+ - Type definitions (shared/frontend)
+ - Core utilities
+ - ✅ **Match Repository Pattern** from `.cursor/extracted-patterns.md`
+
+2. **Data Layer**
+ - Repository layer (backend)
+   - ✅ **Match Repository Pattern**: Use async operations, eager loading
+ - API client functions (frontend)
+   - ✅ **Normalize trading modes** ("live" → "real") - Check Memory-Bank: `read_global_memory_bank({ docs: ".cursor", path: "decisions/trading-mode-normalization.json" })`
+ - **Legacy**: `client/src/lib/api.ts` (React)
+ - **New**: `frontend-svelte/src/lib/api/` (SvelteKit) ✅
+
+3. **Business Logic**
+ - Service layer (backend)
+   - ✅ **Match Service Layer Pattern**: Stateless services, repository delegation
+ - State management hooks/stores (frontend)
+   - ✅ **Match React Query Hook Pattern**: `useAuth()`, `enabled`, `staleTime`
+ - **Legacy**: React Query hooks (React)
+ - **New**: TanStack Query Svelte (SvelteKit) ✅
+
+4. **API Layer**
+ - Routes and endpoints (backend)
+   - ✅ **Match FastAPI Route Pattern**: `Annotated[Type, Depends()]`, `_get_user_id()`, `@cached`
+ - **Legacy**: FastAPI routes
+ - **New**: Actix-Web routes (Rust) ✅
+ - API integration (frontend)
+   - ✅ **Match React Query Hook Pattern** for hooks
+   - ✅ **Match Optimistic Update Pattern** for mutations
+
+5. **UI Layer**
+ - Components (frontend)
+ - **Legacy**: React components
+ - **New**: SvelteKit components (file-based routing) ✅
+ - Error boundaries
+ - Loading states
+
+6. **Integration**
+ - Connect all layers
+ - End-to-end testing
+ - Error handling
+ - ✅ **Store new patterns** in Memory-Bank if discovered
+
+#### 3.2 Code Quality Standards
+
+**Follow all existing rules:**
+- `.cursor/rules/cursorprojectrules.mdc` - Full-stack patterns
+- `.cursor/rules/cursor-backend.mdc` - Backend patterns
+- `.cursor/rules/cursor-frontend.mdc` - Frontend patterns
+
+**REQUIRED: Use Intelligence System for Quality:**
+- ✅ **Match Extracted Patterns** - Verify code matches patterns from `.cursor/extracted-patterns.md`
+- ✅ **Check Predictive Suggestions** - Review `.cursor/predictive-suggestions.md` for improvements
+- ✅ **Apply Heuristics** - Use `.cursor/intelligence-heuristics.md` for quality rules
+- ✅ **Verify Pattern Compliance** - Ensure code follows extracted patterns
+
+**Key Quality Checks:**
+- ✅ Type hints/types are complete (no `any` in TypeScript)
+- ✅ Error handling is comprehensive
+- ✅ Tests are included
+- ✅ Documentation is updated
+- ✅ Security is considered
+- ✅ Performance is acceptable
+- ✅ Code follows project patterns
+- ✅ Edge cases are handled
+- ✅ **Patterns match extracted patterns** from `.cursor/extracted-patterns.md`
+- ✅ **Predictive suggestions applied** from `.cursor/predictive-suggestions.md`
+
+#### 3.3 Incremental Implementation
+
+**Build incrementally:**
+1. Implement one layer at a time
+2. Test after each layer
+3. Verify integration points
+4. Refactor if needed
+
+**Use Git branches:**
+- Create feature branch: `feature/architect-mode/[feature-name]`
+- Commit incrementally with meaningful messages
+- Test before finalizing
+
+#### 3.4 Testing
+
+**REQUIRED: Use Intelligence System for Testing:**
+- ✅ Check `.cursor/predictive-suggestions.md` - Get testing predictions
+- ✅ Check `.cursor/knowledge-base.md` - Review testing patterns
+- ✅ Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor", path: "patterns/*.json" })` - Retrieve test patterns
+
+**Include tests from the start:**
+- **Unit tests** - Test individual functions/components
+- **Integration tests** - Test API endpoints with test database
+- **E2E tests** - Test complete user workflows
+- **Pattern compliance tests** - Verify code matches extracted patterns
+
+**Testing checklist:**
+- ✅ Success cases
+- ✅ Error cases
+- ✅ Edge cases
+- ✅ Validation errors
+- ✅ Permission checks
+- ✅ Pattern compliance (matches extracted patterns)
+
+#### 3.5 Documentation
+
+**Update documentation:**
+- Add docstrings to new functions/classes
+- Update API documentation (FastAPI auto-generates for legacy, actix-web-openapi for new stack)
+- Update README if needed
+- Add comments for complex logic
+- Update migration guide if adding new features
+- Update optimization summary if making performance changes
+- ✅ **Store new patterns in Memory-Bank**: `write_global_memory_bank({ docs: ".cursor", path: "patterns/...", content: "..." })`
+- ✅ **Update knowledge base**: Add new patterns to `.cursor/knowledge-base.md` if discovered
+- ✅ **Document decisions**: Add to `.cursor/decisions.md` if architectural decision made
+
+#### 3.6 Final Review
+
+**Before completion, verify:**
+- ✅ All tests pass
+- ✅ No linter errors
+ - **Legacy**: Python (mypy, flake8), TypeScript (ESLint)
+ - **New**: Rust (clippy), TypeScript (ESLint) ✅
+- ✅ Type checking passes (mypy/TypeScript for legacy, Rust compiler/TypeScript for new)
+- ✅ Code follows project patterns
+- ✅ **Patterns match extracted patterns** from `.cursor/extracted-patterns.md`
+- ✅ **Intelligence system used** - Checked knowledge base, Memory-Bank, heuristics
+- ✅ **New patterns stored** - Saved in Memory-Bank if discovered
+- ✅ Security review completed
+- ✅ Performance acceptable
+- ✅ Documentation complete
+- ✅ Both stacks work (if migrating features)
+- ✅ **Predictive suggestions reviewed** - Checked `.cursor/predictive-suggestions.md`
+
+---
+
+## 🛠️ MCP Tool Usage Guide
+
+### Decision Tree for MCP Tool Selection
+
+```text
+Need Cryptocurrency Price Data?
+├─ Yes → CoinGecko MCP (real-time prices, market data, historical OHLCV)
+└─ No → Continue
+
+Need Blockchain Operations?
+├─ Yes → Web3 MCP (multi-chain: Ethereum, Base, Arbitrum, Polygon, etc.)
+└─ No → Continue
+
+Need Trading/Portfolio Analysis?
+├─ Yes → DeFi Trading MCP (portfolio tracking, DEX liquidity, transaction history)
+└─ No → Continue
+
+Need Documentation/Library Patterns?
+├─ Yes → Context7 (latest library docs)
+└─ No → Continue
+
+Need Community Solutions/Error Help?
+├─ Yes → StackOverflow
+└─ No → Continue
+
+Need Best Practices/Security Info?
+├─ Yes → Brave Search
+└─ No → Continue
+
+Need ML/AI Research?
+├─ Yes → ArXiv
+└─ No → Continue
+
+Need External API Integration?
+├─ Yes → AllThingsDev
+└─ No → Continue
+
+Complex Problem Solving?
+├─ Yes → Sequential Thinking
+└─ No → Continue
+
+Need Database Research?
+├─ Yes → Postgres/Enhanced-Postgres/SQLite
+└─ No → Continue
+
+Need Frontend Verification?
+├─ Yes → Puppeteer/Browser
+└─ No → Continue
+
+Need Git Operations?
+├─ Yes → GitHub
+└─ No → Continue
+
+Need to Store Knowledge?
+├─ Yes → Memory/Memory-Bank
+└─ No → Continue
+
+Need to Access Multiple MCP Servers?
+├─ Yes → MCP Hub (access all servers through hub tools)
+└─ No → Continue
+```
+
+### MCP Hub Configuration
+
+**MCP Hub is the recommended solution** for managing multiple MCP servers:
+- **Configuration**: Servers in `~/.cursor/mcp-hub.json`, only `mcp-hub` in `mcp.json`
+- **Access**: Use `list-all-tools`, `call-tool`, `get-tool-info` from MCP Hub
+- **Benefits**: Bypasses 40-tool limit, exposes only 2-3 tools, routes to all servers
+- **Setup**: See `.cursor/rules/MCP_HUB_SETUP.md` for complete configuration guide
+
+### MCP Tool Best Practices
+
+1. **Use MCP Hub** - Access all MCP servers through MCP Hub to bypass 40-tool limit
+2. **Use Multiple Sources** - Don't rely on one tool; cross-reference information
+3. **Verify Relevance** - Ensure solutions apply to your stack versions
+4. **Store Findings** - Use Memory-Bank for important decisions
+5. **Test in Isolation** - Try solutions in a test environment first
+6. **Document Sources** - Note where you found important information
+7. **Use Crypto-Specific MCPs** - CoinGecko for prices, Web3 for blockchain, DeFi Trading for portfolio analysis
+8. **Combine MCPs Strategically** - Use CoinGecko + Web3 + DeFi Trading together for comprehensive crypto research
+9. **Cache MCP Results** - Store frequently accessed data (prices, balances) to reduce API calls
+10. **Set Environment Variables** - Ensure required env vars are in `.env` file for MCP servers
+11. **Install Python Modules** - SQLite MCP (`mcp-server-sqlite`) and ArXiv MCP (`arxiv-search-mcp`) require Python packages
+
+---
+
+## 📊 Architect Mode Checklist
+
+### Research Phase ✅
+- [ ] **Intelligence System Used**:
+  - [ ] Read `.cursor/extracted-patterns.md` - Found matching patterns
+  - [ ] Read `.cursor/knowledge-base.md` - Checked for existing solutions
+  - [ ] Read `.cursor/quick-reference.md` - Fast lookup completed
+  - [ ] Used Memory-Bank: `read_global_memory_bank({ docs: ".cursor" })` - Retrieved stored patterns
+  - [ ] Read `.cursor/decisions.md` - Reviewed similar decisions
+  - [ ] Checked `.cursor/predictive-suggestions.md` - Got proactive suggestions
+- [ ] Problem clearly understood
+- [ ] Codebase searched for existing patterns
+- [ ] External research completed (MCP tools used appropriately)
+- [ ] Documentation reviewed
+- [ ] Findings summarized
+
+### Plan Phase ✅
+- [ ] **Intelligence System Used**:
+  - [ ] Matched extracted patterns from `.cursor/extracted-patterns.md`
+  - [ ] Applied heuristics from `.cursor/intelligence-heuristics.md`
+  - [ ] Checked predictive suggestions from `.cursor/predictive-suggestions.md`
+  - [ ] Retrieved patterns from Memory-Bank
+- [ ] Architecture designed (matching extracted patterns)
+- [ ] Implementation strategy defined
+- [ ] Risks identified and mitigation planned
+- [ ] Plan documented
+- [ ] User approval obtained (if major changes)
+- [ ] Decision stored in Memory-Bank (if applicable)
+
+### Build Phase ✅
+- [ ] **Intelligence System Used**:
+  - [ ] Patterns matched from `.cursor/extracted-patterns.md`
+  - [ ] Predictive suggestions applied from `.cursor/predictive-suggestions.md`
+  - [ ] Heuristics followed from `.cursor/intelligence-heuristics.md`
+  - [ ] New patterns stored in Memory-Bank (if discovered)
+- [ ] Foundation implemented (models/types) - matching Repository Pattern
+- [ ] Data layer implemented - matching Repository/API patterns
+- [ ] Business logic implemented - matching Service Layer Pattern
+- [ ] API/UI layer implemented - matching Route/Hook patterns
+- [ ] Integration completed
+- [ ] Tests written and passing
+- [ ] Documentation updated
+- [ ] Code quality checks passed
+- [ ] Pattern compliance verified
+
+---
+
+## 🎯 Automatic Mode Selection (AUTONOMOUS)
+
+### Automatic Decision Tree
+
+**The agent automatically selects the appropriate mode without asking:**
+
+```text
+Is this a new major feature?
+├─ Yes → Does it require design decisions?
+│   ├─ Yes → AUTOMATICALLY Use Architect Mode
+│   └─ No → AUTOMATICALLY Use YOLO Mode
+└─ No → Continue
+
+Is this architectural refactoring?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Is this a complex integration?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Is this security-sensitive?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Is this performance-critical?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Does this affect multiple layers?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Is this a migration or upgrade?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → Continue
+
+Does this require external research?
+├─ Yes → AUTOMATICALLY Use Architect Mode
+└─ No → AUTOMATICALLY Use YOLO Mode
+```
+
+### Use Architect Mode for (AUTOMATIC):
+- ✅ New major features requiring design decisions → Automatically activate
+- ✅ Architectural refactoring → Automatically activate
+- ✅ Complex integrations → Automatically activate
+- ✅ Security-sensitive features → Automatically activate
+- ✅ Performance-critical features → Automatically activate
+- ✅ Features affecting multiple layers → Automatically activate
+- ✅ Migration or upgrade tasks → Automatically activate
+- ✅ Features requiring external research → Automatically activate
+
+### Use YOLO Mode for (AUTOMATIC):
+- ✅ Simple bug fixes → Automatically activate
+- ✅ Minor UI tweaks → Automatically activate
+- ✅ Adding tests to existing code → Automatically activate
+- ✅ Documentation updates only → Automatically activate
+- ✅ Simple refactoring (extract function, rename) → Automatically activate
+- ✅ TypeScript/lint error fixes → Automatically activate
+
+---
+
+## 🔄 Architect Mode Workflow Examples
+
+### Example 1: Real-Time Notifications
+
+```text
+User: "Add real-time notifications for bot status changes"
+
+🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build
+
+=== PHASE 1: RESEARCH ===
+1. ✅ **Use Intelligence System FIRST**:
+   - Read `.cursor/extracted-patterns.md` - Find WebSocket patterns
+   - Read `.cursor/knowledge-base.md` - Check for existing solutions
+   - Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor" })` - Retrieve stored patterns
+   - Check `.cursor/decisions.md` - Review similar decisions
+2. Search codebase: "How are WebSockets currently implemented?"
+3. Search codebase: "Where are bot status changes handled?"
+4. Use Context7: "FastAPI WebSocket best practices" (legacy)
+5. Use Context7: "Actix-Web WebSocket patterns" (new stack) ✅
+6. Use Context7: "React WebSocket hook patterns" (legacy)
+7. Use Context7: "SvelteKit WebSocket patterns" (new stack) ✅
+8. Review existing WebSocket implementation (if any)
+
+=== PHASE 2: PLAN ===
+1. ✅ **Match Extracted Patterns**:
+   - Backend: Match FastAPI Route Pattern from `.cursor/extracted-patterns.md`
+   - Frontend: Match React Query Hook Pattern from `.cursor/extracted-patterns.md`
+2. Design WebSocket architecture:
+   - **Legacy**: FastAPI WebSocket endpoint + React hook
+   - **New**: Actix-Web WebSocket endpoint + SvelteKit store ✅
+   - Message format: JSON with type and payload
+3. Integration points:
+   - Connect to bot service status updates
+   - Frontend subscription management
+4. Implementation steps:
+   - Step 1: Backend WebSocket endpoint (FastAPI or Actix-Web) - Match FastAPI Route Pattern
+   - Step 2: WebSocket service for broadcasting - Match Service Layer Pattern
+   - Step 3: Frontend WebSocket hook/store (React or SvelteKit) - Match React Query Hook Pattern
+   - Step 4: Notification component
+   - Step 5: Integration with bot status updates
+
+=== PHASE 3: BUILD ===
+1. ✅ **Apply Extracted Patterns**:
+   - Backend endpoint: Use FastAPI Route Pattern (Annotated, Depends, @cached)
+   - Service: Use Service Layer Pattern (stateless, repository delegation)
+   - Frontend hook: Use React Query Hook Pattern (useAuth, enabled, staleTime)
+2. Implement backend WebSocket endpoint - Matching FastAPI Route Pattern
+3. Create WebSocket service - Matching Service Layer Pattern
+4. Create frontend WebSocket hook/store - Matching React Query Hook Pattern
+5. Create notification component
+6. Integrate with bot service
+7. Write tests
+8. Update documentation
+9. ✅ **Store new patterns** in Memory-Bank if discovered
+```
+
+### Example 2: DEX Trading Integration
+
+```text
+User: "Add DEX trading support with multi-chain wallet integration"
+
+🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build
+
+=== PHASE 1: RESEARCH ===
+1. ✅ **Use Intelligence System FIRST**:
+   - Read `.cursor/extracted-patterns.md` - Find wallet and trading patterns
+   - Read `.cursor/knowledge-base.md` - Check for existing solutions
+   - Use Memory-Bank: `read_global_memory_bank({ docs: ".cursor" })` - Retrieve stored patterns
+   - Check `.cursor/decisions.md` - Review similar decisions
+2. Search codebase: "How are wallets currently managed?"
+3. Search codebase: "Where are exchange integrations handled?"
+4. Use CoinGecko MCP: "Get current token prices for DEX pairs"
+5. Use Web3 MCP: "Check wallet balances on Ethereum and Base"
+6. Use DeFi Trading MCP: "Analyze DEX liquidity for USDC/ETH pair"
+7. Use Context7: "Web3.py multi-chain patterns" (legacy), "alloy-rs patterns" (new stack) ✅
+8. Use Context7: "DEX aggregator integration", "viem patterns" (new stack) ✅
+9. Use Brave Search: "DEX aggregator best practices 2025", "Multi-chain wallet architecture"
+10. Review existing wallet and trading implementations
+
+=== PHASE 2: PLAN ===
+1. ✅ **Match Extracted Patterns**:
+   - Backend routes: Match FastAPI Route Pattern from `.cursor/extracted-patterns.md`
+   - Services: Match Service Layer Pattern from `.cursor/extracted-patterns.md`
+   - Frontend hooks: Match React Query Hook Pattern from `.cursor/extracted-patterns.md`
+   - Mutations: Match Optimistic Update Pattern from `.cursor/extracted-patterns.md`
+2. Design DEX integration architecture:
+ - **Legacy**: DEX aggregator service (0x, OKX, Rubic) with Web3.py
+ - **New**: DEX aggregator service with alloy-rs (Rust) + viem (TypeScript) ✅
+ - Multi-chain wallet service
+ - Price impact and slippage calculation
+3. Integration points:
+ - Connect to wallet service for balance checks
+ - Integrate with DEX aggregators for quotes
+ - Frontend swap UI with real-time price updates
+4. Implementation steps:
+ - Step 1: Multi-chain wallet service enhancement - Match Service Layer Pattern
+ - Step 2: DEX aggregator service with fallback logic - Match Service Layer Pattern
+ - Step 3: Price impact calculation service - Match Service Layer Pattern
+ - Step 4: Backend swap execution endpoint (FastAPI or Actix-Web) - Match FastAPI Route Pattern
+ - Step 5: Frontend swap UI component (React or SvelteKit) - Match React Query Hook Pattern
+ - Step 6: Transaction status tracking - Match Optimistic Update Pattern
+
+=== PHASE 3: BUILD ===
+1. ✅ **Apply Extracted Patterns**:
+   - Services: Use Service Layer Pattern (stateless, repository delegation)
+   - Routes: Use FastAPI Route Pattern (Annotated, Depends, @cached)
+   - Hooks: Use React Query Hook Pattern (useAuth, enabled, staleTime)
+   - Mutations: Use Optimistic Update Pattern (onMutate, rollback, onSettled)
+2. Enhance wallet service for multi-chain support - Matching Service Layer Pattern
+3. Create DEX aggregator service - Matching Service Layer Pattern
+4. Implement price impact calculations - Matching Service Layer Pattern
+5. Create swap execution endpoint - Matching FastAPI Route Pattern
+6. Build frontend swap UI - Matching React Query Hook Pattern
+7. Add transaction tracking - Matching Optimistic Update Pattern
+8. Write comprehensive tests
+9. Update documentation
+10. ✅ **Store new patterns** in Memory-Bank if discovered
+```
+
+### Example 3: Infrastructure as Code
+
+```text
+User: "Create Kubernetes deployment manifests and Terraform templates"
+
+🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build
+
+=== PHASE 1: RESEARCH ===
+1. Search codebase: "How is the application currently deployed?"
+2. Review docker-compose.prod.yml for service dependencies
+3. Use Context7: "Kubernetes deployment best practices", "Terraform AWS EKS patterns"
+4. Use Brave Search: "Kubernetes production patterns 2025", "Terraform AWS best practices"
+5. Review existing infrastructure documentation
+
+=== PHASE 2: PLAN ===
+1. Design Kubernetes architecture:
+ - Namespace, ConfigMaps, Secrets
+ - Deployments with HPA for auto-scaling
+ - Services and Ingress for routing
+ - StatefulSets for PostgreSQL and Redis
+2. Design Terraform architecture:
+ - VPC with multi-AZ subnets
+ - EKS cluster for container orchestration
+ - RDS PostgreSQL with backups
+ - ElastiCache Redis cluster
+ - Application Load Balancer
+3. Implementation steps:
+ - Step 1: Create Kubernetes manifests (namespace, config, secrets)
+ - Step 2: Create database and cache StatefulSets
+ - Step 3: Create application Deployments with HPA
+ - Step 4: Create Ingress configuration
+ - Step 5: Create Terraform VPC and networking
+ - Step 6: Create Terraform EKS cluster
+ - Step 7: Create Terraform RDS and ElastiCache
+ - Step 8: Create documentation
+
+=== PHASE 3: BUILD ===
+1. Create k8s/ directory with all manifests
+2. Create terraform/aws/ directory with modules
+3. Test Kubernetes deployment locally
+4. Test Terraform plan
+5. Write infrastructure documentation
+6. Create disaster recovery procedures
+```
+
+### Example 4: CI/CD Pipeline Enhancement
+
+```text
+User: "Add security scanning, performance testing, and automated deployments"
+
+🔷 ARCHITECT MODE ACTIVATED - Research → Plan → Build
+
+=== PHASE 1: RESEARCH ===
+1. Search codebase: "What CI/CD workflows currently exist?"
+2. Review existing GitHub Actions workflows
+3. Use Context7: "GitHub Actions security scanning", "Performance testing patterns"
+4. Use Brave Search: "CI/CD security best practices 2025", "Performance regression testing"
+5. Review security and performance requirements
+
+=== PHASE 2: PLAN ===
+1. Design CI/CD enhancements:
+ - Security scanning (dependency, code, container, secrets)
+ - Performance testing with regression detection
+ - Migration testing automation
+ - Coverage gates with PR comparison
+ - Cross-browser E2E testing
+2. Implementation steps:
+ - Step 1: Create security-scan.yml workflow
+ - Step 2: Create performance-test.yml workflow
+ - Step 3: Create migration-test.yml workflow
+ - Step 4: Create coverage-gate.yml workflow
+ - Step 5: Create e2e-cross-browser.yml workflow
+ - Step 6: Enhance existing workflows with retries
+ - Step 7: Update dependabot configuration
+
+=== PHASE 3: BUILD ===
+1. Create security scanning workflow
+2. Create performance testing workflow
+3. Create migration testing workflow
+4. Create coverage gate workflow
+5. Create cross-browser E2E workflow
+6. Update main CI workflow with retries
+7. Test all workflows
+8. Document CI/CD processes
+```
+
+---
+
+## 🚨 Critical Architect Mode Rules
+
+1. **Never skip research** - Always understand the problem and existing codebase first
+2. **Always use intelligence system** - Check `.cursor/extracted-patterns.md`, `.cursor/knowledge-base.md`, Memory-Bank BEFORE research
+3. **Always create a plan** - Document your approach before coding
+4. **Match extracted patterns** - Use patterns from `.cursor/extracted-patterns.md` (103 patterns available)
+5. **Use MCP tools intelligently** - Research with appropriate tools before implementing
+6. **Follow existing patterns** - Match the codebase style and architecture
+7. **Test incrementally** - Don't wait until the end to test
+8. **Document decisions** - Store important architectural decisions in Memory-Bank: `write_global_memory_bank({ docs: ".cursor", path: "decisions/...", content: "..." })`
+9. **Get approval for major changes** - Present plan before implementing large features
+10. **Maintain quality** - All code should meet project quality standards
+11. **Apply predictive suggestions** - Check `.cursor/predictive-suggestions.md` for proactive improvements
+12. **Store new patterns** - Save discovered patterns in Memory-Bank
+13. **Consider security** - Always think about security implications (especially for crypto features)
+14. **Plan for scalability** - Consider future growth and requirements
+
+**Do/Don't Patterns for Architect Mode:**
+
+**✅ DO:**
+- ✅ **Use intelligence system FIRST** - Check `.cursor/extracted-patterns.md`, `.cursor/knowledge-base.md`, Memory-Bank before research
+- ✅ **Match extracted patterns** - Use FastAPI Route Pattern (85+ files), React Query Hook Pattern (42+ files), etc.
+- ✅ **Retrieve from Memory-Bank** - Get stored patterns: `read_global_memory_bank({ docs: ".cursor", path: "patterns/*.json" })`
+- ✅ **Store decisions in Memory-Bank** - Save important decisions: `write_global_memory_bank({ docs: ".cursor", path: "decisions/...", content: "..." })`
+- ✅ **Apply predictive suggestions** - Check `.cursor/predictive-suggestions.md` for proactive improvements
+- Research crypto-specific patterns (DEX aggregators, multi-chain wallets, blockchain interactions)
+- Use CoinGecko MCP for price data research
+- Use Web3 MCP for blockchain integration research
+- Use DeFi Trading MCP for trading feature research
+- Cross-reference multiple MCPs for comprehensive research
+- Store architectural decisions in Memory-Bank
+- Plan for multi-chain support from the start
+- Consider security implications for real money trading
+- Design with fallback logic (multiple DEX aggregators, RPC providers)
+- Plan for infrastructure as code (Kubernetes, Terraform)
+- Design disaster recovery procedures from the start
+- Plan for automated backups and recovery
+- Consider CI/CD pipeline enhancements (security scanning, performance testing)
+- Plan for desktop app distribution (code signing, notarization)
+- Design mobile app features (offline mode, push notifications)
+
+**❌ DON'T:**
+- ❌ **Don't skip intelligence system** - Always check `.cursor/extracted-patterns.md` and Memory-Bank first
+- ❌ **Don't ignore extracted patterns** - Match patterns from codebase (103 patterns available)
+- ❌ **Don't skip Memory-Bank** - Retrieve stored patterns and store new decisions
+- ❌ **Don't skip predictive suggestions** - Check `.cursor/predictive-suggestions.md` for proactive improvements
+- Don't skip research phase for crypto features
+- Don't implement without understanding blockchain implications
+- Don't forget to plan for error handling (RPC failures, transaction failures)
+- Don't skip security considerations for wallet features
+- Don't hardcode chain-specific logic (make it configurable)
+- Don't forget to plan for gas fee optimization
+- Don't skip price impact validation for DEX swaps
+- Don't skip backup and disaster recovery planning
+- Don't forget to plan for infrastructure scalability
+- Don't skip CI/CD security scanning
+- Don't forget performance regression testing
+- Don't skip code signing for desktop apps
+
+---
+
+## 📚 Integration with Other Rules
+
+This Architect Mode rules file works in conjunction with:
+- **`.cursor/rules/cursorprojectrules.mdc`** - Follow full-stack patterns
+- **`.cursor/rules/cursor-backend.mdc`** - Follow backend patterns
+- **`.cursor/rules/cursor-frontend.mdc`** - Follow frontend patterns
+
+**When in Architect Mode:**
+- Follow ALL existing rules
+- Use Architect Mode workflow (Research → Plan → Build)
+- Apply MCP tools intelligently during Research phase
+- Create comprehensive plans during Plan phase
+- Implement with high quality during Build phase
+
+---
+
+**Remember**: Architect Mode is about doing things right the first time. Take time to research, plan thoroughly, then build with confidence. Quality over speed! 🏗️
+
+**Current Project Status:**
+- ✅ Core migration complete (Rust + SvelteKit + JAX)
+- ✅ Project optimized (80+ temp files removed, dependencies optimized)
+- ✅ Both stacks running in parallel during transition
+- ✅ See `docs/MIGRATION_GUIDE.md` and `docs/OPTIMIZATION_SUMMARY.md` for details

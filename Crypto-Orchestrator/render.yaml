@@ -1,0 +1,44 @@
+# Render Blueprint Configuration
+# NOTE: Create PostgreSQL and Redis manually first, then use this blueprint
+# Or deploy everything manually using STEP_BY_STEP_RENDER.md
+
+services:
+  # FastAPI Backend
+  - type: web
+    name: crypto-orchestrator-backend
+    env: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn server_fastapi.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: EXCHANGE_KEY_ENCRYPTION_KEY
+        generateValue: true
+      - key: PORT
+        value: 8000
+      - key: ENVIRONMENT
+        value: production
+      - key: NODE_ENV
+        value: production
+      # NOTE: Add DATABASE_URL and REDIS_URL manually after creating those services
+      # Go to your backend service → Environment → Add:
+      # DATABASE_URL = (from your PostgreSQL service)
+      # REDIS_URL = (from your Redis service)
+
+  # React Frontend (Static Site)
+  - type: static_site
+    name: crypto-orchestrator-frontend
+    plan: free
+    region: oregon
+    buildCommand: cd client && npm install --legacy-peer-deps && npm run build
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: crypto-orchestrator-backend
+          type: web
+          property: host

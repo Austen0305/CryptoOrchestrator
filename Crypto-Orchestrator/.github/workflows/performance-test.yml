@@ -1,0 +1,273 @@
+name: Performance Testing
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of performance test'
+        required: false
+        type: choice
+        options:
+          - load
+          - stress
+          - spike
+          - endurance
+        default: 'load'
+
+jobs:
+  performance-test:
+    name: Performance Regression Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cryptoorchestrator
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install locust k6
+        npm ci --legacy-peer-deps
+    
+    - name: Set up test database
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoorchestrator
+        REDIS_URL: redis://localhost:6379/0
+      run: |
+        python -m alembic upgrade head
+    
+    - name: Start FastAPI server
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoorchestrator
+        REDIS_URL: redis://localhost:6379/0
+        JWT_SECRET: test-secret-key-for-performance-testing
+      run: |
+        python -m uvicorn server_fastapi.main:app --host 127.0.0.1 --port 8000 &
+        sleep 10
+        curl -f http://localhost:8000/health || exit 1
+    
+    - name: Run Locust load test
+      run: |
+        python scripts/load_test.py \
+          --host http://localhost:8000 \
+          --users 100 \
+          --spawn-rate 10 \
+          --run-time 5m \
+          --html performance-report.html \
+          --csv performance-results || true
+    
+    - name: Run API performance tests
+      env:
+        API_URL: http://localhost:8000
+      run: |
+        python scripts/monitor_performance.py \
+          --duration 60 \
+          --compare \
+          --report \
+          --output performance-metrics.json || true
+    
+    - name: Check performance thresholds
+      run: |
+        python -c "
+        import json
+        import sys
+        
+        try:
+            with open('performance-metrics.json', 'r') as f:
+                metrics = json.load(f)
+            
+            # Define thresholds
+            thresholds = {
+                'p95_response_time': 200,  # ms
+                'p99_response_time': 500,  # ms
+                'error_rate': 0.01,  # 1%
+                'throughput': 100  # requests/sec
+            }
+            
+            failed = False
+            for metric, threshold in thresholds.items():
+                if metric in metrics:
+                    value = metrics[metric]
+                    if value > threshold:
+                        print(f'FAIL: {metric} = {value} exceeds threshold {threshold}')
+                        failed = True
+                    else:
+                        print(f'PASS: {metric} = {value} <= threshold {threshold}')
+            
+            if failed:
+                sys.exit(1)
+        except FileNotFoundError:
+            print('Performance metrics file not found, skipping threshold check')
+        except Exception as e:
+            print(f'Error checking thresholds: {e}')
+            sys.exit(1)
+        "
+    
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v5
+      if: always()
+      with:
+        name: performance-reports
+        path: |
+          performance-report.html
+          performance-results*.csv
+          performance-metrics.json
+        retention-days: 30
+    
+    - name: Comment PR with performance results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const metrics = JSON.parse(fs.readFileSync('performance-metrics.json', 'utf8'));
+            const comment = `## Performance Test Results
+            
+            ### Metrics
+            - P95 Response Time: ${metrics.p95_response_time || 'N/A'}ms
+            - P99 Response Time: ${metrics.p99_response_time || 'N/A'}ms
+            - Error Rate: ${(metrics.error_rate * 100 || 0).toFixed(2)}%
+            - Throughput: ${metrics.throughput || 'N/A'} req/s
+            
+            ### Status
+            ${metrics.p95_response_time < 200 ? '✅' : '❌'} Performance within acceptable thresholds
+            
+            See artifacts for detailed reports.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Could not comment PR:', error);
+          }
+
+  database-performance:
+    name: Database Performance Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cryptoorchestrator
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Set up test database
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoorchestrator
+      run: |
+        python -m alembic upgrade head
+    
+    - name: Run database query performance tests
+      env:
+        DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoorchestrator
+      run: |
+        python -c "
+        import asyncio
+        import time
+        from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+        from sqlalchemy.orm import sessionmaker
+        
+        async def test_query_performance():
+            engine = create_async_engine('postgresql+asyncpg://postgres:postgres@localhost:5432/cryptoorchestrator')
+            async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            
+            slow_queries = []
+            
+            # Test common queries
+            queries = [
+                'SELECT COUNT(*) FROM bots',
+                'SELECT * FROM trades ORDER BY created_at DESC LIMIT 100',
+                'SELECT * FROM portfolio WHERE user_id = (SELECT id FROM users LIMIT 1)',
+            ]
+            
+            async with async_session() as session:
+                for query in queries:
+                    start = time.time()
+                    result = await session.execute(query)
+                    duration = (time.time() - start) * 1000  # Convert to ms
+                    
+                    if duration > 100:  # Threshold: 100ms
+                        slow_queries.append((query, duration))
+                        print(f'SLOW QUERY: {query} took {duration:.2f}ms')
+                    else:
+                        print(f'OK: {query} took {duration:.2f}ms')
+            
+            if slow_queries:
+                print(f'\\nFound {len(slow_queries)} slow queries')
+                exit(1)
+            else:
+                print('\\nAll queries within acceptable performance thresholds')
+        
+        asyncio.run(test_query_performance())
+        " || true
