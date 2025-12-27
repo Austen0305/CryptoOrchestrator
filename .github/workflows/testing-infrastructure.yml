@@ -131,7 +131,7 @@ jobs:
       
       - name: Upload Load Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: load-test-results
           path: load_test_results_*.json
@@ -194,7 +194,7 @@ jobs:
       
       - name: Upload Test Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pre-deployment-report
           path: test_report_*.json
@@ -202,7 +202,7 @@ jobs:
       
       - name: Upload Coverage Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: |
@@ -213,7 +213,7 @@ jobs:
       
       - name: Upload Performance Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: performance-report
           path: |

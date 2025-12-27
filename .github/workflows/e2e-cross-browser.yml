@@ -83,7 +83,7 @@ jobs:
         API_URL: http://localhost:8000
     
     - name: Upload test results
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       if: always()
       with:
         name: playwright-report-${{ matrix.browser }}
@@ -91,7 +91,7 @@ jobs:
         retention-days: 7
     
     - name: Upload test videos
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       if: failure()
       with:
         name: playwright-videos-${{ matrix.browser }}
