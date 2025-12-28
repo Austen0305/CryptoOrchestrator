@@ -1,5 +1,6 @@
-# Vercel ignore file
+# Vercel ignore file - exclude backend and Python files
 server_fastapi/
+server/
 alembic/
 tests/
 scripts/
@@ -13,3 +14,24 @@ __pycache__/
 !.env.example
 node_modules/
 *.log
+
+# Python configuration files that trigger pip install warnings
+requirements*.txt
+pyproject.toml
+setup.cfg
+pytest.ini
+runtime.txt
+*.toml
+!package.json
+!tsconfig.json
+!tailwind.config.ts
+!vite.config.ts
+!vercel.json
+!netlify.toml
+
+# Backend deployment configs
+docker-compose*.yml
+Dockerfile*
+fly.toml
+railway.toml
+nixpacks.toml

@@ -163,7 +163,9 @@ export default defineConfig(({ mode }) => ({
       }
     } : undefined,
   },
-  base: mode === 'production' ? './' : '/', // Relative paths for Electron
+  // Use absolute paths for web deployment (Vercel), relative only for Electron builds
+  // Electron builds will override this via electron-builder config
+  base: '/',
   optimizeDeps: {
     include: [
       'react',
