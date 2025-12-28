@@ -134,6 +134,10 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('node_modules/@tanstack/react-query')) {
             return 'vendor'; // Must load after React is available
           }
+          // Web3 libraries - depend on React (wagmi uses React hooks)
+          if (id.includes('node_modules/wagmi') || id.includes('node_modules/viem') || id.includes('node_modules/@web3modal')) {
+            return 'vendor'; // Must load after React is available
+          }
           // Charts - large visualization libraries
           if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
             return 'charts';
@@ -146,9 +150,9 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('node_modules/@tensorflow')) {
             return 'tensorflow';
           }
-          // Web3 libraries - split for better caching
-          if (id.includes('node_modules/wagmi') || id.includes('node_modules/viem') || id.includes('node_modules/@web3modal')) {
-            return 'web3';
+          // Form libraries - depend on React (react-hook-form uses React hooks)
+          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
+            return 'vendor'; // Must load after React is available
           }
           // Large libraries
           if (id.includes('node_modules/framer-motion')) {
@@ -157,10 +161,6 @@ export default defineConfig(({ mode }) => ({
           // Date utilities
           if (id.includes('node_modules/date-fns')) {
             return 'date-utils';
-          }
-          // Form libraries
-          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
-            return 'forms';
           }
           // Validation
           if (id.includes('node_modules/zod')) {
