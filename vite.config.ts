@@ -148,13 +148,10 @@ export default defineConfig(({ mode }) => ({
           if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
             return 'vendor';
           }
-          // Charts - recharts depends on React, must be in vendor chunk
-          if (id.includes('node_modules/recharts')) {
-            return 'vendor'; // recharts uses React, must load after React
-          }
-          // Lightweight charts doesn't use React, can be separate
-          if (id.includes('node_modules/lightweight-charts')) {
-            return 'charts';
+          // Charts - both recharts and lightweight-charts can have initialization issues when split
+          // Put both in vendor to avoid chunk loading order problems
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
+            return 'vendor'; // Avoid initialization order issues
           }
           // Icons - tree-shake unused icons
           if (id.includes('node_modules/lucide-react')) {
