@@ -25,10 +25,8 @@ export default defineConfig(({ mode }) => ({
       },
       // Only enable in production
       injectRegister: mode === 'production' ? 'auto' : null,
-      // Use custom service worker
-      strategies: 'injectManifest',
-      srcDir: 'public',
-      filename: 'sw.js',
+      // Use auto-generated service worker (simpler for Vercel deployment)
+      strategies: 'generateSW',
       // Workbox options
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
