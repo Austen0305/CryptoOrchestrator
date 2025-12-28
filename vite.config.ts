@@ -120,49 +120,10 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // SIMPLIFIED: Put React AND all React-dependent libraries in the same vendor chunk
-          // This ensures everything loads together and React is fully initialized before use
-          if (id.includes('node_modules/react') || 
-              id.includes('node_modules/react-dom') ||
-              id.includes('node_modules/@radix-ui') ||
-              id.includes('node_modules/@tanstack/react-query') ||
-              id.includes('node_modules/wagmi') || 
-              id.includes('node_modules/@wagmi') ||
-              id.includes('node_modules/viem') || 
-              id.includes('node_modules/@web3modal') ||
-              id.includes('node_modules/@reown') ||
-              id.includes('node_modules/react-hook-form') || 
-              id.includes('node_modules/@hookform') ||
-              id.includes('node_modules/recharts') || 
-              id.includes('node_modules/lightweight-charts')) {
-            return 'vendor'; // All React ecosystem in one chunk
-          }
-          // Icons - tree-shake unused icons
-          if (id.includes('node_modules/lucide-react')) {
-            return 'icons';
-          }
-          // TensorFlow (ML) - lazy load when needed
-          if (id.includes('node_modules/@tensorflow')) {
-            return 'tensorflow';
-          }
-          // Large libraries
-          if (id.includes('node_modules/framer-motion')) {
-            return 'animations';
-          }
-          // Date utilities
-          if (id.includes('node_modules/date-fns')) {
-            return 'date-utils';
-          }
-          // Validation
-          if (id.includes('node_modules/zod')) {
-            return 'validation';
-          }
-          // All other node_modules
-          if (id.includes('node_modules')) {
-            return 'vendor';
-          }
-        },
+        // Disable manual chunking to avoid React initialization order issues
+        // Vite's default chunking will handle dependencies correctly
+        // We can re-enable chunking later once we confirm everything works
+        manualChunks: undefined,
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',
         assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
