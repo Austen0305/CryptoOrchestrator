@@ -121,37 +121,22 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // CRITICAL: React and React DOM must load FIRST in a separate chunk
-          // This ensures React is available before any React-dependent libraries
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor'; // Separate chunk that loads first
-          }
-          // All React-dependent libraries go in vendor chunk (loads after react-vendor)
-          // UI Components (Radix UI) - depends on React
-          if (id.includes('node_modules/@radix-ui')) {
-            return 'vendor';
-          }
-          // React Query - depends on React
-          if (id.includes('node_modules/@tanstack/react-query')) {
-            return 'vendor';
-          }
-          // Web3 libraries - depend on React (wagmi uses React hooks)
-          // Include all wagmi-related packages (@wagmi, wagmi, viem, web3modal, reown)
-          if (id.includes('node_modules/wagmi') || 
+          // SIMPLIFIED: Put React AND all React-dependent libraries in the same vendor chunk
+          // This ensures everything loads together and React is fully initialized before use
+          if (id.includes('node_modules/react') || 
+              id.includes('node_modules/react-dom') ||
+              id.includes('node_modules/@radix-ui') ||
+              id.includes('node_modules/@tanstack/react-query') ||
+              id.includes('node_modules/wagmi') || 
               id.includes('node_modules/@wagmi') ||
               id.includes('node_modules/viem') || 
               id.includes('node_modules/@web3modal') ||
-              id.includes('node_modules/@reown')) {
-            return 'vendor';
-          }
-          // Form libraries - depend on React (react-hook-form uses React hooks)
-          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
-            return 'vendor';
-          }
-          // Charts - both recharts and lightweight-charts can have initialization issues when split
-          // Put both in vendor to avoid chunk loading order problems
-          if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
-            return 'vendor'; // Avoid initialization order issues
+              id.includes('node_modules/@reown') ||
+              id.includes('node_modules/react-hook-form') || 
+              id.includes('node_modules/@hookform') ||
+              id.includes('node_modules/recharts') || 
+              id.includes('node_modules/lightweight-charts')) {
+            return 'vendor'; // All React ecosystem in one chunk
           }
           // Icons - tree-shake unused icons
           if (id.includes('node_modules/lucide-react')) {
