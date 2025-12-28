@@ -121,22 +121,32 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React and React DOM - MUST be in vendor chunk (not split separately) to ensure availability
-          // All React-dependent libraries must load after React
+          // CRITICAL: React and React DOM must load FIRST in a separate chunk
+          // This ensures React is available before any React-dependent libraries
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'vendor'; // Put React in vendor chunk to ensure it loads first
+            return 'react-vendor'; // Separate chunk that loads first
           }
+          // All React-dependent libraries go in vendor chunk (loads after react-vendor)
           // UI Components (Radix UI) - depends on React
           if (id.includes('node_modules/@radix-ui')) {
-            return 'vendor'; // Keep with vendor to ensure React loads first
+            return 'vendor';
           }
-          // React Query - depends on React, must be in vendor chunk
+          // React Query - depends on React
           if (id.includes('node_modules/@tanstack/react-query')) {
-            return 'vendor'; // Must load after React is available
+            return 'vendor';
           }
           // Web3 libraries - depend on React (wagmi uses React hooks)
-          if (id.includes('node_modules/wagmi') || id.includes('node_modules/viem') || id.includes('node_modules/@web3modal')) {
-            return 'vendor'; // Must load after React is available
+          // Include all wagmi-related packages (@wagmi, wagmi, viem, web3modal, reown)
+          if (id.includes('node_modules/wagmi') || 
+              id.includes('node_modules/@wagmi') ||
+              id.includes('node_modules/viem') || 
+              id.includes('node_modules/@web3modal') ||
+              id.includes('node_modules/@reown')) {
+            return 'vendor';
+          }
+          // Form libraries - depend on React (react-hook-form uses React hooks)
+          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
+            return 'vendor';
           }
           // Charts - large visualization libraries
           if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
@@ -149,10 +159,6 @@ export default defineConfig(({ mode }) => ({
           // TensorFlow (ML) - lazy load when needed
           if (id.includes('node_modules/@tensorflow')) {
             return 'tensorflow';
-          }
-          // Form libraries - depend on React (react-hook-form uses React hooks)
-          if (id.includes('node_modules/react-hook-form') || id.includes('node_modules/@hookform')) {
-            return 'vendor'; // Must load after React is available
           }
           // Large libraries
           if (id.includes('node_modules/framer-motion')) {
