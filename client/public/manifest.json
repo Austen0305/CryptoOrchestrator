@@ -12,13 +12,13 @@
     {
       "src": "/favicon.png",
       "type": "image/png",
-      "sizes": "192x192",
+      "sizes": "any",
       "purpose": "any maskable"
     },
     {
-      "src": "/favicon.png",
-      "type": "image/png",
-      "sizes": "512x512",
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
       "purpose": "any maskable"
     }
   ],
@@ -28,14 +28,14 @@
       "short_name": "Dashboard",
       "description": "View trading dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/favicon.png", "sizes": "any" }]
     },
     {
       "name": "Trading",
       "short_name": "Trading",
       "description": "Open trading interface",
       "url": "/trading",
-      "icons": [{ "src": "/favicon.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/favicon.png", "sizes": "any" }]
     }
   ],
   "categories": ["finance", "productivity"],
