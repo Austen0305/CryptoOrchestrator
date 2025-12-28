@@ -17,6 +17,14 @@ async function sendToAnalytics(metric: Metric) {
     const baseUrl = import.meta.env.VITE_API_URL 
       || (typeof window !== 'undefined' ? (window as Window & { VITE_API_URL?: string }).VITE_API_URL : undefined)
       || "http://localhost:8000";
+    
+    // Skip analytics if we're on HTTPS but backend is HTTP (Mixed Content blocking)
+    // This prevents browser errors when frontend is HTTPS and backend is HTTP
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && baseUrl.startsWith('http://')) {
+      // Silently skip - mixed content would be blocked anyway
+      return;
+    }
+    
     const url = `${baseUrl}/api/analytics/web-vitals`;
     
     // Send to FastAPI analytics endpoint
