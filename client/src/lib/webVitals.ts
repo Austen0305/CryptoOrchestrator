@@ -13,9 +13,10 @@ type MetricHandler = (metric: Metric) => void;
  */
 async function sendToAnalytics(metric: Metric) {
   try {
-    // Get base URL from environment or use default backend URL (same as apiRequest)
-    const windowWithGlobals = typeof window !== 'undefined' ? window as Window & { VITE_API_URL?: string } : null;
-    const baseUrl = windowWithGlobals?.VITE_API_URL || "http://localhost:8000";
+    // Get base URL from environment variables (Vite) or window, with fallback
+    const baseUrl = import.meta.env.VITE_API_URL 
+      || (typeof window !== 'undefined' ? (window as Window & { VITE_API_URL?: string }).VITE_API_URL : undefined)
+      || "http://localhost:8000";
     const url = `${baseUrl}/api/analytics/web-vitals`;
     
     // Send to FastAPI analytics endpoint

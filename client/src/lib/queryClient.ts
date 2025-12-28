@@ -26,6 +26,23 @@ interface ApiError extends Error {
 }
 
 /**
+ * Get API base URL from environment variables (Vite) or window, with fallback
+ */
+function getApiBaseUrl(): string {
+  // Priority 1: Vite environment variable (available at build time)
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // Priority 2: Window global (runtime override)
+  const windowWithGlobals = typeof window !== "undefined" ? (window as WindowWithGlobals) : null;
+  if (windowWithGlobals?.VITE_API_URL) {
+    return windowWithGlobals.VITE_API_URL;
+  }
+  // Fallback: localhost for development
+  return "http://localhost:8000";
+}
+
+/**
  * Enhanced API request function with improved error handling
  * Note: Retry logic is handled by React Query, not here
  */
@@ -39,8 +56,7 @@ export async function apiRequest<T = unknown>(
     deduplicate?: boolean; // Enable request deduplication for GET requests
   }
 ): Promise<T> {
-  const windowWithGlobals = typeof window !== "undefined" ? (window as WindowWithGlobals) : null;
-  const baseUrl = windowWithGlobals?.VITE_API_URL || "http://localhost:8000";
+  const baseUrl = getApiBaseUrl();
   const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
   const method = options?.method || "GET";
   const body = options?.body;
