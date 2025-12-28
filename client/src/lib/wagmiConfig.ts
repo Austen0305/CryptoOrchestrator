@@ -5,7 +5,9 @@
  */
 import { createConfig, http } from "wagmi";
 import { mainnet, base, arbitrum, polygon, optimism, avalanche, bsc } from "wagmi/chains";
-import { injected, metaMask, walletConnect, coinbaseWallet } from "wagmi/connectors";
+import { injected, walletConnect, coinbaseWallet } from "wagmi/connectors";
+// metaMask connector removed to avoid @metamask/sdk dependency requirement
+// The injected() connector already handles MetaMask automatically
 
 // Get WalletConnect project ID from environment (optional, but recommended)
 // Get one at: https://cloud.walletconnect.com
@@ -26,15 +28,18 @@ export const supportedChains = [
 // Configure connectors
 const connectors = [
   // Injected connector (for any injected wallet like MetaMask, Brave, etc.)
+  // This automatically detects MetaMask and other injected wallets
   injected(),
   
-  // MetaMask connector (explicit)
-  metaMask({
-    dappMetadata: {
-      name: "CryptoOrchestrator",
-      url: typeof window !== "undefined" ? window.location.origin : "https://cryptoorchestrator.com",
-    },
-  }),
+  // MetaMask connector (explicit) - optional, only add if @metamask/sdk is available
+  // The injected() connector above already handles MetaMask, so this is redundant
+  // Keeping commented out to avoid @metamask/sdk dependency requirement
+  // metaMask({
+  //   dappMetadata: {
+  //     name: "CryptoOrchestrator",
+  //     url: typeof window !== "undefined" ? window.location.origin : "https://cryptoorchestrator.com",
+  //   },
+  // }),
   
   // WalletConnect connector (supports 300+ wallets)
   ...(walletConnectProjectId
