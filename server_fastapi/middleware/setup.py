@@ -70,7 +70,7 @@ def add_cors_headers(
             import re
             origin_allowed = bool(
                 re.match(
-                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                    r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
                     origin,
                 )
             )
@@ -119,7 +119,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
                     import re
                     origin_allowed = bool(
                         re.match(
-                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
                             origin,
                         )
                     )
@@ -144,7 +144,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
                     import re
                     origin_allowed = bool(
                         re.match(
-                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
                             origin,
                         )
                     )
@@ -170,7 +170,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
-        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$",
+        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=[
