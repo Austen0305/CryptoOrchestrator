@@ -121,9 +121,14 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // React and React DOM - core framework
+          // React and React DOM - MUST be in vendor chunk (not split separately) to ensure availability
+          // Radix UI depends on React, so React must load first
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor';
+            return 'vendor'; // Put React in vendor chunk to ensure it loads before Radix UI
+          }
+          // UI Components (Radix UI) - must load after React, so put in vendor too or separate but after
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'vendor'; // Keep with vendor to ensure React loads first
           }
           // React Query - data fetching
           if (id.includes('node_modules/@tanstack/react-query')) {
@@ -132,17 +137,6 @@ export default defineConfig(({ mode }) => ({
           // Charts - large visualization libraries
           if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
             return 'charts';
-          }
-          // UI Components (Radix UI) - split by usage frequency
-          if (id.includes('node_modules/@radix-ui')) {
-            // Split Radix UI into smaller chunks
-            if (id.includes('dialog') || id.includes('popover') || id.includes('dropdown-menu')) {
-              return 'radix-ui-overlays';
-            }
-            if (id.includes('select') || id.includes('combobox')) {
-              return 'radix-ui-forms';
-            }
-            return 'radix-ui-core';
           }
           // Icons - tree-shake unused icons
           if (id.includes('node_modules/lucide-react')) {
