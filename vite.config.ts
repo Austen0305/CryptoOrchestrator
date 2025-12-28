@@ -122,17 +122,17 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: (id) => {
           // React and React DOM - MUST be in vendor chunk (not split separately) to ensure availability
-          // Radix UI depends on React, so React must load first
+          // All React-dependent libraries must load after React
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'vendor'; // Put React in vendor chunk to ensure it loads before Radix UI
+            return 'vendor'; // Put React in vendor chunk to ensure it loads first
           }
-          // UI Components (Radix UI) - must load after React, so put in vendor too or separate but after
+          // UI Components (Radix UI) - depends on React
           if (id.includes('node_modules/@radix-ui')) {
             return 'vendor'; // Keep with vendor to ensure React loads first
           }
-          // React Query - data fetching
+          // React Query - depends on React, must be in vendor chunk
           if (id.includes('node_modules/@tanstack/react-query')) {
-            return 'react-query';
+            return 'vendor'; // Must load after React is available
           }
           // Charts - large visualization libraries
           if (id.includes('node_modules/recharts') || id.includes('node_modules/lightweight-charts')) {
