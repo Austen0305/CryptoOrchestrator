@@ -25,7 +25,10 @@ async function sendToAnalytics(metric: Metric) {
       return;
     }
     
-    const url = `${baseUrl}/api/analytics/web-vitals`;
+    // Remove trailing /api if present, then add /api/analytics/web-vitals
+    // This handles both cases: baseUrl with /api and without
+    const cleanBaseUrl = baseUrl.replace(/\/api\/?$/, '');
+    const url = `${cleanBaseUrl}/api/analytics/web-vitals`;
     
     // Send to FastAPI analytics endpoint
     const response = await fetch(url, {
