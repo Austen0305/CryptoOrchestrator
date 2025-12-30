@@ -23,10 +23,11 @@ class ApiClient {
   constructor(baseURL?: string) {
     // Use backend URL (from env or default) if not provided
     if (!baseURL) {
+      // Priority: window.__API_BASE__ (runtime override) > VITE_API_URL (build-time) > VITE_API_BASE_URL > default
       const envBaseUrl =
-        typeof window !== "undefined"
-          ? window.__API_BASE__
-          : import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
+        (typeof window !== "undefined" && (window as Window & { __API_BASE__?: string }).__API_BASE__) ||
+        import.meta.env.VITE_API_URL ||
+        import.meta.env.VITE_API_BASE_URL;
 
       // Default to main FastAPI backend on port 8000.
       // Minimal auth server on :9000 is legacy and should only be used
