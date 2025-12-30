@@ -30,7 +30,12 @@ export function useWalletWebSocket(currency: string = "USD") {
 
     const connect = () => {
       try {
-        const wsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8000";
+        // Derive WebSocket URL from API URL or use explicit WS URL
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
+        const wsUrl = import.meta.env.VITE_WS_URL || 
+          (apiUrl.startsWith('http') 
+            ? apiUrl.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws')
+            : "ws://localhost:8000");
         const ws = new WebSocket(`${wsUrl}/ws/wallet?token=${token}`);
         
         ws.onopen = () => {

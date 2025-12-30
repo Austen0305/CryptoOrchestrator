@@ -6,28 +6,70 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { login, isLoading, error } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  const validateEmail = (value: string) => {
+    if (!value) {
+      setEmailError("Email is required");
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(value)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+    setEmailError("");
+    return true;
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      setPasswordError("Password is required");
+      return false;
+    }
+    setPasswordError("");
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
+    
+    if (!isEmailValid || !isPasswordValid) {
+      return;
+    }
+
     const success = await login(email, password, rememberMe);
     if (success) {
-      setLocation("/dashboard");
+      toast({
+        title: "Welcome back!",
+        description: "You've successfully signed in.",
+        variant: "default",
+      });
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 500);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <Card className="w-full max-w-md border-card-border shadow-xl">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6">
+      <Card className="w-full max-w-md border-card-border shadow-xl animate-fade-in-up">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
             Welcome back
@@ -51,11 +93,19 @@ export default function Login() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) validateEmail(e.target.value);
+                }}
+                onBlur={() => validateEmail(email)}
                 required
                 disabled={isLoading}
                 autoComplete="email"
+                className={emailError ? "border-destructive" : ""}
               />
+              {emailError && (
+                <p className="text-sm text-destructive animate-fade-in">{emailError}</p>
+              )}
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -74,11 +124,15 @@ export default function Login() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (passwordError) validatePassword(e.target.value);
+                  }}
+                  onBlur={() => validatePassword(password)}
                   required
                   disabled={isLoading}
                   autoComplete="current-password"
-                  className="pr-10"
+                  className={passwordError ? "border-destructive pr-10" : "pr-10"}
                 />
                 <button
                   type="button"
@@ -94,6 +148,9 @@ export default function Login() {
                   )}
                 </button>
               </div>
+              {passwordError && (
+                <p className="text-sm text-destructive animate-fade-in">{passwordError}</p>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <input

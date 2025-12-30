@@ -19,8 +19,11 @@ export function useBotStatus() {
     const wsBase = (typeof window !== 'undefined' && window.__WS_BASE__)
       || import.meta.env.VITE_WS_BASE_URL
       || (() => {
-        const api = (typeof window !== 'undefined' && window.__API_BASE__) || import.meta.env.VITE_API_BASE_URL || '';
-        if (api.startsWith('http')) return api.replace(/^http/, 'ws');
+        const api = (typeof window !== 'undefined' && window.__API_BASE__) || import.meta.env.VITE_API_URL || '';
+        if (api.startsWith('http')) {
+          // Convert HTTPS to WSS, HTTP to WS
+          return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
+        }
         return 'ws://localhost:8000';
       })();
 

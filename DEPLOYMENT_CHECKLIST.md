@@ -1,7 +1,7 @@
 # ✅ **DEPLOYMENT CHECKLIST**
 
-**Date:** December 26, 2025  
-**Platform:** Railway + Vercel  
+**Date:** December 26, 2025
+**Platform:** Railway + Vercel
 **Time Required:** 10 minutes
 
 ---
@@ -10,12 +10,12 @@
 
 ### **✅ Project Configuration (DONE!)**
 
-- [x] TimescaleDB migrations updated (auto-skip)
-- [x] Railway config files created
-- [x] Vercel config files created
-- [x] Environment templates created
-- [x] Documentation created
-- [x] Compatibility verified
+- [X] TimescaleDB migrations updated (auto-skip)
+- [X] Railway config files created
+- [X] Vercel config files created
+- [X] Environment templates created
+- [X] Documentation created
+- [X] Compatibility verified
 
 **Status:** ✅ **ALL COMPLETE - READY TO DEPLOY!**
 
@@ -26,54 +26,55 @@
 ### **STEP 1: Railway Backend (5 minutes)**
 
 - [ ] **1.1 Create Railway Account**
+
   ```
   → Go to: https://railway.app
   → Click "Login with GitHub"
   → Authorize Railway
   ```
-
 - [ ] **1.2 Create Project**
+
   ```
   → Click "New Project"
   → Select "Deploy from GitHub repo"
-  → Choose "Crypto-Orchestrator"
+  → Choose "CryptoOrchestrator"
   → Wait for Railway to analyze
   ```
-
 - [ ] **1.3 Add PostgreSQL Database**
+
   ```
   → In project dashboard, click "+ New"
   → Select "Database" → "PostgreSQL"
   → Railway creates database automatically
   → DATABASE_URL auto-configured ✅
   ```
-
 - [ ] **1.4 Add Redis Database**
+
   ```
   → Click "+ New" again
   → Select "Database" → "Redis"
   → Railway creates Redis automatically
   → REDIS_URL auto-configured ✅
   ```
-
 - [ ] **1.5 Add Environment Variables**
+
   ```
-  → Click on your service (Crypto-Orchestrator)
+  → Click on your service (CryptoOrchestrator)
   → Go to "Variables" tab
   → Click "New Variable"
-  
+
   Add these (see .env.railway for details):
-  
+
   Required:
   - JWT_SECRET=(generate: openssl rand -hex 32)
   - EXCHANGE_KEY_ENCRYPTION_KEY=(generate: openssl rand -base64 32)
-  
+
   Optional (for full features):
   - ETHEREUM_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
   - BASE_RPC_URL=https://base-sepolia.g.alchemy.com/v2/YOUR_KEY
   ```
-
 - [ ] **1.6 Generate Domain**
+
   ```
   → Go to "Settings" tab
   → Scroll to "Networking"
@@ -81,8 +82,8 @@
   → Copy URL (e.g., https://crypto-orchestrator.up.railway.app)
   → Save this for Vercel! 📝
   ```
-
 - [ ] **1.7 Verify Deployment**
+
   ```
   → Go to "Deployments" tab
   → Wait for build to complete (2-3 minutes)
@@ -98,56 +99,57 @@
 ### **STEP 2: Vercel Frontend (5 minutes)**
 
 - [ ] **2.1 Create Vercel Account**
+
   ```
   → Go to: https://vercel.com
   → Click "Sign Up"
   → Choose "Continue with GitHub"
   → Authorize Vercel
   ```
-
 - [ ] **2.2 Import Project**
+
   ```
   → Click "Add New..." → "Project"
   → Find "Crypto-Orchestrator" in list
   → Click "Import"
   ```
-
 - [ ] **2.3 Configure Build Settings**
+
   ```
   Framework Preset: Vite (auto-detected)
   Root Directory: client
   Build Command: npm run build (auto-detected)
   Output Directory: dist (auto-detected)
   Install Command: npm install (auto-detected)
-  
+
   → Leave all as auto-detected ✅
   ```
-
 - [ ] **2.4 Add Environment Variables**
+
   ```
   → Before clicking "Deploy", expand "Environment Variables"
   → Add these variables:
-  
+
   Required:
   - VITE_API_URL=(your Railway backend URL from Step 1.6)
   - VITE_WS_URL=(same URL but wss:// instead of https://)
-  
+
   Example:
   - VITE_API_URL=https://crypto-orchestrator.up.railway.app
   - VITE_WS_URL=wss://crypto-orchestrator.up.railway.app
-  
+
   Optional:
   - VITE_ENABLE_TESTNET=true
   ```
-
 - [ ] **2.5 Deploy**
+
   ```
   → Click "Deploy"
   → Wait for build (2-3 minutes)
   → Vercel builds and deploys automatically
   ```
-
 - [ ] **2.6 Verify Deployment**
+
   ```
   → Click "Visit" button
   → App should load
@@ -165,74 +167,75 @@
 ### **STEP 3: Verify Everything Works (5 minutes)**
 
 - [ ] **3.1 Backend Health Check**
+
   ```
   → Visit: https://your-backend.railway.app/health
   → Should see: {"status": "healthy"}
   ```
-
 - [ ] **3.2 API Documentation**
+
   ```
   → Visit: https://your-backend.railway.app/docs
   → Should see Swagger UI
   → Try "GET /health" endpoint
   ```
-
 - [ ] **3.3 Database Connection**
+
   ```
   → In Railway dashboard → PostgreSQL
   → Click "Connect"
   → Should see connection details
   → Check "Metrics" tab for activity
   ```
-
 - [ ] **3.4 Redis Connection**
+
   ```
   → In Railway dashboard → Redis
   → Click "Connect"
   → Should see connection details
   → Check "Metrics" tab for activity
   ```
-
 - [ ] **3.5 Frontend Loads**
+
   ```
   → Visit: https://your-app.vercel.app
   → Should see app homepage
   → Should see login/register buttons
   → No errors in browser console
   ```
-
 - [ ] **3.6 Create Account**
+
   ```
   → Click "Register"
   → Fill in details
   → Submit
   → Should create account successfully
   ```
-
 - [ ] **3.7 Login**
+
   ```
   → Login with new account
   → Should redirect to dashboard
   → Should see user interface
   ```
-
 - [ ] **3.8 Create Trading Bot**
+
   ```
   → Go to "Bots" section
   → Click "Create Bot"
   → Fill in details
   → Should create bot successfully
   ```
-
 - [ ] **3.9 Check Background Jobs**
+
   ```
   → In Railway dashboard → Deployments → Logs
   → Search for "celery"
   → Should see Celery worker logs
   → Should see "ready" status
   ```
-
 - [ ] **3.10 Check Real-time Updates**
+
   ```
   → In app, check if data updates
   → Should see market data refreshing
@@ -248,6 +251,7 @@
 ### **Common Issues:**
 
 **Backend won't deploy:**
+
 ```
 → Check Railway logs (Deployments → Logs)
 → Verify environment variables are set
@@ -256,6 +260,7 @@
 ```
 
 **Frontend won't build:**
+
 ```
 → Check Vercel logs (Deployments → Build Logs)
 → Verify VITE_API_URL is set correctly
@@ -264,6 +269,7 @@
 ```
 
 **TimescaleDB errors:**
+
 ```
 → This is NORMAL! Migrations auto-skip ✅
 → Look for: "TimescaleDB extension not available - SKIPPING"
@@ -271,6 +277,7 @@
 ```
 
 **CORS errors:**
+
 ```
 → Check VITE_API_URL in Vercel matches Railway URL
 → Ensure Railway backend allows Vercel origin
@@ -278,6 +285,7 @@
 ```
 
 **Database connection failed:**
+
 ```
 → Verify PostgreSQL is added in Railway
 → Check DATABASE_URL is auto-configured
@@ -285,6 +293,7 @@
 ```
 
 **Redis connection failed:**
+
 ```
 → Verify Redis is added in Railway
 → Check REDIS_URL is auto-configured
@@ -327,19 +336,20 @@ Cost:
 ### **After Successful Deployment:**
 
 - [ ] **Save URLs**
+
   ```
   Backend:  https://your-app.railway.app
   Frontend: https://your-app.vercel.app
   ```
-
 - [ ] **Monitor Usage**
+
   ```
   → Railway Dashboard → Usage
   → Check remaining credit daily
   → Plan migration before day 20
   ```
-
 - [ ] **Start Testing**
+
   ```
   → Test all features thoroughly
   → Create multiple bots
@@ -347,16 +357,16 @@ Cost:
   → Verify DEX swaps (testnet)
   → Check background jobs
   ```
-
 - [ ] **Configure External Services (Optional)**
+
   ```
   → Add Alchemy API keys for blockchain
   → Add 0x API key for DEX trading
   → Add CoinGecko API for price data
   → Add Sentry for error tracking
   ```
-
 - [ ] **Plan Production Migration (Day 20)**
+
   ```
   Option A: Upgrade Railway ($5/month)
   Option B: Migrate to Oracle Cloud (free forever)
@@ -415,7 +425,7 @@ Cost:
 
 ---
 
-**Last Updated:** December 26, 2025  
-**Status:** Ready to Deploy ✅  
-**Estimated Time:** 10 minutes  
+**Last Updated:** December 26, 2025
+**Status:** Ready to Deploy ✅
+**Estimated Time:** 10 minutes
 **Cost:** $0 for testing

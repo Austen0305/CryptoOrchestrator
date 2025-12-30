@@ -1,0 +1,120 @@
+# ==========================================
+# OPTIMIZED Requirements - Reduced Image Size
+# Target: ~2-3GB (down from 10GB+)
+# Strategy: Use CPU-only ML libraries, remove redundancies
+# ==========================================
+
+# Core FastAPI & Server
+setuptools>=65.0.0
+fastapi>=0.124.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0,<3.0.0
+pydantic-settings>=2.6.0
+python-multipart>=0.0.18
+websockets>=12.0
+
+# Database & ORM
+sqlalchemy[asyncio]>=2.0.44
+asyncpg>=0.29.0
+aiosqlite>=0.19.0
+alembic>=1.13.0
+
+# Redis & Caching
+redis>=5.0.1
+aioredis>=2.0.1
+
+# Celery & Background Tasks
+celery==5.3.4
+
+# Security & Authentication
+bcrypt>=4.1.2
+pyjwt>=2.8.0
+speakeasy>=2.0.0
+qrcode>=7.4.2
+bleach>=6.1.0
+cryptography>=41.0.7
+
+# Data Processing (OPTIMIZED)
+numpy>=1.24.3,<2.0.0
+pandas>=2.2.0
+scikit-learn>=1.4.0  # Keep - essential and lightweight
+
+# ML Libraries (OPTIMIZED - CPU ONLY)
+# REMOVED: tensorflow (saves ~2GB)
+# REMOVED: torch (saves ~1.5GB) 
+# REMOVED: transformers (saves ~500MB)
+# OPTION 1: Use cloud ML APIs instead (Hugging Face Inference API)
+# OPTION 2: Uncomment lightweight alternatives below:
+
+# tensorflow-cpu>=2.15.0,<2.17.0  # CPU-only (saves ~1GB vs GPU version)
+# torch>=2.2.0 --index-url https://download.pytorch.org/whl/cpu  # CPU-only
+
+# Lightweight ML alternatives (RECOMMENDED)
+scikit-optimize==0.9.0  # Lightweight optimization
+xgboost>=2.1.0  # Gradient boosting (smaller than deep learning)
+
+# Sentiment Analysis (LIGHTWEIGHT)
+vaderSentiment>=3.3.2  # Very small, rule-based
+textblob>=0.17.1  # Small text processing
+
+# Monitoring & Observability (MINIMAL)
+protobuf>=3.20.0,<5.0.0
+prometheus-client==0.19.0
+structlog==24.1.0
+sentry-sdk[fastapi]>=2.10.0
+
+# Utilities
+python-dotenv>=1.0.0
+httpx==0.25.2
+email-validator==2.2.0
+psutil==5.9.6
+
+# Payment
+stripe>=8.0.0
+
+# Blockchain (Essential only)
+web3>=7.14.0  # Keep - core feature
+eth-account>=0.10.0
+eth-utils>=3.0.0
+eth-abi>=4.2.0
+eth-typing>=3.0.0
+typing-extensions>=4.8.0
+
+# BIP39/BIP32 (Small)
+mnemonic>=0.20
+hdwallets>=0.1.2
+
+# Optional: SMS & Notifications
+twilio==9.2.3
+
+# Security Scanning (Development)
+bandit>=1.7.6
+safety>=2.3.5
+
+# Testing (Development only - exclude in production)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# pytest-cov==4.1.0
+
+# ==========================================
+# SIZE SAVINGS BREAKDOWN:
+# ==========================================
+# Removed TensorFlow: -2GB
+# Removed PyTorch: -1.5GB  
+# Removed Transformers: -500MB
+# Removed Stable-Baselines3: -300MB
+# Removed Optuna: -100MB
+# Total saved: ~4.4GB
+# 
+# RESULT: Docker image ~2-3GB (fits Railway, Render, Fly.io)
+# ==========================================
+
+# ML FEATURE TRADE-OFFS:
+# ✅ KEEP: scikit-learn, XGBoost (traditional ML)
+# ✅ KEEP: Sentiment analysis (VADER, TextBlob)
+# ❌ LOSE: Deep learning (TensorFlow/PyTorch)
+# ❌ LOSE: Reinforcement learning
+# ❌ LOSE: Transformer models (BERT, etc.)
+#
+# ALTERNATIVE: Use Hugging Face Inference API for heavy ML
+# https://huggingface.co/inference-api (free tier available)

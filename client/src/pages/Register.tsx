@@ -9,10 +9,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { Link } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Register() {
   const [, setLocation] = useLocation();
   const { register, isLoading, error } = useAuth();
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     email: "",
     username: "",
@@ -69,7 +71,15 @@ export default function Register() {
     );
 
     if (success) {
-      setLocation("/dashboard");
+      toast({
+        title: "Account created!",
+        description: "Welcome to CryptoOrchestrator. Redirecting to dashboard...",
+        variant: "default",
+      });
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 1000);
     }
   };
 
@@ -86,8 +96,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6">
+      <Card className="w-full max-w-md animate-fade-in-up">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
           <CardDescription>
@@ -118,7 +128,7 @@ export default function Register() {
                 autoComplete="name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">First Name</Label>
                 <Input

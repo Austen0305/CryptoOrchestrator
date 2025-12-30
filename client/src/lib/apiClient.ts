@@ -26,7 +26,7 @@ class ApiClient {
       const envBaseUrl =
         typeof window !== "undefined"
           ? window.__API_BASE__
-          : import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE_URL;
+          : import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
 
       // Default to main FastAPI backend on port 8000.
       // Minimal auth server on :9000 is legacy and should only be used

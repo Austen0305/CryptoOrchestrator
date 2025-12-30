@@ -46,9 +46,11 @@ export function usePortfolioWebSocket(mode: "paper" | "real" = "paper") {
       try {
         const baseUrl =
           (typeof window !== "undefined" ? window.__API_BASE__ : undefined) ||
+          import.meta.env.VITE_API_URL ||
           import.meta.env.VITE_API_BASE_URL ||
           "http://localhost:8000";
-        const wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://");
+        // Convert HTTPS to WSS, HTTP to WS
+        const wsUrl = baseUrl.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
         const token = localStorage.getItem("auth_token");
 
         if (!token) {

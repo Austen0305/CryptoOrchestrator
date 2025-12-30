@@ -83,8 +83,11 @@ export function PerformanceMonitor() {
       const wsBase = windowWithGlobals?.__WS_BASE__
         || importMetaWithEnv?.env?.VITE_WS_BASE_URL
         || (() => {
-          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_BASE_URL || '';
-          if (api.startsWith('http')) return api.replace(/^http/, 'ws');
+          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_URL || '';
+          if (api.startsWith('http')) {
+            // Convert HTTPS to WSS, HTTP to WS
+            return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
+          }
           return 'ws://localhost:8000';
         })();
       perfWs = new WebSocket(`${wsBase}/ws/performance-metrics`);
