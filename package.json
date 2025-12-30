@@ -4,6 +4,10 @@
   "main": "electron/index.js",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Austen0305/Crypto-Orchestrator.git"
@@ -37,6 +41,7 @@
     "start:all": "node scripts/utilities/start-all-services.js",
     "validate:env": "node scripts/utilities/validate-environment.js",
     "check:services": "node scripts/utilities/check-services.js",
+    "verify:build": "node scripts/verification/verify-build.js",
     "test:infrastructure": "python scripts/testing/test_infrastructure.py",
     "test:security": "python scripts/testing/test_security.py",
     "test:security:comprehensive": "python scripts/testing/test_security.py",
