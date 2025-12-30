@@ -334,23 +334,23 @@ echo "📊 API docs at http://localhost:8000/docs"
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="border-b sticky top-0 z-50 glass-premium backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Zap className="h-6 w-6 text-primary animate-pulse" />
-              <Sparkles className="h-3 w-3 text-yellow-400 absolute -top-1 -right-1" />
+              <Zap className="h-6 w-6 text-primary animate-pulse-glow" />
+              <Sparkles className="h-3 w-3 text-yellow-400 absolute -top-1 -right-1 animate-float" />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+            <span className="text-xl font-bold gradient-text">
               CryptoOrchestrator
             </span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
-              <Button variant="ghost">Login</Button>
+              <Button variant="ghost" className="hover-lift">Login</Button>
             </Link>
             <Link href="/register">
-              <Button className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90">
+              <Button className="bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 btn-micro-interaction glow-on-hover">
                 Sign Up Free
               </Button>
             </Link>
@@ -360,40 +360,45 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Hero Section */}
       <section className="relative container mx-auto px-4 py-20 text-center overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 blur-3xl -z-10" />
+        {/* Enhanced Background gradient with animation */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 blur-3xl -z-10 animate-pulse-glow" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent -z-10" />
         
-        <div className="max-w-5xl mx-auto space-y-8 relative z-10">
-          <Badge variant="outline" className="mb-4 px-4 py-1.5 text-sm border-primary/50 bg-primary/5">
-            <Rocket className="h-3 w-3 mr-1.5 text-primary" />
+        <div className="max-w-5xl mx-auto space-y-8 relative z-10 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 px-4 py-1.5 text-sm border-primary/50 bg-primary/5 glass-premium hover-lift">
+            <Rocket className="h-3 w-3 mr-1.5 text-primary animate-float" />
             Enterprise-Grade Trading Platform
           </Badge>
           
-          <h1 className="text-6xl md:text-7xl font-bold tracking-tight bg-gradient-to-r from-foreground via-primary to-purple-500 bg-clip-text text-transparent leading-tight">
+          <h1 className="text-6xl md:text-7xl font-bold tracking-tight gradient-text leading-tight animate-fade-in-up animate-delay-200">
             Trade Smarter,
             <br />
-            <span className="bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
+            <span className="gradient-text">
               Not Harder
             </span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+          <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in-up animate-delay-300">
             AI-powered trading bots, automatic copy trading, advanced strategies, and comprehensive risk management.
             <br />
             <span className="text-foreground font-semibold">The most advanced crypto trading platform available.</span>
           </p>
           
-          {/* Stats */}
+          {/* Enhanced Stats with modern styling */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-12">
             {stats.map((stat, idx) => {
               const Icon = stat.icon;
               return (
-                <div key={idx} className="text-center p-4 rounded-xl bg-card border border-border hover:border-primary/50 transition-colors">
+                <div 
+                  key={idx} 
+                  className="stat-modern text-center animate-fade-in-up"
+                  style={{ animationDelay: `${400 + idx * 100}ms` }}
+                >
                   <div className="flex items-center justify-center gap-2 mb-2">
-                    <Icon className={`h-6 w-6 ${stat.color}`} />
-                    <div className="text-3xl font-bold">{stat.value}</div>
+                    <Icon className={`h-6 w-6 ${stat.color} animate-float`} style={{ animationDelay: `${idx * 200}ms` }} />
+                    <div className="stat-value-modern">{stat.value}</div>
                   </div>
-                  <div className="text-sm text-muted-foreground font-medium">{stat.label}</div>
+                  <div className="stat-label-modern">{stat.label}</div>
                 </div>
               );
             })}
@@ -500,12 +505,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Features Section */}
       <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <Sparkles className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <Sparkles className="h-3 w-3 mr-1 animate-float" />
             Powerful Features
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Everything You Need to Succeed</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Everything You Need to Succeed</h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Comprehensive tools and features designed for both beginners and professional traders
           </p>
@@ -519,19 +524,20 @@ echo "📊 API docs at http://localhost:8000/docs"
                 key={idx}
                 open={isExpanded}
                 onOpenChange={(open) => setExpandedFeature(open ? idx : null)}
-                className="h-full flex flex-col"
+                className="h-full flex flex-col animate-fade-in-up"
+                style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <Card className="hover:shadow-xl transition-all duration-300 hover:-translate-y-1 border-blue-500 border rounded-xl bg-card group h-full flex flex-col min-h-[280px]">
+                <Card className="card-interactive glass-premium border-gradient-animated group h-full flex flex-col min-h-[280px] hover-lift">
                   <CollapsibleTrigger asChild>
                     <button className="w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-xl flex flex-col flex-1 h-full">
                       <CardHeader className="flex-shrink-0 pb-4">
-                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                          <Icon className={`h-7 w-7 ${feature.color}`} />
+                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform glow-on-hover">
+                          <Icon className={`h-7 w-7 ${feature.color} animate-float`} style={{ animationDelay: `${idx * 200}ms` }} />
                         </div>
                         <div className="flex items-start justify-between gap-2 min-h-[2.75rem]">
-                          <CardTitle className="text-xl font-semibold leading-tight flex-1">{feature.title}</CardTitle>
+                          <CardTitle className="text-xl font-semibold leading-tight flex-1 gradient-text">{feature.title}</CardTitle>
                           {feature.highlight && (
-                            <Badge variant="secondary" className="text-xs whitespace-nowrap flex-shrink-0 mt-0.5">
+                            <Badge variant="secondary" className="badge-premium text-xs whitespace-nowrap flex-shrink-0 mt-0.5">
                               {feature.highlight}
                             </Badge>
                           )}
@@ -553,8 +559,8 @@ echo "📊 API docs at http://localhost:8000/docs"
                       <div className="space-y-3 mt-4">
                         <p className="text-sm font-semibold text-foreground mb-3">All Features:</p>
                         {feature.details.map((detail, detailIdx) => (
-                          <div key={detailIdx} className="flex items-start gap-2 text-sm">
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <div key={detailIdx} className="flex items-start gap-2 text-sm animate-fade-in-up" style={{ animationDelay: `${detailIdx * 50}ms` }}>
+                            <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0 glow-success" />
                             <span className="text-muted-foreground">{detail}</span>
                           </div>
                         ))}
@@ -570,12 +576,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Pricing Section - Enhanced */}
       <section className="container mx-auto px-4 py-20 bg-gradient-to-b from-background to-muted/30">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <DollarSign className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <DollarSign className="h-3 w-3 mr-1 animate-float" />
             Simple Pricing
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Choose Your Plan</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Choose Your Plan</h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Start free, upgrade as you grow. No credit card required to get started.
           </p>
@@ -585,11 +591,12 @@ echo "📊 API docs at http://localhost:8000/docs"
           {pricingPlans.map((plan, idx) => (
             <Card 
               key={idx} 
-              className={`relative ${plan.color} border rounded-xl bg-card ${plan.popular ? 'shadow-2xl scale-105' : ''} transition-all hover:shadow-xl`}
+              className={`relative glass-premium card-interactive hover-lift ${plan.popular ? 'border-gradient-animated shadow-2xl scale-105' : 'border-gradient'} animate-fade-in-up`}
+              style={{ animationDelay: `${idx * 100}ms` }}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
-                  <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-1">
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10 animate-bounce-subtle">
+                  <Badge className="badge-premium bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-1 glow-on-hover">
                     <Crown className="h-3 w-3 mr-1" />
                     Most Popular
                   </Badge>
@@ -597,9 +604,9 @@ echo "📊 API docs at http://localhost:8000/docs"
               )}
               
               <CardHeader className="text-center pb-4">
-                <CardTitle className="text-2xl capitalize mb-2">{plan.name}</CardTitle>
+                <CardTitle className="text-2xl capitalize mb-2 gradient-text">{plan.name}</CardTitle>
                 <div className="flex items-baseline justify-center gap-1 mb-2">
-                  <span className="text-5xl font-bold">{plan.price}</span>
+                  <span className="text-5xl font-bold gradient-text">{plan.price}</span>
                   {plan.period !== "forever" && (
                     <span className="text-muted-foreground">/{plan.period}</span>
                   )}
@@ -610,8 +617,8 @@ echo "📊 API docs at http://localhost:8000/docs"
               <CardContent className="space-y-4">
                 <ul className="space-y-3">
                   {plan.features.map((feature, featureIdx) => (
-                    <li key={featureIdx} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                    <li key={featureIdx} className="flex items-start gap-2 animate-fade-in-up" style={{ animationDelay: `${featureIdx * 50}ms` }}>
+                      <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0 glow-success" />
                       <span className="text-sm">{feature}</span>
                     </li>
                   ))}
@@ -619,7 +626,7 @@ echo "📊 API docs at http://localhost:8000/docs"
 
                 <Link href="/register">
                   <Button 
-                    className={`w-full mt-6 ${plan.popular ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600' : ''}`}
+                    className={`w-full mt-6 btn-micro-interaction ${plan.popular ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 glow-on-hover' : ''}`}
                     variant={plan.popular ? 'default' : 'outline'}
                     size="lg"
                   >
@@ -642,12 +649,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* How It Works */}
       <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <Rocket className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <Rocket className="h-3 w-3 mr-1 animate-float" />
             Simple Process
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">How It Works</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">How It Works</h2>
           <p className="text-muted-foreground text-lg">
             Get started in three simple steps
           </p>
@@ -661,19 +668,27 @@ echo "📊 API docs at http://localhost:8000/docs"
           ].map((item, idx) => {
             const Icon = item.icon;
             return (
-              <div key={idx} className="text-center relative">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center border-2 border-primary/30">
+              <Card 
+                key={idx} 
+                className="text-center relative glass-premium card-interactive hover-lift border-gradient animate-fade-in-up"
+                style={{ animationDelay: `${idx * 150}ms` }}
+              >
+                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center border-2 border-primary/30 glow-on-hover animate-float" style={{ animationDelay: `${idx * 200}ms` }}>
                   <Icon className="h-10 w-10 text-primary" />
                 </div>
-                <div className="absolute top-0 right-0 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm">
+                <div className="absolute top-0 right-0 w-8 h-8 rounded-full bg-gradient-to-r from-primary to-purple-600 text-white flex items-center justify-center font-bold text-sm badge-premium animate-pulse-glow">
                   {item.step}
                 </div>
-                <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                <p className="text-muted-foreground">{item.description}</p>
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold mb-2 gradient-text">{item.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-muted-foreground">{item.description}</CardDescription>
+                </CardContent>
                 {idx < 2 && (
-                  <ChevronRight className="hidden md:block absolute top-10 -right-4 text-muted-foreground h-8 w-8" />
+                  <ChevronRight className="hidden md:block absolute top-10 -right-4 text-primary h-8 w-8 animate-float" style={{ animationDelay: `${idx * 300}ms` }} />
                 )}
-              </div>
+              </Card>
             );
           })}
         </div>
@@ -681,12 +696,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Testimonials */}
       <section className="container mx-auto px-4 py-20 bg-muted/30">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <MessageSquare className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <MessageSquare className="h-3 w-3 mr-1 animate-float" />
             Testimonials
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">What Our Users Say</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">What Our Users Say</h2>
           <p className="text-muted-foreground text-lg">
             Join thousands of satisfied traders
           </p>
@@ -694,11 +709,15 @@ echo "📊 API docs at http://localhost:8000/docs"
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {testimonials.map((testimonial, idx) => (
-            <Card key={idx} className="hover:shadow-lg transition-shadow border-blue-500 border rounded-xl bg-card">
+            <Card 
+              key={idx} 
+              className="glass-premium card-interactive hover-lift border-gradient animate-fade-in-up"
+              style={{ animationDelay: `${idx * 100}ms` }}
+            >
               <CardHeader>
                 <div className="flex items-center gap-1 mb-2">
                   {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400 animate-float" style={{ animationDelay: `${i * 100}ms` }} />
                   ))}
                 </div>
                 <CardDescription className="text-base italic">
@@ -706,7 +725,7 @@ echo "📊 API docs at http://localhost:8000/docs"
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="font-semibold">{testimonial.name}</div>
+                <div className="font-semibold gradient-text">{testimonial.name}</div>
                 <div className="text-sm text-muted-foreground">{testimonial.role}</div>
               </CardContent>
             </Card>
@@ -716,12 +735,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Competitive Advantages */}
       <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <Award className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <Award className="h-3 w-3 mr-1 animate-float" />
             Why Choose Us
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Competitive Advantages</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Competitive Advantages</h2>
           <p className="text-muted-foreground text-lg">
             What makes us better than the competition
           </p>
@@ -749,12 +768,16 @@ echo "📊 API docs at http://localhost:8000/docs"
           ].map((advantage, idx) => {
             const Icon = advantage.icon;
             return (
-              <Card key={idx} className="text-center hover:shadow-xl transition-all border-blue-500 border rounded-xl bg-card">
+              <Card 
+                key={idx} 
+                className="text-center glass-premium card-interactive hover-lift border-gradient animate-fade-in-up"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
                 <CardHeader>
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center glow-on-hover animate-float" style={{ animationDelay: `${idx * 200}ms` }}>
                     <Icon className={`h-8 w-8 ${advantage.color}`} />
                   </div>
-                  <CardTitle className="text-xl">{advantage.title}</CardTitle>
+                  <CardTitle className="text-xl gradient-text">{advantage.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <CardDescription className="text-base">{advantage.description}</CardDescription>
@@ -767,12 +790,12 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Demo/Preview Section */}
       <section className="container mx-auto px-4 py-20">
-        <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
-            <Play className="h-3 w-3 mr-1" />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Badge variant="outline" className="mb-4 badge-premium">
+            <Play className="h-3 w-3 mr-1 animate-float" />
             See It In Action
           </Badge>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">Experience the Power</h2>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4 gradient-text">Experience the Power</h2>
           <p className="text-muted-foreground text-lg">
             See what makes CryptoOrchestrator the best trading platform
           </p>
@@ -794,18 +817,22 @@ echo "📊 API docs at http://localhost:8000/docs"
           ].map((demo, idx) => {
             const Icon = demo.icon;
             return (
-              <Card key={idx} className="overflow-hidden hover:shadow-xl transition-all group border-blue-500 border rounded-xl bg-card">
-                <div className={`h-64 bg-gradient-to-br ${demo.gradient} flex items-center justify-center relative overflow-hidden`}>
-                  <Icon className="h-24 w-24 text-white/20 group-hover:scale-110 transition-transform" />
+              <Card 
+                key={idx} 
+                className="overflow-hidden glass-premium card-interactive hover-lift border-gradient animate-fade-in-up group"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <div className={`h-64 bg-gradient-to-br ${demo.gradient} flex items-center justify-center relative overflow-hidden animate-pulse-glow`}>
+                  <Icon className="h-24 w-24 text-white/20 group-hover:scale-110 transition-transform animate-float" style={{ animationDelay: `${idx * 200}ms` }} />
                   <div className="absolute inset-0 bg-grid-pattern opacity-10" />
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-2xl">{demo.title}</CardTitle>
+                  <CardTitle className="text-2xl gradient-text">{demo.title}</CardTitle>
                   <CardDescription className="text-base">{demo.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Link href="/register">
-                    <Button className="w-full" variant="outline" size="lg">
+                    <Button className="w-full btn-micro-interaction glow-on-hover" variant="outline" size="lg">
                       {idx === 0 ? "Try Demo" : "Explore Features"}
                       <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
@@ -819,13 +846,13 @@ echo "📊 API docs at http://localhost:8000/docs"
 
       {/* Final CTA Section */}
       <section className="container mx-auto px-4 py-20">
-        <Card className="max-w-4xl mx-auto border-blue-500 border rounded-xl bg-card">
+        <Card className="max-w-4xl mx-auto glass-premium border-gradient-animated card-interactive hover-lift animate-fade-in-up">
           <CardHeader className="text-center pb-4">
-            <Badge variant="outline" className="mb-4">
-              <Rocket className="h-3 w-3 mr-1" />
+            <Badge variant="outline" className="mb-4 badge-premium">
+              <Rocket className="h-3 w-3 mr-1 animate-float" />
               Ready to Start?
             </Badge>
-            <CardTitle className="text-4xl md:text-5xl mb-4">Ready to Start Trading?</CardTitle>
+            <CardTitle className="text-4xl md:text-5xl mb-4 gradient-text">Ready to Start Trading?</CardTitle>
             <CardDescription className="text-xl">
               Join thousands of traders using CryptoOrchestrator to maximize their profits
             </CardDescription>
@@ -833,7 +860,7 @@ echo "📊 API docs at http://localhost:8000/docs"
           <CardContent className="space-y-6">
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register">
-                <Button size="lg" className="w-full sm:w-auto text-lg px-10 py-6 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-lg shadow-primary/25">
+                <Button size="lg" className="w-full sm:w-auto text-lg px-10 py-6 bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-lg shadow-primary/25 btn-micro-interaction glow-on-hover">
                   Get Started Now
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Button>
@@ -841,7 +868,7 @@ echo "📊 API docs at http://localhost:8000/docs"
               <Button 
                 size="lg" 
                 variant="outline" 
-                className="w-full sm:w-auto text-lg px-10 py-6 border-2"
+                className="w-full sm:w-auto text-lg px-10 py-6 border-2 btn-micro-interaction glow-on-hover"
                 onClick={handleOneClickInstall}
               >
                 <Download className="h-5 w-5 mr-2" />
@@ -849,20 +876,20 @@ echo "📊 API docs at http://localhost:8000/docs"
               </Button>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-2 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+                <CheckCircle2 className="h-4 w-4 text-green-500 glow-success" />
                 Instant access
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-2 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+                <CheckCircle2 className="h-4 w-4 text-green-500 glow-success" />
                 No credit card required
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-2 animate-fade-in-up" style={{ animationDelay: '300ms' }}>
+                <CheckCircle2 className="h-4 w-4 text-green-500 glow-success" />
                 One-click installation
               </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <div className="flex items-center gap-2 animate-fade-in-up" style={{ animationDelay: '400ms' }}>
+                <CheckCircle2 className="h-4 w-4 text-green-500 glow-success" />
                 Cancel anytime
               </div>
             </div>
