@@ -331,8 +331,18 @@ echo "📊 API docs at http://localhost:8000/docs"
     }
   };
 
+  // Ensure landing page class is applied
+  useEffect(() => {
+    document.documentElement.classList.add('landing-page-active');
+    document.body.classList.add('landing-page-active');
+    return () => {
+      document.documentElement.classList.remove('landing-page-active');
+      document.body.classList.remove('landing-page-active');
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background landing-page-active">
       {/* Navigation */}
       <nav className="border-b sticky top-0 z-50 glass-premium backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-lg">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
