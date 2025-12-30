@@ -44,53 +44,70 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "hsl(var(--foreground))",
-      },
-      grid: {
-        vertLines: { color: "hsl(var(--border) / 0.3)" },
-        horzLines: { color: "hsl(var(--border) / 0.3)" },
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: chartContainerRef.current.clientHeight,
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      rightPriceScale: {
-        borderColor: "hsl(var(--border))",
-      },
-    });
+    try {
+      const chart = createChart(chartContainerRef.current, {
+        layout: {
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "hsl(var(--foreground))",
+        },
+        grid: {
+          vertLines: { color: "hsl(var(--border) / 0.3)" },
+          horzLines: { color: "hsl(var(--border) / 0.3)" },
+        },
+        width: chartContainerRef.current.clientWidth,
+        height: chartContainerRef.current.clientHeight,
+        timeScale: {
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        rightPriceScale: {
+          borderColor: "hsl(var(--border))",
+        },
+      });
 
-    chartRef.current = chart;
+      // Verify chart was created successfully
+      if (!chart || typeof chart.addCandlestickSeries !== 'function') {
+        console.error('Chart initialization failed: addCandlestickSeries not available');
+        return;
+      }
 
-    // Create candlestick series
-    // @ts-ignore - lightweight-charts types may be outdated
-    const candlestickSeries = chart.addCandlestickSeries({
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderVisible: false,
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
-    });
-    candlestickSeriesRef.current = candlestickSeries;
+      chartRef.current = chart;
 
-    // Create area series
-    // @ts-ignore - lightweight-charts types may be outdated
-    const areaSeries = chart.addAreaSeries({
-      lineColor: "hsl(var(--primary))",
-      topColor: "hsl(var(--primary) / 0.3)",
-      bottomColor: "hsl(var(--primary) / 0.05)",
-      lineWidth: 2,
-    });
-    areaSeriesRef.current = areaSeries;
+      // Create candlestick series
+      try {
+        const candlestickSeries = chart.addCandlestickSeries({
+          upColor: "#22c55e",
+          downColor: "#ef4444",
+          borderVisible: false,
+          wickUpColor: "#22c55e",
+          wickDownColor: "#ef4444",
+        });
+        candlestickSeriesRef.current = candlestickSeries;
+      } catch (err) {
+        console.error('Failed to create candlestick series:', err);
+      }
+
+      // Create area series
+      try {
+        const areaSeries = chart.addAreaSeries({
+          lineColor: "hsl(var(--primary))",
+          topColor: "hsl(var(--primary) / 0.3)",
+          bottomColor: "hsl(var(--primary) / 0.05)",
+          lineWidth: 2,
+        });
+        areaSeriesRef.current = areaSeries;
+      } catch (err) {
+        console.error('Failed to create area series:', err);
+      }
+    } catch (err) {
+      console.error('Failed to initialize chart:', err);
+      return;
+    }
 
     // Handle resize
     const handleResize = () => {
-      if (chartContainerRef.current && chart) {
-        chart.applyOptions({
+      if (chartContainerRef.current && chartRef.current) {
+        chartRef.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: chartContainerRef.current.clientHeight,
         });

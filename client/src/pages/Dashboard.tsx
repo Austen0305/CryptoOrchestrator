@@ -171,23 +171,13 @@ function DashboardContent() {
         {/* Chart Section - Takes more space on larger screens */}
         <div className="lg:col-span-8 space-y-4 md:space-y-6 lg:space-y-8">
           <div className="h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-xl md:rounded-2xl border-2 border-card-border/70 bg-card shadow-xl md:shadow-2xl overflow-hidden glass-premium hover-lift">
-            {/* Use EnhancedPriceChart if available, fallback to PriceChart */}
-            {typeof window !== 'undefined' && (window as typeof window & { __USE_ENHANCED_CHART?: boolean }).__USE_ENHANCED_CHART !== false ? (
-              <EnhancedPriceChart
-                pair="BTC/USD"
-                currentPrice={47350}
-                change24h={4.76}
-                data={chartData}
-                live={true}
-              />
-            ) : (
-              <PriceChart
-                pair="BTC/USD"
-                currentPrice={47350}
-                change24h={4.76}
-                data={chartData}
-              />
-            )}
+            {/* Use PriceChart by default - EnhancedPriceChart has initialization issues */}
+            <PriceChart
+              pair="BTC/USD"
+              currentPrice={47350}
+              change24h={4.76}
+              data={chartData}
+            />
           </div>
           
           {/* Trading Recommendations - Full width on mobile, shown below chart */}
