@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0",
+    "node": "24.x",
     "npm": ">=9.0.0"
   },
   "repository": {
@@ -113,7 +113,7 @@
     "validate:jwt-auth": "python scripts/testing/validate_jwt_auth.py",
     "validate:env:py": "python scripts/testing/validate_env_vars.py",
     "validate:all": "npm run validate:env && npm run validate:jwt-auth",
-    "postinstall": "node -e \"try{const {execSync}=require('child_process');const cmd=process.platform==='win32'?'python\\\\python.exe -m pip install -r requirements.txt':(process.env.PYTHON||'python3')+' -m pip install -r requirements.txt';execSync(cmd,{stdio:'inherit'})}catch(e){console.log('Skipping pip install:', e.message)}\"",
+    "postinstall": "node -e \"if(process.env.VERCEL){console.log('Skipping pip install on Vercel (frontend-only deployment)')}else{try{const {execSync}=require('child_process');const cmd=process.platform==='win32'?'python\\\\python.exe -m pip install -r requirements.txt':(process.env.PYTHON||'python3')+' -m pip install -r requirements.txt';execSync(cmd,{stdio:'inherit'})}catch(e){console.log('Skipping pip install:', e.message)}}\"",
     "precommit": "lint-staged",
     "validate:db-migrations": "python scripts/testing/validate_db_migrations.py",
     "validate:backend": "python scripts/testing/validate_backend_api.py",
