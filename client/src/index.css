@@ -1936,4 +1936,44 @@ select:focus-visible {
   }
 }
 
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Improve focus visibility for accessibility */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* Better selection colors */
+::selection {
+  background-color: hsl(var(--primary) / 0.3);
+  color: hsl(var(--primary-foreground));
+}
+
+/* Improve button disabled states */
+button:disabled,
+[role="button"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* End of Enhanced Modern UI Additions */
