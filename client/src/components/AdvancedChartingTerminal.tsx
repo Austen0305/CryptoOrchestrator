@@ -140,6 +140,12 @@ export function AdvancedChartingTerminal() {
       chartRefs.current[i] = chart;
 
       // Create candlestick series
+      // Verify chart was created successfully
+      if (!chart || typeof chart.addCandlestickSeries !== 'function') {
+        console.error('Chart initialization failed: addCandlestickSeries not available');
+        throw new Error('Chart library not properly loaded');
+      }
+
       // @ts-ignore - lightweight-charts types may be outdated
       const candlestickSeries = chart.addCandlestickSeries({
         upColor: "#22c55e",
