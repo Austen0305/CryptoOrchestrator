@@ -23,7 +23,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@postgres:5432/cryptoorchestrator
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - EXCHANGE_KEY_ENCRYPTION_KEY=${EXCHANGE_KEY_ENCRYPTION_KEY:-change-me-in-production}
+      - EXCHANGE_KEY_ENCRYPTION_KEY=${EXCHANGE_KEY_ENCRYPTION_KEY:-change-me-in-production-use-32-byte-key-here-now}
       - LOG_LEVEL=INFO
     volumes:
       - ./data:/app/data
