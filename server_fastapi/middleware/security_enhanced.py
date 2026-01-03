@@ -185,8 +185,17 @@ class EnhancedSecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> JSONResponse:
         """Process request with enhanced security checks"""
+        # Skip security checks for health endpoints and internal requests
+        health_paths = ["/health", "/healthz", "/api/health", "/metrics", "/docs", "/openapi.json", "/redoc"]
+        if request.url.path in health_paths:
+            return await call_next(request)
+        
         # Get client IP
         client_ip = request.client.host if request.client else "unknown"
+        
+        # Allow localhost/127.0.0.1 for health checks
+        if client_ip in ["127.0.0.1", "localhost", "::1"]:
+            return await call_next(request)
         
         # Check if IP is blocked
         if self._is_ip_blocked(client_ip):
