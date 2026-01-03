@@ -42,21 +42,33 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         self.minimum_size = minimum_size
         self.compress_level = compress_level
 
-    def _should_compress(self, response: Response, body_size: int = 0) -> bool:
+    def _should_compress(self, response: Response, body_size: int = 0, request_path: str = "") -> bool:
         """
         Check if response should be compressed (2026: check actual body size)
         
         Args:
             response: The response object
             body_size: Size of the response body in bytes (0 if not yet read)
+            request_path: The request path (for inferring content type)
         """
         # Don't compress if already compressed
         if "Content-Encoding" in response.headers:
             return False
 
-        # Check content type
+        # Check content type (be lenient - compress if type matches OR if path suggests JSON/API)
         content_type = response.headers.get("Content-Type", "").lower()
-        if not any(ct in content_type for ct in self.COMPRESSIBLE_TYPES):
+        path_suggests_json = any(
+            ext in request_path.lower() 
+            for ext in [".json", "/openapi", "/api/", "/docs"]
+        )
+        
+        # If content type is set, check if it's compressible
+        if content_type:
+            if not any(ct in content_type for ct in self.COMPRESSIBLE_TYPES):
+                return False
+        # If content type is not set, allow compression if path suggests JSON/API
+        elif not path_suggests_json:
+            # No content type and path doesn't suggest JSON - be conservative
             return False
 
         # Check size - use body_size if provided, otherwise check Content-Length header
@@ -87,19 +99,33 @@ class CompressionMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
 
-        # Check if we should compress
-        if not self._should_compress(response):
-            return response
-
-        # Get preferred encoding
+        # Get preferred encoding first (before reading body)
         encoding = self._get_encoding(request)
         if not encoding:
+            logger.debug(f"Compression skipped: no Accept-Encoding header for {request.url.path}")
             return response
 
         # Read response body
         body = b""
         async for chunk in response.body_iterator:
             body += chunk
+
+        body_size = len(body)
+        logger.debug(
+            f"Compression check: path={request.url.path}, size={body_size}, "
+            f"content_type={response.headers.get('Content-Type', 'not set')}, encoding={encoding}"
+        )
+
+        # Check if we should compress (now that we know body size)
+        if not self._should_compress(response, body_size=body_size, request_path=str(request.url.path)):
+            logger.debug(f"Compression skipped: should_compress=False for {request.url.path}")
+            # Return original response if shouldn't compress
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.headers.get("Content-Type"),
+            )
 
         # Compress based on encoding
         if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
