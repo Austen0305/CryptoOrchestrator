@@ -32,11 +32,11 @@ class Settings(BaseSettings):
         default="sqlite+aiosqlite:///./data/app.db", alias="DATABASE_URL"
     )
     db_pool_size: int = Field(
-        default=30, alias="DB_POOL_SIZE"
-    )  # Increased from 20 to prevent connection exhaustion
+        default=50, alias="DB_POOL_SIZE"
+    )  # Optimized for 2026: Increased from 30 for better concurrency
     db_max_overflow: int = Field(
-        default=20, alias="DB_MAX_OVERFLOW"
-    )  # Increased from 10
+        default=30, alias="DB_MAX_OVERFLOW"
+    )  # Optimized for 2026: Increased from 20 for peak load handling
     db_pool_timeout: int = Field(
         default=60, alias="DB_POOL_TIMEOUT"
     )  # Increased from 30 to prevent timeouts

@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import time
+import random
 from typing import Optional, Dict, Any, Callable, Set
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -64,14 +65,19 @@ class OptimizedCacheMiddleware(BaseHTTPMiddleware):
         self.use_redis = redis_client is not None and REDIS_AVAILABLE
 
     def _get_optimized_cache_config(self) -> Dict[str, int]:
-        """Optimized cache configuration with longer TTLs for stable data"""
+        """
+        Optimized cache configuration (2026 best practices)
+        - Shorter TTLs for volatile data (market data, portfolios)
+        - Longer TTLs for static data (exchanges, indicators)
+        - TTL jitter applied automatically to prevent cache stampede
+        """
         return {
-            # Market data - aggressive caching
+            # Market data - short TTL (highly volatile)
             "/api/markets": 60,
             "/api/markets/ticker": 30,
-            "/api/markets/orderbook": 15,
-            "/api/markets/history": 300,
-            # Portfolio - shorter cache for real-time data
+            "/api/markets/orderbook": 15,  # Very volatile
+            "/api/markets/history": 300,  # Historical data, less volatile
+            # Portfolio - short TTL (real-time data)
             "/api/portfolio": 10,
             "/api/portfolio/summary": 15,
             "/api/portfolio/positions": 10,
@@ -79,34 +85,70 @@ class OptimizedCacheMiddleware(BaseHTTPMiddleware):
             "/api/performance/summary": 30,
             "/api/performance/metrics": 60,
             "/api/performance/advanced": 120,
-            # Historical - long cache
+            # Historical - long cache (rarely changes)
             "/api/performance/daily_pnl": 600,
             "/api/performance/drawdown_history": 600,
-            # Bot data - short cache for active bots
+            # Bot data - short for active, long for inactive
             "/api/bots": 30,
             "/api/bots/active": 15,
             "/api/bots/inactive": 300,
-            # Static data - very long cache
+            # Static data - very long cache (rarely changes)
             "/api/exchanges": 3600,
             "/api/exchanges/supported": 3600,
             "/api/indicators": 1800,
+            # User data - moderate cache
+            "/api/user": 300,
+            "/api/user/preferences": 600,
+            # Analytics - moderate cache
+            "/api/analytics": 120,
+            "/api/analytics/summary": 300,
         }
 
     def _should_cache(self, path: str, method: str) -> Optional[int]:
-        """Fast path matching with early returns"""
+        """
+        Fast path matching with early returns (2026: includes TTL jitter)
+        
+        Returns TTL with jitter applied to prevent cache stampede
+        """
         if method != "GET":
             return None
         
+        base_ttl = None
+        
         # Fast exact match first
         if path in self.cache_config:
-            return self.cache_config[path]
+            base_ttl = self.cache_config[path]
+        else:
+            # Then prefix matching
+            for pattern, ttl in self.cache_config.items():
+                if path.startswith(pattern):
+                    base_ttl = ttl
+                    break
         
-        # Then prefix matching
-        for pattern, ttl in self.cache_config.items():
-            if path.startswith(pattern):
-                return ttl
+        if base_ttl is None:
+            return None
         
-        return None
+        # Apply TTL jitter (2026 best practice: prevents cache stampede)
+        return self._apply_ttl_jitter(base_ttl)
+    
+    def _apply_ttl_jitter(self, base_ttl: int, jitter_percent: int = 10) -> int:
+        """
+        Apply TTL jitter to prevent cache stampede (2026 best practice)
+        
+        Adds random variation (±10% by default) to TTL to prevent simultaneous
+        expiration of multiple keys, which can cause database overload.
+        
+        Args:
+            base_ttl: Base TTL in seconds
+            jitter_percent: Percentage of jitter to apply (default: 10%)
+            
+        Returns:
+            TTL with jitter applied (minimum 1 second)
+        """
+        jitter_range = base_ttl * (jitter_percent / 100)
+        jitter = random.uniform(-jitter_range, jitter_range)
+        jittered_ttl = int(base_ttl + jitter)
+        return max(1, jittered_ttl)  # Ensure at least 1 second
 
     def _generate_cache_key(self, request: Request) -> str:
         """Optimized cache key generation using faster hashing"""

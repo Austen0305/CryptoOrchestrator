@@ -55,12 +55,15 @@ class PerformanceProfiler:
             if len(self.slow_queries) > self.max_entries:
                 self.slow_queries = self.slow_queries[-self.max_entries :]
 
+            # Enhanced structured logging (2026 best practice)
             logger.warning(
-                f"Slow query detected: {duration_ms:.2f}ms - {query[:100]}",
+                f"Slow query detected: {duration_ms:.2f}ms",
                 extra={
                     "query": query[:200],
                     "duration_ms": duration_ms,
                     "threshold_ms": SLOW_QUERY_THRESHOLD_MS,
+                    "query_preview": query[:100],
+                    "has_params": params is not None,
                 },
             )
 

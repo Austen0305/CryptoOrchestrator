@@ -172,10 +172,10 @@ class MiddlewareManager:
                 class_name="OptimizedCacheMiddleware",
                 kwargs={"default_ttl": 300, "compress_threshold": 1024, "enable_stats": True},
             ),
-            # MEDIUM: Compression
+            # MEDIUM: Compression (2026 optimization - enabled by default for production)
             MiddlewareConfig(
                 name="compression",
-                enabled=enable_heavy and not is_testing,
+                enabled=(is_production or enable_heavy) and not is_testing,
                 priority=MiddlewarePriority.LOW,
                 module_path="server_fastapi.middleware.compression",
                 class_name="CompressionMiddleware",

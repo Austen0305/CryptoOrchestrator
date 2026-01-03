@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import random
 from typing import Any, Dict, Optional
 from pydantic import BaseModel
 import logging
@@ -23,18 +24,19 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Cache configuration
+# Cache configuration (2026 optimized with TTL jitter support)
 CACHE_CONFIG = {
     "default_ttl": 300,  # 5 minutes
-    "market_data": 60,  # 1 minute
-    "order_book": 30,  # 30 seconds
-    "trading_pairs": 600,  # 10 minutes
-    "user_info": 1800,  # 30 minutes
-    "bot_status": 120,  # 2 minutes
-    "portfolio": 300,  # 5 minutes
-    "api_keys": 3600,  # 1 hour
+    "market_data": 60,  # 1 minute (highly volatile)
+    "order_book": 30,  # 30 seconds (very volatile)
+    "trading_pairs": 600,  # 10 minutes (semi-static)
+    "user_info": 1800,  # 30 minutes (relatively static)
+    "bot_status": 120,  # 2 minutes (moderately volatile)
+    "portfolio": 300,  # 5 minutes (moderately volatile)
+    "api_keys": 3600,  # 1 hour (very static)
     "max_memory_entries": 10000,
     "key_prefix": "co:",  # CryptoOrchestrator
+    "ttl_jitter_percent": 10,  # 10% jitter to prevent cache stampede (2026 best practice)
 }
 
 
@@ -164,12 +166,14 @@ class CacheService:
             self.redis_available = False
 
     async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """Set cache value with optional TTL"""
+        """Set cache value with optional TTL (2026: includes TTL jitter to prevent cache stampede)"""
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
             await self._connect_to_redis()
 
-        effective_ttl = ttl or self._get_ttl_for_key(key)
+        base_ttl = ttl or self._get_ttl_for_key(key)
+        # Apply TTL jitter to prevent cache stampede (2026 best practice)
+        effective_ttl = self._apply_ttl_jitter(base_ttl)
 
         # Compress if enabled and value is large enough
         if COMPRESSION_ENABLED and cache_compression_service:
@@ -266,7 +270,7 @@ class CacheService:
             self.memory_cache.clear()
 
     def _get_ttl_for_key(self, key: str) -> int:
-        """Get appropriate TTL for key type"""
+        """Get appropriate TTL for key type (2026: optimized based on data volatility)"""
         if "market:" in key:
             return CACHE_CONFIG["market_data"]
         elif "orderbook:" in key:
@@ -282,6 +286,26 @@ class CacheService:
         elif "api_keys:" in key:
             return CACHE_CONFIG["api_keys"]
         return CACHE_CONFIG["default_ttl"]
+
+    def _apply_ttl_jitter(self, base_ttl: int) -> int:
+        """
+        Apply TTL jitter to prevent cache stampede (2026 best practice)
+        
+        Adds random variation (±10%) to TTL to prevent simultaneous expiration
+        of multiple keys, which can cause database overload.
+        
+        Args:
+            base_ttl: Base TTL in seconds
+            
+        Returns:
+            TTL with jitter applied
+        """
+        jitter_percent = CACHE_CONFIG.get("ttl_jitter_percent", 10)
+        jitter_range = base_ttl * (jitter_percent / 100)
+        jitter = random.uniform(-jitter_range, jitter_range)
+        jittered_ttl = int(base_ttl + jitter)
+        # Ensure TTL is at least 1 second
+        return max(1, jittered_ttl)
 
     async def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics"""

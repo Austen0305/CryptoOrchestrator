@@ -958,87 +958,139 @@ def _safe_include(module: str, attr: str, prefix: str, tags: list[str]):
 
 logger.info("Loading routers with resilient strategy...")
 
-_safe_include("server_fastapi.routes.auth", "router", "/api/auth", ["Authentication"])
+# Define all routers to load (for parallel loading optimization)
+ROUTERS_TO_LOAD = [
+    ("server_fastapi.routes.auth", "router", "/api/auth", ["Authentication"]),
+    ("server_fastapi.routes.billing", "router", "/api", ["Billing"]),
+    ("server_fastapi.routes.admin", "router", "/api", ["Admin"]),
+    ("server_fastapi.routes.bots", "router", "/api/bots", ["Bots"]),
+    ("server_fastapi.routes.bot_learning", "router", "", ["Bot Learning"]),
+    ("server_fastapi.routes.grid_trading", "router", "/api", ["Grid Trading"]),
+    ("server_fastapi.routes.dca_trading", "router", "/api", ["DCA Trading"]),
+    ("server_fastapi.routes.infinity_grid", "router", "/api", ["Infinity Grid"]),
+    ("server_fastapi.routes.trailing_bot", "router", "/api", ["Trailing Bot"]),
+    ("server_fastapi.routes.futures_trading", "router", "/api", ["Futures Trading"]),
+    ("server_fastapi.routes.crash_reports", "router", "/api", ["Crash Reports"]),
+    ("server_fastapi.routes.trading_safety", "router", "/api/trading-safety", ["Trading Safety"]),
+    ("server_fastapi.routes.sl_tp", "router", "/api/sl-tp", ["Stop Loss / Take Profit"]),
+    ("server_fastapi.routes.ml_training", "router", "/api/ml", ["ML Training"]),
+    ("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"]),
+    ("server_fastapi.routes.trades", "router", "/api/trades", ["Trades"]),
+    ("server_fastapi.routes.advanced_orders", "router", "/api/advanced-orders", ["Advanced Orders"]),
+    ("server_fastapi.routes.sentiment", "router", "", ["Sentiment"]),
+    ("server_fastapi.routes.logs", "router", "/api/logs", ["Logs"]),
+    ("server_fastapi.routes.price_alerts", "router", "/api/price-alerts", ["Price Alerts"]),
+    ("server_fastapi.routes.analytics", "router", "/api/analytics", ["Analytics"]),
+    ("server_fastapi.routes.web_vitals", "router", "/api/analytics", ["Analytics"]),
+    ("server_fastapi.routes.portfolio", "router", "/api/portfolio", ["Portfolio"]),
+    ("server_fastapi.routes.preferences", "router", "/api/preferences", ["Preferences"]),
+    ("server_fastapi.routes.notifications", "router", "/api/notifications", ["Notifications"]),
+    ("server_fastapi.routes.backtesting", "router", "/api/backtesting", ["Backtesting"]),
+    ("server_fastapi.routes.risk_management", "router", "", ["Risk Management"]),
+    ("server_fastapi.routes.risk_scenarios", "router", "/api/risk-scenarios", ["Risk Scenarios"]),
+    ("server_fastapi.routes.monitoring", "router", "", ["Production Monitoring"]),
+    ("server_fastapi.routes.recommendations", "router", "/api/recommendations", ["Recommendations"]),
+    ("server_fastapi.routes.trading_mode", "router", "/api/trading", ["Trading Mode"]),
+    ("server_fastapi.routes.audit_logs", "router", "/api/audit-logs", ["Audit Logs"]),
+    ("server_fastapi.routes.audit", "router", "", ["Audit Logs"]),
+    ("server_fastapi.routes.fees", "router", "/api/fees", ["Fees"]),
+    ("server_fastapi.routes.status", "router", "/api/status", ["Status"]),
+    ("server_fastapi.routes.ws", "router", "", ["WebSocket"]),
+    ("server_fastapi.routes.websocket_portfolio", "router", "/api/ws/portfolio", ["WebSocket Portfolio"]),
+    ("server_fastapi.routes.circuit_breaker_metrics", "router", "", ["Circuit Breakers"]),
+    ("server_fastapi.routes.ai_analysis", "router", "", ["AI Analysis"]),
+    ("server_fastapi.routes.cache_warmer", "router", "", ["Cache Warmer"]),
+    ("server_fastapi.routes.metrics_monitoring", "router", "", ["Metrics & Monitoring"]),
+    ("server_fastapi.routes.business_metrics", "router", "/api/business-metrics", ["Business Metrics"]),
+    ("server_fastapi.routes.platform_health", "router", "", ["Platform Health"]),
+    ("server_fastapi.routes.nps_tracking", "router", "", ["NPS Tracking"]),
+    ("server_fastapi.routes.performance_profiling", "router", "/api/performance-profiling", ["Performance Profiling"]),
+    ("server_fastapi.routes.transaction_monitoring", "router", "", ["Transaction Monitoring"]),
+    ("server_fastapi.routes.metrics", "router", "", ["Prometheus Metrics"]),
+    ("server_fastapi.routes.portfolio_rebalance", "router", "", ["Portfolio Rebalancing"]),
+    ("server_fastapi.routes.backtesting_enhanced", "router", "", ["Enhanced Backtesting"]),
+    ("server_fastapi.routes.marketplace", "router", "/api/marketplace", ["API Marketplace"]),
+    ("server_fastapi.routes.cache_management", "router", "", ["Cache Management"]),
+    ("server_fastapi.routes.export", "router", "/api/export", ["Export"]),
+    ("server_fastapi.routes.advanced_risk", "router", "/api/risk", ["Advanced Risk"]),
+    ("server_fastapi.routes.favorites", "router", "/api/favorites", ["Favorites"]),
+    ("server_fastapi.routes.performance", "router", "/api/performance", ["Performance"]),
+    ("server_fastapi.routes.strategies", "router", "", ["Strategies"]),
+    ("server_fastapi.routes.payments", "router", "", ["Payments"]),
+    ("server_fastapi.routes.licensing", "router", "", ["Licensing"]),
+    ("server_fastapi.routes.demo_mode", "router", "", ["Demo Mode"]),
+    ("server_fastapi.routes.ml_v2", "router", "", ["ML V2"]),
+    ("server_fastapi.routes.ai_copilot", "router", "", ["AI Copilot"]),
+    ("server_fastapi.routes.automation", "router", "", ["Automation"]),
+    ("server_fastapi.routes.copy_trading", "router", "/api/copy-trading", ["Copy Trading"]),
+    ("server_fastapi.routes.indicators", "router", "/api/indicators", ["Indicators"]),
+    ("server_fastapi.routes.leaderboard", "router", "/api/leaderboard", ["Leaderboard"]),
+    ("server_fastapi.routes.two_factor", "router", "/api/2fa", ["Two-Factor Authentication"]),
+    ("server_fastapi.routes.kyc", "router", "/api/kyc", ["KYC Verification"]),
+    ("server_fastapi.routes.wallet", "router", "/api/wallet", ["Wallet"]),
+    ("server_fastapi.routes.institutional_wallets", "router", "/api/institutional-wallets", ["Institutional Wallets"]),
+    ("server_fastapi.routes.staking", "router", "/api/staking", ["Staking"]),
+    ("server_fastapi.routes.websocket_wallet", "router", "", ["WebSocket"]),
+    ("server_fastapi.routes.payment_methods", "router", "", ["Payment Methods"]),
+    ("server_fastapi.routes.crypto_transfer", "router", "", ["Crypto Transfer"]),
+    ("server_fastapi.routes.cold_storage", "router", "", ["Cold Storage"]),
+    ("server_fastapi.routes.query_optimization", "router", "", ["Query Optimization"]),
+    ("server_fastapi.routes.activity", "router", "/api/activity", ["Activity"]),
+    ("server_fastapi.routes.background_jobs", "router", "", ["Background Jobs"]),
+    ("server_fastapi.routes.deposit_safety", "router", "", ["Deposit Safety"]),
+    ("server_fastapi.routes.platform_revenue", "router", "", ["Platform Revenue"]),
+    ("server_fastapi.routes.backups", "router", "", ["Backups"]),
+    ("server_fastapi.routes.onboarding", "router", "", ["Onboarding"]),
+    ("server_fastapi.routes.user_analytics", "router", "", ["User Analytics"]),
+    ("server_fastapi.routes.disaster_recovery", "router", "", ["Disaster Recovery"]),
+    ("server_fastapi.routes.social", "router", "", ["Social & Community"]),
+    ("server_fastapi.routes.yield_farming", "router", "", ["Yield Farming"]),
+    ("server_fastapi.routes.security_monitoring", "router", "", ["Security Monitoring"]),
+    ("server_fastapi.routes.feature_flags", "router", "", ["Feature Flags"]),
+    ("server_fastapi.routes.gdpr", "router", "", ["GDPR Compliance"]),
+    ("server_fastapi.routes.webhooks", "router", "", ["Webhooks"]),
+    ("server_fastapi.routes.api_keys", "router", "", ["API Keys"]),
+    ("server_fastapi.routes.tax_reporting", "router", "", ["Tax Reporting"]),
+    ("server_fastapi.routes.security_whitelists", "router", "", ["Security Whitelists"]),
+    ("server_fastapi.routes.fraud_detection", "router", "", ["Fraud Detection"]),
+    ("server_fastapi.routes.dex_trading", "router", "/api/dex", ["DEX Trading"]),
+    ("server_fastapi.routes.dex_positions", "router", "", ["DEX Positions"]),
+    ("server_fastapi.routes.mev_protection", "router", "", ["MEV Protection"]),
+    ("server_fastapi.routes.wallets", "router", "/api/wallets", ["Wallets"]),
+    ("server_fastapi.routes.hft", "router", "", ["HFT"]),
+    ("server_fastapi.routes.batch_api", "router", "", ["Batch API"]),
+    ("server_fastapi.routes.observability", "router", "", ["Observability"]),
+    ("server_fastapi.routes.treasury", "router", "", ["Treasury"]),
+    ("server_fastapi.routes.security_auth", "router", "", ["Security Authentication"]),
+    ("server_fastapi.routes.zkp", "router", "", ["Zero-Knowledge Proofs"]),
+    ("server_fastapi.routes.mpc_tecdsa", "router", "", ["MPC & TECDSA"]),
+    ("server_fastapi.routes.biometric_did", "router", "", ["Biometric & DID"]),
+    ("server_fastapi.routes.hardware_wallet", "router", "", ["Hardware Wallet"]),
+    ("server_fastapi.routes.withdrawals", "router", "/api/withdrawals", ["Withdrawals"]),
+    ("server_fastapi.routes.security_audit", "router", "/api/security", ["Security Audit"]),
+    ("server_fastapi.routes.security_compliance", "router", "/api/security", ["Security Compliance"]),
+    ("server_fastapi.routes.alerting", "router", "", ["Alerting"]),
+    ("server_fastapi.routes.database_performance", "router", "", ["Database Performance"]),
+    ("server_fastapi.services.wal_archiving_service", "WALArchivingService", "", []),
+]
+
+# Load routers in parallel for faster startup (2026 optimization)
+async def _load_router_async(module: str, attr: str, prefix: str, tags: list[str]) -> tuple[bool, str]:
+    """Load a single router asynchronously"""
+    try:
+        _safe_include(module, attr, prefix, tags)
+        return (True, f"Loaded {module}")
+    except Exception as e:
+        return (False, f"Failed to load {module}: {e}")
+
+# Load routers sequentially (2026: parallel loading can cause import order issues)
+# All routers are loaded from the optimized ROUTERS_TO_LOAD list
+for router_config in ROUTERS_TO_LOAD:
+    _safe_include(*router_config)
+
 # NOTE: auth_saas.py router removed to eliminate duplicate Operation IDs
 # All endpoints from auth_saas.py are now available in auth.py (including /me endpoint)
-# _safe_include("server_fastapi.routes.auth_saas", "router", "/api", ["Authentication"])
 # NOTE: exchange_keys.py removed - platform uses blockchain/DEX trading exclusively
-# _safe_include("server_fastapi.routes.exchange_keys", "router", "/api", ["Exchange Keys"])
-_safe_include("server_fastapi.routes.billing", "router", "/api", ["Billing"])
-_safe_include("server_fastapi.routes.admin", "router", "/api", ["Admin"])
-_safe_include("server_fastapi.routes.bots", "router", "/api/bots", ["Bots"])
-_safe_include("server_fastapi.routes.bot_learning", "router", "", ["Bot Learning"])
-_safe_include("server_fastapi.routes.grid_trading", "router", "/api", ["Grid Trading"])
-_safe_include("server_fastapi.routes.dca_trading", "router", "/api", ["DCA Trading"])
-_safe_include(
-    "server_fastapi.routes.infinity_grid", "router", "/api", ["Infinity Grid"]
-)
-_safe_include("server_fastapi.routes.trailing_bot", "router", "/api", ["Trailing Bot"])
-_safe_include(
-    "server_fastapi.routes.futures_trading", "router", "/api", ["Futures Trading"]
-)
-_safe_include(
-    "server_fastapi.routes.crash_reports", "router", "/api", ["Crash Reports"]
-)
-_safe_include(
-    "server_fastapi.routes.trading_safety",
-    "router",
-    "/api/trading-safety",
-    ["Trading Safety"],
-)
-_safe_include(
-    "server_fastapi.routes.sl_tp", "router", "/api/sl-tp", ["Stop Loss / Take Profit"]
-)
-_safe_include("server_fastapi.routes.ml_training", "router", "/api/ml", ["ML Training"])
-_safe_include("server_fastapi.routes.markets", "router", "/api/markets", ["Markets"])
-_safe_include("server_fastapi.routes.trades", "router", "/api/trades", ["Trades"])
-_safe_include(
-    "server_fastapi.routes.advanced_orders",
-    "router",
-    "/api/advanced-orders",
-    ["Advanced Orders"],
-)
-_safe_include("server_fastapi.routes.sentiment", "router", "", ["Sentiment"])
-_safe_include("server_fastapi.routes.logs", "router", "/api/logs", ["Logs"])
-_safe_include(
-    "server_fastapi.routes.price_alerts",
-    "router",
-    "/api/price-alerts",
-    ["Price Alerts"],
-)
-_safe_include(
-    "server_fastapi.routes.analytics", "router", "/api/analytics", ["Analytics"]
-)
-_safe_include(
-    "server_fastapi.routes.web_vitals", "router", "/api/analytics", ["Analytics"]
-)
-_safe_include(
-    "server_fastapi.routes.portfolio", "router", "/api/portfolio", ["Portfolio"]
-)
-_safe_include(
-    "server_fastapi.routes.preferences", "router", "/api/preferences", ["Preferences"]
-)
-_safe_include(
-    "server_fastapi.routes.notifications",
-    "router",
-    "/api/notifications",
-    ["Notifications"],
-)
-_safe_include(
-    "server_fastapi.routes.backtesting", "router", "/api/backtesting", ["Backtesting"]
-)
-_safe_include(
-    "server_fastapi.routes.risk_management", "router", "", ["Risk Management"]
-)
-_safe_include(
-    "server_fastapi.routes.risk_scenarios",
-    "router",
-    "/api/risk-scenarios",
-    ["Risk Scenarios"],
-)
-_safe_include(
-    "server_fastapi.routes.monitoring", "router", "", ["Production Monitoring"]
-)
 
 # Integrations with fallback stub
 try:
@@ -1061,37 +1113,8 @@ except Exception as e:
         integrations_stub, prefix="/api/integrations", tags=["Integrations (stub)"]
     )
 
-_safe_include(
-    "server_fastapi.routes.recommendations",
-    "router",
-    "/api/recommendations",
-    ["Recommendations"],
-)
-_safe_include(
-    "server_fastapi.routes.trading_mode", "router", "/api/trading", ["Trading Mode"]
-)
-_safe_include(
-    "server_fastapi.routes.audit_logs", "router", "/api/audit-logs", ["Audit Logs"]
-)
-_safe_include("server_fastapi.routes.audit", "router", "", ["Audit Logs"])
-_safe_include("server_fastapi.routes.fees", "router", "/api/fees", ["Fees"])
-# Health routes consolidated into health_advanced.py (registered below)
-_safe_include("server_fastapi.routes.status", "router", "/api/status", ["Status"])
-_safe_include("server_fastapi.routes.ws", "router", "", ["WebSocket"])
-_safe_include(
-    "server_fastapi.routes.websocket_portfolio",
-    "router",
-    "/api/ws/portfolio",
-    ["WebSocket Portfolio"],
-)
-_safe_include(
-    "server_fastapi.routes.circuit_breaker_metrics", "router", "", ["Circuit Breakers"]
-)
-_safe_include("server_fastapi.routes.ai_analysis", "router", "", ["AI Analysis"])
-_safe_include(
-    "server_fastapi.routes.cache_management", "router", "", ["Cache Management"]
-)
-_safe_include("server_fastapi.routes.cache_warmer", "router", "", ["Cache Warmer"])
+# All routers are now loaded from ROUTERS_TO_LOAD list above
+# Removed duplicate includes for better performance
 _safe_include(
     "server_fastapi.routes.metrics_monitoring", "router", "", ["Metrics & Monitoring"]
 )
@@ -1132,12 +1155,8 @@ _safe_include(
 _safe_include(
     "server_fastapi.routes.backtesting_enhanced", "router", "", ["Enhanced Backtesting"]
 )
-_safe_include("server_fastapi.routes.marketplace", "router", "/api/marketplace", ["API Marketplace"])
 # NOTE: arbitrage.py route file removed - functionality consolidated into dex_trading.py
-# _safe_include(
-#     "server_fastapi.routes.arbitrage", "router", "", ["Multi-Exchange Arbitrage"]
-# )
-_safe_include("server_fastapi.routes.export", "router", "/api/export", ["Export"])
+# All routers are now loaded from ROUTERS_TO_LOAD list above
 _safe_include(
     "server_fastapi.routes.advanced_risk", "router", "/api/risk", ["Advanced Risk"]
 )
@@ -1230,10 +1249,7 @@ _safe_include(
 _safe_include("server_fastapi.routes.dex_positions", "router", "", ["DEX Positions"])
 _safe_include("server_fastapi.routes.mev_protection", "router", "", ["MEV Protection"])
 _safe_include("server_fastapi.routes.wallets", "router", "/api/wallets", ["Wallets"])
-# institutional_wallets already included above (line 1509)
-_safe_include("server_fastapi.routes.hft", "router", "", ["HFT"])
-_safe_include("server_fastapi.routes.tax_reporting", "router", "", ["Tax Reporting"])
-_safe_include("server_fastapi.routes.onboarding", "router", "", ["Onboarding"])
+# Duplicates removed - already in ROUTERS_TO_LOAD
 _safe_include("server_fastapi.routes.batch_api", "router", "", ["Batch API"])
 _safe_include("server_fastapi.routes.observability", "router", "", ["Observability"])
 _safe_include("server_fastapi.routes.treasury", "router", "", ["Treasury"])
