@@ -106,42 +106,53 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         return None
 
     async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
-
-        # Get preferred encoding first (before reading body)
-        encoding = self._get_encoding(request)
-        if not encoding:
-            logger.debug(f"Compression skipped: no Accept-Encoding header for {request.url.path}")
-            return response
-
-        # Read response body
-        body = b""
         try:
-            async for chunk in response.body_iterator:
-                body += chunk
-        except Exception as e:
-            logger.warning(f"Error reading response body for compression: {e}")
-            return response
+            logger.debug(f"Compression middleware called for {request.url.path}")
+            response: Response = await call_next(request)
+            logger.debug(f"Got response for {request.url.path}, status={response.status_code}")
 
-        body_size = len(body)
-        logger.info(
-            f"Compression middleware active: path={request.url.path}, size={body_size}, "
-            f"content_type={response.headers.get('Content-Type', 'not set')}, encoding={encoding}"
-        )
+            # Get preferred encoding first (before reading body)
+            encoding = self._get_encoding(request)
+            logger.debug(f"Encoding check for {request.url.path}: {encoding}")
+            if not encoding:
+                logger.debug(f"Compression skipped: no Accept-Encoding header for {request.url.path}")
+                return response
 
-        # Check if we should compress (now that we know body size)
-        should_compress = self._should_compress(response, body_size=body_size, request_path=str(request.url.path))
-        logger.info(f"Should compress: {should_compress} for {request.url.path}")
-        
-        if not should_compress:
-            logger.debug(f"Compression skipped: should_compress=False for {request.url.path}")
-            # Return original response if shouldn't compress
-            return Response(
-                content=body,
-                status_code=response.status_code,
-                headers=dict(response.headers),
-                media_type=response.headers.get("Content-Type"),
+            # Read response body
+            body = b""
+            try:
+                async for chunk in response.body_iterator:
+                    body += chunk
+            except Exception as e:
+                logger.warning(f"Error reading response body for compression: {e}", exc_info=True)
+                return response
+
+            body_size = len(body)
+            logger.info(
+                f"Compression middleware active: path={request.url.path}, size={body_size}, "
+                f"content_type={response.headers.get('Content-Type', 'not set')}, encoding={encoding}"
             )
+
+            # Check if we should compress (now that we know body size)
+            should_compress = self._should_compress(response, body_size=body_size, request_path=str(request.url.path))
+            logger.info(f"Should compress: {should_compress} for {request.url.path}")
+            
+            if not should_compress:
+                logger.debug(f"Compression skipped: should_compress=False for {request.url.path}")
+                # Return original response if shouldn't compress
+                return Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.headers.get("Content-Type"),
+                )
+        except Exception as e:
+            logger.error(f"Error in compression middleware: {e}", exc_info=True)
+            # Return original response on error
+            try:
+                return response
+            except:
+                return await call_next(request)
 
         # Compress based on encoding
         logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
