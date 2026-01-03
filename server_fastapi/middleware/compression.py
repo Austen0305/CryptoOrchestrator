@@ -146,8 +146,10 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         # Compress based on encoding
         if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
             try:
+                logger.info(f"Attempting Brotli compression for {request.url.path}")
                 compressed = brotli.compress(body, quality=self.compress_level)
                 if len(compressed) < len(body):
+                    logger.info(f"Brotli compression successful: {len(body)} -> {len(compressed)} bytes ({len(compressed)/len(body)*100:.1f}%)")
                     # Create new response with compressed body (2026 fix)
                     return Response(
                         content=compressed,
@@ -160,33 +162,46 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                         },
                         media_type=response.headers.get("Content-Type"),
                     )
+                else:
+                    logger.warning(f"Brotli compression didn't reduce size: {len(body)} -> {len(compressed)} bytes")
             except Exception as e:
-                logger.warning(f"Brotli compression failed: {e}")
+                logger.warning(f"Brotli compression failed: {e}", exc_info=True)
                 # Fall through to gzip
         elif encoding == "br" and not BROTLI_AVAILABLE:
             # Brotli requested but not available, fall back to gzip
+            logger.debug("Brotli not available, falling back to gzip")
             encoding = "gzip"
 
         if encoding == "gzip" and len(body) >= self.minimum_size:
             try:
+                logger.info(f"Attempting Gzip compression for {request.url.path} (size: {len(body)} bytes)")
                 compressed = gzip.compress(body, compresslevel=self.compress_level)
-                if len(compressed) < len(body):
+                compressed_size = len(compressed)
+                original_size = len(body)
+                if compressed_size < original_size:
+                    ratio = compressed_size / original_size * 100
+                    logger.info(f"Gzip compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%)")
                     # Create new response with compressed body (2026 fix)
-                    return Response(
+                    compressed_response = Response(
                         content=compressed,
                         status_code=response.status_code,
                         headers={
                             **dict(response.headers),
                             "Content-Encoding": "gzip",
-                            "Content-Length": str(len(compressed)),
+                            "Content-Length": str(compressed_size),
                             "Vary": "Accept-Encoding",
                         },
                         media_type=response.headers.get("Content-Type"),
                     )
+                    logger.info(f"Returning compressed response with Content-Encoding: gzip")
+                    return compressed_response
+                else:
+                    logger.warning(f"Gzip compression didn't reduce size: {original_size} -> {compressed_size} bytes, returning original")
             except Exception as e:
-                logger.warning(f"Gzip compression failed: {e}")
+                logger.error(f"Gzip compression failed: {e}", exc_info=True)
 
         # Return original response if compression wasn't applied
+        logger.warning(f"Returning uncompressed response for {request.url.path} (encoding={encoding}, body_size={len(body)})")
         return Response(
             content=body,
             status_code=response.status_code,
