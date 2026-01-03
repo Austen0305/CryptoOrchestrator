@@ -27,6 +27,9 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./models:/app/models
+      - ./server_fastapi:/app/server_fastapi
+      - ./shared:/app/shared
+      - ./alembic:/app/alembic
     depends_on:
       postgres:
         condition: service_healthy
