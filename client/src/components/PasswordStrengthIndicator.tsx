@@ -18,7 +18,7 @@ interface StrengthCheck {
 }
 
 const checks: StrengthCheck[] = [
-  { label: 'At least 8 characters', test: (pwd) => pwd.length >= 8 },
+  { label: 'At least 12 characters', test: (pwd) => pwd.length >= 12 },
   { label: 'Contains uppercase letter', test: (pwd) => /[A-Z]/.test(pwd) },
   { label: 'Contains lowercase letter', test: (pwd) => /[a-z]/.test(pwd) },
   { label: 'Contains number', test: (pwd) => /[0-9]/.test(pwd) },

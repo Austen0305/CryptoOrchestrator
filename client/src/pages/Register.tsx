@@ -101,13 +101,52 @@ export default function Register() {
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear validation error for this field
+    // Clear validation error for this field when user types
     if (validationErrors[field]) {
       setValidationErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
       });
+    }
+    // Re-validate the field in real-time
+    if (typeof value === 'string') {
+      const errors: Record<string, string> = {};
+      if (field === 'email') {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (value && !emailRegex.test(value)) {
+          errors.email = "Please enter a valid email address";
+        }
+      } else if (field === 'username') {
+        if (value && value.length < 3) {
+          errors.username = "Username must be at least 3 characters";
+        }
+      } else if (field === 'password') {
+        if (value && value.length < 12) {
+          errors.password = "Password must be at least 12 characters long";
+        } else if (value) {
+          const hasUpperCase = /[A-Z]/.test(value);
+          const hasLowerCase = /[a-z]/.test(value);
+          const hasNumber = /[0-9]/.test(value);
+          const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(value);
+          const hasNoSpaces = !/\s/.test(value);
+          if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
+            errors.password = "Password must contain uppercase, lowercase, numbers, and special characters";
+          } else if (!hasNoSpaces) {
+            errors.password = "Password cannot contain spaces";
+          }
+        }
+      }
+      // Only set error if there is one, otherwise clear it
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors((prev) => ({ ...prev, ...errors }));
+      } else if (validationErrors[field]) {
+        setValidationErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
     }
   };
 
