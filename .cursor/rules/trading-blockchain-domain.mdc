@@ -1,0 +1,496 @@
+---
+description: Domain-specific patterns for trading bots, DEX trading, blockchain integration, and service architecture
+globs: ["server_fastapi/services/trading/**/*", "server_fastapi/services/blockchain/**/*", "server_fastapi/services/ml/**/*", "server_fastapi/repositories/**/*", "server_fastapi/dependencies/**/*"]
+alwaysApply: false
+---
+
+# Trading & Blockchain Domain Rules
+
+## Service Layer Architecture
+
+### Service Pattern
+```python
+# ✅ Good: Stateless service with dependency injection
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..repositories.trade_repository import TradeRepository
+
+class TradingService:
+    """Service for trading operations."""
+    
+    def __init__(
+        self,
+        db: AsyncSession,
+        trade_repository: Optional[TradeRepository] = None,
+    ):
+        # ✅ Repository injected via dependency injection
+        self.trade_repository = trade_repository or TradeRepository()
+        self.db = db  # Keep for transaction handling
+    
+    async def execute_trade(self, trade_data: dict) -> dict:
+        """Execute a trade."""
+        # Business logic here
+        # Delegate data access to repository
+        trade = await self.trade_repository.create(self.db, trade_data)
+        return trade
+```
+
+### Dependency Injection Pattern
+```python
+# ✅ Good: Dependency function for service injection
+from typing import Annotated
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from ..database import get_db_session
+from ..services.trading_service import TradingService
+from ..repositories.trade_repository import TradeRepository
+
+async def get_trading_service(
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TradingService:
+    """Provide trading service with injected dependencies."""
+    trade_repository = TradeRepository()
+    return TradingService(db=db, trade_repository=trade_repository)
+
+# Use in routes
+@router.post("/api/trades")
+async def create_trade(
+    trade_data: TradeRequest,
+    trading_service: Annotated[TradingService, Depends(get_trading_service)],
+):
+    return await trading_service.execute_trade(trade_data.dict())
+```
+
+### Repository Pattern
+```python
+# ✅ Good: Repository delegates data access
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
+class TradeRepository:
+    """Repository for trade data access."""
+    
+    async def get_by_id(
+        self, session: AsyncSession, trade_id: int
+    ) -> Optional[Trade]:
+        """Get trade by ID with eager loading."""
+        query = (
+            select(Trade)
+            .options(selectinload(Trade.user))
+            .where(Trade.id == trade_id)
+        )
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+    
+    async def create(
+        self, session: AsyncSession, data: dict
+    ) -> Trade:
+        """Create a new trade."""
+        trade = Trade(**data)
+        session.add(trade)
+        await session.commit()
+        await session.refresh(trade)
+        return trade
+```
+
+## Trading Bot Patterns
+
+### Bot Execution Cycle
+```python
+# ✅ Good: Trading cycle with proper error handling
+async def execute_trading_cycle(
+    self,
+    bot_config: dict,
+    db_session: AsyncSession,
+) -> dict:
+    """Execute a single trading cycle for a bot."""
+    try:
+        # 1. Fetch market data
+        market_data = await self.market_data_service.get_latest(bot_config["symbol"])
+        
+        # 2. Analyze with smart engine
+        signal = await self.smart_engine.analyze_market(market_data)
+        
+        # 3. Check risk limits
+        risk_check = await self.risk_manager.validate_trade(
+            bot_config, signal, market_data
+        )
+        if not risk_check.approved:
+            return {"action": "skip", "reason": risk_check.reason}
+        
+        # 4. Execute trade if signal is strong
+        if signal.confidence >= self.confidence_threshold:
+            trade = await self.execute_trade(bot_config, signal, db_session)
+            return {"action": "trade", "trade_id": trade.id}
+        
+        return {"action": "hold", "reason": "Low confidence"}
+        
+    except Exception as e:
+        logger.error(f"Trading cycle failed: {e}", exc_info=True)
+        raise
+```
+
+### Bot Service Structure
+```python
+# ✅ Good: Bot service with proper separation of concerns
+class BotTradingService:
+    """Service for executing trading cycles."""
+    
+    def __init__(self, session: Optional[AsyncSession] = None):
+        self._session = session
+        self.control_service = BotControlService(session=session)
+        self.monitoring_service = BotMonitoringService(session=session)
+        self.smart_engine = SmartBotEngine()
+        self.risk_manager = AdvancedRiskManager.get_instance()
+        
+        # ML engines
+        self.ml_engines = {
+            "ml_enhanced": EnhancedMLEngine(),
+            "ensemble": EnsembleEngine(),
+            "neural_network": NeuralNetworkEngine(),
+        }
+```
+
+## DEX Trading Patterns
+
+### DEX Aggregator Integration
+```python
+# ✅ Good: Multi-aggregator routing with fallback
+class AggregatorRouter:
+    """Routes trades through best DEX aggregator."""
+    
+    def __init__(self):
+        self.aggregators = [
+            ZeroExService(),  # 0x Protocol
+            OKXDEXService(),  # OKX DEX
+            RubicService(),  # Rubic
+        ]
+    
+    async def get_best_quote(
+        self,
+        sell_token: str,
+        buy_token: str,
+        sell_amount: str,
+        chain_id: int,
+    ) -> dict:
+        """Get best quote from all aggregators."""
+        quotes = []
+        
+        # Try all aggregators in parallel
+        tasks = [
+            agg.get_quote(sell_token, buy_token, sell_amount, chain_id)
+            for agg in self.aggregators
+        ]
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Filter successful quotes
+        for result in results:
+            if isinstance(result, dict) and "buy_amount" in result:
+                quotes.append(result)
+        
+        if not quotes:
+            raise ValueError("No aggregator returned a valid quote")
+        
+        # Return best quote (highest buy_amount)
+        return max(quotes, key=lambda q: float(q["buy_amount"]))
+```
+
+### DEX Swap Execution
+```python
+# ✅ Good: DEX swap with proper validation and error handling
+async def execute_dex_swap(
+    self,
+    sell_token: str,
+    buy_token: str,
+    sell_amount: str,
+    chain_id: int,
+    slippage_percentage: float,
+    user_id: int,
+    custodial: bool = True,
+) -> dict:
+    """Execute a DEX swap."""
+    # 1. Validate inputs
+    if slippage_percentage > MAX_SLIPPAGE:
+        raise ValueError(f"Slippage exceeds maximum of {MAX_SLIPPAGE}%")
+    
+    # 2. Get quote from aggregator
+    quote = await self.router.get_best_quote(
+        sell_token, buy_token, sell_amount, chain_id
+    )
+    
+    # 3. Verify user balance (for custodial)
+    if custodial:
+        balance = await self.balance_service.get_balance(
+            user_id, sell_token, chain_id
+        )
+        if balance < float(sell_amount):
+            raise ValueError("Insufficient balance")
+    
+    # 4. Execute swap
+    if custodial:
+        tx_hash = await self._execute_custodial_swap(quote, user_id)
+    else:
+        tx_hash = await self._execute_non_custodial_swap(quote, user_id)
+    
+    # 5. Record trade
+    trade = await self.trade_repository.create(self.db, {
+        "user_id": user_id,
+        "sell_token": sell_token,
+        "buy_token": buy_token,
+        "sell_amount": sell_amount,
+        "buy_amount": quote["buy_amount"],
+        "tx_hash": tx_hash,
+        "chain_id": chain_id,
+        "status": "pending",
+    })
+    
+    return {"trade_id": trade.id, "tx_hash": tx_hash}
+```
+
+## Blockchain Integration Patterns
+
+### Web3 Service Pattern
+```python
+# ✅ Good: Web3 service with connection pooling
+from web3 import Web3
+from web3.middleware import geth_poa_middleware
+
+class Web3Service:
+    """Service for blockchain interactions."""
+    
+    def __init__(self):
+        self.connections: Dict[int, Web3] = {}
+        self.rpc_urls = {
+            1: os.getenv("ETHEREUM_RPC_URL"),  # Ethereum
+            8453: os.getenv("BASE_RPC_URL"),  # Base
+            42161: os.getenv("ARBITRUM_RPC_URL"),  # Arbitrum
+        }
+    
+    def get_connection(self, chain_id: int) -> Web3:
+        """Get or create Web3 connection for chain."""
+        if chain_id not in self.connections:
+            rpc_url = self.rpc_urls.get(chain_id)
+            if not rpc_url:
+                raise ValueError(f"No RPC URL configured for chain {chain_id}")
+            
+            w3 = Web3(Web3.HTTPProvider(rpc_url))
+            
+            # Add PoA middleware for certain chains
+            if chain_id in [137, 42161]:  # Polygon, Arbitrum
+                w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+            
+            self.connections[chain_id] = w3
+        
+        return self.connections[chain_id]
+```
+
+### Transaction Batching
+```python
+# ✅ Good: Batch multiple swaps to save gas
+async def batch_swaps(
+    self,
+    swaps: List[dict],
+    user_id: int,
+    chain_id: int,
+) -> dict:
+    """Execute multiple swaps in a single transaction."""
+    w3 = self.web3_service.get_connection(chain_id)
+    
+    # Build batch transaction
+    batch_calldata = []
+    for swap in swaps:
+        calldata = await self._build_swap_calldata(swap)
+        batch_calldata.append(calldata)
+    
+    # Execute batch transaction
+    tx_hash = await self.transaction_service.send_transaction(
+        w3=w3,
+        from_address=user_wallet_address,
+        to_address=BATCH_ROUTER_ADDRESS,
+        data=encode_batch_calldata(batch_calldata),
+    )
+    
+    return {"tx_hash": tx_hash, "swaps_count": len(swaps)}
+```
+
+## ML/AI Patterns
+
+### ML Engine Integration
+```python
+# ✅ Good: ML prediction with proper error handling
+async def get_ml_prediction(
+    self,
+    market_data: dict,
+    model_type: str = "ensemble",
+) -> MLPrediction:
+    """Get ML prediction for market data."""
+    try:
+        engine = self.ml_engines.get(model_type)
+        if not engine:
+            raise ValueError(f"Unknown model type: {model_type}")
+        
+        # Extract features
+        features = self._extract_features(market_data)
+        
+        # Get prediction
+        prediction = await engine.predict(features)
+        
+        # Validate prediction
+        if prediction.confidence < 0.5:
+            logger.warning(f"Low confidence prediction: {prediction.confidence}")
+        
+        return prediction
+        
+    except Exception as e:
+        logger.error(f"ML prediction failed: {e}", exc_info=True)
+        # Return neutral prediction on error
+        return MLPrediction(
+            direction="hold",
+            confidence=0.5,
+            price_target=None,
+        )
+```
+
+### Smart Bot Engine
+```python
+# ✅ Good: Multi-indicator analysis with signal synthesis
+async def analyze_market(self, market_data: dict) -> MarketSignal:
+    """Comprehensive market analysis."""
+    candles = market_data.get("candles", [])
+    
+    # 1. Technical indicators
+    indicators = await self._calculate_indicators(candles)
+    
+    # 2. Chart patterns
+    patterns = await self._detect_patterns(candles)
+    
+    # 3. Order flow analysis
+    order_flow = await self._analyze_order_flow(market_data.get("orderbook"))
+    
+    # 4. ML prediction
+    ml_prediction = await self.ml_engine.predict(market_data)
+    
+    # 5. Synthesize signals
+    signal = self._synthesize_signals(
+        indicators, patterns, order_flow, ml_prediction
+    )
+    
+    return signal
+```
+
+## Risk Management Patterns
+
+### Risk Validation
+```python
+# ✅ Good: Comprehensive risk checks before trade execution
+async def validate_trade(
+    self,
+    bot_config: dict,
+    signal: MarketSignal,
+    market_data: dict,
+) -> RiskCheck:
+    """Validate trade against risk limits."""
+    checks = []
+    
+    # 1. Position size check
+    position_size = signal.amount
+    max_position = bot_config.get("max_position_size", 1000.0)
+    if position_size > max_position:
+        checks.append("Position size exceeds maximum")
+    
+    # 2. Drawdown check
+    current_drawdown = await self._get_current_drawdown(bot_config["bot_id"])
+    max_drawdown = bot_config.get("max_drawdown", 0.2)  # 20%
+    if current_drawdown > max_drawdown:
+        checks.append("Drawdown limit exceeded")
+    
+    # 3. Daily loss limit
+    daily_pnl = await self._get_daily_pnl(bot_config["bot_id"])
+    daily_loss_limit = bot_config.get("daily_loss_limit", 500.0)
+    if daily_pnl < -daily_loss_limit:
+        checks.append("Daily loss limit exceeded")
+    
+    # 4. Volatility check
+    volatility = market_data.get("volatility", 0)
+    max_volatility = bot_config.get("max_volatility", 0.05)  # 5%
+    if volatility > max_volatility:
+        checks.append("Market volatility too high")
+    
+    return RiskCheck(
+        approved=len(checks) == 0,
+        reasons=checks,
+    )
+```
+
+## Wallet Management Patterns
+
+### Multi-Chain Wallet Support
+```python
+# ✅ Good: Chain-agnostic wallet operations
+async def get_wallet_balance(
+    self,
+    user_id: int,
+    token_address: str,
+    chain_id: int,
+) -> float:
+    """Get wallet balance for specific token and chain."""
+    # Get wallet address for chain
+    wallet = await self.wallet_repository.get_by_user_and_chain(
+        self.db, user_id, chain_id
+    )
+    
+    if not wallet:
+        return 0.0
+    
+    # Get balance from blockchain
+    w3 = self.web3_service.get_connection(chain_id)
+    balance = await self.balance_service.get_token_balance(
+        w3, wallet.address, token_address
+    )
+    
+    return balance
+```
+
+### Custodial vs Non-Custodial
+```python
+# ✅ Good: Support both trading modes
+async def execute_trade(
+    self,
+    trade_data: dict,
+    custodial: bool = True,
+) -> dict:
+    """Execute trade in custodial or non-custodial mode."""
+    if custodial:
+        # Platform manages wallet
+        wallet = await self._get_custodial_wallet(trade_data["user_id"])
+        tx_hash = await self._execute_with_platform_wallet(
+            wallet, trade_data
+        )
+    else:
+        # User's own wallet
+        if not trade_data.get("signature"):
+            raise ValueError("Signature required for non-custodial trades")
+        
+        tx_hash = await self._execute_with_user_wallet(
+            trade_data["user_wallet_address"],
+            trade_data["signature"],
+            trade_data,
+        )
+    
+    return {"tx_hash": tx_hash, "custodial": custodial}
+```
+
+## Best Practices
+
+1. **Always use dependency injection** - Services receive dependencies via constructor
+2. **Delegate data access to repositories** - Services don't directly query database
+3. **Use eager loading** - Prevent N+1 queries with `selectinload` or `joinedload`
+4. **Validate before executing** - Check balances, slippage, risk limits
+5. **Handle blockchain errors gracefully** - Transaction failures are common
+6. **Use idempotency keys** - Prevent duplicate trades
+7. **Log all blockchain operations** - For audit and debugging
+8. **Cache quotes appropriately** - DEX quotes are volatile (10s TTL max)
+9. **Support both custodial and non-custodial** - Give users choice
+10. **Batch operations when possible** - Save gas costs

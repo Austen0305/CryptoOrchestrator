@@ -15,6 +15,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/logs", tags=["Logging"])
 
 
+@router.post("/")
+async def post_logs(
+    log_data: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    """Accept client-side logs (for debugging/monitoring)"""
+    try:
+        # Store or process client-side logs if needed
+        # For now, just acknowledge receipt
+        logger.debug(f"Client log received: {log_data}")
+        return {"success": True, "message": "Log received"}
+    except Exception as e:
+        logger.error(f"Error processing client log: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
+
 @router.get("/")
 async def get_logs(
     level: Optional[str] = Query(None, description="Filter by log level"),

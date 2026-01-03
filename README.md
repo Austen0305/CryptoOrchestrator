@@ -71,6 +71,12 @@ See [SaaS Setup Guide](docs/SAAS_SETUP.md) for detailed instructions.
 - **[Feature Verification](docs/FEATURE_VERIFICATION.md)** - Verify all features work
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING_RUNTIME.md)** - Fix common issues
 
+### Cursor IDE Setup
+- **[Cursor Documentation](docs/cursor/README.md)** - Complete Cursor IDE setup guide ✅ NEW
+- **[Team Onboarding](docs/cursor/TEAM_ONBOARDING.md)** - Quick setup for new developers
+- **[Project Rules](docs/cursor/PROJECT_RULES_GUIDE.md)** - 9 Project Rules documentation
+- **[Commands Guide](docs/cursor/CURSOR_COMMANDS_GUIDE.md)** - 9 Commands documentation
+
 ### Legal & Business
 - **[Privacy Policy](docs/PRIVACY_POLICY.md)** - Privacy policy
 - **[Terms of Service](docs/TERMS_OF_SERVICE.md)** - Terms of service

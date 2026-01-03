@@ -14,15 +14,40 @@ type MetricHandler = (metric: Metric) => void;
 async function sendToAnalytics(metric: Metric) {
   try {
     // Get base URL from environment variables (Vite) or window, with fallback
-    const baseUrl = import.meta.env.VITE_API_URL 
-      || (typeof window !== 'undefined' ? (window as Window & { VITE_API_URL?: string }).VITE_API_URL : undefined)
-      || "http://localhost:8000";
+    // Use the same logic as queryClient.getApiBaseUrl() for consistency
+    let baseUrl: string;
     
-    // Skip analytics if we're on HTTPS but backend is HTTP (Mixed Content blocking)
-    // This prevents browser errors when frontend is HTTPS and backend is HTTP
-    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && baseUrl.startsWith('http://')) {
-      // Silently skip - mixed content would be blocked anyway
-      return;
+    // Priority 1: Vite environment variable (available at build time)
+    if (import.meta.env.VITE_API_URL) {
+      baseUrl = import.meta.env.VITE_API_URL;
+    }
+    // Priority 2: Window global (runtime override)
+    else {
+      const windowWithGlobals = typeof window !== "undefined" ? (window as Window & { VITE_API_URL?: string }) : null;
+      if (windowWithGlobals?.VITE_API_URL) {
+        baseUrl = windowWithGlobals.VITE_API_URL;
+      }
+      // Fallback: localhost for development only
+      else {
+        baseUrl = "http://localhost:8000";
+      }
+    }
+    
+    // Remove trailing /api if present, since endpoints already include /api
+    if (baseUrl.endsWith('/api')) {
+      baseUrl = baseUrl.slice(0, -4);
+    }
+    
+    // Ensure HTTPS when page is HTTPS (prevent mixed content)
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+      if (baseUrl.startsWith('http://') && !baseUrl.includes('localhost')) {
+        // Convert HTTP to HTTPS for production URLs
+        baseUrl = baseUrl.replace('http://', 'https://');
+      }
+      // Skip if still HTTP (would be blocked anyway) - but allow localhost for dev
+      if (baseUrl.startsWith('http://') && !baseUrl.includes('localhost')) {
+        return;
+      }
     }
     
     // Remove trailing /api if present, then add /api/analytics/web-vitals

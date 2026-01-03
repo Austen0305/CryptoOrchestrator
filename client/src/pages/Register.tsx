@@ -101,6 +101,7 @@ export default function Register() {
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    
     // Clear validation error for this field when user types
     if (validationErrors[field]) {
       setValidationErrors((prev) => {
@@ -109,7 +110,8 @@ export default function Register() {
         return newErrors;
       });
     }
-    // Re-validate the field in real-time
+    
+    // Re-validate the field in real-time, but only set errors if validation actually fails
     if (typeof value === 'string') {
       const errors: Record<string, string> = {};
       if (field === 'email') {
@@ -136,14 +138,47 @@ export default function Register() {
             errors.password = "Password cannot contain spaces";
           }
         }
+      } else if (field === 'confirmPassword') {
+        // Check if passwords match
+        if (value && formData.password && value !== formData.password) {
+          errors.confirmPassword = "Passwords do not match";
+        }
       }
-      // Only set error if there is one, otherwise clear it
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors((prev) => ({ ...prev, ...errors }));
-      } else if (validationErrors[field]) {
+      
+      // Also re-validate confirmPassword when password changes
+      if (field === 'password' && formData.confirmPassword) {
+        if (formData.confirmPassword !== value) {
+          errors.confirmPassword = "Passwords do not match";
+        } else {
+          // Clear confirmPassword error if passwords now match
+          setValidationErrors((prev) => {
+            const newErrors = { ...prev };
+            delete newErrors.confirmPassword;
+            return newErrors;
+          });
+        }
+      }
+      
+      // Update validation errors - only set if there's an error, clear if field is now valid
+      setValidationErrors((prev) => {
+        const newErrors = { ...prev };
+        if (errors[field]) {
+          newErrors[field] = errors[field];
+        } else if (newErrors[field]) {
+          delete newErrors[field];
+        }
+        // Also handle confirmPassword error from password change
+        if (errors.confirmPassword) {
+          newErrors.confirmPassword = errors.confirmPassword;
+        }
+        return newErrors;
+      });
+    } else if (field === 'acceptTerms') {
+      // Clear acceptTerms error if checkbox is checked
+      if (value && validationErrors.acceptTerms) {
         setValidationErrors((prev) => {
           const newErrors = { ...prev };
-          delete newErrors[field];
+          delete newErrors.acceptTerms;
           return newErrors;
         });
       }
@@ -349,15 +384,46 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full"
-              disabled={
-                isLoading || 
-                !formData.email || 
-                !formData.password || 
-                formData.password.length < 12 ||
-                !formData.username || 
-                !formData.acceptTerms ||
-                Object.keys(validationErrors).length > 0
-              }
+              disabled={(() => {
+                // Check basic required fields
+                if (isLoading || !formData.email || !formData.password || !formData.username || !formData.acceptTerms) {
+                  return true;
+                }
+                
+                // Check password length
+                if (formData.password.length < 12) {
+                  return true;
+                }
+                
+                // Check username length
+                if (formData.username.length < 3) {
+                  return true;
+                }
+                
+                // Check password strength
+                const hasUpperCase = /[A-Z]/.test(formData.password);
+                const hasLowerCase = /[a-z]/.test(formData.password);
+                const hasNumber = /[0-9]/.test(formData.password);
+                const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+                const hasNoSpaces = !/\s/.test(formData.password);
+                if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial || !hasNoSpaces) {
+                  return true;
+                }
+                
+                // Check passwords match
+                if (formData.password !== formData.confirmPassword) {
+                  return true;
+                }
+                
+                // Check email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(formData.email)) {
+                  return true;
+                }
+                
+                // All checks passed - button should be enabled
+                return false;
+              })()}
             >
               {isLoading ? (
                 <>

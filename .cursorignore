@@ -49,8 +49,9 @@ lerna-debug.log*
 *.sqlite3
 data/*.db
 
-# IDE and editor files
+# IDE and editor files (keep extensions.json for recommendations)
 .vscode/
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

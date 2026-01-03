@@ -660,15 +660,31 @@ async def health_check():
         "database": "unknown",
     }
 
-    # Check database connection if available
-    if db_pool:
-        try:
-            is_healthy = await db_pool.health_check()
-            health_status["database"] = "healthy" if is_healthy else "unhealthy"
-        except Exception as e:
-            logger.error(f"Database health check failed: {e}")
-            health_status["database"] = "unhealthy"
-            health_status["status"] = "degraded"
+    # Check database connection - try db_pool first, fallback to direct connection
+    try:
+        if db_pool and hasattr(db_pool, 'health_check'):
+            try:
+                is_healthy = await db_pool.health_check()
+                health_status["database"] = "healthy" if is_healthy else "unhealthy"
+            except Exception as e:
+                logger.debug(f"db_pool health check failed, trying direct connection: {e}")
+                # Fallback to direct connection check
+                from .database import get_db_context
+                from sqlalchemy import text
+                async with get_db_context() as db:
+                    await db.execute(text("SELECT 1"))
+                health_status["database"] = "healthy"
+        else:
+            # Use direct database connection check
+            from .database import get_db_context
+            from sqlalchemy import text
+            async with get_db_context() as db:
+                await db.execute(text("SELECT 1"))
+            health_status["database"] = "healthy"
+    except Exception as e:
+        logger.error(f"Database health check failed: {e}")
+        health_status["database"] = "unhealthy"
+        health_status["status"] = "degraded"
 
     return health_status
 

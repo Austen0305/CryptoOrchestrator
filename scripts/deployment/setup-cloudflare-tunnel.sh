@@ -1,67 +1,55 @@
 #!/bin/bash
-# Setup Cloudflare Tunnel for HTTPS backend access
-# This provides free HTTPS for your backend without needing a domain or SSL certificate
+# Quick Setup: Cloudflare Tunnel for HTTPS Backend
+# This is a quick solution for HTTPS without domain setup
 
 set -e
 
-echo "Setting up Cloudflare Tunnel..."
+echo "☁️  Setting up Cloudflare Tunnel for CryptoOrchestrator Backend"
+echo ""
 
-# Install cloudflared
+# Check if cloudflared is installed
 if ! command -v cloudflared &> /dev/null; then
-    echo "Installing cloudflared..."
-    curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-    sudo dpkg -i cloudflared.deb
-    rm cloudflared.deb
-    echo "cloudflared installed successfully"
-else
-    echo "cloudflared already installed"
+    echo "📦 Installing cloudflared..."
+    
+    # Detect OS
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "x86_64" ]; then
+            ARCH="amd64"
+        elif [ "$ARCH" = "aarch64" ]; then
+            ARCH="arm64"
+        fi
+        
+        curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" -o cloudflared
+        chmod +x cloudflared
+        sudo mv cloudflared /usr/local/bin/
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        brew install cloudflare/cloudflare/cloudflared || {
+            curl -L "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64" -o cloudflared
+            chmod +x cloudflared
+            sudo mv cloudflared /usr/local/bin/
+        }
+    else
+        echo "❌ Unsupported OS. Please install cloudflared manually."
+        exit 1
+    fi
 fi
 
-# Create systemd service for cloudflared
-echo "Creating cloudflared service..."
+echo "✅ cloudflared installed"
+echo ""
 
-sudo tee /etc/systemd/system/cloudflared.service > /dev/null <<EOF
-[Unit]
-Description=Cloudflare Tunnel
-After=network.target
+# Start tunnel
+echo "🚇 Starting Cloudflare Tunnel..."
+echo "   This will expose http://localhost:8000 over HTTPS"
+echo "   Press Ctrl+C to stop"
+echo ""
 
-[Service]
-Type=simple
-User=root
-ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:8000
-Restart=always
-RestartSec=5
+# Run tunnel (this will output the HTTPS URL)
+cloudflared tunnel --url http://localhost:8000
 
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# Start and enable the service
-sudo systemctl daemon-reload
-sudo systemctl enable cloudflared
-sudo systemctl start cloudflared
-
-echo "Cloudflare Tunnel service started"
-echo "Waiting for tunnel to establish..."
-
-sleep 5
-
-# Get the tunnel URL
-TUNNEL_URL=$(sudo journalctl -u cloudflared -n 50 --no-pager | grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com' | head -1)
-
-if [ -z "$TUNNEL_URL" ]; then
-    echo "Warning: Could not automatically detect tunnel URL"
-    echo "Please check: sudo journalctl -u cloudflared -f"
-    echo "Look for a line containing: https://*.trycloudflare.com"
-else
-    echo ""
-    echo "========================================="
-    echo "✅ Cloudflare Tunnel is running!"
-    echo "========================================="
-    echo "Your backend HTTPS URL is: $TUNNEL_URL"
-    echo ""
-    echo "Update your Vercel environment variable:"
-    echo "VITE_API_URL = $TUNNEL_URL"
-    echo "VITE_WS_URL = $(echo $TUNNEL_URL | sed 's|https://|wss://|')"
-    echo "========================================="
-fi
+# Note: For persistent tunnel, use:
+# cloudflared tunnel create cryptoorchestrator
+# cloudflared tunnel route dns cryptoorchestrator api.yourdomain.com
+# cloudflared tunnel run cryptoorchestrator
