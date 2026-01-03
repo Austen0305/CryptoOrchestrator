@@ -121,12 +121,17 @@ class DatabaseConnectionPool:
 
     async def health_check(self) -> bool:
         """Check database connection health"""
+        if not self._is_initialized or not self.engine:
+            logger.warning("Database pool not initialized, health check cannot proceed")
+            return False
         try:
+            from sqlalchemy import text
             async with self.get_session() as session:
-                await session.execute("SELECT 1")
+                result = await session.execute(text("SELECT 1"))
+                result.scalar()  # Verify we got a result
             return True
         except Exception as e:
-            logger.error(f"Database health check failed: {e}")
+            logger.error(f"Database health check failed: {e}", exc_info=True)
             return False
 
     async def close(self):
