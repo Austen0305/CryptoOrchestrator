@@ -109,35 +109,40 @@ def setup_cors_middleware(app: FastAPI) -> None:
     @app.middleware("http")
     async def cors_preflight_handler(request: Request, call_next):
         """Handle OPTIONS preflight requests before other middleware"""
-        if request.method == "OPTIONS":
-            origin = request.headers.get("origin")
-            if origin:
-                origin_allowed = origin in cors_origins
-                if not origin_allowed:
-                    import re
-                    origin_allowed = bool(
-                        re.match(
-                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
-                            origin,
+        try:
+            if request.method == "OPTIONS":
+                origin = request.headers.get("origin")
+                if origin:
+                    origin_allowed = origin in cors_origins
+                    if not origin_allowed:
+                        import re
+                        origin_allowed = bool(
+                            re.match(
+                                r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
+                                origin,
+                            )
                         )
-                    )
-                if origin_allowed:
-                    response = JSONResponse(content={}, status_code=200)
-                    response.headers["Access-Control-Allow-Origin"] = origin
-                    response.headers["Access-Control-Allow-Credentials"] = "true"
-                    response.headers["Access-Control-Allow-Methods"] = (
-                        "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-                    )
-                    response.headers["Access-Control-Allow-Headers"] = (
-                        "Authorization, Content-Type, X-Requested-With, Accept, Origin, X-API-Version"
-                    )
-                    response.headers["Access-Control-Max-Age"] = "86400"
-                    return response
-            # If origin not allowed, still return 200 with no CORS headers
-            return JSONResponse(content={}, status_code=200)
-        
-        # For non-OPTIONS requests, continue to next middleware
-        return await call_next(request)
+                    if origin_allowed:
+                        response = JSONResponse(content={}, status_code=200)
+                        response.headers["Access-Control-Allow-Origin"] = origin
+                        response.headers["Access-Control-Allow-Credentials"] = "true"
+                        response.headers["Access-Control-Allow-Methods"] = (
+                            "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                        )
+                        response.headers["Access-Control-Allow-Headers"] = (
+                            "Authorization, Content-Type, X-Requested-With, Accept, Origin, X-API-Version"
+                        )
+                        response.headers["Access-Control-Max-Age"] = "86400"
+                        return response
+                # If origin not allowed, still return 200 with no CORS headers
+                return JSONResponse(content={}, status_code=200)
+            
+            # For non-OPTIONS requests, continue to next middleware
+            return await call_next(request)
+        except Exception as e:
+            logger.error(f"Error in CORS preflight handler: {e}", exc_info=True)
+            # Return a safe response even on error
+            return JSONResponse(content={"error": "CORS preflight error"}, status_code=500)
     
     # Additional CORS middleware to ensure all responses (including errors) have CORS headers
     @app.middleware("http")
