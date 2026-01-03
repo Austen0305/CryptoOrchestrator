@@ -10,16 +10,15 @@ from starlette.types import ASGIApp
 from typing import Optional
 import logging
 
+logger = logging.getLogger(__name__)
+
 # Optional brotli support (2026: make optional to avoid import errors)
 try:
     import brotli
     BROTLI_AVAILABLE = True
 except ImportError:
     BROTLI_AVAILABLE = False
-    logger = logging.getLogger(__name__)
     logger.info("Brotli compression not available, using gzip only")
-
-logger = logging.getLogger(__name__)
 
 
 class CompressionMiddleware(BaseHTTPMiddleware):
@@ -96,11 +95,18 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             try:
                 compressed = brotli.compress(body, quality=self.compress_level)
                 if len(compressed) < len(body):
-                    response.body = compressed
-                    response.headers["Content-Encoding"] = "br"
-                    response.headers["Content-Length"] = str(len(compressed))
-                    response.headers["Vary"] = "Accept-Encoding"
-                    return response
+                    # Create new response with compressed body (2026 fix)
+                    return Response(
+                        content=compressed,
+                        status_code=response.status_code,
+                        headers={
+                            **dict(response.headers),
+                            "Content-Encoding": "br",
+                            "Content-Length": str(len(compressed)),
+                            "Vary": "Accept-Encoding",
+                        },
+                        media_type=response.headers.get("Content-Type"),
+                    )
             except Exception as e:
                 logger.warning(f"Brotli compression failed: {e}")
                 # Fall through to gzip
@@ -112,11 +118,25 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             try:
                 compressed = gzip.compress(body, compresslevel=self.compress_level)
                 if len(compressed) < len(body):
-                    response.body = compressed
-                    response.headers["Content-Encoding"] = "gzip"
-                    response.headers["Content-Length"] = str(len(compressed))
-                    response.headers["Vary"] = "Accept-Encoding"
+                    # Create new response with compressed body (2026 fix)
+                    return Response(
+                        content=compressed,
+                        status_code=response.status_code,
+                        headers={
+                            **dict(response.headers),
+                            "Content-Encoding": "gzip",
+                            "Content-Length": str(len(compressed)),
+                            "Vary": "Accept-Encoding",
+                        },
+                        media_type=response.headers.get("Content-Type"),
+                    )
             except Exception as e:
                 logger.warning(f"Gzip compression failed: {e}")
 
-        return response
+        # Return original response if compression wasn't applied
+        return Response(
+            content=body,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+            media_type=response.headers.get("Content-Type"),
+        )
