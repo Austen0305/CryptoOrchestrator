@@ -809,11 +809,21 @@ async def registration_shim(request: Request, call_next):
                 from server_fastapi.database import get_db_context
                 
                 async with get_db_context() as session:
+                    # Build name from first_name/last_name if available, otherwise use username or email prefix
+                    name = None
+                    if first_name or last_name:
+                        name = f"{first_name or ''} {last_name or ''}".strip()
+                    if not name:
+                        name = username or email.split("@")[0]
+                    
                     result = await auth_service.register(
                         {
                             "email": email,
                             "password": password,
-                            "name": username or (first_name + " " + last_name if first_name and last_name else email.split("@")[0]),
+                            "name": name,
+                            "username": username,  # Pass username explicitly if provided
+                            "first_name": first_name,  # Pass first_name if provided
+                            "last_name": last_name,  # Pass last_name if provided
                         },
                         session=session
                     )

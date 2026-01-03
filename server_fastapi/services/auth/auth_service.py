@@ -215,13 +215,17 @@ class AuthService:
     ) -> Dict[str, Any]:
         """Register a new user.
 
-        Expected input keys: email, password, name.
+        Expected input keys: email, password, name (or first_name/last_name), username (optional).
         Returns dict with keys: message, user (id, email, name, emailVerified).
         Raises ValueError on duplicate email.
         """
         email = data.get("email")
         password = data.get("password")
-        name = data.get("name") or email.split("@")[0]
+        name = data.get("name")
+        first_name = data.get("first_name")
+        last_name = data.get("last_name")
+        provided_username = data.get("username")
+        
         if not email or not password:
             raise ValueError("Email and password are required")
 
@@ -243,8 +247,12 @@ class AuthService:
         # Hash password
         hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-        # Create user in database
-        username = email.split("@")[0]
+        # Determine username: use provided username, or derive from email
+        if provided_username:
+            username = provided_username
+        else:
+            username = email.split("@")[0]
+        
         # Ensure username is unique
         counter = 1
         original_username = username
@@ -252,16 +260,29 @@ class AuthService:
             username = f"{original_username}{counter}"
             counter += 1
 
-        # User model uses first_name and last_name, not name
-        name_parts = name.split(" ", 1) if name else [email.split("@")[0], ""]
+        # Determine first_name and last_name: use provided values, or split name, or derive from email
+        if first_name or last_name:
+            # Use provided first_name and last_name
+            final_first_name = first_name if first_name else None
+            final_last_name = last_name if last_name else None
+        elif name:
+            # Split provided name
+            name_parts = name.split(" ", 1) if name else [email.split("@")[0], ""]
+            final_first_name = name_parts[0] if len(name_parts) > 0 else None
+            final_last_name = name_parts[1] if len(name_parts) > 1 else None
+        else:
+            # Fallback to email prefix
+            final_first_name = email.split("@")[0]
+            final_last_name = None
+        
         user_data = {
             "username": username,
             "email": email,
             "password_hash": hashed_password,
             "is_active": True,
             "is_email_verified": False,
-            "first_name": name_parts[0] if len(name_parts) > 0 else None,
-            "last_name": name_parts[1] if len(name_parts) > 1 else None,
+            "first_name": final_first_name,
+            "last_name": final_last_name,
         }
 
         created_user = await user_repo.create(session, user_data)
