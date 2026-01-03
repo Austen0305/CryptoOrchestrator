@@ -112,8 +112,13 @@ def setup_cors_middleware(app: FastAPI) -> None:
         try:
             if request.method == "OPTIONS":
                 origin = request.headers.get("origin")
+                logger.debug(f"CORS preflight request from origin: {origin}")
+                
                 if origin:
+                    # Check if origin is in allowed list
                     origin_allowed = origin in cors_origins
+                    
+                    # If not in list, check regex patterns
                     if not origin_allowed:
                         import re
                         origin_allowed = bool(
@@ -122,7 +127,9 @@ def setup_cors_middleware(app: FastAPI) -> None:
                                 origin,
                             )
                         )
+                    
                     if origin_allowed:
+                        logger.debug(f"Origin {origin} is allowed, returning CORS headers")
                         response = JSONResponse(content={}, status_code=200)
                         response.headers["Access-Control-Allow-Origin"] = origin
                         response.headers["Access-Control-Allow-Credentials"] = "true"
@@ -134,7 +141,11 @@ def setup_cors_middleware(app: FastAPI) -> None:
                         )
                         response.headers["Access-Control-Max-Age"] = "86400"
                         return response
-                # If origin not allowed, still return 200 with no CORS headers
+                    else:
+                        logger.debug(f"Origin {origin} is not allowed")
+                
+                # If origin not allowed or no origin, still return 200 with no CORS headers
+                logger.debug("Returning 200 for OPTIONS without CORS headers")
                 return JSONResponse(content={}, status_code=200)
             
             # For non-OPTIONS requests, continue to next middleware
@@ -142,7 +153,13 @@ def setup_cors_middleware(app: FastAPI) -> None:
         except Exception as e:
             logger.error(f"Error in CORS preflight handler: {e}", exc_info=True)
             # Return a safe response even on error
-            return JSONResponse(content={"error": "CORS preflight error"}, status_code=500)
+            try:
+                return JSONResponse(content={"error": "CORS preflight error"}, status_code=500)
+            except Exception as e2:
+                logger.error(f"Failed to create error response: {e2}", exc_info=True)
+                # Last resort - return a basic response
+                from fastapi import Response
+                return Response(status_code=500)
     
     # Additional CORS middleware to ensure all responses (including errors) have CORS headers
     @app.middleware("http")
