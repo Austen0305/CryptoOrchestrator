@@ -144,6 +144,8 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             )
 
         # Compress based on encoding
+        logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
+        
         if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
             try:
                 logger.info(f"Attempting Brotli compression for {request.url.path}")
