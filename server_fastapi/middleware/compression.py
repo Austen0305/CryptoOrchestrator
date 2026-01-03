@@ -148,11 +148,18 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.error(f"Error in compression middleware: {e}", exc_info=True)
-            # Return original response on error
+            # Return original response on error - re-call to get response
             try:
+                response = await call_next(request)
                 return response
-            except:
-                return await call_next(request)
+            except Exception as e2:
+                logger.error(f"Failed to get response after compression error: {e2}", exc_info=True)
+                # Last resort - return error response
+                from fastapi.responses import JSONResponse
+                return JSONResponse(
+                    status_code=500,
+                    content={"detail": "Internal server error in compression middleware"}
+                )
 
         # Compress based on encoding
         logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
