@@ -1,0 +1,30 @@
+# ==========================================
+# ML Requirements - Heavy Dependencies
+# ==========================================
+# These are large ML packages (2GB+ total).
+# Install only if ML features are needed.
+# Use: docker build --build-arg INSTALL_ML_DEPS=true
+# ==========================================
+
+# Deep Learning Frameworks (HUGE - 2GB+ each)
+tensorflow>=2.15.0,<2.17.0
+torch>=2.2.0
+
+# ML & Reinforcement Learning
+xgboost>=2.1.0
+scikit-optimize==0.9.0
+optuna==3.4.0
+stable-baselines3>=2.3.0
+gymnasium==0.29.1
+
+# Transformers & NLP
+transformers==4.35.2
+
+# Note: These packages are very large:
+# - tensorflow: ~2GB
+# - torch: ~1.5GB
+# - transformers: ~500MB
+# Total: ~4GB additional image size
+#
+# If ML features aren't needed, skip this file:
+# docker build --build-arg INSTALL_ML_DEPS=false

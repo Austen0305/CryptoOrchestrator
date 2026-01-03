@@ -1,0 +1,102 @@
+# ==========================================
+# Base Requirements - Fast Installation
+# ==========================================
+# These are the core dependencies needed for the app to run.
+# ML dependencies are in requirements-ml.txt (optional, huge packages)
+# ==========================================
+
+# Core FastAPI & Server
+setuptools>=65.0.0
+fastapi>=0.124.0
+uvicorn[standard]>=0.32.0
+pydantic>=2.9.0,<3.0.0
+pydantic-settings>=2.6.0
+python-multipart>=0.0.18
+websockets>=12.0
+
+# Database & ORM
+sqlalchemy[asyncio]>=2.0.44
+asyncpg>=0.29.0
+aiosqlite>=0.19.0
+alembic>=1.13.0
+
+# Redis & Caching
+redis>=5.0.1
+aioredis>=2.0.1
+
+# Celery & Background Tasks
+celery==5.3.4
+
+# Security & Authentication
+bcrypt>=4.1.2
+pyjwt>=2.8.0
+speakeasy>=2.0.0
+qrcode>=7.4.2
+bleach>=6.1.0
+cryptography>=41.0.7
+
+# Rate Limiting
+slowapi>=0.1.9
+
+# Utilities
+python-dotenv>=1.0.0
+httpx==0.25.2
+email-validator==2.2.0
+psutil==5.9.6
+typing-extensions>=4.8.0
+
+# Payment processing
+stripe>=8.0.0
+
+# Enhanced logging
+structlog==24.1.0
+
+# Monitoring & Observability
+prometheus-client==0.19.0
+protobuf>=3.20.0,<5.0.0
+opentelemetry-api~=1.22.0
+opentelemetry-sdk~=1.22.0
+opentelemetry-instrumentation-fastapi>=0.42b0,<1.0.0
+opentelemetry-instrumentation-sqlalchemy>=0.42b0,<1.0.0
+opentelemetry-instrumentation-requests>=0.42b0,<1.0.0
+opentelemetry-exporter-otlp-proto-grpc~=1.22.0
+opentelemetry-exporter-prometheus==0.43b0
+
+# Error tracking
+sentry-sdk[fastapi]>=2.10.0
+
+# MCP Integration Dependencies (optional)
+boto3>=1.34.0
+hvac>=1.2.1
+
+# SMS notifications
+twilio==9.2.3
+
+# Blockchain interaction (Core feature)
+web3>=7.14.0
+eth-account>=0.10.0
+eth-utils>=3.0.0
+eth-abi>=4.2.0
+eth-typing>=3.0.0
+
+# BIP39/BIP32 wallet seed generation
+mnemonic>=0.20
+hdwallets>=0.1.2
+
+# Data Processing (Lightweight)
+numpy>=1.24.3,<2.0.0
+pandas>=2.2.0
+scikit-learn>=1.4.0
+
+# Sentiment Analysis (Lightweight)
+vaderSentiment>=3.3.2
+textblob>=0.17.1
+
+# Testing (Development only - can be excluded in production)
+# pytest==7.4.3
+# pytest-asyncio==0.21.1
+# pytest-cov==4.1.0
+
+# Security scanning (Development only)
+# bandit>=1.7.6
+# safety>=2.3.5
