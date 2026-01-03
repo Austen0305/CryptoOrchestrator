@@ -105,9 +105,43 @@ def setup_cors_middleware(app: FastAPI) -> None:
             "null",  # Electron null origin
         ]
 
+    # Handle OPTIONS preflight requests explicitly
+    @app.middleware("http")
+    async def cors_preflight_handler(request: Request, call_next):
+        """Handle OPTIONS preflight requests before other middleware"""
+        if request.method == "OPTIONS":
+            origin = request.headers.get("origin")
+            if origin:
+                origin_allowed = origin in cors_origins
+                if not origin_allowed:
+                    import re
+                    origin_allowed = bool(
+                        re.match(
+                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
+                            origin,
+                        )
+                    )
+                if origin_allowed:
+                    response = JSONResponse(content={}, status_code=200)
+                    response.headers["Access-Control-Allow-Origin"] = origin
+                    response.headers["Access-Control-Allow-Credentials"] = "true"
+                    response.headers["Access-Control-Allow-Methods"] = (
+                        "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+                    )
+                    response.headers["Access-Control-Allow-Headers"] = (
+                        "Authorization, Content-Type, X-Requested-With, Accept, Origin, X-API-Version"
+                    )
+                    response.headers["Access-Control-Max-Age"] = "86400"
+                    return response
+            # If origin not allowed, still return 200 with no CORS headers
+            return JSONResponse(content={}, status_code=200)
+        
+        # For non-OPTIONS requests, continue to next middleware
+        return await call_next(request)
+    
     # Additional CORS middleware to ensure all responses (including errors) have CORS headers
     @app.middleware("http")
-    async def cors_headers_middleware(request, call_next):
+    async def cors_headers_middleware(request: Request, call_next):
         """Ensure all responses have CORS headers, even error responses"""
         try:
             response = await call_next(request)
@@ -119,7 +153,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
                     import re
                     origin_allowed = bool(
                         re.match(
-                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
+                            r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
                             origin,
                         )
                     )
@@ -130,7 +164,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
                         "GET, POST, PUT, DELETE, OPTIONS, PATCH"
                     )
                     response.headers["Access-Control-Allow-Headers"] = (
-                        "Authorization, Content-Type, X-Requested-With, Accept, Origin"
+                        "Authorization, Content-Type, X-Requested-With, Accept, Origin, X-API-Version"
                     )
             return response
         except Exception as e:
@@ -170,7 +204,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
-        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$",
+        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=[
@@ -179,6 +213,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
             "X-Requested-With",
             "Accept",
             "Origin",
+            "X-API-Version",
         ],
         max_age=86400,  # Cache preflight for 24 hours
     )
