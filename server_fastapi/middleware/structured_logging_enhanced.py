@@ -87,7 +87,7 @@ class EnhancedStructuredLoggingMiddleware(BaseHTTPMiddleware):
                 }
             )
 
-    def _extract_request_info(self, request: Request, request_id: Optional[str]) -> Dict[str, Any]:
+    async def _extract_request_info(self, request: Request, request_id: Optional[str]) -> Dict[str, Any]:
         """Extract structured request information"""
         info = {
             "request_id": request_id,
@@ -101,11 +101,7 @@ class EnhancedStructuredLoggingMiddleware(BaseHTTPMiddleware):
         # Add request body info if enabled
         if self.log_request_body:
             try:
-                # Read body synchronously to avoid async issues
-                body_bytes = b""
-                async for chunk in request.stream():
-                    body_bytes += chunk
-                body = body_bytes
+                body = await request.body()
                 info["body_size"] = len(body)
                 if len(body) < 1000:  # Only log small bodies
                     try:
