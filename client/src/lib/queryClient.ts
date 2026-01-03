@@ -27,19 +27,33 @@ interface ApiError extends Error {
 
 /**
  * Get API base URL from environment variables (Vite) or window, with fallback
+ * Ensures base URL doesn't end with /api since endpoints already include /api
  */
 function getApiBaseUrl(): string {
+  let baseUrl: string;
+  
   // Priority 1: Vite environment variable (available at build time)
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    baseUrl = import.meta.env.VITE_API_URL;
   }
   // Priority 2: Window global (runtime override)
-  const windowWithGlobals = typeof window !== "undefined" ? (window as WindowWithGlobals) : null;
-  if (windowWithGlobals?.VITE_API_URL) {
-    return windowWithGlobals.VITE_API_URL;
+  else {
+    const windowWithGlobals = typeof window !== "undefined" ? (window as WindowWithGlobals) : null;
+    if (windowWithGlobals?.VITE_API_URL) {
+      baseUrl = windowWithGlobals.VITE_API_URL;
+    }
+    // Fallback: localhost for development
+    else {
+      baseUrl = "http://localhost:8000";
+    }
   }
-  // Fallback: localhost for development
-  return "http://localhost:8000";
+  
+  // Remove trailing /api if present, since endpoints already include /api
+  if (baseUrl.endsWith('/api')) {
+    baseUrl = baseUrl.slice(0, -4);
+  }
+  
+  return baseUrl;
 }
 
 /**
