@@ -4,12 +4,20 @@ Compresses responses using gzip or brotli for better performance
 """
 
 import gzip
-import brotli
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 from typing import Optional
 import logging
+
+# Optional brotli support (2026: make optional to avoid import errors)
+try:
+    import brotli
+    BROTLI_AVAILABLE = True
+except ImportError:
+    BROTLI_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.info("Brotli compression not available, using gzip only")
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +92,7 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             body += chunk
 
         # Compress based on encoding
-        if encoding == "br" and len(body) >= self.minimum_size:
+        if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
             try:
                 compressed = brotli.compress(body, quality=self.compress_level)
                 if len(compressed) < len(body):
@@ -92,9 +100,13 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                     response.headers["Content-Encoding"] = "br"
                     response.headers["Content-Length"] = str(len(compressed))
                     response.headers["Vary"] = "Accept-Encoding"
+                    return response
             except Exception as e:
                 logger.warning(f"Brotli compression failed: {e}")
                 # Fall through to gzip
+        elif encoding == "br" and not BROTLI_AVAILABLE:
+            # Brotli requested but not available, fall back to gzip
+            encoding = "gzip"
 
         if encoding == "gzip" and len(body) >= self.minimum_size:
             try:
