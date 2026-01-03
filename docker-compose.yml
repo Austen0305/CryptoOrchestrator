@@ -41,7 +41,8 @@ services:
     networks:
       - crypto-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      # Use Python instead of curl (curl might not be in optimized image)
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz').read()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -73,7 +74,17 @@ services:
   redis:
     image: redis:7-alpine
     container_name: crypto-orchestrator-redis
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    # Only require password if REDIS_PASSWORD is set
+    command: >
+      sh -c "
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\"
+      else
+        redis-server --appendonly yes
+      fi
+      "
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
     ports:
@@ -82,10 +93,19 @@ services:
     networks:
       - crypto-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # Healthcheck works with or without password
+      test: >
+        sh -c "
+        if [ -n \"$$REDIS_PASSWORD\" ]; then
+          redis-cli -a \"$$REDIS_PASSWORD\" ping
+        else
+          redis-cli ping
+        fi
+        "
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   # Celery Worker (Optional - for background tasks)
   celery-worker:
