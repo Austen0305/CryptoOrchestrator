@@ -42,8 +42,14 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         self.minimum_size = minimum_size
         self.compress_level = compress_level
 
-    def _should_compress(self, response: Response) -> bool:
-        """Check if response should be compressed"""
+    def _should_compress(self, response: Response, body_size: int = 0) -> bool:
+        """
+        Check if response should be compressed (2026: check actual body size)
+        
+        Args:
+            response: The response object
+            body_size: Size of the response body in bytes (0 if not yet read)
+        """
         # Don't compress if already compressed
         if "Content-Encoding" in response.headers:
             return False
@@ -53,10 +59,15 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         if not any(ct in content_type for ct in self.COMPRESSIBLE_TYPES):
             return False
 
-        # Check content length
-        content_length = response.headers.get("Content-Length")
-        if content_length and int(content_length) < self.minimum_size:
-            return False
+        # Check size - use body_size if provided, otherwise check Content-Length header
+        if body_size > 0:
+            if body_size < self.minimum_size:
+                return False
+        else:
+            # Fallback to Content-Length header if body not read yet
+            content_length = response.headers.get("Content-Length")
+            if content_length and int(content_length) < self.minimum_size:
+                return False
 
         return True
 
