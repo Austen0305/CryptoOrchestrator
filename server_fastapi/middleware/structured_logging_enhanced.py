@@ -39,7 +39,7 @@ class EnhancedStructuredLoggingMiddleware(BaseHTTPMiddleware):
         request_id = getattr(request.state, "request_id", None)
         
         # Extract request information
-        request_info = self._extract_request_info(request, request_id)
+        request_info = await self._extract_request_info(request, request_id)
         
         # Log request
         logger.info(
@@ -101,7 +101,11 @@ class EnhancedStructuredLoggingMiddleware(BaseHTTPMiddleware):
         # Add request body info if enabled
         if self.log_request_body:
             try:
-                body = await request.body()
+                # Read body synchronously to avoid async issues
+                body_bytes = b""
+                async for chunk in request.stream():
+                    body_bytes += chunk
+                body = body_bytes
                 info["body_size"] = len(body)
                 if len(body) < 1000:  # Only log small bodies
                     try:
