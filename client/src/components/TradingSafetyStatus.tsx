@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Activity, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/queryClient";
 
 interface SafetyConfiguration {
   max_position_size_pct: number;
@@ -31,17 +32,22 @@ interface SafetyStatus {
 
 const tradingSafetyApi = {
   getStatus: async (): Promise<SafetyStatus> => {
-    const response = await fetch('/api/trading-safety/status');
-    if (!response.ok) throw new Error('Failed to fetch safety status');
-    return response.json();
+    try {
+      return await apiRequest<SafetyStatus>('/api/trading-safety/status', { method: 'GET' });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to fetch safety status');
+    }
   },
   
   resetKillSwitch: async (adminOverride: boolean = false): Promise<{ success: boolean }> => {
-    const response = await fetch(`/api/trading-safety/reset-kill-switch?admin_override=${adminOverride}`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to reset kill switch');
-    return response.json();
+    try {
+      return await apiRequest<{ success: boolean }>(
+        `/api/trading-safety/reset-kill-switch?admin_override=${adminOverride}`,
+        { method: 'POST' }
+      );
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to reset kill switch');
+    }
   },
 };
 

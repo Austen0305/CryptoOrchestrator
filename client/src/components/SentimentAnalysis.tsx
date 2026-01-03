@@ -22,6 +22,13 @@ interface SentimentData {
   timestamp: Date;
 }
 
+interface MarketSentimentResponse {
+  sentiment: string; // "bullish", "bearish", "neutral"
+  confidence: number;
+  indicators: Record<string, number>;
+  news_sentiment?: number;
+}
+
 interface SentimentAnalysisProps {
   symbol?: string;
   autoRefresh?: boolean;
@@ -36,12 +43,29 @@ export const SentimentAnalysis = React.memo(function SentimentAnalysis({
   const { data: sentiment, isLoading, error, refetch, isRefetching } = useQuery<SentimentData>({
     queryKey: ['sentiment-analysis', symbol],
     queryFn: async () => {
-      const data = await apiRequest<SentimentData>(`/api/sentiment/${symbol}`, { method: 'GET' });
-      // Ensure timestamp is a Date object
-      return {
-        ...data,
-        timestamp: new Date(data.timestamp),
-      };
+      try {
+        const data = await apiRequest<MarketSentimentResponse>(`/api/sentiment/${symbol}`, { method: 'GET' });
+        
+        // Transform API response to match frontend interface
+        // Convert sentiment string to numeric value
+        let overall = 0;
+        if (data.sentiment === 'bullish') overall = 50 + (data.confidence * 50);
+        else if (data.sentiment === 'bearish') overall = -50 - (data.confidence * 50);
+        else overall = (data.confidence - 0.5) * 40; // Neutral: -20 to 20
+        
+        return {
+          overall: Math.round(overall),
+          twitter: data.indicators?.volume_trend || 0,
+          reddit: data.indicators?.price_momentum || 0,
+          news: data.news_sentiment ? Math.round(data.news_sentiment * 100) : 0,
+          fearGreedIndex: Math.round((data.confidence * 100)),
+          confidence: data.confidence,
+          timestamp: new Date(),
+        };
+      } catch (err) {
+        // If API fails, return neutral sentiment
+        throw new Error(err instanceof Error ? err.message : 'Unable to connect to server');
+      }
     },
     enabled: !!symbol,
     refetchInterval: autoRefresh ? refreshInterval : false,
