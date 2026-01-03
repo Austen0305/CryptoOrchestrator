@@ -26,7 +26,9 @@ export default function Login() {
       setEmailError("Email is required");
       return false;
     }
-    if (!/\S+@\S+\.\S+/.test(value)) {
+    // Improved email validation to match backend
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) {
       setEmailError("Please enter a valid email address");
       return false;
     }

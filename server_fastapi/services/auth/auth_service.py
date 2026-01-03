@@ -43,7 +43,7 @@ class AuthService:
                 logger.warning("No database session provided, using fallback")
                 return await self._authenticate_user_fallback(username, password)
 
-            from ..repositories.user_repository import UserRepository
+            from ...repositories.user_repository import UserRepository
 
             user_repo = UserRepository()
             user = await user_repo.get_by_username(session, username)
@@ -119,7 +119,7 @@ class AuthService:
                     "email": payload.get("email"),
                 }
 
-            from ..repositories.user_repository import UserRepository
+            from ...repositories.user_repository import UserRepository
 
             user_repo = UserRepository()
             user = None
@@ -173,7 +173,7 @@ class AuthService:
             logger.warning("No database session provided for get_user_by_username")
             return None
 
-        from ..repositories.user_repository import UserRepository
+        from ...repositories.user_repository import UserRepository
 
         user_repo = UserRepository()
         user = await user_repo.get_by_username(session, username)
@@ -194,7 +194,7 @@ class AuthService:
             logger.warning("No database session provided for get_user_by_id")
             return None
 
-        from ..repositories.user_repository import UserRepository
+        from ...repositories.user_repository import UserRepository
 
         user_repo = UserRepository()
         user = await user_repo.get_by_id(session, user_id)
@@ -230,8 +230,8 @@ class AuthService:
             logger.warning("No database session provided for register, using fallback")
             raise ValueError("Database session required for registration")
 
-        from ..repositories.user_repository import UserRepository
-        from ..models.base import User
+        from ...repositories.user_repository import UserRepository
+        from ...models.base import User
 
         user_repo = UserRepository()
 
@@ -254,17 +254,17 @@ class AuthService:
 
         # User model uses first_name and last_name, not name
         name_parts = name.split(" ", 1) if name else [email.split("@")[0], ""]
-        new_user = User(
-            username=username,
-            email=email,
-            password_hash=hashed_password,
-            is_active=True,
-            is_email_verified=False,
-            first_name=name_parts[0] if len(name_parts) > 0 else None,
-            last_name=name_parts[1] if len(name_parts) > 1 else None,
-        )
+        user_data = {
+            "username": username,
+            "email": email,
+            "password_hash": hashed_password,
+            "is_active": True,
+            "is_email_verified": False,
+            "first_name": name_parts[0] if len(name_parts) > 0 else None,
+            "last_name": name_parts[1] if len(name_parts) > 1 else None,
+        }
 
-        created_user = await user_repo.create(session, new_user)
+        created_user = await user_repo.create(session, user_data)
         await session.commit()
 
         # Combine first_name and last_name for name field
@@ -298,7 +298,7 @@ class AuthService:
                 logger.warning("No database session provided for verifyEmail")
                 return {"success": False, "message": "Database session required"}
 
-            from ..repositories.user_repository import UserRepository
+            from ...repositories.user_repository import UserRepository
             from sqlalchemy import update
 
             user_repo = UserRepository()
@@ -338,7 +338,7 @@ class AuthService:
             logger.warning("No database session provided for resendVerificationEmail")
             return {"success": False, "message": "Database session required"}
 
-        from ..repositories.user_repository import UserRepository
+        from ...repositories.user_repository import UserRepository
 
         user_repo = UserRepository()
         user = await user_repo.get_by_email(session, email)

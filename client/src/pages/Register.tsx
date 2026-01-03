@@ -31,7 +31,9 @@ export default function Register() {
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    if (!formData.email || !/\S+@\S+\.\S+/.test(formData.email)) {
+    // Improved email validation to match backend
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!formData.email || !emailRegex.test(formData.email)) {
       errors.email = "Please enter a valid email address";
     }
 
@@ -39,8 +41,22 @@ export default function Register() {
       errors.username = "Username must be at least 3 characters";
     }
 
-    if (!formData.password || formData.password.length < 8) {
-      errors.password = "Password must be at least 8 characters";
+    // Match backend requirement: minimum 12 characters
+    if (!formData.password || formData.password.length < 12) {
+      errors.password = "Password must be at least 12 characters long";
+    } else {
+      // Additional password strength checks to match backend
+      const hasUpperCase = /[A-Z]/.test(formData.password);
+      const hasLowerCase = /[a-z]/.test(formData.password);
+      const hasNumber = /[0-9]/.test(formData.password);
+      const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+      const hasNoSpaces = !/\s/.test(formData.password);
+
+      if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
+        errors.password = "Password must contain uppercase, lowercase, numbers, and special characters";
+      } else if (!hasNoSpaces) {
+        errors.password = "Password cannot contain spaces";
+      }
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -294,7 +310,15 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !formData.email || !formData.password || !formData.username || !formData.acceptTerms}
+              disabled={
+                isLoading || 
+                !formData.email || 
+                !formData.password || 
+                formData.password.length < 12 ||
+                !formData.username || 
+                !formData.acceptTerms ||
+                Object.keys(validationErrors).length > 0
+              }
             >
               {isLoading ? (
                 <>
