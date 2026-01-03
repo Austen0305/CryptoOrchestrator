@@ -53,6 +53,7 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         """
         # Don't compress if already compressed
         if "Content-Encoding" in response.headers:
+            logger.debug(f"Already compressed, skipping: {request_path}")
             return False
 
         # Check content type (be lenient - compress if type matches OR if path suggests JSON/API)
@@ -62,25 +63,33 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             for ext in [".json", "/openapi", "/api/", "/docs"]
         )
         
+        logger.debug(f"Content type check: type='{content_type}', path='{request_path}', suggests_json={path_suggests_json}")
+        
         # If content type is set, check if it's compressible
         if content_type:
-            if not any(ct in content_type for ct in self.COMPRESSIBLE_TYPES):
+            is_compressible = any(ct in content_type for ct in self.COMPRESSIBLE_TYPES)
+            if not is_compressible:
+                logger.debug(f"Content type '{content_type}' not compressible")
                 return False
         # If content type is not set, allow compression if path suggests JSON/API
         elif not path_suggests_json:
             # No content type and path doesn't suggest JSON - be conservative
+            logger.debug(f"No content type and path doesn't suggest JSON, skipping: {request_path}")
             return False
 
         # Check size - use body_size if provided, otherwise check Content-Length header
         if body_size > 0:
             if body_size < self.minimum_size:
+                logger.debug(f"Body size {body_size} < minimum {self.minimum_size}, skipping")
                 return False
         else:
             # Fallback to Content-Length header if body not read yet
             content_length = response.headers.get("Content-Length")
             if content_length and int(content_length) < self.minimum_size:
+                logger.debug(f"Content-Length {content_length} < minimum {self.minimum_size}, skipping")
                 return False
 
+        logger.debug(f"All checks passed, will compress: {request_path}")
         return True
 
     def _get_encoding(self, request: Request) -> Optional[str]:
@@ -107,17 +116,24 @@ class CompressionMiddleware(BaseHTTPMiddleware):
 
         # Read response body
         body = b""
-        async for chunk in response.body_iterator:
-            body += chunk
+        try:
+            async for chunk in response.body_iterator:
+                body += chunk
+        except Exception as e:
+            logger.warning(f"Error reading response body for compression: {e}")
+            return response
 
         body_size = len(body)
-        logger.debug(
-            f"Compression check: path={request.url.path}, size={body_size}, "
+        logger.info(
+            f"Compression middleware active: path={request.url.path}, size={body_size}, "
             f"content_type={response.headers.get('Content-Type', 'not set')}, encoding={encoding}"
         )
 
         # Check if we should compress (now that we know body size)
-        if not self._should_compress(response, body_size=body_size, request_path=str(request.url.path)):
+        should_compress = self._should_compress(response, body_size=body_size, request_path=str(request.url.path))
+        logger.info(f"Should compress: {should_compress} for {request.url.path}")
+        
+        if not should_compress:
             logger.debug(f"Compression skipped: should_compress=False for {request.url.path}")
             # Return original response if shouldn't compress
             return Response(
