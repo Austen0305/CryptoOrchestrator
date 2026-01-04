@@ -15,6 +15,12 @@ from ..dependencies.auth import get_current_user
 from ..database import get_db_session
 from ..middleware.cache_manager import cached
 from ..utils.route_helpers import _get_user_id
+from ..utils.validation_2026 import (
+    validate_ethereum_address,
+    validate_slippage,
+    validate_amount,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -212,10 +218,21 @@ async def get_dex_quote(
             to_chain_id=quote.get("to_chain_id") if request.cross_chain else None,
         )
 
-    except HTTPException:
+    except (HTTPException, ValidationError):
         raise
+    except ValueError as e:
+        # Validation errors from validation utilities
+        raise ValidationError(str(e))
     except Exception as e:
-        logger.error(f"Error getting DEX quote: {e}", exc_info=True)
+        logger.error(
+            f"Error getting DEX quote: {e}",
+            exc_info=True,
+            extra={
+                "user_id": _get_user_id(current_user),
+                "sell_token": request.sell_token,
+                "buy_token": request.buy_token,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while getting quote",
@@ -350,10 +367,22 @@ async def execute_dex_swap(
                 status="ready",
             )
 
-    except HTTPException:
+    except (HTTPException, ValidationError):
         raise
+    except ValueError as e:
+        # Validation errors from validation utilities
+        raise ValidationError(str(e))
     except Exception as e:
-        logger.error(f"Error executing DEX swap: {e}", exc_info=True)
+        logger.error(
+            f"Error executing DEX swap: {e}",
+            exc_info=True,
+            extra={
+                "user_id": user_id,
+                "sell_token": request.sell_token,
+                "buy_token": request.buy_token,
+                "custodial": request.custodial,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error while executing swap",

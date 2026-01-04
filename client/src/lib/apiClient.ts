@@ -1,4 +1,5 @@
 import logger from "./logger";
+import { classifyError, logError, getUserFriendlyMessage, isRetryableError } from "@/utils/errorHandling2026";
 
 interface RetryConfig {
   maxRetries?: number;
@@ -123,14 +124,26 @@ class ApiClient {
         return data;
       } catch (error) {
         lastError = error as Error;
-        // Only retry network errors (TypeError) or explicitly marked retryable by status logic above
-        const isNetworkError = error instanceof TypeError;
-        if (isNetworkError && attempt < config.maxRetries) {
+        
+        // Enhanced error classification (2026 best practice)
+        const errorClassification = classifyError(error);
+        
+        // Log error with context
+        logError(error, {
+          component: "ApiClient",
+          action: options.method || "GET",
+          additionalData: { url, attempt },
+        });
+        
+        // Retry based on error classification (2026 best practice)
+        if (errorClassification.retryable && attempt < config.maxRetries) {
           const delay = this.calculateDelay(attempt, config);
-          logger.warn(`Network error, retrying in ${delay}ms`, {
+          logger.warn(`Error occurred, retrying in ${delay}ms`, {
             url,
             error: lastError.message,
             attempt,
+            errorType: errorClassification.type,
+            userMessage: getUserFriendlyMessage(error),
           });
           await this.delay(delay);
           continue;
@@ -139,8 +152,14 @@ class ApiClient {
       }
     }
 
-    logger.error(`Request failed${lastError ? `: ${lastError.message}` : ""}`, { url });
-    throw lastError || new Error("Unknown API error");
+    // Final error logging with user-friendly message (2026 best practice)
+    const userMessage = lastError ? getUserFriendlyMessage(lastError) : "Unknown API error";
+    logger.error(`Request failed: ${userMessage}`, { 
+      url,
+      error: lastError?.message,
+      errorType: lastError ? classifyError(lastError).type : "unknown",
+    });
+    throw lastError || new Error(userMessage);
   }
 
   async get<T>(endpoint: string, config?: RetryConfig): Promise<T> {

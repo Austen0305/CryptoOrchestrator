@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Home, Bug, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import logger from "@/lib/logger";
+import { classifyError, logError, getUserFriendlyMessage, formatErrorForDisplay } from "@/utils/errorHandling2026";
 
 interface Props {
   children: ReactNode;
@@ -163,7 +164,7 @@ export class EnhancedErrorBoundary extends Component<Props, State> {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Error Details</AlertTitle>
                 <AlertDescription>
-                  {error?.message || "An unexpected error occurred"}
+                  {error ? getUserFriendlyMessage(error) : "An unexpected error occurred"}
                 </AlertDescription>
               </Alert>
 

@@ -56,13 +56,13 @@ class MiddlewareManager:
                 module_path="server_fastapi.middleware.request_id",
                 class_name="RequestIDMiddleware",
             ),
-            # CRITICAL: Security headers
+            # CRITICAL: Security headers (2026 enhanced version)
             MiddlewareConfig(
                 name="security_headers",
                 enabled=True,
                 priority=MiddlewarePriority.CRITICAL,
-                module_path="server_fastapi.middleware.enhanced_security_headers",
-                class_name="SecurityHeadersMiddleware",
+                module_path="server_fastapi.middleware.security_headers_2026",
+                class_name="SecurityHeadersMiddleware2026",
             ),
             # HIGH: CORS (handled separately in main.py but tracked here)
             MiddlewareConfig(
@@ -181,6 +181,15 @@ class MiddlewareManager:
                 module_path="server_fastapi.middleware.compression",
                 class_name="CompressionMiddleware",
                 kwargs={"minimum_size": 1024, "compress_level": 6},
+            ),
+            # HIGH: Request Validation (2026 best practice - comprehensive input validation)
+            MiddlewareConfig(
+                name="request_validation_2026",
+                enabled=not is_testing,
+                priority=MiddlewarePriority.HIGH,
+                module_path="server_fastapi.middleware.request_validation_2026",
+                class_name="RequestValidationMiddleware2026",
+                kwargs={"max_request_size": 10 * 1024 * 1024},  # 10MB
             ),
             # MEDIUM: ETag
             MiddlewareConfig(

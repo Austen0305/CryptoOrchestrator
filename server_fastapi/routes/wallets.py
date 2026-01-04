@@ -18,6 +18,10 @@ from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
 from ..utils.query_optimizer import QueryOptimizer
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.validation_2026 import (
+    validate_ethereum_address,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +42,8 @@ class CreateCustodialWalletRequest(BaseModel):
 
 class RegisterExternalWalletRequest(BaseModel):
     wallet_address: str = Field(..., description="User's wallet address (checksummed)")
-    chain_id: int = Field(..., description="Blockchain ID")
-    label: Optional[str] = Field(None, description="Optional user-friendly label")
+    chain_id: int = Field(..., ge=1, description="Blockchain ID (must be >= 1)")
+    label: Optional[str] = Field(None, max_length=100, description="Optional user-friendly label")
 
     model_config = {
         "json_schema_extra": {
@@ -145,17 +149,16 @@ async def register_external_wallet(
     try:
         service = WalletService()
 
-        # Validate address
-        if not service.is_address_valid(request.wallet_address):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid wallet address format",
-            )
+        # Enhanced address validation (2026 best practice)
+        try:
+            validated_address = validate_ethereum_address(request.wallet_address)
+        except ValueError as e:
+            raise ValidationError(f"Invalid wallet address: {e}", field="wallet_address")
 
         user_id = _get_user_id(current_user)
         wallet_info = await service.register_external_wallet(
             user_id=user_id,
-            wallet_address=request.wallet_address,
+            wallet_address=validated_address,  # Use validated/checksummed address
             chain_id=request.chain_id,
             label=request.label,
             db=db,
@@ -169,10 +172,20 @@ async def register_external_wallet(
 
         return WalletResponse(**wallet_info)
 
-    except HTTPException:
+    except (HTTPException, ValidationError):
         raise
+    except ValueError as e:
+        # Validation errors from validation utilities
+        raise ValidationError(str(e))
     except Exception as e:
-        logger.error(f"Error registering external wallet: {e}", exc_info=True)
+        logger.error(
+            f"Error registering external wallet: {e}",
+            exc_info=True,
+            extra={
+                "user_id": _get_user_id(current_user),
+                "chain_id": request.chain_id,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error",
