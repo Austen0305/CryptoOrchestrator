@@ -190,9 +190,11 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 media_type=response.headers.get("Content-Type", "application/json"),
             )
         
-        logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
-        
-        if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
+        # Wrap compression logic in try-except to handle any errors
+        try:
+            logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
+            
+            if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
             try:
                 logger.info(f"Attempting Brotli compression for {request.url.path}")
                 compressed = brotli.compress(body, quality=self.compress_level)
@@ -272,9 +274,18 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             if key.lower() not in ("content-length", "transfer-encoding"):
                 new_headers[key] = value
         
-        return Response(
-            content=body,
-            status_code=response.status_code,
-            headers=new_headers,
-            media_type=response.headers.get("Content-Type") or "application/json",
-        )
+            return Response(
+                content=body,
+                status_code=response.status_code,
+                headers=new_headers,
+                media_type=response.headers.get("Content-Type") or "application/json",
+            )
+        except Exception as e:
+            logger.error(f"Error in compression logic: {e}", exc_info=True)
+            # Return uncompressed response on error
+            return Response(
+                content=body if body else b"",
+                status_code=response.status_code if response else 200,
+                headers=dict(response.headers) if response else {},
+                media_type=response.headers.get("Content-Type", "application/json") if response else "application/json",
+            )
