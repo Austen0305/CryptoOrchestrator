@@ -5,7 +5,7 @@ Comprehensive request validation with security hardening
 
 import logging
 import json
-from typing import Callable
+from typing import Any, Callable
 from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
