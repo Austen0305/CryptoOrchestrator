@@ -170,17 +170,23 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 compressed = brotli.compress(body, quality=self.compress_level)
                 if len(compressed) < len(body):
                     logger.info(f"Brotli compression successful: {len(body)} -> {len(compressed)} bytes ({len(compressed)/len(body)*100:.1f}%)")
+                    # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
+                    new_headers = {}
+                    for key, value in response.headers.items():
+                        # Skip headers that Starlette manages automatically
+                        if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
+                            new_headers[key] = value
+                    
+                    # Add compression headers
+                    new_headers["Content-Encoding"] = "br"
+                    new_headers["Vary"] = "Accept-Encoding"
+                    
                     # Create new response with compressed body (2026 fix)
                     return Response(
                         content=compressed,
                         status_code=response.status_code,
-                        headers={
-                            **dict(response.headers),
-                            "Content-Encoding": "br",
-                            "Content-Length": str(len(compressed)),
-                            "Vary": "Accept-Encoding",
-                        },
-                        media_type=response.headers.get("Content-Type"),
+                        headers=new_headers,
+                        media_type=response.headers.get("Content-Type") or "application/json",
                     )
                 else:
                     logger.warning(f"Brotli compression didn't reduce size: {len(body)} -> {len(compressed)} bytes")
@@ -202,9 +208,14 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                     ratio = compressed_size / original_size * 100
                     logger.info(f"Gzip compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%)")
                     # Create new response with compressed body (2026 fix)
-                    # Remove Content-Length from original headers (Starlette will set it automatically)
-                    new_headers = dict(response.headers)
-                    new_headers.pop("Content-Length", None)  # Remove old Content-Length
+                    # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
+                    new_headers = {}
+                    for key, value in response.headers.items():
+                        # Skip headers that Starlette manages automatically
+                        if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
+                            new_headers[key] = value
+                    
+                    # Add compression headers
                     new_headers["Content-Encoding"] = "gzip"
                     new_headers["Vary"] = "Accept-Encoding"
                     
@@ -212,7 +223,7 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                         content=compressed,
                         status_code=response.status_code,
                         headers=new_headers,
-                        media_type=response.headers.get("Content-Type"),
+                        media_type=response.headers.get("Content-Type") or "application/json",
                     )
                     logger.info(f"Returning compressed response with Content-Encoding: gzip")
                     return compressed_response
