@@ -33,9 +33,16 @@ class ApiClient {
       // Default to main FastAPI backend on port 8000.
       // Minimal auth server on :9000 is legacy and should only be used
       // if explicitly configured via env/JS globals.
-      this.baseURL = envBaseUrl || "http://localhost:8000/api";
+      const rawBaseUrl = envBaseUrl || "http://localhost:8000";
+      
+      // Ensure baseURL ends with /api (backend routes are all under /api)
+      // Remove trailing slash if present, then append /api if not already present
+      const cleanedUrl = rawBaseUrl.replace(/\/+$/, "");
+      this.baseURL = cleanedUrl.endsWith("/api") ? cleanedUrl : cleanedUrl + "/api";
     } else {
-      this.baseURL = baseURL;
+      // If baseURL is provided explicitly, ensure it ends with /api
+      const cleanedUrl = baseURL.replace(/\/+$/, "");
+      this.baseURL = cleanedUrl.endsWith("/api") ? cleanedUrl : cleanedUrl + "/api";
     }
     // Initialize from localStorage if available
     if (typeof window !== "undefined") {
