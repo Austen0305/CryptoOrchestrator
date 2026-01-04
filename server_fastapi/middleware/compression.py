@@ -118,6 +118,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 header in request.headers for header in cloudflare_headers
             )
             
+            # Also check Host header for Cloudflare tunnel domains
+            if not is_behind_cloudflare:
+                host = request.headers.get("host", "").lower()
+                is_behind_cloudflare = (
+                    "trycloudflare.com" in host or
+                    "cloudflare.com" in host or
+                    host.endswith(".trycloudflare.com") or
+                    host.endswith(".cloudflare.com")
+                )
+            
             if is_behind_cloudflare:
                 logger.debug(f"Skipping compression (behind Cloudflare) for {request.url.path}")
                 return await call_next(request)
@@ -183,7 +193,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             if response and not body_read:
                 return response
             
-            # Last resort - return error response
+            # Last resort - if we have a response object, try to return it as-is
+            if response:
+                try:
+                    # Try to return the original response (might fail if body was consumed)
+                    return response
+                except Exception as e3:
+                    logger.debug(f"Cannot return original response: {e3}")
+            
+            # If we reach here, we're in a bad state - log and return error
+            logger.error("Compression middleware error - cannot recover, returning error response")
             from fastapi.responses import JSONResponse
             return JSONResponse(
                 status_code=500,
