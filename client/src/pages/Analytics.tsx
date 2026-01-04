@@ -42,7 +42,7 @@ function AnalyticsContent() {
   ];
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold" data-testid="analytics-page">Analytics</h1>
         <p className="text-muted-foreground mt-1">

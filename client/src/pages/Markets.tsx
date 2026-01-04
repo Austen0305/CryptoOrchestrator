@@ -28,10 +28,10 @@ export default function Markets() {
   }, [marketsData]);
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full animate-fade-in">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold" data-testid="markets-page">Markets</h1>
-        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+        <h1 className="text-3xl font-bold" data-testid="markets-page">Markets</h1>
+        <p className="text-muted-foreground mt-1">
           Browse and trade cryptocurrency pairs on blockchain via DEX aggregators
         </p>
       </div>

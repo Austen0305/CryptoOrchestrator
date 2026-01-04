@@ -14,7 +14,7 @@ function BotsContent() {
 
   if (botsLoading) {
     return (
-      <div className="space-y-6 w-full">
+      <div className="space-y-6 w-full animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
@@ -28,10 +28,11 @@ function BotsContent() {
 
   if (botsError) {
     return (
-      <div className="space-y-6 w-full">
+      <div className="space-y-6 w-full animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
+            <p className="text-muted-foreground mt-1">Manage your automated trading strategies</p>
           </div>
         </div>
         <ErrorRetry
@@ -44,18 +45,18 @@ function BotsContent() {
   }
 
   return (
-    <div className="space-y-6 w-full">
+    <div className="space-y-6 w-full animate-fade-in">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
-          <div className="text-muted-foreground mt-1 text-sm sm:text-base">
-            <p>Manage your automated trading strategies</p>
-            {status?.runningBots !== undefined ? (
-              <p className="text-xs sm:text-sm mt-1">
-                {String(status.runningBots || 0)} bots running • Blockchain Trading Active
-              </p>
-            ) : null}
-          </div>
+          <h1 className="text-3xl font-bold" data-testid="bots-page">Trading Bots</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your automated trading strategies
+            {status?.runningBots !== undefined && (
+              <span className="text-xs sm:text-sm ml-2">
+                • {String(status.runningBots || 0)} bots running
+              </span>
+            )}
+          </p>
         </div>
         <div className="w-full sm:w-auto">
           <BotCreator />

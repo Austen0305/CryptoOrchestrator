@@ -38,10 +38,10 @@ function SettingsContent() {
   };
 
   return (
-    <div className="space-y-6 w-full min-h-0">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Settings</h1>
-        <p className="text-muted-foreground text-base">
+    <div className="space-y-6 w-full min-h-0 animate-fade-in">
+      <div>
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <p className="text-muted-foreground mt-1">
           Manage your account preferences and application settings
         </p>
       </div>

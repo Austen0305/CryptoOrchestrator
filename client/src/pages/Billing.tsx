@@ -152,10 +152,10 @@ export default function Billing() {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-6xl mx-auto space-y-6">
+      <div className="w-full max-w-6xl mx-auto space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold">Billing & Subscription</h1>
-          <p className="text-muted-foreground mt-2">Loading billing information...</p>
+          <p className="text-muted-foreground mt-1">Loading billing information...</p>
         </div>
         <LoadingSkeleton count={5} className="h-48 w-full mb-4" />
       </div>
@@ -164,9 +164,10 @@ export default function Billing() {
 
   if (error) {
     return (
-      <div className="w-full max-w-6xl mx-auto space-y-6">
+      <div className="w-full max-w-6xl mx-auto space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold">Billing & Subscription</h1>
+          <p className="text-muted-foreground mt-1">Manage your subscription and billing information</p>
         </div>
         <ErrorRetry
           title="Failed to load billing information"
@@ -183,10 +184,10 @@ export default function Billing() {
 
   return (
     <div className="w-full max-w-6xl mx-auto">
-      <div className="space-y-6 w-full">
+      <div className="space-y-6 w-full animate-fade-in">
         <div>
           <h1 className="text-3xl font-bold">Billing & Subscription</h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1">
             Manage your subscription and billing information
           </p>
         </div>

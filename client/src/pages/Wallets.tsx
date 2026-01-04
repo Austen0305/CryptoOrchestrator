@@ -111,10 +111,10 @@ function WalletsContent() {
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="wallets-page">Wallets</h1>
-          <p className="text-muted-foreground mt-2">Manage your blockchain wallets</p>
+          <h1 className="text-3xl font-bold" data-testid="wallets-page">Wallets</h1>
+          <p className="text-muted-foreground mt-1">Manage your blockchain wallets</p>
         </div>
         <Card>
           <CardContent className="pt-6">
@@ -129,11 +129,11 @@ function WalletsContent() {
   const externalWallets = (wallets && Array.isArray(wallets) ? wallets.filter((w: any) => w.wallet_type === "external") : []) || [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight" data-testid="wallets-page">Wallets</h1>
-          <p className="text-muted-foreground mt-2">Manage your blockchain wallets for deposits and trading</p>
+          <h1 className="text-3xl font-bold" data-testid="wallets-page">Wallets</h1>
+          <p className="text-muted-foreground mt-1">Manage your blockchain wallets for deposits and trading</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={showCreateCustodial} onOpenChange={setShowCreateCustodial}>
