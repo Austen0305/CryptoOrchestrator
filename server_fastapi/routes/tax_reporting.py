@@ -216,10 +216,10 @@ async def export_form_8949(
 
 @router.get("/wash-sales")
 async def get_wash_sales(
+    current_user: Annotated[dict, Depends(get_current_user)],
     symbol: Optional[str] = Query(None, description="Filter by symbol"),
     start_date: Optional[datetime] = Query(None, description="Start date"),
     end_date: Optional[datetime] = Query(None, description="End date"),
-    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """
     Get wash sale warnings and adjustments
@@ -608,8 +608,8 @@ async def store_tax_software_credentials(
 
 @router.get("/software/exports")
 async def list_tax_software_exports(
-    tax_year: Optional[int] = Query(None, description="Filter by tax year"),
     current_user: Annotated[dict, Depends(get_current_user)],
+    tax_year: Optional[int] = Query(None, description="Filter by tax year"),
 ):
     """List tax software exports for user"""
     try:
