@@ -172,10 +172,10 @@ async def get_form_8949(
 
 @router.get("/form-8949/export")
 async def export_form_8949(
+    current_user: Annotated[dict, Depends(get_current_user)],
     tax_year: int = Query(..., ge=2020, le=2100, description="Tax year"),
     method: str = Query("fifo", description="Cost basis method"),
     format: str = Query("csv", description="Export format: csv, json"),
-    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """
     Export Form 8949 in various formats
