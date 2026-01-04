@@ -339,9 +339,9 @@ async def create_payout(
 @router.post("/traders/{trader_id}/verify")
 async def verify_trader_performance(
     trader_id: int,
-    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
     current_user: Annotated[dict, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
 ):
     """Verify historical performance of a signal provider (admin only)"""
     try:

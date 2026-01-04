@@ -145,9 +145,9 @@ async def get_tax_loss_harvesting_opportunities(
 
 @router.get("/form-8949", response_model=Form8949Response)
 async def get_form_8949(
+    current_user: Annotated[dict, Depends(get_current_user)],
     tax_year: int = Query(..., ge=2020, le=2100, description="Tax year"),
     method: str = Query("fifo", description="Cost basis method: fifo, lifo, average"),
-    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Form8949Response:
     """
     Generate IRS Form 8949

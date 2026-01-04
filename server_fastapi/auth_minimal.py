@@ -68,10 +68,10 @@ def _hash_password(password: str) -> str:
 
 
 def _generate_token(user: User) -> str:
+    now = datetime.now(timezone.utc)
     payload = {
         "id": user.id,
         "email": user.email,
-        now = datetime.now(timezone.utc)
         "exp": int((now + timedelta(hours=1)).timestamp()),
         "iat": int(now.timestamp()),
     }
