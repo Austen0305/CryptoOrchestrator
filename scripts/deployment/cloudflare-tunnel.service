@@ -1,0 +1,22 @@
+[Unit]
+Description=Cloudflare Tunnel for CryptoOrchestrator Backend
+After=network.target cryptoorchestrator-backend.service
+Requires=cryptoorchestrator-backend.service
+
+[Service]
+Type=simple
+User=labarcodez
+Group=labarcodez
+WorkingDirectory=/home/labarcodez/CryptoOrchestrator
+ExecStart=/usr/local/bin/cloudflared tunnel --url http://localhost:8000
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/labarcodez/CryptoOrchestrator/logs/cloudflare-tunnel.log
+StandardError=append:/home/labarcodez/CryptoOrchestrator/logs/cloudflare-tunnel.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

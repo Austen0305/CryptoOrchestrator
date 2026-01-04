@@ -1,0 +1,31 @@
+[Unit]
+Description=CryptoOrchestrator FastAPI Backend
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=labarcodez
+Group=labarcodez
+WorkingDirectory=/home/labarcodez/CryptoOrchestrator
+Environment="PATH=/home/labarcodez/CryptoOrchestrator/venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/labarcodez/CryptoOrchestrator/.env
+ExecStart=/home/labarcodez/CryptoOrchestrator/venv/bin/uvicorn server_fastapi.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/labarcodez/CryptoOrchestrator/logs/app.log
+StandardError=append:/home/labarcodez/CryptoOrchestrator/logs/app.log
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/labarcodez/CryptoOrchestrator/logs
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
