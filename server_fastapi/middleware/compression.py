@@ -202,15 +202,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                     ratio = compressed_size / original_size * 100
                     logger.info(f"Gzip compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%)")
                     # Create new response with compressed body (2026 fix)
+                    # Remove Content-Length from original headers (Starlette will set it automatically)
+                    new_headers = dict(response.headers)
+                    new_headers.pop("Content-Length", None)  # Remove old Content-Length
+                    new_headers["Content-Encoding"] = "gzip"
+                    new_headers["Vary"] = "Accept-Encoding"
+                    
                     compressed_response = Response(
                         content=compressed,
                         status_code=response.status_code,
-                        headers={
-                            **dict(response.headers),
-                            "Content-Encoding": "gzip",
-                            "Content-Length": str(compressed_size),
-                            "Vary": "Accept-Encoding",
-                        },
+                        headers=new_headers,
                         media_type=response.headers.get("Content-Type"),
                     )
                     logger.info(f"Returning compressed response with Content-Encoding: gzip")
