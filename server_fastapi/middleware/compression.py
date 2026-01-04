@@ -106,6 +106,10 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         return None
 
     async def dispatch(self, request: Request, call_next):
+        body = b""
+        body_read = False
+        response = None
+        
         try:
             logger.info(f"Compression middleware called for {request.url.path}")
             response: Response = await call_next(request)
@@ -120,13 +124,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 return response
 
             # Read response body
-            body = b""
             try:
                 async for chunk in response.body_iterator:
                     body += chunk
+                    body_read = True
             except Exception as e:
                 logger.warning(f"Error reading response body for compression: {e}", exc_info=True)
-                return response
+                # If we haven't read any body, return original response
+                if not body_read:
+                    return response
+                # If we've read some body, we must construct a new Response
 
             body_size = len(body)
             logger.info(
@@ -140,7 +147,7 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             
             if not should_compress:
                 logger.debug(f"Compression skipped: should_compress=False for {request.url.path}")
-                # Return original response if shouldn't compress
+                # Return new response with body we've read (can't return original after reading body_iterator)
                 return Response(
                     content=body,
                     status_code=response.status_code,
@@ -149,18 +156,28 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.error(f"Error in compression middleware: {e}", exc_info=True)
-            # Return original response on error - re-call to get response
-            try:
-                response = await call_next(request)
+            # If we've read the body, construct a Response from it
+            if body_read and body and response:
+                try:
+                    return Response(
+                        content=body,
+                        status_code=response.status_code,
+                        headers=dict(response.headers),
+                        media_type=response.headers.get("Content-Type", "application/json"),
+                    )
+                except Exception as e2:
+                    logger.error(f"Failed to construct response from body: {e2}", exc_info=True)
+            
+            # If we haven't read the body yet and have a response, return it
+            if response and not body_read:
                 return response
-            except Exception as e2:
-                logger.error(f"Failed to get response after compression error: {e2}", exc_info=True)
-                # Last resort - return error response
-                from fastapi.responses import JSONResponse
-                return JSONResponse(
-                    status_code=500,
-                    content={"detail": "Internal server error in compression middleware"}
-                )
+            
+            # Last resort - return error response
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=500,
+                content={"detail": "Internal server error in compression middleware"}
+            )
 
         # Compress based on encoding
         logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
