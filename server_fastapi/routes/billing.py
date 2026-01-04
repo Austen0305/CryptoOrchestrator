@@ -1,19 +1,26 @@
 """
 SaaS Billing Routes
-Stripe subscription billing endpoints
+Free subscription billing endpoints (no payment processing required)
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import Optional, Annotated
 import logging
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
-from ..billing import StripeService, SubscriptionService
+from ..billing import SubscriptionService
+from ..services.payments.free_subscription_service import (
+    FreeSubscriptionService,
+    SubscriptionTier,
+    free_subscription_service,
+)
 from ..models.user import User
+from ..models.subscription import Subscription as SubscriptionModel
 from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
 
@@ -43,10 +50,24 @@ class SubscriptionResponse(BaseModel):
     ttl=300, prefix="billing_plans"
 )  # 5min TTL for subscription plans (static data)
 async def get_plans():
-    """Get available subscription plans"""
+    """Get available subscription plans (all free)"""
     try:
-        plans = StripeService.list_plans()
-        return {"plans": plans}
+        plans = free_subscription_service.list_plans()
+        # Convert to format expected by frontend
+        formatted_plans = []
+        for tier, config in plans.items():
+            if config:
+                formatted_plans.append({
+                    "plan": tier,
+                    "amount": config["amount"],
+                    "currency": config["currency"],
+                    "interval": config["interval"],
+                    "features": config["features"],
+                    # Remove Stripe-specific fields, add free indicator
+                    "is_free": True,
+                    "price_display": "Free",
+                })
+        return {"plans": formatted_plans}
     except Exception as e:
         logger.error(f"Failed to get plans: {e}", exc_info=True)
         raise HTTPException(
@@ -71,11 +92,11 @@ async def get_subscription(
 
         if not subscription:
             # Return free plan
-            config = StripeService.get_plan_config("free")
+            config = free_subscription_service.get_plan_config(SubscriptionTier.FREE)
             return SubscriptionResponse(
                 plan="free",
                 status="active",
-                limits=config.get("limits", {}) if config else {},
+                limits={},  # No limits for free plans
             )
 
         limits = await subscription_service.get_subscription_limits(db, user_id)
@@ -111,36 +132,74 @@ async def create_checkout(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """Create Stripe checkout session"""
+    """Create subscription (free - no payment required)"""
     try:
         user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
 
-        session = await subscription_service.create_checkout_session(
-            db=db,
-            user_id=user_id,
-            price_id=request.price_id,
-            plan=request.plan,
-        )
-
-        if not session:
+        # Get user to create customer
+        user = await db.get(User, user_id)
+        if not user:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create checkout session",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
             )
 
+        # Map plan string to SubscriptionTier
+        tier_map = {
+            "free": SubscriptionTier.FREE,
+            "basic": SubscriptionTier.BASIC,
+            "pro": SubscriptionTier.PRO,
+            "enterprise": SubscriptionTier.ENTERPRISE,
+        }
+        tier = tier_map.get(request.plan.lower(), SubscriptionTier.FREE)
+
+        # Create customer (free - just for tracking)
+        customer = free_subscription_service.create_customer(
+            email=user.email,
+            name=f"{user.first_name} {user.last_name}".strip() or user.username,
+            metadata={"user_id": str(user_id)},
+        )
+
+        # Create subscription immediately (free - no payment)
+        subscription_data = free_subscription_service.create_subscription(
+            customer_id=customer["id"],
+            tier=tier,
+            metadata={"user_id": str(user_id), "plan": request.plan},
+        )
+
+        # Save to database
+        from ..models.subscription import Subscription as SubscriptionModel
+        db_subscription = await subscription_service.get_user_subscription(db, user_id)
+        
+        if not db_subscription:
+            db_subscription = SubscriptionModel(
+                user_id=user_id,
+                plan=request.plan,
+                status="active",
+            )
+            db.add(db_subscription)
+        else:
+            db_subscription.plan = request.plan
+            db_subscription.status = "active"
+        
+        await db.commit()
+        await db.refresh(db_subscription)
+
+        # Return success URL (no Stripe redirect needed)
         return {
-            "checkout_url": session["url"],
-            "session_id": session["id"],
+            "checkout_url": "/billing/success",  # Frontend success page
+            "session_id": subscription_data["id"],
+            "subscription_id": subscription_data["id"],
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to create checkout: {e}", exc_info=True)
+        logger.error(f"Failed to create subscription: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create checkout session",
+            detail="Failed to create subscription",
         )
 
 
@@ -149,24 +208,22 @@ async def create_portal(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """Create Stripe Customer Portal session"""
+    """Get billing portal URL (redirects to billing page)"""
     try:
         user_id = _get_user_id(current_user)
         subscription_service = SubscriptionService()
 
-        session = await subscription_service.create_portal_session(
-            db=db,
-            user_id=user_id,
-        )
-
-        if not session:
+        subscription = await subscription_service.get_user_subscription(db, user_id)
+        
+        if not subscription:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No active subscription found",
             )
 
+        # Return billing page URL (no external portal needed)
         return {
-            "portal_url": session["url"],
+            "portal_url": "/billing",  # Frontend billing page
         }
 
     except HTTPException:
@@ -222,73 +279,18 @@ async def stripe_webhook(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
-    """Handle Stripe webhook events"""
-    try:
-        stripe_service = StripeService()
-        subscription_service = SubscriptionService()
-
-        payload = await request.body()
-        signature = request.headers.get("stripe-signature", "")
-
-        event = stripe_service.handle_webhook(payload, signature)
-
-        if not event:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid webhook signature",
-            )
-
-        event_type = event["type"]
-        event_data = event["data"]
-
-        # Handle different event types
-        if event_type == "customer.subscription.created":
-            await _handle_subscription_created(db, event_data, subscription_service)
-        elif event_type == "customer.subscription.updated":
-            await _handle_subscription_updated(db, event_data, subscription_service)
-        elif event_type == "customer.subscription.deleted":
-            await _handle_subscription_deleted(db, event_data, subscription_service)
-        elif event_type == "invoice.payment_succeeded":
-            await _handle_payment_succeeded(db, event_data, subscription_service)
-        elif event_type == "invoice.payment_failed":
-            await _handle_payment_failed(db, event_data, subscription_service)
-
-        return {"received": True}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Webhook handling failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Webhook processing failed",
-        )
+    """Webhook endpoint (deprecated - no webhooks needed for free subscriptions)"""
+    # Free subscriptions don't need webhooks - subscriptions are managed directly
+    logger.info("Webhook received but not needed for free subscriptions")
+    return {"received": True, "message": "Webhooks not needed for free subscriptions"}
 
 
 async def _handle_subscription_created(
     db: AsyncSession, event_data: dict, subscription_service: SubscriptionService
 ):
-    """Handle subscription.created event"""
-    subscription = event_data
-    customer_id = subscription["customer"]
-
-    # Find user by customer_id
-    from ..models.subscription import Subscription as SubscriptionModel
-
-    result = await db.execute(
-        select(SubscriptionModel).where(
-            SubscriptionModel.stripe_customer_id == customer_id
-        )
-    )
-    db_subscription = result.scalar_one_or_none()
-
-    if db_subscription:
-        await subscription_service.update_subscription_from_stripe(
-            db=db,
-            user_id=db_subscription.user_id,
-            stripe_subscription_id=subscription["id"],
-            stripe_customer_id=customer_id,
-        )
+    """Handle subscription.created event (deprecated - kept for backward compatibility)"""
+    # Free subscriptions don't use webhooks
+    logger.info("Subscription created event received (not needed for free subscriptions)")
 
 
 async def _handle_subscription_updated(
@@ -301,68 +303,19 @@ async def _handle_subscription_updated(
 async def _handle_subscription_deleted(
     db: AsyncSession, event_data: dict, subscription_service: SubscriptionService
 ):
-    """Handle subscription.deleted event"""
-    subscription = event_data
-    customer_id = subscription["customer"]
-
-    from ..models.subscription import Subscription as SubscriptionModel
-
-    result = await db.execute(
-        select(SubscriptionModel).where(
-            SubscriptionModel.stripe_customer_id == customer_id
-        )
-    )
-    db_subscription = result.scalar_one_or_none()
-
-    if db_subscription:
-        db_subscription.status = "canceled"
-        db_subscription.stripe_subscription_id = None
-        await db.commit()
+    """Handle subscription.deleted event (deprecated - kept for backward compatibility)"""
+    logger.info("Subscription deleted event received (not needed for free subscriptions)")
 
 
 async def _handle_payment_succeeded(
     db: AsyncSession, event_data: dict, subscription_service: SubscriptionService
 ):
-    """Handle payment.succeeded event"""
-    invoice = event_data
-    customer_id = invoice.get("customer")
-
-    if customer_id:
-        from ..models.subscription import Subscription as SubscriptionModel
-
-        result = await db.execute(
-            select(SubscriptionModel).where(
-                SubscriptionModel.stripe_customer_id == customer_id
-            )
-        )
-        db_subscription = result.scalar_one_or_none()
-
-        if db_subscription and db_subscription.stripe_subscription_id:
-            await subscription_service.update_subscription_from_stripe(
-                db=db,
-                user_id=db_subscription.user_id,
-                stripe_subscription_id=db_subscription.stripe_subscription_id,
-                stripe_customer_id=customer_id,
-            )
+    """Handle payment.succeeded event (deprecated - kept for backward compatibility)"""
+    logger.info("Payment succeeded event received (not needed for free subscriptions)")
 
 
 async def _handle_payment_failed(
     db: AsyncSession, event_data: dict, subscription_service: SubscriptionService
 ):
-    """Handle payment.failed event"""
-    invoice = event_data
-    customer_id = invoice.get("customer")
-
-    if customer_id:
-        from ..models.subscription import Subscription as SubscriptionModel
-
-        result = await db.execute(
-            select(SubscriptionModel).where(
-                SubscriptionModel.stripe_customer_id == customer_id
-            )
-        )
-        db_subscription = result.scalar_one_or_none()
-
-        if db_subscription:
-            db_subscription.status = "past_due"
-            await db.commit()
+    """Handle payment.failed event (deprecated - kept for backward compatibility)"""
+    logger.info("Payment failed event received (not needed for free subscriptions)")

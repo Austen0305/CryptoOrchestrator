@@ -77,13 +77,20 @@ export default function Billing() {
       return await createCheckout(priceId, plan);
     },
     onSuccess: (session) => {
+      // Free subscriptions activate immediately - no redirect needed
       if (session?.checkout_url) {
-        window.location.href = session.checkout_url;
+        // If it's a relative URL, just refresh the subscription data
+        if (session.checkout_url.startsWith('/')) {
+          queryClient.invalidateQueries({ queryKey: ['billing-subscription'] });
+          queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
+        } else {
+          window.location.href = session.checkout_url;
+        }
       }
     },
     onError: (error: Error) => {
       // Error will be shown via toast if usePayments hook handles it
-      logger.error('Failed to create checkout session', { error });
+      logger.error('Failed to create subscription', { error });
     },
   });
 
@@ -318,39 +325,28 @@ export default function Billing() {
                       <Button disabled className="w-full" variant="outline">
                         Current Plan
                       </Button>
-                    ) : plan.price_monthly === 0 ? (
-                      <Button
-                        onClick={() => handleUpgrade(plan.plan, "", "monthly")}
-                        disabled={!plan.stripe_price_id_monthly || processing !== null}
-                        className="w-full"
-                        variant="outline"
-                      >
-                        Free Forever
-                      </Button>
                     ) : (
                       <div className="w-full space-y-2">
-                        {plan.stripe_price_id_monthly && (
-                          <Button
-                            onClick={() =>
-                              handleUpgrade(
-                                plan.plan,
-                                plan.stripe_price_id_monthly!,
-                                "monthly"
-                              )
-                            }
-                            disabled={processing !== null}
-                            className="w-full"
-                          >
-                            {processing === `upgrade-${plan.plan}` ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Processing...
-                              </>
-                            ) : (
-                              "Upgrade"
-                            )}
-                          </Button>
-                        )}
+                        <Button
+                          onClick={() =>
+                            handleUpgrade(
+                              plan.plan,
+                              "free", // All plans are free now
+                              "monthly"
+                            )
+                          }
+                          disabled={processing !== null}
+                          className="w-full"
+                        >
+                          {processing === `upgrade-${plan.plan}` ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Activating...
+                            </>
+                          ) : (
+                            (plan as any).is_free || plan.amount === 0 ? "Activate Free Plan" : "Upgrade"
+                          )}
+                        </Button>
                       </div>
                     )}
                   </CardFooter>

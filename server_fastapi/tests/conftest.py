@@ -444,7 +444,7 @@ async def auth_headers(client, db_session, test_engine, test_db_setup):
 
     try:
         # Use the registration endpoint approach (like test_auth_integration.py)
-        # This works regardless of database setup since it uses the registration shim
+        # This works with the normal registration route (shim removed January 3, 2026)
         unique_email = f"testuser-{uuid.uuid4().hex[:8]}@example.com"
 
         # Register a test user via API endpoint

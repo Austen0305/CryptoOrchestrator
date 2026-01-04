@@ -20,7 +20,7 @@ test.describe('Trading Flow', () => {
     );
     
     if (!authenticated) {
-      test.skip();
+      throw new Error('Authentication required for trading tests. Auth helper may need adjustment.');
     }
   });
   

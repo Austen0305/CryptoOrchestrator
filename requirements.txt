@@ -34,7 +34,7 @@ httpx==0.25.2  # For GitHub API and HTTP requests
 email-validator==2.2.0
 
 # Payment processing
-stripe>=8.0.0  # Updated from yanked 7.8.0
+# stripe>=8.0.0  # REMOVED: Using free subscription service instead
 
 # Redis for caching
 aioredis>=2.0.1

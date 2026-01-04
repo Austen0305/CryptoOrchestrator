@@ -63,7 +63,7 @@ class TestAuthIntegration:
         assert user_data, f"User data not found in response: {response_data}"
         assert user_data["email"] == "newuser@example.com"
         # Username might be derived from email or from the name field
-        # The registration shim uses email prefix as username if name not provided
+        # The registration route uses email prefix as username if name not provided
         assert user_data.get("username") or user_data.get("email").split("@")[0]
 
     def test_register_duplicate_email(self, client):

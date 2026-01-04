@@ -168,36 +168,86 @@ export async function authenticateTestUser(
   username: string
 ): Promise<boolean> {
   try {
+    // Clear any existing auth state first
+    await page.evaluate(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+    });
+    await page.waitForTimeout(500);
+
     // First, try to login (user might already exist)
     const loginSuccess = await loginTestUser(page, email, password);
     if (loginSuccess) {
-      return true;
+      // Verify authentication by checking for auth token
+      const hasToken = await page.evaluate(() => {
+        return !!localStorage.getItem('auth_token') || !!localStorage.getItem('token');
+      });
+      if (hasToken) {
+        return true;
+      }
     }
 
     // If login failed, try to register
+    console.log('Login failed, attempting registration...');
     const registered = await registerTestUser(page, email, password, username);
     
     if (!registered) {
-      console.warn('Registration failed, attempting direct login');
+      console.warn('Registration failed, attempting direct login again');
+      // Wait a bit for registration to complete
+      await page.waitForTimeout(2000);
       // Try login again in case registration succeeded but didn't redirect
-      return await loginTestUser(page, email, password);
+      const retryLogin = await loginTestUser(page, email, password);
+      if (retryLogin) {
+        return true;
+      }
     }
 
     // If redirected to login, complete login
-    if (page.url().includes('login')) {
-      return await loginTestUser(page, email, password);
+    await page.waitForTimeout(1000);
+    const currentUrl = page.url();
+    if (currentUrl.includes('login') || currentUrl.includes('register')) {
+      console.log('Redirected to login/register, completing login...');
+      const finalLogin = await loginTestUser(page, email, password);
+      if (finalLogin) {
+        return true;
+      }
     }
 
-    // If already on dashboard, we're done
-    if (page.url().includes('dashboard')) {
-      return true;
+    // If already on dashboard, verify we're actually authenticated
+    if (currentUrl.includes('dashboard') || currentUrl === 'http://localhost:5173/' || currentUrl.endsWith('/')) {
+      // Check for auth token
+      const hasToken = await page.evaluate(() => {
+        return !!localStorage.getItem('auth_token') || !!localStorage.getItem('token');
+      });
+      if (hasToken) {
+        return true;
+      }
     }
 
     // Final check: navigate to dashboard and verify
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
+    
+    // Check multiple indicators of authentication
     const isLoginPage = await page.locator('input[type="email"], input[name="email"]').isVisible().catch(() => false);
-    return !isLoginPage && !page.url().includes('login');
+    const hasToken = await page.evaluate(() => {
+      return !!localStorage.getItem('auth_token') || !!localStorage.getItem('token');
+    });
+    const hasDashboard = await page.locator('[data-testid="dashboard"], h1:has-text("Dashboard")').isVisible().catch(() => false);
+    
+    const authenticated = !isLoginPage && !page.url().includes('login') && (hasToken || hasDashboard);
+    
+    if (!authenticated) {
+      console.error('Authentication verification failed:', {
+        isLoginPage,
+        hasToken,
+        hasDashboard,
+        url: page.url(),
+      });
+    }
+    
+    return authenticated;
   } catch (error) {
     console.error('Authentication failed:', error);
     return false;

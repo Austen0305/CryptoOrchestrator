@@ -69,9 +69,6 @@ class ExchangeRateLimiter:
             "default": {"calls_per_minute": 60, "calls_per_second": 1},
         }
 
-        # Keep exchange_limits for backward compatibility (deprecated)
-        self.exchange_limits = self.aggregator_limits
-
         self._lock = asyncio.Lock()
 
     async def check_rate_limit(self, aggregator: str) -> bool:

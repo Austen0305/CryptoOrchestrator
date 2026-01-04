@@ -26,8 +26,7 @@ test.describe('Trading Mode Switching', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip('Authentication required for trading mode switching');
-        return;
+        throw new Error('Authentication required for trading mode switching. Auth helper may need adjustment.');
       }
     } else {
       await page.goto('/dashboard');

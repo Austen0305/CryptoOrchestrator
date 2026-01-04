@@ -6,16 +6,31 @@ Execute blockchain transactions with signing and monitoring
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
-from web3 import AsyncWeb3
-from web3.exceptions import Web3Exception, TransactionNotFound
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from hexbytes import HexBytes
+
+# Defensive imports to prevent route loading failures if web3 is not installed
+try:
+    from web3 import AsyncWeb3
+    from web3.exceptions import Web3Exception, TransactionNotFound
+    from eth_account import Account
+    from eth_account.signers.local import LocalAccount
+    from hexbytes import HexBytes
+    WEB3_AVAILABLE = True
+except ImportError as e:
+    WEB3_AVAILABLE = False
+    AsyncWeb3 = None
+    Web3Exception = Exception
+    TransactionNotFound = Exception
+    Account = None
+    LocalAccount = None
+    HexBytes = None
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Web3 not available: {e}. Transaction service will be limited.")
 
 from .web3_service import get_web3_service
 from ...config.settings import get_settings
 
-logger = logging.getLogger(__name__)
+if 'logger' not in locals():
+    logger = logging.getLogger(__name__)
 
 
 class TransactionService:
@@ -23,7 +38,13 @@ class TransactionService:
 
     def __init__(self):
         self.settings = get_settings()
-        self.web3_service = get_web3_service()
+        if not WEB3_AVAILABLE:
+            logger.warning("Web3 not available - TransactionService will have limited functionality")
+        try:
+            self.web3_service = get_web3_service()
+        except Exception as e:
+            logger.warning(f"Failed to initialize web3 service: {e}")
+            self.web3_service = None
 
     async def estimate_gas(
         self,

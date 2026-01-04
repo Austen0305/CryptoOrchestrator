@@ -46,7 +46,7 @@ psutil==5.9.6
 typing-extensions>=4.8.0
 
 # Payment processing
-stripe>=8.0.0
+# stripe>=8.0.0  # REMOVED: Using free subscription service instead
 
 # Enhanced logging
 structlog==24.1.0

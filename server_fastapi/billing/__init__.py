@@ -1,10 +1,9 @@
 """
 SaaS Billing Module
-Provides Stripe subscription billing integration
-StripeService consolidated into services/payments/stripe_service.py
+Provides free subscription billing (no payment processing required)
 """
 
-from ..services.payments.stripe_service import StripeService
 from .subscription_service import SubscriptionService
+from ..services.payments.free_subscription_service import FreeSubscriptionService
 
-__all__ = ["StripeService", "SubscriptionService"]
+__all__ = ["SubscriptionService", "FreeSubscriptionService"]

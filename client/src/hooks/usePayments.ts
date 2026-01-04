@@ -7,10 +7,11 @@ import { useAuth } from "@/hooks/useAuth";
 interface Plan {
   plan: string;
   name: string;
-  price_monthly: number;
-  price_yearly: number;
-  stripe_price_id_monthly?: string;
-  stripe_price_id_yearly?: string;
+  amount: number; // Amount in cents (0 for free)
+  currency: string;
+  interval: string;
+  is_free?: boolean;
+  price_display?: string;
   features: string[];
   limits: {
     max_bots: number;
@@ -71,19 +72,24 @@ export function usePricing() {
 export function usePayments() {
   const queryClient = useQueryClient();
 
-  // Create checkout session mutation
+  // Create subscription mutation (free - no payment required)
   const createCheckoutMutation = useMutation({
     mutationFn: async ({ priceId, plan }: { priceId: string; plan: string }) => {
       const { api } = await import("@/lib/apiClient");
       // apiClient.post<T>() returns T directly, not { data: T }
       const response = await api.post<{ checkout_url: string; session_id: string }>("/billing/checkout", {
-        price_id: priceId,
+        price_id: priceId || "free", // Free subscriptions don't need price_id
         plan,
       });
       return response;
     },
+    onSuccess: () => {
+      // Invalidate queries to refresh subscription data
+      queryClient.invalidateQueries({ queryKey: ['billing-subscription'] });
+      queryClient.invalidateQueries({ queryKey: ['billing-plans'] });
+    },
     onError: (error: Error) => {
-      logger.error('Failed to create checkout session', { error });
+      logger.error('Failed to create subscription', { error });
       throw error;
     },
   });

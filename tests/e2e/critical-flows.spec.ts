@@ -241,8 +241,7 @@ test.describe('Critical User Flows', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip(true, 'Authentication required but failed after retries');
-        return;
+        throw new Error('Authentication required but failed after retries. Auth helper may need adjustment.');
       }
       // Continue if not on login page (might be already authenticated)
     }
@@ -315,8 +314,7 @@ test.describe('Critical User Flows', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip(true, 'Authentication required but failed after retries');
-        return;
+        throw new Error('Authentication required but failed after retries. Auth helper may need adjustment.');
       }
     }
     
@@ -421,8 +419,7 @@ test.describe('Critical User Flows', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip(true, 'Authentication required but failed after retries');
-        return;
+        throw new Error('Authentication required but failed after retries. Auth helper may need adjustment.');
       }
     }
     
@@ -541,8 +538,7 @@ test.describe('Critical User Flows', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip(true, 'Authentication required but failed after retries');
-        return;
+        throw new Error('Authentication required but failed after retries. Auth helper may need adjustment.');
       }
     }
     

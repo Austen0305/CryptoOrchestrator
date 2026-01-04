@@ -279,6 +279,17 @@ def setup_all_middleware(app: FastAPI) -> dict:
     Returns:
         Dictionary with setup statistics
     """
+    # Add profiling middleware first (if enabled)
+    profiling_enabled = os.getenv("ENABLE_MIDDLEWARE_PROFILING", "false").lower() == "true"
+    if profiling_enabled:
+        try:
+            from .profiling import ProfilingMiddleware, enable_profiling
+            app.add_middleware(ProfilingMiddleware, enabled=True)
+            enable_profiling()
+            logger.info("Middleware profiling enabled")
+        except Exception as e:
+            logger.warning(f"Failed to enable profiling middleware: {e}")
+    
     registry = MiddlewareRegistry(app)
     
     # Get enabled middleware configurations (sorted by priority)

@@ -1,5 +1,5 @@
 """
-Payments Routes - Stripe payment processing and subscriptions
+Payments Routes - Free subscription management (no payment processing required)
 """
 
 from fastapi import APIRouter, HTTPException, Depends, Request, Header
@@ -8,7 +8,10 @@ from typing import Optional, Dict, Any, Annotated
 from datetime import datetime
 import logging
 
-from ..services.payments.stripe_service import stripe_service, SubscriptionTier
+from ..services.payments.free_subscription_service import (
+    free_subscription_service,
+    SubscriptionTier,
+)
 from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
 
@@ -47,10 +50,10 @@ async def create_customer(
     current_user: Annotated[dict, Depends(get_current_user)],
     name: Optional[str] = None,
 ):
-    """Create a Stripe customer"""
+    """Create a customer (free - no external service needed)"""
     try:
         user_id = _get_user_id(current_user)
-        customer = stripe_service.create_customer(
+        customer = free_subscription_service.create_customer(
             email=email, name=name, metadata={"user_id": str(user_id)}
         )
 
@@ -68,22 +71,31 @@ async def create_subscription(
     request: CreateSubscriptionRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    """Create a subscription"""
+    """Create a subscription (free - no payment required)"""
     try:
         user_id = _get_user_id(current_user)
         # Create customer if doesn't exist
-        customer = stripe_service.create_customer(
+        customer = free_subscription_service.create_customer(
             email=request.email, metadata={"user_id": str(user_id)}
         )
 
         if not customer:
             raise HTTPException(status_code=500, detail="Failed to create customer")
 
-        # Create subscription
-        subscription = stripe_service.create_subscription(
+        # Map tier string to SubscriptionTier
+        tier_map = {
+            "free": SubscriptionTier.FREE,
+            "basic": SubscriptionTier.BASIC,
+            "pro": SubscriptionTier.PRO,
+            "enterprise": SubscriptionTier.ENTERPRISE,
+        }
+        tier = tier_map.get(request.tier.lower(), SubscriptionTier.FREE)
+
+        # Create subscription (free - no payment method needed)
+        subscription = free_subscription_service.create_subscription(
             customer_id=customer["id"],
-            tier=request.tier,
-            payment_method_id=request.payment_method_id,
+            tier=tier,
+            metadata={"user_id": str(user_id)},
         )
 
         if not subscription:
@@ -104,7 +116,7 @@ async def get_subscription(
 ):
     """Get subscription details"""
     try:
-        subscription = stripe_service.get_subscription(subscription_id)
+        subscription = free_subscription_service.get_subscription(subscription_id)
 
         if not subscription:
             raise HTTPException(status_code=404, detail="Subscription not found")
@@ -125,8 +137,17 @@ async def update_subscription(
 ):
     """Update subscription tier"""
     try:
-        subscription = stripe_service.update_subscription(
-            subscription_id=subscription_id, new_tier=request.new_tier
+        # Map tier string to SubscriptionTier
+        tier_map = {
+            "free": SubscriptionTier.FREE,
+            "basic": SubscriptionTier.BASIC,
+            "pro": SubscriptionTier.PRO,
+            "enterprise": SubscriptionTier.ENTERPRISE,
+        }
+        tier = tier_map.get(request.new_tier.lower(), SubscriptionTier.FREE)
+        
+        subscription = free_subscription_service.update_subscription(
+            subscription_id=subscription_id, tier=tier
         )
 
         if not subscription:
@@ -148,8 +169,8 @@ async def cancel_subscription(
 ):
     """Cancel a subscription"""
     try:
-        subscription = stripe_service.cancel_subscription(
-            subscription_id=subscription_id, cancel_at_period_end=not cancel_immediately
+        subscription = free_subscription_service.cancel_subscription(
+            subscription_id=subscription_id, immediately=cancel_immediately
         )
 
         if not subscription:
@@ -168,27 +189,12 @@ async def create_payment_intent(
     request: PaymentIntentRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
-    """Create a payment intent for one-time payments"""
-    try:
-        user_id = _get_user_id(current_user)
-        intent = stripe_service.create_payment_intent(
-            amount=request.amount,
-            currency=request.currency,
-            payment_method_type=request.payment_method_type,
-            metadata={**(request.metadata or {}), "user_id": str(user_id)},
-        )
-
-        if not intent:
-            raise HTTPException(
-                status_code=500, detail="Failed to create payment intent"
-            )
-
-        return intent
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error creating payment intent: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create payment intent")
+    """Create a payment intent (deprecated - all subscriptions are free)"""
+    # Free subscriptions don't need payment intents
+    raise HTTPException(
+        status_code=400,
+        detail="Payment intents not needed - all subscriptions are free"
+    )
 
 
 @router.post("/webhooks")
@@ -203,14 +209,19 @@ async def handle_stripe_webhook(
         if not stripe_signature:
             raise HTTPException(status_code=400, detail="Missing Stripe signature")
 
-        event = stripe_service.handle_webhook(payload, stripe_signature)
-
-        if not event:
-            raise HTTPException(status_code=400, detail="Invalid webhook")
-
-        # Process webhook event
-        event_type = event.get("event")
-        event_data = event.get("data", {})
+        # Note: Webhook handling for wallet deposits may still be needed
+        # For free subscriptions, webhooks aren't needed, but we keep this for wallet deposits
+        # If you need wallet deposits, you'll need to implement a different payment processor
+        
+        # Try to parse webhook data if it exists (for wallet deposits)
+        try:
+            import json
+            event_data_raw = json.loads(payload.decode()) if payload else {}
+            event_type = event_data_raw.get("type") or event_data_raw.get("event")
+            event_data = event_data_raw.get("data", {})
+        except:
+            event_type = None
+            event_data = {}
 
         # Handle payment events for wallet deposits
         if (
@@ -269,9 +280,10 @@ async def handle_stripe_webhook(
                         f"Error processing payment webhook: {e}", exc_info=True
                     )
 
-        logger.info(f"Processed Stripe webhook: {event_type}")
+        if event_type:
+            logger.info(f"Processed webhook: {event_type}")
 
-        return {"received": True, "event": event_type}
+        return {"received": True, "event": event_type or "free_subscription"}
 
     except HTTPException:
         raise
@@ -282,14 +294,14 @@ async def handle_stripe_webhook(
 
 @router.get("/pricing", response_model=Dict)
 async def get_pricing():
-    """Get pricing information for all tiers"""
+    """Get pricing information for all tiers (all free)"""
     try:
         pricing = {}
-        for tier, config in stripe_service.PRICE_CONFIGS.items():
-            pricing[tier] = {
+        for tier, config in free_subscription_service.PRICE_CONFIGS.items():
+            pricing[tier.value] = {
                 "tier": config.tier,
-                "amount": config.amount,
-                "amount_display": f"${config.amount / 100:.2f}",
+                "amount": config.amount,  # Always 0
+                "amount_display": "Free",
                 "currency": config.currency,
                 "interval": config.interval,
                 "features": config.features,

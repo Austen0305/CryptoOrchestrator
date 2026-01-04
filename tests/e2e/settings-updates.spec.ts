@@ -27,8 +27,7 @@ test.describe('Settings Updates', () => {
       await page.waitForLoadState('networkidle');
       const isLoginPage = await page.locator('input[type="email"]').isVisible().catch(() => false);
       if (isLoginPage) {
-        test.skip('Authentication required for settings');
-        return;
+        throw new Error('Authentication required for settings. Auth helper may need adjustment.');
       }
     } else {
       await page.goto('/settings');

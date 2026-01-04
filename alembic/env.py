@@ -158,6 +158,17 @@ except ImportError:
 # this is the Alembic Config object
 config = context.config
 
+# Override database URL from environment variable if set (for deployment)
+# This allows DATABASE_URL to be set in production without modifying alembic.ini
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # Convert async URLs to sync for Alembic (Alembic uses sync SQLAlchemy)
+    if "aiosqlite" in database_url:
+        database_url = database_url.replace("sqlite+aiosqlite://", "sqlite://")
+    elif "asyncpg" in database_url:
+        database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
+    config.set_main_option("sqlalchemy.url", database_url)
+
 # Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -181,11 +192,16 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    # Get database URL and convert async to sync if needed
+    # Get database URL (already converted from env var if set)
     url = config.get_main_option("sqlalchemy.url")
+    # Additional conversion for async URLs (in case env var wasn't set)
     if url and "aiosqlite" in url:
         # Convert async SQLite URL to sync
         url = url.replace("sqlite+aiosqlite://", "sqlite://")
+        config.set_main_option("sqlalchemy.url", url)
+    elif url and "asyncpg" in url:
+        # Convert async PostgreSQL URL to sync
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
         config.set_main_option("sqlalchemy.url", url)
     
     connectable = engine_from_config(

@@ -295,6 +295,14 @@ async def create_bot(
                 status_code=500, detail="Failed to retrieve created bot"
             )
 
+        # Invalidate bot list cache for this user (new bot added)
+        try:
+            from ..middleware.cache_manager import invalidate_pattern
+            await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
+            await invalidate_pattern(f"bot_list:*:{user_id}*")
+        except Exception as cache_error:
+            logger.warning(f"Cache invalidation failed (non-critical): {cache_error}")
+
         logger.info(f"Created new bot: {bot_id} for user {user_id}")
         return BotConfig(**bot_data)
     except ValueError as e:
@@ -338,6 +346,19 @@ async def update_bot(
         if not updated_bot:
             raise HTTPException(status_code=500, detail="Failed to update bot")
 
+        # Invalidate cache for this bot and bot list
+        try:
+            from ..middleware.cache_manager import invalidate_pattern
+            
+            # Invalidate bot-specific cache
+            await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
+            # Invalidate bot list cache for this user
+            await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
+            # Also invalidate query cache
+            await invalidate_pattern(f"bot_list:*:{user_id}*")
+        except Exception as cache_error:
+            logger.warning(f"Cache invalidation failed (non-critical): {cache_error}")
+
         logger.info(f"Updated bot: {bot_id}")
         return BotConfig(**updated_bot)
     except HTTPException:
@@ -365,6 +386,19 @@ async def delete_bot(
         success = await bot_service.delete_bot(bot_id, user_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete bot")
+
+        # Invalidate cache for this bot and bot list
+        try:
+            from ..middleware.cache_manager import invalidate_pattern
+            
+            # Invalidate bot-specific cache
+            await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
+            # Invalidate bot list cache for this user
+            await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
+            # Also invalidate query cache
+            await invalidate_pattern(f"bot_list:*:{user_id}*")
+        except Exception as cache_error:
+            logger.warning(f"Cache invalidation failed (non-critical): {cache_error}")
 
         logger.info(f"Deleted bot: {bot_id}")
         return {"message": "Bot deleted successfully"}
@@ -411,6 +445,19 @@ async def start_bot(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to start bot")
 
+        # Invalidate cache for this bot and bot list
+        try:
+            from ..middleware.cache_manager import invalidate_pattern
+            
+            # Invalidate bot-specific cache
+            await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
+            # Invalidate bot list cache for this user
+            await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
+            # Also invalidate query cache
+            await invalidate_pattern(f"bot_list:*:{user_id}*")
+        except Exception as cache_error:
+            logger.warning(f"Cache invalidation failed (non-critical): {cache_error}")
+
         # Start bot trading loop in background
         background_tasks.add_task(trading_service.run_bot_loop, bot_id, user_id)
 
@@ -444,6 +491,19 @@ async def stop_bot(
         success = await bot_service.stop_bot(bot_id, user_id)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to stop bot")
+
+        # Invalidate cache for this bot and bot list
+        try:
+            from ..middleware.cache_manager import invalidate_pattern
+            
+            # Invalidate bot-specific cache
+            await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
+            # Invalidate bot list cache for this user
+            await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
+            # Also invalidate query cache
+            await invalidate_pattern(f"bot_list:*:{user_id}*")
+        except Exception as cache_error:
+            logger.warning(f"Cache invalidation failed (non-critical): {cache_error}")
 
         logger.info(f"Stopped bot: {bot_id}")
         return {"message": f"Bot {bot_id} stopped successfully"}
@@ -629,7 +689,7 @@ async def emergency_stop(
 # Smart Intelligence Endpoints
 
 
-@router.get("/bots/{bot_id}/analysis")
+@router.get("/{bot_id}/analysis")
 async def get_bot_analysis(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -680,7 +740,7 @@ async def get_bot_analysis(
         raise HTTPException(status_code=500, detail=f"Failed to get analysis: {str(e)}")
 
 
-@router.get("/bots/{bot_id}/risk-metrics")
+@router.get("/{bot_id}/risk-metrics")
 async def get_bot_risk_metrics(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -756,7 +816,7 @@ async def get_bot_risk_metrics(
         )
 
 
-@router.post("/bots/{bot_id}/optimize")
+@router.post("/{bot_id}/optimize")
 async def optimize_bot_parameters(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],

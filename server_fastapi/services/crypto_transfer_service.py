@@ -18,15 +18,10 @@ from ..repositories.transaction_repository import TransactionRepository
 
 logger = logging.getLogger(__name__)
 
-# Try to import exchange_service (deprecated - platform uses DEX-only trading)
-try:
-    from ..services.exchange_service import ExchangeService
-
-    EXCHANGE_SERVICE_AVAILABLE = True
-except ImportError:
-    EXCHANGE_SERVICE_AVAILABLE = False
-    ExchangeService = None
-    logger.warning("Exchange service not available (platform uses DEX-only trading)")
+# Exchange service removed - platform uses DEX-only trading
+# All transfers now go through blockchain/DEX, not centralized exchanges
+EXCHANGE_SERVICE_AVAILABLE = False
+ExchangeService = None
 
 
 class CryptoTransferService:
@@ -42,9 +37,7 @@ class CryptoTransferService:
         self.wallet_repository = wallet_repository or WalletBalanceRepository()
         self.transaction_repository = transaction_repository or TransactionRepository()
         self.db = db  # Keep db for transaction handling
-        self.exchange_service = (
-            ExchangeService() if EXCHANGE_SERVICE_AVAILABLE else None
-        )
+        # Exchange service removed - platform uses DEX-only trading
 
     async def initiate_crypto_transfer(
         self,

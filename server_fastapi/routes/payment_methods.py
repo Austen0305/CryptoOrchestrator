@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Annotated
 import logging
 
-from ..services.payments.stripe_service import stripe_service
+from ..services.payments.free_subscription_service import free_subscription_service
 from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
@@ -42,7 +42,7 @@ async def create_setup_intent(
         user_id = _get_user_id(current_user)
 
         # Get or create Stripe customer
-        customer = stripe_service.create_customer(
+        customer = free_subscription_service.create_customer(
             email=current_user.get("email", ""),
             name=current_user.get("name"),
             metadata={"user_id": str(user_id)},
@@ -51,15 +51,12 @@ async def create_setup_intent(
         if not customer:
             raise HTTPException(status_code=500, detail="Failed to create customer")
 
-        # Create setup intent
-        setup_intent = stripe_service.create_setup_intent(
-            customer_id=customer["id"],
-            payment_method_type=request.payment_method_type,
-            metadata={"user_id": str(user_id)},
-        )
-
-        if not setup_intent:
-            raise HTTPException(status_code=500, detail="Failed to create setup intent")
+        # Payment methods not needed for free subscriptions
+        # Return a mock setup intent for backward compatibility
+        setup_intent = {
+            "id": f"seti_{customer['id']}",
+            "client_secret": None,  # Not needed for free subscriptions
+        }
 
         return setup_intent
 
@@ -80,7 +77,7 @@ async def attach_payment_method(
         user_id = _get_user_id(current_user)
 
         # Get or create Stripe customer
-        customer = stripe_service.create_customer(
+        customer = free_subscription_service.create_customer(
             email=current_user.get("email", ""),
             name=current_user.get("name"),
             metadata={"user_id": str(user_id)},
@@ -89,15 +86,13 @@ async def attach_payment_method(
         if not customer:
             raise HTTPException(status_code=500, detail="Failed to create customer")
 
-        # Attach payment method
-        result = stripe_service.attach_payment_method(
-            payment_method_id=request.payment_method_id, customer_id=customer["id"]
-        )
-
-        if not result:
-            raise HTTPException(
-                status_code=500, detail="Failed to attach payment method"
-            )
+        # Payment methods not needed for free subscriptions
+        # Return success for backward compatibility
+        result = {
+            "success": True,
+            "id": request.payment_method_id,
+            "customer_id": customer["id"],
+        }
 
         return result
 
@@ -121,7 +116,7 @@ async def list_payment_methods(
         user_id = _get_user_id(current_user)
 
         # Get or create Stripe customer
-        customer = stripe_service.create_customer(
+        customer = free_subscription_service.create_customer(
             email=current_user.get("email", ""),
             name=current_user.get("name"),
             metadata={"user_id": str(user_id)},
@@ -130,18 +125,12 @@ async def list_payment_methods(
         if not customer:
             return []
 
-        # List payment methods
-        payment_methods = stripe_service.list_payment_methods(
-            customer_id=customer["id"], payment_method_type=payment_method_type
-        )
+        # Payment methods not needed for free subscriptions
+        # Return empty list for backward compatibility
+        payment_methods = []
 
-        # Apply pagination
-        total = len(payment_methods)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_methods = payment_methods[start_idx:end_idx]
-
-        return paginated_methods
+        # Apply pagination (empty list, so always returns empty)
+        return payment_methods
 
     except Exception as e:
         logger.error(f"Error listing payment methods: {e}", exc_info=True)
@@ -155,7 +144,10 @@ async def delete_payment_method(
 ) -> Dict:
     """Delete a payment method"""
     try:
-        success = stripe_service.delete_payment_method(payment_method_id)
+        # Payment methods not needed for free subscriptions
+        # Return success for backward compatibility
+        success = True
+        # success = free_subscription_service.delete_payment_method(payment_method_id)
 
         if not success:
             raise HTTPException(

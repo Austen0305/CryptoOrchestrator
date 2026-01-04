@@ -1,6 +1,7 @@
 """
-Stripe Service - Payment processing and subscription management
-Consolidated from billing/stripe_service.py and services/payments/stripe_service.py
+DEPRECATED: Stripe Service replaced with Free Subscription Service
+This file is kept for backward compatibility - all methods delegate to free_subscription_service
+All subscriptions are now free - no payment processing required
 """
 
 from typing import Dict, Any, Optional, List
@@ -8,26 +9,16 @@ from pydantic import BaseModel, EmailStr
 from datetime import datetime
 from enum import Enum
 import logging
-import os
-
-try:
-    import stripe
-
-    STRIPE_AVAILABLE = True
-except ImportError:
-    STRIPE_AVAILABLE = False
-    logging.warning("Stripe not available; payment processing will be disabled.")
 
 logger = logging.getLogger(__name__)
 
-# Initialize Stripe with API key from environment
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-STRIPE_PUBLISHABLE_KEY = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-
-if STRIPE_AVAILABLE and STRIPE_SECRET_KEY:
-    stripe.api_key = STRIPE_SECRET_KEY
+# Import the free subscription service
+from .free_subscription_service import (
+    FreeSubscriptionService,
+    SubscriptionTier,
+    PriceConfig,
+    free_subscription_service,
+)
 
 
 class SubscriptionTier(str, Enum):
@@ -64,61 +55,18 @@ class SubscriptionStatus(BaseModel):
 
 
 class StripeService:
-    """Service for Stripe payment processing"""
+    """
+    DEPRECATED: Wrapper around FreeSubscriptionService for backward compatibility
+    All subscriptions are now free - no payment processing required
+    """
 
-    # Price configurations for each tier
-    PRICE_CONFIGS = {
-        SubscriptionTier.FREE: PriceConfig(
-            tier="free",
-            amount=0,
-            currency="usd",
-            interval="month",
-            features=["Basic trading", "Paper trading", "5 bots max"],
-        ),
-        SubscriptionTier.BASIC: PriceConfig(
-            tier="basic",
-            amount=4900,  # $49.00
-            currency="usd",
-            interval="month",
-            features=[
-                "All Free features",
-                "Live trading",
-                "20 bots max",
-                "Priority support",
-            ],
-        ),
-        SubscriptionTier.PRO: PriceConfig(
-            tier="pro",
-            amount=9900,  # $99.00
-            currency="usd",
-            interval="month",
-            features=[
-                "All Basic features",
-                "Unlimited bots",
-                "Advanced ML models",
-                "API access",
-            ],
-        ),
-        SubscriptionTier.ENTERPRISE: PriceConfig(
-            tier="enterprise",
-            amount=29900,  # $299.00
-            currency="usd",
-            interval="month",
-            features=[
-                "All Pro features",
-                "Dedicated support",
-                "Custom integrations",
-                "SLA",
-            ],
-        ),
-    }
+    # Delegate to free service configs
+    PRICE_CONFIGS = free_subscription_service.PRICE_CONFIGS
 
     def __init__(self):
-        if not STRIPE_AVAILABLE:
-            logger.warning("Stripe service initialized without Stripe SDK")
-        self.secret_key = STRIPE_SECRET_KEY
-        self.publishable_key = STRIPE_PUBLISHABLE_KEY
-        self.webhook_secret = STRIPE_WEBHOOK_SECRET
+        # Use the free subscription service internally
+        self._service = free_subscription_service
+        logger.info("StripeService initialized - using free subscription service")
 
     def create_customer(
         self,

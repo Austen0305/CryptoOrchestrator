@@ -620,7 +620,7 @@ except Exception as e:
         return response
 
 
-# CORS utility functions (used by registration shim)
+# CORS utility functions
 # Import from middleware setup module
 try:
     from .middleware.setup import add_cors_headers, get_cors_origins
@@ -707,220 +707,14 @@ async def root():
 
 
 # ---------------------------------------------------------------------------
-# Temporary registration shim middleware
+# Registration shim removed (January 3, 2026)
 # ---------------------------------------------------------------------------
-# There is an intermittent hang affecting /api/* routes in the deeper
-# middleware/route stack. To ensure the user can create an account and log in,
-# we short‑circuit /api/auth/register here and handle it in a minimal,
-# in‑memory way. This avoids touching the database or advanced middleware.
-#
-# NOTE: Once the underlying middleware issue is fully resolved, this shim
-#       can be removed and the normal server_fastapi.routes.auth.register
-#       endpoint will take over again.
-@app.middleware("http")
-async def registration_shim(request: Request, call_next):
-    # Allow OPTIONS requests (CORS preflight) to pass through
-    if request.method.upper() == "OPTIONS":
-        return await call_next(request)
-
-    # Only intercept the registration endpoint for POST requests
-    if request.url.path == "/api/auth/register" and request.method.upper() == "POST":
-        try:
-            import json
-            from server_fastapi.routes import auth as auth_module
-
-            body_bytes = await request.body()
-            try:
-                data = json.loads(body_bytes.decode() if body_bytes else "{}")
-            except json.JSONDecodeError:
-                response = JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid JSON body"},
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            email = data.get("email")
-            password = data.get("password")
-            username = data.get("username") or (
-                email.split("@")[0][:40] if email else "user"
-            )
-            first_name = data.get("first_name")
-            last_name = data.get("last_name")
-
-            if not email or not password:
-                response = JSONResponse(
-                    status_code=422,
-                    content={"detail": "Email and password are required"},
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            # Normalize email: lowercase and strip whitespace (don't sanitize - it breaks emails)
-            email = email.strip().lower() if isinstance(email, str) else email
-
-            # Validate email format BEFORE processing
-            # Try to get validate_email_format from imported module or auth_module
-            email_validator = validate_email_format
-            if not email_validator:
-                email_validator = getattr(auth_module, "validate_email_format", None)
-            if email_validator and not email_validator(email):
-                response = JSONResponse(
-                    status_code=422,
-                    content={
-                        "detail": "Invalid email format. Please check your email address."
-                    },
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            # Validate password strength BEFORE processing
-            try:
-                from server_fastapi.middleware.validation import (
-                    validate_password_strength,
-                )
-
-                password_validation = validate_password_strength(password)
-                if not password_validation.get("valid", False):
-                    response = JSONResponse(
-                        status_code=422,
-                        content={
-                            "detail": password_validation.get(
-                                "message", "Password does not meet requirements"
-                            )
-                        },
-                    )
-                    return add_cors_headers(response, request, cors_origins)
-            except ImportError:
-                # Fallback: basic password length check if validation module not available
-                if not password or len(password) < 8:
-                    response = JSONResponse(
-                        status_code=422,
-                        content={
-                            "detail": "Password must be at least 8 characters long"
-                        },
-                    )
-                    return add_cors_headers(response, request, cors_origins)
-
-            # Use shared in‑memory storage from auth module
-            storage = getattr(auth_module, "storage", None)
-            auth_service = getattr(auth_module, "auth_service", None)
-            generate_token = getattr(auth_module, "generate_token", None)
-
-            if storage is None or auth_service is None or generate_token is None:
-                response = JSONResponse(
-                    status_code=500,
-                    content={"detail": "Auth services not available"},
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            # Check if user already exists in memory (use normalized email)
-            existing = storage.getUserByEmail(email)
-            if existing:
-                response = JSONResponse(
-                    status_code=400,
-                    content={
-                        "detail": f"A user with email {email} already exists. Please try logging in instead."
-                    },
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            # Use AuthService for password hashing + user creation
-            # Use normalized email (not sanitized - sanitization breaks emails)
-            try:
-                # Get database session for registration
-                from server_fastapi.database import get_db_context
-                
-                async with get_db_context() as session:
-                    # Build name from first_name/last_name if available, otherwise use username or email prefix
-                    name = None
-                    if first_name or last_name:
-                        name = f"{first_name or ''} {last_name or ''}".strip()
-                    if not name:
-                        name = username or email.split("@")[0]
-                    
-                    result = await auth_service.register(
-                        {
-                            "email": email,
-                            "password": password,
-                            "name": name,
-                            "username": username,  # Pass username explicitly if provided
-                            "first_name": first_name,  # Pass first_name if provided
-                            "last_name": last_name,  # Pass last_name if provided
-                        },
-                        session=session
-                    )
-            except ValueError as e:
-                # Handle duplicate email or validation errors from auth service
-                error_msg = str(e)
-                if (
-                    "already exists" in error_msg.lower()
-                    or "duplicate" in error_msg.lower()
-                ):
-                    response = JSONResponse(
-                        status_code=400,
-                        content={
-                            "detail": f"A user with email {email} already exists. Please try logging in instead."
-                        },
-                    )
-                else:
-                    response = JSONResponse(
-                        status_code=422,
-                        content={"detail": f"Registration failed: {error_msg}"},
-                    )
-                return add_cors_headers(response, request, cors_origins)
-            user = result.get("user")
-            if not user:
-                response = JSONResponse(
-                    status_code=500,
-                    content={"detail": "Registration failed - no user returned"},
-                )
-                return add_cors_headers(response, request, cors_origins)
-
-            # Generate access token using existing helper
-            token = generate_token(user)
-
-            response_payload = {
-                "access_token": token,
-                "refresh_token": None,
-                "user": {
-                    "id": user["id"],
-                    "email": user["email"],
-                    "username": username,
-                    "role": user.get("role", "user"),
-                    "is_active": user.get("is_active", True),
-                    "is_email_verified": user.get("emailVerified", False),
-                    "first_name": first_name,
-                    "last_name": last_name,
-                },
-                "message": "Registration completed via shim. Email verification may be limited.",
-            }
-
-            response = JSONResponse(status_code=200, content=response_payload)
-            return add_cors_headers(response, request, cors_origins)
-        except ValueError as e:
-            # Handle validation errors with clear messages
-            error_msg = str(e)
-            status_code = (
-                422
-                if "required" in error_msg.lower() or "invalid" in error_msg.lower()
-                else 400
-            )
-            response = JSONResponse(
-                status_code=status_code,
-                content={"detail": f"Registration error: {error_msg}"},
-            )
-            return add_cors_headers(response, request, cors_origins)
-        except Exception as e:
-            # Last‑resort error: return a safe message instead of hanging
-            logger.error(f"Registration shim error: {e}", exc_info=True)
-            response = JSONResponse(
-                status_code=500,
-                content={
-                    "detail": f"Registration failed: {str(e)}. Please try again or contact support if the problem persists."
-                },
-            )
-            return add_cors_headers(response, request, cors_origins)
-
-    # For all other routes, fall back to normal processing
-    return await call_next(request)
+# The registration shim middleware has been removed after fixing the root causes:
+# 1. RequestDeduplicationMiddleware now skips auth endpoints and has Redis timeouts
+# 2. RequestValidationMiddleware now skips auth endpoints and has body read timeouts
+# 
+# The normal registration route at server_fastapi.routes.auth.register is now used.
+# All middleware fixes are in place to prevent hangs.
 
 
 import importlib
@@ -1286,6 +1080,14 @@ try:
     from server_fastapi.routes.health_advanced import router as health_advanced_router
 
     app.include_router(health_advanced_router, prefix="", tags=["Health"])
+    
+    # Profiling routes (for middleware debugging)
+    try:
+        from .routes.profiling import router as profiling_router
+        app.include_router(profiling_router)
+        logger.info("Profiling routes registered")
+    except Exception as e:
+        logger.debug(f"Profiling routes not available: {e}")
     logger.info("Consolidated health check routes loaded")
 except Exception as e:
     logger.warning(f"Health check routes not loaded: {e}")

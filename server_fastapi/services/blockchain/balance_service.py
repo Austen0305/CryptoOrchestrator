@@ -7,13 +7,24 @@ import logging
 from typing import Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime, timedelta
-from web3 import AsyncWeb3
-from web3.exceptions import Web3Exception
+
+# Defensive imports to prevent route loading failures if web3 is not installed
+try:
+    from web3 import AsyncWeb3
+    from web3.exceptions import Web3Exception
+    WEB3_AVAILABLE = True
+except ImportError as e:
+    WEB3_AVAILABLE = False
+    AsyncWeb3 = None
+    Web3Exception = Exception
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Web3 not available: {e}. Balance service will be limited.")
 
 from .web3_service import get_web3_service
 from ...config.settings import get_settings
 
-logger = logging.getLogger(__name__)
+if 'logger' not in locals():
+    logger = logging.getLogger(__name__)
 
 # Try to get Redis cache service
 try:
@@ -66,7 +77,13 @@ class BalanceService:
 
     def __init__(self):
         self.settings = get_settings()
-        self.web3_service = get_web3_service()
+        if not WEB3_AVAILABLE:
+            logger.warning("Web3 not available - BalanceService will have limited functionality")
+        try:
+            self.web3_service = get_web3_service()
+        except Exception as e:
+            logger.warning(f"Failed to initialize web3 service: {e}")
+            self.web3_service = None
         self._balance_cache: Dict[str, Dict[str, Any]] = (
             {}
         )  # {f"{chain_id}:{address}:{token}": {balance, timestamp}}

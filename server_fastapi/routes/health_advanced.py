@@ -287,12 +287,8 @@ async def get_startup():
     """
     try:
         # Check if critical services are initialized
-        default_exchange = None
-        try:
-            from ..services.exchange_service import default_exchange
-        except ImportError:
-            # Exchange service deprecated - platform uses DEX-only trading
-            pass
+        # Exchange service deprecated - platform uses DEX-only trading
+        # No longer checking exchange service availability
 
         db_health = await check_database()
 
@@ -421,53 +417,15 @@ async def check_redis():
 
 async def check_exchange_apis():
     """Check exchange API connectivity (DEPRECATED - platform uses DEX-only)"""
-    start_time = time.time()
-    try:
-        default_exchange = None
-        try:
-            from ..services.exchange_service import default_exchange
-        except ImportError:
-            # Exchange service deprecated - platform uses DEX-only trading
-            response_time = (time.time() - start_time) * 1000
-            return {
-                "status": "degraded",
-                "message": "Exchange API service deprecated (platform uses DEX-only trading)",
-                "response_time_ms": round(response_time, 2),
-            }
-
-        if not default_exchange:
-            response_time = (time.time() - start_time) * 1000
-            return {
-                "status": "degraded",
-                "message": "Exchange API service not available (platform uses DEX-only trading)",
-                "response_time_ms": round(response_time, 2),
-            }
-
-        # Try to get a simple market price (non-blocking)
-        pairs = await default_exchange.get_all_trading_pairs()
-        response_time = (time.time() - start_time) * 1000
-
-        if pairs and len(pairs) > 0:
-            return {
-                "status": "healthy",
-                "message": f"Exchange API accessible ({len(pairs)} pairs available)",
-                "response_time_ms": round(response_time, 2),
-                "details": {"available_pairs": len(pairs)},
-            }
-        else:
-            return {
-                "status": "degraded",
-                "message": "Exchange API accessible but no pairs returned",
-                "response_time_ms": round(response_time, 2),
-            }
-    except Exception as e:
-        response_time = (time.time() - start_time) * 1000
-        logger.warning(f"Exchange API health check failed: {e}")
-        return {
-            "status": "degraded",
-            "message": f"Exchange API unavailable: {str(e)}",
-            "response_time_ms": round(response_time, 2),
-        }
+    # Exchange service has been removed - platform uses DEX-only trading
+    # This endpoint is kept for backward compatibility but always returns deprecated status
+    response_time = 0.1  # Minimal response time
+    return {
+        "status": "deprecated",
+        "message": "Exchange API service deprecated (platform uses DEX-only trading via DEX aggregators)",
+        "response_time_ms": round(response_time, 2),
+        "note": "Use DEX aggregator health checks instead (0x, OKX, Rubic)",
+    }
 
 
 async def check_trading_safety():

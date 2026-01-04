@@ -3,6 +3,7 @@ Enhanced Request/Response Validation Middleware
 Provides comprehensive validation, sanitization, and transformation
 """
 
+import asyncio
 import logging
 import json
 from typing import Dict, Any, Optional, List
@@ -150,15 +151,23 @@ class EnhancedRequestValidationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with validation"""
-        # Skip validation for certain paths
+        # Skip validation for certain paths (including auth to prevent hangs)
         skip_paths = ["/health", "/metrics", "/docs", "/openapi.json", "/redoc"]
-        if request.url.path in skip_paths:
+        if request.url.path in skip_paths or request.url.path.startswith("/api/auth"):
             return await call_next(request)
 
         # Only validate POST/PUT/PATCH requests
         if request.method in ["POST", "PUT", "PATCH"]:
-            # Read body
-            body = await request.body()
+            # Read body with timeout to prevent hangs
+            try:
+                body = await asyncio.wait_for(
+                    request.body(),
+                    timeout=2.0  # 2 second timeout for body reading
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"Request body read timeout for {request.url.path}")
+                # Continue without validation if body read times out
+                return await call_next(request)
 
             if body:
                 try:

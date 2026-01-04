@@ -41,7 +41,7 @@ class FrontendCrashReport(BaseModel):
     context: Optional[Dict[str, Any]] = Field(None, description="Additional context")
 
 
-@router.post("/api/crash-reports/electron")
+@router.post("/crash-reports/electron")
 async def report_electron_crash(
     report: ElectronCrashReport,
     # No auth required for crash reports (service token optional)
@@ -101,7 +101,7 @@ async def report_electron_crash(
         raise HTTPException(status_code=500, detail="Failed to process crash report")
 
 
-@router.post("/api/crash-reports/frontend")
+@router.post("/crash-reports/frontend")
 async def report_frontend_crash(
     report: FrontendCrashReport,
     # No auth required for crash reports (service token optional)
@@ -156,7 +156,7 @@ async def report_frontend_crash(
         raise HTTPException(status_code=500, detail="Failed to process crash report")
 
 
-@router.get("/api/crash-reports/stats")
+@router.get("/crash-reports/stats")
 async def get_crash_report_stats(
     current_user: Annotated[dict, Depends(require_permission("admin:read"))],
 ):

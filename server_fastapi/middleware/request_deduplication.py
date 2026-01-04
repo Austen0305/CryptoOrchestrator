@@ -3,11 +3,13 @@ Request Deduplication Middleware
 Prevents duplicate requests using idempotency keys
 """
 
+import asyncio
+import asyncio
 import hashlib
 import json
 import logging
 import time
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Any
 from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -80,11 +82,17 @@ class RequestDeduplicationMiddleware(BaseHTTPMiddleware):
         """Get cached response"""
         if self.redis_available:
             try:
-                cached = await self.redis.get(key)
+                # Add timeout to prevent hangs if Redis is slow/unavailable
+                cached = await asyncio.wait_for(
+                    self.redis.get(key),
+                    timeout=0.5  # 500ms timeout
+                )
                 if cached:
                     data = json.loads(cached)
                     self.stats["cache_hits"] += 1
                     return data["body"].encode(), data["headers"]
+            except asyncio.TimeoutError:
+                logger.debug("Redis get timeout, falling back to memory cache")
             except Exception as e:
                 logger.debug(f"Redis get error: {e}")
         
@@ -108,8 +116,14 @@ class RequestDeduplicationMiddleware(BaseHTTPMiddleware):
         
         if self.redis_available:
             try:
-                await self.redis.setex(key, ttl, json.dumps(data))
+                # Add timeout to prevent hangs if Redis is slow/unavailable
+                await asyncio.wait_for(
+                    self.redis.setex(key, ttl, json.dumps(data)),
+                    timeout=0.5  # 500ms timeout
+                )
                 return
+            except asyncio.TimeoutError:
+                logger.debug("Redis set timeout, using memory cache")
             except Exception as e:
                 logger.debug(f"Redis set error: {e}")
         
@@ -127,6 +141,10 @@ class RequestDeduplicationMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with deduplication"""
+        # Skip deduplication for auth endpoints (may cause hangs, auth should not be deduplicated)
+        if request.url.path.startswith("/api/auth"):
+            return await call_next(request)
+        
         # Only deduplicate POST/PUT/PATCH/DELETE
         if request.method not in ["POST", "PUT", "PATCH", "DELETE"]:
             return await call_next(request)

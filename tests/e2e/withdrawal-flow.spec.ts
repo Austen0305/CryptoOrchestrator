@@ -20,7 +20,7 @@ test.describe('Withdrawal Flow', () => {
     );
     
     if (!authenticated) {
-      test.skip();
+      throw new Error('Authentication required for withdrawal tests. Auth helper may need adjustment.');
     }
   });
   

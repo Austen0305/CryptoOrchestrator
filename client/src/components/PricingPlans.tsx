@@ -28,10 +28,10 @@ export function PricingPlans() {
     }
 
     setSelectedTier(tier);
-    // In production, redirect to Stripe checkout or open payment modal
+    // All plans are free - activate immediately
     toast({
-      title: "Subscription",
-      description: `Redirecting to checkout for ${tier} plan...`,
+      title: "Activating Plan",
+      description: `Activating ${tier} plan...`,
     });
   };
 
@@ -147,7 +147,7 @@ export function PricingPlans() {
                     onClick={() => handleSubscribe(tier)}
                     disabled={selectedTier === tier}
                   >
-                    {plan.amount === 0 ? "Get Started" : isEnterprise ? "Contact Sales" : "Subscribe"}
+                    {plan.amount === 0 ? "Get Started Free" : isEnterprise ? "Contact Sales" : "Activate Free"}
                   </Button>
                 </div>
               </CardContent>
