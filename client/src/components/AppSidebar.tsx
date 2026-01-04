@@ -292,7 +292,7 @@ export function AppSidebar() {
       <div className="p-4 border-t border-sidebar-border text-xs text-muted-foreground bg-sidebar-accent/30">
         <div className="flex items-center gap-2 mb-1">
           <span className="status-indicator w-2 h-2 rounded-full bg-green-500" />
-          <span className="font-medium">Connected to Kraken</span>
+          <span className="font-medium">Blockchain Trading Active</span>
         </div>
         <div className="text-[10px] opacity-70">
           v{import.meta.env?.VITE_APP_VERSION || "1.0.0"}

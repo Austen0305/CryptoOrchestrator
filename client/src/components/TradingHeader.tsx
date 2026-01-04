@@ -65,7 +65,7 @@ export function TradingHeader({ balance, connected }: TradingHeaderProps) {
             letterSpacing: '-0.02em'
           }}
         >
-          CryptoML
+          CryptoOrchestrator
         </h1>
         <Badge 
           variant={connected ? "default" : "secondary"} 

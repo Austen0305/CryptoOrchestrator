@@ -73,7 +73,7 @@ describe("TradingHeader", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText("CryptoML")).toBeInTheDocument();
+    expect(screen.getByText("CryptoOrchestrator")).toBeInTheDocument();
     expect(screen.getByTestId("badge-connection")).toBeInTheDocument();
   });
 
