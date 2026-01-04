@@ -180,6 +180,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             )
 
         # Compress based on encoding
+        # Ensure we have encoding and body before proceeding
+        if not encoding or not body:
+            logger.debug(f"Missing encoding or body, returning uncompressed response")
+            return Response(
+                content=body if body else b"",
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                media_type=response.headers.get("Content-Type", "application/json"),
+            )
+        
         logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
         
         if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
