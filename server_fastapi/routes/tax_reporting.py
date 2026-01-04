@@ -748,11 +748,11 @@ async def get_accounting_connections(
 @router.post("/accounting/export/{system}")
 async def export_to_accounting_system(
     system: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     tax_year: int = Query(..., description="Tax year"),
     start_date: Optional[datetime] = Query(None, description="Start date"),
     end_date: Optional[datetime] = Query(None, description="End date"),
-    current_user: Annotated[dict, Depends(get_current_user)],
-    db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     """Export tax data to accounting system via API"""
     try:
