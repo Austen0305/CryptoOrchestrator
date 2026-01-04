@@ -362,9 +362,9 @@ async def verify_trader_performance(
 
 @router.post("/traders/verify-all")
 async def verify_all_traders(
-    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
     current_user: Annotated[dict, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    period_days: int = Query(90, ge=1, le=365, description="Period in days"),
 ):
     """Verify all signal providers (admin only)"""
     try:
@@ -380,9 +380,9 @@ async def verify_all_traders(
 
 @router.get("/traders/flagged")
 async def get_flagged_traders(
-    threshold_days: int = Query(30, ge=1, le=365, description="Days since last verification"),
     current_user: Annotated[dict, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    threshold_days: int = Query(30, ge=1, le=365, description="Days since last verification"),
 ):
     """Get list of flagged/suspicious signal providers (admin only)"""
     try:
