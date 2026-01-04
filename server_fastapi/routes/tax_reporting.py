@@ -317,8 +317,8 @@ async def get_supported_jurisdictions(
 @router.get("/jurisdictions/{jurisdiction_code}/tax-year")
 async def get_tax_year(
     jurisdiction_code: str,
-    date: datetime = Query(..., description="Date to calculate tax year for"),
     current_user: Annotated[dict, Depends(get_current_user)],
+    date: datetime = Query(..., description="Date to calculate tax year for"),
 ) -> Dict[str, Any]:
     """
     Calculate tax year for a given date and jurisdiction
