@@ -111,6 +111,17 @@ class CompressionMiddleware(BaseHTTPMiddleware):
         response = None
         
         try:
+            # Skip compression if behind Cloudflare (Cloudflare handles compression)
+            # Check for Cloudflare headers (CF-Ray, CF-Connecting-IP, etc.)
+            cloudflare_headers = ["cf-ray", "cf-connecting-ip", "cf-visitor"]
+            is_behind_cloudflare = any(
+                header in request.headers for header in cloudflare_headers
+            )
+            
+            if is_behind_cloudflare:
+                logger.debug(f"Skipping compression (behind Cloudflare) for {request.url.path}")
+                return await call_next(request)
+            
             logger.info(f"Compression middleware called for {request.url.path}")
             response: Response = await call_next(request)
             logger.info(f"Got response for {request.url.path}, status={response.status_code}")
