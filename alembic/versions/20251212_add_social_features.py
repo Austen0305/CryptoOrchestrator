@@ -173,7 +173,7 @@ def upgrade() -> None:
     # Create user_achievements table (only if it doesn't exist)
     if 'user_achievements' not in existing_tables:
         op.create_table(
-            'user_achievements',
+        'user_achievements',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('user_id', sa.Integer(), nullable=False),
         sa.Column('achievement_id', sa.Integer(), nullable=False),
@@ -192,8 +192,9 @@ def upgrade() -> None:
         op.create_index('idx_user_achievements_user', 'user_achievements', ['user_id', 'is_completed', 'completed_at'], unique=False)
         op.create_index('idx_user_achievements_unique', 'user_achievements', ['user_id', 'achievement_id'], unique=True)
 
-    # Create community_challenges table
-    op.create_table(
+    # Create community_challenges table (only if it doesn't exist)
+    if 'community_challenges' not in existing_tables:
+        op.create_table(
         'community_challenges',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('created_by_user_id', sa.Integer(), nullable=True),
