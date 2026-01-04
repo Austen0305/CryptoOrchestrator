@@ -265,9 +265,16 @@ def setup_trusted_hosts(app: FastAPI) -> None:
     is_testing = os.getenv("TESTING", "false").lower() == "true"
     
     if is_production and not is_testing:
+        # Allow localhost, IP addresses, and Cloudflare Tunnel domains
+        allowed_hosts = [
+            "localhost",
+            "127.0.0.1",
+            "*.trycloudflare.com",  # Cloudflare Tunnel quick tunnels
+            "*.cloudflare.com",  # Cloudflare Tunnel named tunnels
+        ]
         app.add_middleware(
             TrustedHostMiddleware,
-            allowed_hosts=["localhost", "127.0.0.1"]
+            allowed_hosts=allowed_hosts
         )
         logger.info("Trusted host middleware enabled")
 
