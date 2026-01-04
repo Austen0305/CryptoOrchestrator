@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,36 +16,62 @@ export default function Register() {
   const { register, isLoading, error } = useAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
+    fullName: "",
     email: "",
     username: "",
     password: "",
     confirmPassword: "",
-    firstName: "",
-    lastName: "",
     acceptTerms: false,
   });
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Split full name into first and last name intelligently
+  const splitFullName = (fullName: string) => {
+    const trimmed = fullName.trim();
+    if (!trimmed) return { firstName: "", lastName: "" };
+    
+    const parts = trimmed.split(/\s+/).filter(part => part.length > 0);
+    if (parts.length === 0) return { firstName: "", lastName: "" };
+    if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+    
+    // First word is first name, rest is last name
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(" "),
+    };
+  };
+
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    // Improved email validation to match backend
+    // Full name validation - allow spaces
+    if (!formData.fullName || formData.fullName.trim().length < 2) {
+      errors.fullName = "Please enter your full name (at least 2 characters)";
+    } else if (formData.fullName.trim().length > 100) {
+      errors.fullName = "Name is too long (maximum 100 characters)";
+    }
+
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!formData.email || !emailRegex.test(formData.email)) {
       errors.email = "Please enter a valid email address";
     }
 
+    // Username validation
     if (!formData.username || formData.username.length < 3) {
       errors.username = "Username must be at least 3 characters";
+    } else if (formData.username.length > 30) {
+      errors.username = "Username is too long (maximum 30 characters)";
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      errors.username = "Username can only contain letters, numbers, underscores, and hyphens";
     }
 
-    // Match backend requirement: minimum 12 characters
+    // Password validation - minimum 12 characters
     if (!formData.password || formData.password.length < 12) {
       errors.password = "Password must be at least 12 characters long";
     } else {
-      // Additional password strength checks to match backend
       const hasUpperCase = /[A-Z]/.test(formData.password);
       const hasLowerCase = /[a-z]/.test(formData.password);
       const hasNumber = /[0-9]/.test(formData.password);
@@ -59,10 +85,12 @@ export default function Register() {
       }
     }
 
+    // Confirm password
     if (formData.password !== formData.confirmPassword) {
       errors.confirmPassword = "Passwords do not match";
     }
 
+    // Terms acceptance
     if (!formData.acceptTerms) {
       errors.acceptTerms = "You must accept the terms and conditions";
     }
@@ -78,21 +106,22 @@ export default function Register() {
       return;
     }
 
+    const { firstName, lastName } = splitFullName(formData.fullName);
+
     const success = await register(
       formData.email,
       formData.username,
       formData.password,
-      formData.firstName,
-      formData.lastName
+      firstName,
+      lastName
     );
 
     if (success) {
       toast({
-        title: "Account created!",
+        title: "Account created successfully!",
         description: "Welcome to CryptoOrchestrator. Redirecting to dashboard...",
         variant: "default",
       });
-      // Small delay to show success message before redirect
       setTimeout(() => {
         setLocation("/dashboard");
       }, 1000);
@@ -111,10 +140,17 @@ export default function Register() {
       });
     }
     
-    // Re-validate the field in real-time, but only set errors if validation actually fails
+    // Real-time validation
     if (typeof value === 'string') {
       const errors: Record<string, string> = {};
-      if (field === 'email') {
+      
+      if (field === 'fullName') {
+        if (value && value.trim().length < 2) {
+          errors.fullName = "Please enter your full name (at least 2 characters)";
+        } else if (value && value.trim().length > 100) {
+          errors.fullName = "Name is too long (maximum 100 characters)";
+        }
+      } else if (field === 'email') {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (value && !emailRegex.test(value)) {
           errors.email = "Please enter a valid email address";
@@ -122,6 +158,10 @@ export default function Register() {
       } else if (field === 'username') {
         if (value && value.length < 3) {
           errors.username = "Username must be at least 3 characters";
+        } else if (value && value.length > 30) {
+          errors.username = "Username is too long (maximum 30 characters)";
+        } else if (value && !/^[a-zA-Z0-9_-]+$/.test(value)) {
+          errors.username = "Username can only contain letters, numbers, underscores, and hyphens";
         }
       } else if (field === 'password') {
         if (value && value.length < 12) {
@@ -139,18 +179,16 @@ export default function Register() {
           }
         }
       } else if (field === 'confirmPassword') {
-        // Check if passwords match
         if (value && formData.password && value !== formData.password) {
           errors.confirmPassword = "Passwords do not match";
         }
       }
       
-      // Also re-validate confirmPassword when password changes
+      // Re-validate confirmPassword when password changes
       if (field === 'password' && formData.confirmPassword) {
         if (formData.confirmPassword !== value) {
           errors.confirmPassword = "Passwords do not match";
         } else {
-          // Clear confirmPassword error if passwords now match
           setValidationErrors((prev) => {
             const newErrors = { ...prev };
             delete newErrors.confirmPassword;
@@ -159,7 +197,7 @@ export default function Register() {
         }
       }
       
-      // Update validation errors - only set if there's an error, clear if field is now valid
+      // Update validation errors
       setValidationErrors((prev) => {
         const newErrors = { ...prev };
         if (errors[field]) {
@@ -167,14 +205,12 @@ export default function Register() {
         } else if (newErrors[field]) {
           delete newErrors[field];
         }
-        // Also handle confirmPassword error from password change
         if (errors.confirmPassword) {
           newErrors.confirmPassword = errors.confirmPassword;
         }
         return newErrors;
       });
     } else if (field === 'acceptTerms') {
-      // Clear acceptTerms error if checkbox is checked
       if (value && validationErrors.acceptTerms) {
         setValidationErrors((prev) => {
           const newErrors = { ...prev };
@@ -185,88 +221,66 @@ export default function Register() {
     }
   };
 
+  const isFormValid = () => {
+    if (isLoading) return false;
+    if (!formData.fullName.trim() || !formData.email || !formData.username || !formData.password || !formData.acceptTerms) {
+      return false;
+    }
+    if (Object.keys(validationErrors).length > 0) {
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      return false;
+    }
+    return true;
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6">
-      <Card className="w-full max-w-md animate-fade-in-up">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>
+      <Card className="w-full max-w-md border-card-border shadow-xl animate-fade-in-up">
+        <CardHeader className="space-y-2 text-center">
+          <div className="flex justify-center mb-2">
+            <div className="p-3 rounded-full bg-primary/10">
+              <UserPlus className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+            Create an account
+          </CardTitle>
+          <CardDescription className="text-sm md:text-base">
             Start your crypto trading journey with CryptoOrchestrator
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="animate-fade-in">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+            
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="fullName">Full Name</Label>
               <Input
-                id="name"
-                name="name"
+                id="fullName"
+                name="fullName"
                 type="text"
                 placeholder="John Doe"
-                value={`${formData.firstName} ${formData.lastName}`.trim() || ""}
-                onChange={(e) => {
-                  const parts = e.target.value.split(" ");
-                  handleChange("firstName", parts[0] || "");
-                  handleChange("lastName", parts.slice(1).join(" ") || "");
-                }}
+                value={formData.fullName}
+                onChange={(e) => handleChange("fullName", e.target.value)}
                 disabled={isLoading}
                 autoComplete="name"
+                className={validationErrors.fullName ? "border-destructive" : ""}
+                aria-invalid={!!validationErrors.fullName}
+                aria-describedby={validationErrors.fullName ? "fullName-error" : undefined}
               />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  placeholder="John"
-                  value={formData.firstName}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="given-name"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  placeholder="Doe"
-                  value={formData.lastName}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                  disabled={isLoading}
-                  autoComplete="family-name"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  placeholder="johndoe"
-                  value={formData.username}
-                  onChange={(e) => {
-                    handleChange("username", e.target.value);
-                    // Force React to recognize the change
-                    e.target.dispatchEvent(new Event('input', { bubbles: true }));
-                  }}
-                  required
-                  disabled={isLoading}
-                  autoComplete="username"
-                />
-              {validationErrors.username && (
-                <p className="text-sm text-destructive">{validationErrors.username}</p>
+              {validationErrors.fullName && (
+                <p id="fullName-error" className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.fullName}
+                </p>
               )}
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -279,11 +293,43 @@ export default function Register() {
                 required
                 disabled={isLoading}
                 autoComplete="email"
+                className={validationErrors.email ? "border-destructive" : ""}
+                aria-invalid={!!validationErrors.email}
+                aria-describedby={validationErrors.email ? "email-error" : undefined}
               />
               {validationErrors.email && (
-                <p className="text-sm text-destructive">{validationErrors.email}</p>
+                <p id="email-error" className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.email}
+                </p>
               )}
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                name="username"
+                type="text"
+                placeholder="johndoe"
+                value={formData.username}
+                onChange={(e) => handleChange("username", e.target.value.toLowerCase())}
+                required
+                disabled={isLoading}
+                autoComplete="username"
+                className={validationErrors.username ? "border-destructive" : ""}
+                aria-invalid={!!validationErrors.username}
+                aria-describedby={validationErrors.username ? "username-error" : undefined}
+              />
+              {validationErrors.username && (
+                <p id="username-error" className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.username}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Only letters, numbers, underscores, and hyphens allowed
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
@@ -297,7 +343,9 @@ export default function Register() {
                   required
                   disabled={isLoading}
                   autoComplete="new-password"
-                  className="pr-10"
+                  className={validationErrors.password ? "border-destructive pr-10" : "pr-10"}
+                  aria-invalid={!!validationErrors.password}
+                  aria-describedby={validationErrors.password ? "password-error" : undefined}
                 />
                 <button
                   type="button"
@@ -317,9 +365,15 @@ export default function Register() {
                 <PasswordStrengthIndicator password={formData.password} />
               )}
               {validationErrors.password && (
-                <p className="text-sm text-destructive">{validationErrors.password}</p>
+                <p id="password-error" className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.password}
+                </p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Must be at least 12 characters with uppercase, lowercase, numbers, and special characters
+              </p>
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
               <div className="relative">
@@ -333,7 +387,9 @@ export default function Register() {
                   required
                   disabled={isLoading}
                   autoComplete="new-password"
-                  className="pr-10"
+                  className={validationErrors.confirmPassword ? "border-destructive pr-10" : "pr-10"}
+                  aria-invalid={!!validationErrors.confirmPassword}
+                  aria-describedby={validationErrors.confirmPassword ? "confirmPassword-error" : undefined}
                 />
                 <button
                   type="button"
@@ -350,9 +406,12 @@ export default function Register() {
                 </button>
               </div>
               {validationErrors.confirmPassword && (
-                <p className="text-sm text-destructive">{validationErrors.confirmPassword}</p>
+                <p id="confirmPassword-error" className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.confirmPassword}
+                </p>
               )}
             </div>
+
             <div className="space-y-2">
               <div className="flex items-start space-x-2">
                 <input
@@ -362,9 +421,10 @@ export default function Register() {
                   aria-label="Accept terms and conditions"
                   checked={formData.acceptTerms}
                   onChange={(e) => handleChange("acceptTerms", e.target.checked)}
-                  className="h-4 w-4 mt-1 rounded border-gray-300"
+                  className="h-4 w-4 mt-1 rounded border-gray-300 text-primary focus:ring-primary"
+                  disabled={isLoading}
                 />
-                <Label htmlFor="acceptTerms" className="text-sm font-normal leading-tight">
+                <Label htmlFor="acceptTerms" className="text-sm font-normal leading-tight cursor-pointer">
                   I agree to the{" "}
                   <Link href="/terms" className="text-primary hover:underline">
                     Terms of Service
@@ -376,7 +436,9 @@ export default function Register() {
                 </Label>
               </div>
               {validationErrors.acceptTerms && (
-                <p className="text-sm text-destructive">{validationErrors.acceptTerms}</p>
+                <p className="text-sm text-destructive animate-fade-in">
+                  {validationErrors.acceptTerms}
+                </p>
               )}
             </div>
           </CardContent>
@@ -384,46 +446,7 @@ export default function Register() {
             <Button
               type="submit"
               className="w-full"
-              disabled={(() => {
-                // Check basic required fields
-                if (isLoading || !formData.email || !formData.password || !formData.username || !formData.acceptTerms) {
-                  return true;
-                }
-                
-                // Check password length
-                if (formData.password.length < 12) {
-                  return true;
-                }
-                
-                // Check username length
-                if (formData.username.length < 3) {
-                  return true;
-                }
-                
-                // Check password strength
-                const hasUpperCase = /[A-Z]/.test(formData.password);
-                const hasLowerCase = /[a-z]/.test(formData.password);
-                const hasNumber = /[0-9]/.test(formData.password);
-                const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
-                const hasNoSpaces = !/\s/.test(formData.password);
-                if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial || !hasNoSpaces) {
-                  return true;
-                }
-                
-                // Check passwords match
-                if (formData.password !== formData.confirmPassword) {
-                  return true;
-                }
-                
-                // Check email format
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if (!emailRegex.test(formData.email)) {
-                  return true;
-                }
-                
-                // All checks passed - button should be enabled
-                return false;
-              })()}
+              disabled={!isFormValid()}
             >
               {isLoading ? (
                 <>
@@ -431,12 +454,15 @@ export default function Register() {
                   Creating account...
                 </>
               ) : (
-                "Create account"
+                <>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Create account
+                </>
               )}
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:underline">
+              <Link href="/login" className="text-primary hover:underline font-medium">
                 Sign in
               </Link>
             </div>
@@ -446,4 +472,3 @@ export default function Register() {
     </div>
   );
 }
-
