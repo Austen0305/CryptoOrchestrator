@@ -347,10 +347,10 @@ async def get_tax_year(
 @router.post("/jurisdictions/{jurisdiction_code}/calculate-tax")
 async def calculate_tax_liability(
     jurisdiction_code: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
     gain_loss: float = Query(..., description="Gain or loss amount"),
     is_long_term: bool = Query(..., description="Is long-term holding"),
     tax_year: Optional[int] = Query(None, description="Tax year"),
-    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """
     Calculate tax liability for a gain/loss in a specific jurisdiction
@@ -376,9 +376,9 @@ async def calculate_tax_liability(
 @router.get("/export/accounting/{system}")
 async def export_to_accounting_system(
     system: str,
+    current_user: Annotated[dict, Depends(get_current_user)],
     tax_year: int = Query(..., ge=2020, le=2100, description="Tax year"),
     format: str = Query("csv", description="Export format"),
-    current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """
     Export tax data to accounting system (QuickBooks, Xero, etc.)
@@ -438,8 +438,8 @@ async def export_to_accounting_system(
 async def export_tax_events_to_accounting(
     system: str,
     tax_events: List[Dict[str, Any]],
-    tax_year: int = Query(..., ge=2020, le=2100, description="Tax year"),
     current_user: Annotated[dict, Depends(get_current_user)],
+    tax_year: int = Query(..., ge=2020, le=2100, description="Tax year"),
 ):
     """
     Export specific tax events to accounting system
