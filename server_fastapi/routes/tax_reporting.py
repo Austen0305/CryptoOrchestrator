@@ -252,9 +252,9 @@ async def calculate_tax_event(
     sale_date: datetime,
     sale_price: float,
     quantity: float,
+    current_user: Annotated[dict, Depends(get_current_user)],
     method: str = Query("fifo", description="Cost basis method"),
     trade_id: Optional[int] = None,
-    current_user: Annotated[dict, Depends(get_current_user)],
 ) -> Dict[str, Any]:
     """
     Calculate tax for a sale event
