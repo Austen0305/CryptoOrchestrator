@@ -233,10 +233,17 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                 logger.error(f"Gzip compression failed: {e}", exc_info=True)
 
         # Return original response if compression wasn't applied
-        logger.warning(f"Returning uncompressed response for {request.url.path} (encoding={encoding}, body_size={len(body)})")
+        logger.debug(f"Returning uncompressed response for {request.url.path} (encoding={encoding}, body_size={len(body)})")
+        # Clean headers for uncompressed response too
+        new_headers = {}
+        for key, value in response.headers.items():
+            # Skip headers that Starlette manages automatically
+            if key.lower() not in ("content-length", "transfer-encoding"):
+                new_headers[key] = value
+        
         return Response(
             content=body,
             status_code=response.status_code,
-            headers=dict(response.headers),
-            media_type=response.headers.get("Content-Type"),
+            headers=new_headers,
+            media_type=response.headers.get("Content-Type") or "application/json",
         )
