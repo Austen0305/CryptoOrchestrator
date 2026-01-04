@@ -195,85 +195,85 @@ class CompressionMiddleware(BaseHTTPMiddleware):
             logger.info(f"Compression decision: encoding={encoding}, body_size={len(body)}, minimum_size={self.minimum_size}, BROTLI_AVAILABLE={BROTLI_AVAILABLE}")
             
             if encoding == "br" and BROTLI_AVAILABLE and len(body) >= self.minimum_size:
-            try:
-                logger.info(f"Attempting Brotli compression for {request.url.path}")
-                compressed = brotli.compress(body, quality=self.compress_level)
-                if len(compressed) < len(body):
-                    logger.info(f"Brotli compression successful: {len(body)} -> {len(compressed)} bytes ({len(compressed)/len(body)*100:.1f}%)")
-                    # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
-                    new_headers = {}
-                    for key, value in response.headers.items():
-                        # Skip headers that Starlette manages automatically
-                        if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
-                            new_headers[key] = value
-                    
-                    # Add compression headers
-                    new_headers["Content-Encoding"] = "br"
-                    new_headers["Vary"] = "Accept-Encoding"
-                    
-                    # Create new response with compressed body (2026 fix)
-                    return Response(
-                        content=compressed,
-                        status_code=response.status_code,
-                        headers=new_headers,
-                        media_type=response.headers.get("Content-Type") or "application/json",
-                    )
-                else:
-                    logger.warning(f"Brotli compression didn't reduce size: {len(body)} -> {len(compressed)} bytes")
-            except Exception as e:
-                logger.warning(f"Brotli compression failed: {e}", exc_info=True)
-                # Fall through to gzip
-        elif encoding == "br" and not BROTLI_AVAILABLE:
-            # Brotli requested but not available, fall back to gzip
-            logger.debug("Brotli not available, falling back to gzip")
-            encoding = "gzip"
+                try:
+                    logger.info(f"Attempting Brotli compression for {request.url.path}")
+                    compressed = brotli.compress(body, quality=self.compress_level)
+                    if len(compressed) < len(body):
+                        logger.info(f"Brotli compression successful: {len(body)} -> {len(compressed)} bytes ({len(compressed)/len(body)*100:.1f}%)")
+                        # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
+                        new_headers = {}
+                        for key, value in response.headers.items():
+                            # Skip headers that Starlette manages automatically
+                            if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
+                                new_headers[key] = value
+                        
+                        # Add compression headers
+                        new_headers["Content-Encoding"] = "br"
+                        new_headers["Vary"] = "Accept-Encoding"
+                        
+                        # Create new response with compressed body (2026 fix)
+                        return Response(
+                            content=compressed,
+                            status_code=response.status_code,
+                            headers=new_headers,
+                            media_type=response.headers.get("Content-Type") or "application/json",
+                        )
+                    else:
+                        logger.warning(f"Brotli compression didn't reduce size: {len(body)} -> {len(compressed)} bytes")
+                except Exception as e:
+                    logger.warning(f"Brotli compression failed: {e}", exc_info=True)
+                    # Fall through to gzip
+            elif encoding == "br" and not BROTLI_AVAILABLE:
+                # Brotli requested but not available, fall back to gzip
+                logger.debug("Brotli not available, falling back to gzip")
+                encoding = "gzip"
 
-        if encoding == "gzip" and len(body) >= self.minimum_size:
-            try:
-                logger.info(f"Attempting Gzip compression for {request.url.path} (size: {len(body)} bytes)")
-                compressed = gzip.compress(body, compresslevel=self.compress_level)
-                compressed_size = len(compressed)
-                original_size = len(body)
-                if compressed_size < original_size:
-                    ratio = compressed_size / original_size * 100
-                    logger.info(f"Gzip compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%)")
-                    # Create new response with compressed body (2026 fix)
-                    # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
-                    new_headers = {}
-                    for key, value in response.headers.items():
-                        # Skip headers that Starlette manages automatically
-                        if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
-                            new_headers[key] = value
-                    
-                    # Add compression headers
-                    new_headers["Content-Encoding"] = "gzip"
-                    new_headers["Vary"] = "Accept-Encoding"
-                    
-                    compressed_response = Response(
-                        content=compressed,
-                        status_code=response.status_code,
-                        headers=new_headers,
-                        media_type=response.headers.get("Content-Type") or "application/json",
-                    )
-                    logger.info(
-                        f"✅ Compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%), "
-                        f"Content-Encoding: gzip"
-                    )
-                    return compressed_response
-                else:
-                    logger.warning(f"Gzip compression didn't reduce size: {original_size} -> {compressed_size} bytes, returning original")
-            except Exception as e:
-                logger.error(f"Gzip compression failed: {e}", exc_info=True)
+            if encoding == "gzip" and len(body) >= self.minimum_size:
+                try:
+                    logger.info(f"Attempting Gzip compression for {request.url.path} (size: {len(body)} bytes)")
+                    compressed = gzip.compress(body, compresslevel=self.compress_level)
+                    compressed_size = len(compressed)
+                    original_size = len(body)
+                    if compressed_size < original_size:
+                        ratio = compressed_size / original_size * 100
+                        logger.info(f"Gzip compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%)")
+                        # Create new response with compressed body (2026 fix)
+                        # Build new headers - remove Content-Length and Transfer-Encoding (Starlette will set them)
+                        new_headers = {}
+                        for key, value in response.headers.items():
+                            # Skip headers that Starlette manages automatically
+                            if key.lower() not in ("content-length", "transfer-encoding", "content-encoding"):
+                                new_headers[key] = value
+                        
+                        # Add compression headers
+                        new_headers["Content-Encoding"] = "gzip"
+                        new_headers["Vary"] = "Accept-Encoding"
+                        
+                        compressed_response = Response(
+                            content=compressed,
+                            status_code=response.status_code,
+                            headers=new_headers,
+                            media_type=response.headers.get("Content-Type") or "application/json",
+                        )
+                        logger.info(
+                            f"✅ Compression successful: {original_size} -> {compressed_size} bytes ({ratio:.1f}%), "
+                            f"Content-Encoding: gzip"
+                        )
+                        return compressed_response
+                    else:
+                        logger.warning(f"Gzip compression didn't reduce size: {original_size} -> {compressed_size} bytes, returning original")
+                except Exception as e:
+                    logger.error(f"Gzip compression failed: {e}", exc_info=True)
 
-        # Return original response if compression wasn't applied
-        logger.debug(f"Returning uncompressed response for {request.url.path} (encoding={encoding}, body_size={len(body)})")
-        # Clean headers for uncompressed response too
-        new_headers = {}
-        for key, value in response.headers.items():
-            # Skip headers that Starlette manages automatically
-            if key.lower() not in ("content-length", "transfer-encoding"):
-                new_headers[key] = value
-        
+            # Return original response if compression wasn't applied
+            logger.debug(f"Returning uncompressed response for {request.url.path} (encoding={encoding}, body_size={len(body)})")
+            # Clean headers for uncompressed response too
+            new_headers = {}
+            for key, value in response.headers.items():
+                # Skip headers that Starlette manages automatically
+                if key.lower() not in ("content-length", "transfer-encoding"):
+                    new_headers[key] = value
+            
             return Response(
                 content=body,
                 status_code=response.status_code,
