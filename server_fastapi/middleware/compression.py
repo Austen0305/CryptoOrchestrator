@@ -107,15 +107,16 @@ class CompressionMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         try:
-            logger.debug(f"Compression middleware called for {request.url.path}")
+            logger.info(f"Compression middleware called for {request.url.path}")
             response: Response = await call_next(request)
-            logger.debug(f"Got response for {request.url.path}, status={response.status_code}")
+            logger.info(f"Got response for {request.url.path}, status={response.status_code}")
 
             # Get preferred encoding first (before reading body)
             encoding = self._get_encoding(request)
-            logger.debug(f"Encoding check for {request.url.path}: {encoding}")
+            accept_encoding = request.headers.get("Accept-Encoding", "not set")
+            logger.info(f"Encoding check for {request.url.path}: encoding={encoding}, Accept-Encoding={accept_encoding}")
             if not encoding:
-                logger.debug(f"Compression skipped: no Accept-Encoding header for {request.url.path}")
+                logger.info(f"Compression skipped: no Accept-Encoding header for {request.url.path}")
                 return response
 
             # Read response body
