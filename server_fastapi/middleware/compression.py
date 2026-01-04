@@ -226,7 +226,10 @@ class CompressionMiddleware(BaseHTTPMiddleware):
                         headers=new_headers,
                         media_type=response.headers.get("Content-Type") or "application/json",
                     )
-                    logger.info(f"Returning compressed response with Content-Encoding: gzip")
+                    logger.info(
+                        f"Returning compressed response with Content-Encoding: gzip, "
+                        f"headers={dict(compressed_response.headers)}"
+                    )
                     return compressed_response
                 else:
                     logger.warning(f"Gzip compression didn't reduce size: {original_size} -> {compressed_size} bytes, returning original")
