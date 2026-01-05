@@ -60,7 +60,8 @@ class HealthChecker:
         start_time = datetime.now()
 
         try:
-            result = await asyncio.wait_for(check_func(), timeout=5.0)
+            # Use longer timeout for health checks that make external API calls (e.g., DEX aggregators)
+            result = await asyncio.wait_for(check_func(), timeout=15.0)
             response_time = (datetime.now() - start_time).total_seconds() * 1000
 
             if isinstance(result, dict):
