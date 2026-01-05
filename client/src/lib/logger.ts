@@ -57,13 +57,22 @@ class Logger {
 
   private async sendToBackend(entry: LogEntry) {
     try {
-      await fetch("/api/logs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
-      });
+      // Only send logs in development, and handle errors silently
+      // The /api/logs endpoint may not support POST, so we catch all errors
+      if (this.isDevelopment) {
+        const response = await fetch("/api/logs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(entry),
+        });
+        // Silently ignore non-2xx responses (405, 404, etc.)
+        if (!response.ok) {
+          return; // Don't log errors for missing/unsupported endpoints
+        }
+      }
     } catch (e) {
-      console.error("Failed to send log to backend:", e);
+      // Silently fail - logging endpoint is optional
+      // Don't log errors to avoid console spam
     }
   }
 

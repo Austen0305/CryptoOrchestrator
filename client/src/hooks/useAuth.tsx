@@ -238,8 +238,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (err instanceof Error) {
         const message = err.message;
 
+        // Check for 503 Service Unavailable first (most common server issue)
+        if (
+          message.includes("HTTP 503") ||
+          message.includes("503") ||
+          message.includes("Service Unavailable") ||
+          message.includes("service unavailable")
+        ) {
+          errorMessage =
+            "Our servers are temporarily unavailable. Please try again in a few moments.";
+        }
+        // Check for network/connection errors
+        else if (
+          message.includes("Failed to fetch") ||
+          message.includes("NetworkError") ||
+          message.includes("Network request failed") ||
+          message.includes("fetch failed") ||
+          message.includes("ERR_NETWORK") ||
+          message.includes("ERR_INTERNET_DISCONNECTED")
+        ) {
+          errorMessage = "Unable to connect to our servers. Please check your internet connection and try again.";
+        }
         // Map common error messages to user-friendly versions
-        if (message.includes("HTTP 400") || message.includes("HTTP 422")) {
+        else if (message.includes("HTTP 400") || message.includes("HTTP 422")) {
           // Validation errors - try to extract user-friendly message
           const match = message.match(/HTTP \d+: (.+)/);
           if (match && match[1]) {
@@ -268,18 +289,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } else if (message.includes("HTTP 409")) {
           errorMessage = "An account with this email already exists. Please log in instead.";
-        } else if (message.includes("HTTP 500") || message.includes("HTTP 503")) {
+        } else if (message.includes("HTTP 500")) {
           errorMessage =
-            "Our servers are temporarily unavailable. Please try again in a few moments.";
+            "Our servers encountered an error. Please try again in a few moments.";
         } else if (message.includes("timeout") || message.includes("took too long")) {
           errorMessage =
             "The request took too long. Please check your internet connection and try again.";
-        } else if (
-          message.includes("Failed to fetch") ||
-          message.includes("NetworkError") ||
-          message.includes("Network request failed")
-        ) {
-          errorMessage = "Unable to connect to our servers. Please check your internet connection.";
         } else if (message.includes("Invalid response") || message.includes("missing")) {
           errorMessage = "Something went wrong during registration. Please try again.";
         } else {

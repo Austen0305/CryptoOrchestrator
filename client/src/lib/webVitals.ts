@@ -73,18 +73,14 @@ async function sendToAnalytics(metric: Metric) {
     });
 
     if (!response.ok) {
-      // Silently fail for 404 - endpoint may not be available until backend is restarted
-      // Don't log 404 errors to avoid console spam
-      if (response.status !== 404 && import.meta.env.DEV) {
-        console.debug('Failed to send web vitals:', response.statusText);
-      }
+      // Silently fail for all non-2xx responses - endpoint is optional
+      // Don't log errors to avoid console spam
+      return;
     }
   } catch (error) {
     // Silently fail - analytics endpoint is optional
-    // Only log in development mode
-    if (import.meta.env.DEV) {
-      console.debug('Web vitals analytics endpoint not available:', error);
-    }
+    // Don't log errors to avoid console spam
+    return;
   }
 
   // Log to logger in development
