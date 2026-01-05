@@ -320,6 +320,154 @@ class AggregatorRouter:
             logger.warning(f"0x quote error: {e}", exc_info=True)
             return None, None
 
+    async def _get_oneinch_quote(
+        self,
+        sell_token: str,
+        buy_token: str,
+        sell_amount: Optional[str],
+        buy_amount: Optional[str],
+        chain_id: int,
+        slippage_percentage: float,
+        taker_address: Optional[str],
+    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        """Get quote from 1inch with circuit breaker, retry policy, and timeout"""
+
+        # 1inch requires amount, so use sell_amount or skip if only buy_amount provided
+        amount = sell_amount
+        if not amount:
+            return None, None
+
+        async def _fetch_quote():
+            # Check rate limit before making request
+            if RATE_LIMITER_AVAILABLE and exchange_rate_limiter:
+                allowed = await exchange_rate_limiter.check_rate_limit("1inch")
+                if not allowed:
+                    logger.warning("1inch aggregator rate limit exceeded, skipping quote")
+                    return None
+
+            # Add timeout to individual aggregator calls
+            quote = await asyncio.wait_for(
+                self.oneinch.get_quote(
+                    from_token=sell_token,
+                    to_token=buy_token,
+                    amount=amount,
+                    chain_id=chain_id,
+                    slippage_tolerance=slippage_percentage,
+                    user_wallet_address=taker_address,
+                ),
+                timeout=8.0,  # 8 second timeout per aggregator
+            )
+            return quote
+
+        try:
+            # Wrap with circuit breaker if available
+            if CIRCUIT_BREAKER_AVAILABLE and "1inch" in self.circuit_breakers:
+                breaker = self.circuit_breakers["1inch"]
+
+                async def protected_call():
+                    # Wrap with retry policy if available
+                    if self.retry_policy:
+                        return await self.retry_policy.execute(_fetch_quote)
+                    else:
+                        return await _fetch_quote()
+
+                try:
+                    quote = await breaker.call(protected_call)
+                    return ("1inch", quote) if quote else (None, None)
+                except CircuitBreakerOpenError:
+                    logger.warning(
+                        "1inch aggregator circuit breaker is open, skipping quote"
+                    )
+                    return None, None
+            else:
+                # No circuit breaker, use retry policy directly if available
+                if self.retry_policy:
+                    quote = await self.retry_policy.execute(_fetch_quote)
+                else:
+                    quote = await _fetch_quote()
+                return ("1inch", quote) if quote else (None, None)
+
+        except asyncio.TimeoutError:
+            logger.warning(f"1inch quote request timed out")
+            return None, None
+        except Exception as e:
+            logger.warning(f"1inch quote error: {e}", exc_info=True)
+            return None, None
+
+    async def _get_paraswap_quote(
+        self,
+        sell_token: str,
+        buy_token: str,
+        sell_amount: Optional[str],
+        buy_amount: Optional[str],
+        chain_id: int,
+        slippage_percentage: float,
+        taker_address: Optional[str],
+    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        """Get quote from Paraswap with circuit breaker, retry policy, and timeout"""
+
+        # Paraswap requires amount, so use sell_amount or skip if only buy_amount provided
+        amount = sell_amount
+        if not amount:
+            return None, None
+
+        async def _fetch_quote():
+            # Check rate limit before making request
+            if RATE_LIMITER_AVAILABLE and exchange_rate_limiter:
+                allowed = await exchange_rate_limiter.check_rate_limit("paraswap")
+                if not allowed:
+                    logger.warning("Paraswap aggregator rate limit exceeded, skipping quote")
+                    return None
+
+            # Add timeout to individual aggregator calls
+            quote = await asyncio.wait_for(
+                self.paraswap.get_quote(
+                    from_token=sell_token,
+                    to_token=buy_token,
+                    amount=amount,
+                    chain_id=chain_id,
+                    slippage_tolerance=slippage_percentage,
+                    user_wallet_address=taker_address,
+                ),
+                timeout=8.0,  # 8 second timeout per aggregator
+            )
+            return quote
+
+        try:
+            # Wrap with circuit breaker if available
+            if CIRCUIT_BREAKER_AVAILABLE and "paraswap" in self.circuit_breakers:
+                breaker = self.circuit_breakers["paraswap"]
+
+                async def protected_call():
+                    # Wrap with retry policy if available
+                    if self.retry_policy:
+                        return await self.retry_policy.execute(_fetch_quote)
+                    else:
+                        return await _fetch_quote()
+
+                try:
+                    quote = await breaker.call(protected_call)
+                    return ("paraswap", quote) if quote else (None, None)
+                except CircuitBreakerOpenError:
+                    logger.warning(
+                        "Paraswap aggregator circuit breaker is open, skipping quote"
+                    )
+                    return None, None
+            else:
+                # No circuit breaker, use retry policy directly if available
+                if self.retry_policy:
+                    quote = await self.retry_policy.execute(_fetch_quote)
+                else:
+                    quote = await _fetch_quote()
+                return ("paraswap", quote) if quote else (None, None)
+
+        except asyncio.TimeoutError:
+            logger.warning(f"Paraswap quote request timed out")
+            return None, None
+        except Exception as e:
+            logger.warning(f"Paraswap quote error: {e}", exc_info=True)
+            return None, None
+
     async def _get_okx_quote(
         self,
         sell_token: str,

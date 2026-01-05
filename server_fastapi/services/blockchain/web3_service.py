@@ -199,7 +199,7 @@ class Web3Service:
                     limits=httpx.Limits(
                         max_keepalive_connections=20, max_connections=100
                     ),
-                    http2=True,  # HTTP/2 for better performance
+                    http2=False,  # Disable HTTP/2 to avoid h2 package dependency
                 )
 
             # Use shared HTTP client for connection pooling

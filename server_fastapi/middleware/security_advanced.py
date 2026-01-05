@@ -221,8 +221,10 @@ class AdvancedSecurityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with advanced security"""
         # Skip security checks for health endpoints and internal requests
-        health_paths = ["/health", "/healthz", "/api/health", "/metrics", "/docs", "/openapi.json", "/redoc"]
-        if request.url.path in health_paths:
+        # Normalize path by removing trailing slash for comparison
+        normalized_path = request.url.path.rstrip("/") or "/"
+        health_paths = ["/health", "/healthz", "/api/health", "/api/status", "/metrics", "/docs", "/openapi.json", "/redoc"]
+        if normalized_path in health_paths:
             return await call_next(request)
         
         # Get client IP
