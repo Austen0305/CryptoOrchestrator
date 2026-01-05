@@ -290,7 +290,7 @@ async def warmup_active_bot_statuses():
 
         async with get_db_context() as db:
             # Get all active bots
-            stmt = select(Bot).where(Bot.is_active == True).limit(100)
+            stmt = select(Bot).where(Bot.active == True).limit(100)
             result = await db.execute(stmt)
             active_bots = result.scalars().all()
 
