@@ -254,3 +254,28 @@ async def execute_trade(
 - **Redis**: Check availability before using cache features
 - **Request Timeout**: Respect `REQUEST_TIMEOUT` environment variable
 - **Response Models**: Always define `response_model` in route decorators
+
+## MCP Tools for Backend
+
+**⚠️ AUTOMATIC USAGE REQUIRED** - Use these MCPs automatically when needed:
+
+- **`sequential-thinking` MCP**: ⚠️ **MANDATORY - Use for EVERY message** - Start every interaction by breaking down the problem
+- **`filesystem` MCP**: Automatically use for ALL file operations (reading code, writing files)
+- **`git` MCP**: Automatically use for ALL Git operations (checking history, committing)
+- **`context7` MCP**: Automatically use when you need FastAPI/Python library documentation
+- **`stackoverflow` MCP**: Automatically use when researching Python/FastAPI solutions
+- **`brave-search` MCP**: Automatically use for current best practices and API docs
+- **`memory` MCP**: Automatically store architectural decisions and patterns
+
+**Workflow for Every Backend Task:**
+1. **MANDATORY**: Start with `sequential-thinking` MCP to break down the problem
+2. Use `sequential-thinking` MCP to plan the approach
+3. Execute using appropriate MCPs (filesystem, git, context7, etc.)
+4. Use `sequential-thinking` MCP to verify the solution
+
+**Extension Usage:**
+- **Error Lens**: Automatically check and fix Python errors inline
+- **Pylance**: Automatically verify type checking (strict mode enabled)
+- **Black Formatter**: Automatically format code (88 char line length)
+- **Python Test Explorer**: Automatically run tests when needed
+- **SonarLint/Snyk**: Automatically review security and quality issues

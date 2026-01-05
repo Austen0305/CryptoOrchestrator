@@ -111,4 +111,4 @@ All documentation is kept up-to-date with the codebase. For documentation mainte
 
 ---
 
-**Last Updated**: December 12, 2025
+**Last Updated**: January 4, 2026

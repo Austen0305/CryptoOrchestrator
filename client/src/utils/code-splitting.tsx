@@ -8,7 +8,7 @@ import React, { Suspense } from 'react';
 /**
  * Lazy load component with error boundary
  */
-export function lazyLoadComponent<T extends React.ComponentType<any>>(
+export function lazyLoadComponent<T extends React.ComponentType<unknown>>(
   importFn: () => Promise<{ default: T }>
 ): React.LazyExoticComponent<T> {
   return React.lazy(async () => {
@@ -40,7 +40,7 @@ export function preloadComponent(importFn: () => Promise<unknown>): void {
 /**
  * Route-based code splitting helper
  */
-export function createLazyRoute<T extends React.ComponentType<any>>(
+export function createLazyRoute<T extends React.ComponentType<unknown>>(
   importFn: () => Promise<{ default: T }>,
   fallback?: React.ReactNode
 ) {
@@ -48,7 +48,7 @@ export function createLazyRoute<T extends React.ComponentType<any>>(
   
   return (props: React.ComponentPropsWithoutRef<T>) => (
     <Suspense fallback={fallback || <div>Loading...</div>}>
-      <LazyComponent {...(props as any)} />
+      <LazyComponent {...(props as React.ComponentProps<T>)} />
     </Suspense>
   );
 }

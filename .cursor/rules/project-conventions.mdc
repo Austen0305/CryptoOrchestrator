@@ -6,6 +6,57 @@ alwaysApply: true
 
 # CryptoOrchestrator Project Conventions
 
+## ⚠️ CRITICAL: Automatic MCP & Extension Usage
+
+**ALL AGENTS AND AI ASSISTANTS MUST AUTOMATICALLY USE MCPs AND EXTENSIONS WHEN NEEDED.**
+
+### 🧠 MANDATORY: Sequential Thinking for Every Message
+
+**⚠️ CRITICAL REQUIREMENT: Use Sequential Thinking MCP for EVERY user message.**
+
+**ALL agents and AI assistants MUST:**
+1. ✅ **Start EVERY message** by automatically calling `sequential-thinking` MCP
+2. ✅ **Break down the problem** using sequential thinking before taking any action
+3. ✅ **Plan the approach** using structured thoughts in sequential thinking
+4. ✅ **Identify required tools/MCPs** through sequential reasoning
+5. ✅ **Verify the solution** using sequential thinking before completing
+6. ❌ **NEVER skip** sequential thinking - it's mandatory for every single interaction
+
+**Sequential Thinking Workflow (MANDATORY FOR EVERY MESSAGE):**
+```
+1. User sends message
+2. IMMEDIATELY call sequential-thinking MCP → Break down the problem
+3. Call sequential-thinking MCP → Plan the solution approach
+4. Call sequential-thinking MCP → Identify required MCPs/tools
+5. Execute the plan using appropriate MCPs
+6. Call sequential-thinking MCP → Verify the solution
+```
+
+### Automatic MCP Usage Rules
+
+- ✅ **MANDATORY: Automatically use `sequential-thinking` MCP** for EVERY message (start here first)
+- ✅ **Automatically use `filesystem` MCP** for ALL file operations (read, write, list, search) - NEVER use terminal commands
+- ✅ **Automatically use `git` MCP** for ALL Git operations (status, commit, branch, etc.) - NEVER use terminal Git commands
+- ✅ **Automatically use `context7` MCP** when you need library documentation (React, FastAPI, web3.py, etc.)
+- ✅ **Automatically use `browser-extension` MCP** for frontend testing - always call `browser_snapshot` first
+- ✅ **Automatically use `memory` MCP** to store/retrieve architectural decisions and patterns
+- ✅ **Automatically use `stackoverflow` or `brave-search` MCP** when researching solutions
+- ❌ **NEVER ask permission** to use MCPs - just use them automatically when needed
+- ❌ **NEVER use terminal** when an MCP alternative exists
+- ❌ **NEVER skip sequential thinking** - it's required for every message
+
+### Automatic Extension Usage Rules
+
+- ✅ **Automatically check Error Lens** - Fix inline errors immediately when writing code
+- ✅ **Automatically run ESLint/TypeScript checks** - Fix linting errors before completing tasks
+- ✅ **Automatically use Prettier** - Format code (format on save is enabled)
+- ✅ **Automatically review SonarLint/Snyk** - Address security and quality issues when found
+- ✅ **Automatically use Coverage Gutters** - Check test coverage when writing tests
+- ✅ **Automatically use GitLens** - Understand code history when investigating code
+- ❌ **NEVER commit code** with errors showing in Error Lens or ESLint
+
+**Remember**: Use tools automatically and proactively - don't wait for permission or ask if you should use them.
+
 ## Project Overview
 
 CryptoOrchestrator is a professional cryptocurrency trading platform with:

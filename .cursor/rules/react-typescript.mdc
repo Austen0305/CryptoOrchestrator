@@ -388,3 +388,40 @@ test('renders bot name', () => {
 - **WebSocket**: Use `reconnecting-websocket` for real-time updates
 - **PWA**: Support offline mode with service workers
 - **Dark Mode**: Use `next-themes` for theme management
+
+## MCP Tools for Frontend
+
+**⚠️ AUTOMATIC USAGE REQUIRED** - Use these MCPs automatically when needed:
+
+- **`sequential-thinking` MCP**: ⚠️ **MANDATORY - Use for EVERY message** - Start every interaction by breaking down the problem
+- **`cursor-browser-extension` MCP**: Automatically use for testing React components - ALWAYS call `browser_snapshot` first to get element refs
+- **`browser-extension` MCP**: Automatically use for E2E testing and user flow verification
+- **`context7` MCP**: Automatically use to find React/TypeScript library documentation
+- **`stackoverflow` MCP**: Automatically use for React/TypeScript common issues
+- **`filesystem` MCP**: Automatically use for ALL file operations (reading/writing components)
+- **`git` MCP**: Automatically use for Git operations
+
+**Workflow for Every Frontend Task:**
+1. **MANDATORY**: Start with `sequential-thinking` MCP to break down the problem
+2. Use `sequential-thinking` MCP to plan the approach
+3. Execute using appropriate MCPs (filesystem, browser-extension, context7, etc.)
+4. Use `sequential-thinking` MCP to verify the solution
+
+**Browser Testing Workflow (AUTOMATIC):**
+1. **MANDATORY**: Start with `sequential-thinking` MCP to plan testing approach
+2. Automatically call `browser_snapshot` first to get element refs
+3. Automatically use refs for all interactions (click, type, etc.)
+4. Automatically use `browser_take_screenshot` for visual verification
+5. Automatically use `browser_console_messages` for debugging
+6. Use `sequential-thinking` MCP to verify test results
+
+## Extension Usage
+
+**⚠️ AUTOMATIC USAGE REQUIRED** - Use these extensions automatically:
+
+- **Error Lens**: Automatically check and fix TypeScript/React errors inline - NEVER commit code with errors showing
+- **ESLint**: Automatically fix linting errors before completing tasks
+- **Prettier**: Automatically format code (format on save enabled)
+- **Coverage Gutters**: Automatically check test coverage when writing tests
+- **Path Intellisense**: Automatically use for `@/*` import autocomplete
+- **SonarLint/Snyk**: Automatically review security and quality issues

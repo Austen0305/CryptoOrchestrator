@@ -191,6 +191,34 @@ Cursor Commands are reusable workflows triggered with `/` in chat. See:
 - `/db-backup` - Database backup
 - `/troubleshoot-startup` - Troubleshoot startup issues
 
+## Model Context Protocol (MCP)
+
+MCPs extend Cursor's capabilities with specialized tools. See:
+- **[MCP Documentation](../../MCPs/README.md)** - Complete MCP documentation
+- **[MCP Quick Reference](../../MCPs/QUICK_REFERENCE.md)** - Quick lookup for MCP tools
+- **[MCP Index](../../MCPs/INDEX.md)** - All available MCPs
+- **[Agents Guide](../../docs/cursor/AGENTS.md)** - How agents use MCPs
+
+**Available MCPs (12 working):**
+- **Core**: filesystem, git, context7, stackoverflow, brave-search, coingecko
+- **Browser**: puppeteer, cursor-browser-extension
+- **AI**: memory, **sequential-thinking** ⚠️ **MANDATORY FOR EVERY MESSAGE**
+- **Research**: arxiv, allthingsdev
+
+### ⚠️ CRITICAL: Sequential Thinking MCP Requirement
+
+**ALL agents and AI assistants MUST use Sequential Thinking MCP for EVERY user message.**
+
+- ✅ **Start every message** with `sequential-thinking` MCP to break down the problem
+- ✅ **Plan the approach** using sequential thinking
+- ✅ **Verify solutions** using sequential thinking
+- ❌ **NEVER skip** sequential thinking - it's mandatory
+
+**Best Practices:**
+- When working with files, Git, or documentation, prefer MCP tools over terminal commands
+- **Always start with sequential thinking** - break down problems before taking action
+- Use sequential thinking to plan, execute, and verify every task
+
 ## Learning More
 
 - [Cursor Rules Documentation](https://cursor.com/docs/context/rules)

@@ -18,7 +18,7 @@ export function preloadRoute(importFn: () => Promise<unknown>): void {
 /**
  * Create optimized route component
  */
-export function createOptimizedRoute<T extends React.ComponentType<any>>(
+export function createOptimizedRoute<T extends React.ComponentType<unknown>>(
   importFn: () => Promise<{ default: T }>,
   fallback?: React.ReactNode
 ) {
@@ -26,7 +26,7 @@ export function createOptimizedRoute<T extends React.ComponentType<any>>(
 
   return (props: React.ComponentPropsWithoutRef<T>) => (
     <React.Suspense fallback={fallback || <div>Loading...</div>}>
-      <LazyComponent {...(props as any)} />
+      <LazyComponent {...(props as React.ComponentProps<T>)} />
     </React.Suspense>
   );
 }

@@ -104,9 +104,13 @@ export default function Login() {
                 disabled={isLoading}
                 autoComplete="email"
                 className={emailError ? "border-destructive" : ""}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "email-error" : undefined}
               />
               {emailError && (
-                <p className="text-sm text-destructive animate-fade-in">{emailError}</p>
+                <p id="email-error" className="text-sm text-destructive animate-fade-in" role="alert">
+                  {emailError}
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -135,6 +139,8 @@ export default function Login() {
                   disabled={isLoading}
                   autoComplete="current-password"
                   className={passwordError ? "border-destructive pr-10" : "pr-10"}
+                  aria-invalid={!!passwordError}
+                  aria-describedby={passwordError ? "password-error" : undefined}
                 />
                 <button
                   type="button"
@@ -151,7 +157,9 @@ export default function Login() {
                 </button>
               </div>
               {passwordError && (
-                <p className="text-sm text-destructive animate-fade-in">{passwordError}</p>
+                <p id="password-error" className="text-sm text-destructive animate-fade-in" role="alert">
+                  {passwordError}
+                </p>
               )}
             </div>
             <div className="flex items-center space-x-2">

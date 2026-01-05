@@ -8,7 +8,7 @@ import React from 'react';
 /**
  * Memoize component with deep comparison
  */
-export function memoWithDeepCompare<T extends React.ComponentType<any>>(
+export function memoWithDeepCompare<T extends React.ComponentType<unknown>>(
   Component: T
 ): React.MemoExoticComponent<T> {
   return React.memo(Component, (prevProps, nextProps) => {
@@ -19,7 +19,7 @@ export function memoWithDeepCompare<T extends React.ComponentType<any>>(
 /**
  * Lazy load component with retry
  */
-export function lazyLoadWithRetry<T extends React.ComponentType<any>>(
+export function lazyLoadWithRetry<T extends React.ComponentType<unknown>>(
   importFn: () => Promise<{ default: T }>,
   retries = 3
 ): React.LazyExoticComponent<T> {
