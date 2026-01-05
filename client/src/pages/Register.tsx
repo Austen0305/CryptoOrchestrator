@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -10,11 +10,27 @@ import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicato
 import { Loader2, Eye, EyeOff, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { enableLandingPageScroll } from "@/lib/enableLandingPageScroll";
 
 export default function Register() {
   const [, setLocation] = useLocation();
   const { register, isLoading, error } = useAuth();
   const { toast } = useToast();
+
+  // Ensure scrolling is enabled when component mounts or route changes
+  useEffect(() => {
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      enableLandingPageScroll();
+      // Force enable scrolling styles
+      document.body.style.overflowY = "auto";
+      document.body.style.height = "auto";
+      document.documentElement.style.overflowY = "auto";
+      document.documentElement.style.height = "auto";
+    }, 0);
+    
+    return () => clearTimeout(timer);
+  }, []);
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
