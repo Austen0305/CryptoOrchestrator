@@ -109,7 +109,7 @@ class RubicService:
                             limits=httpx.Limits(
                                 max_keepalive_connections=10, max_connections=50
                             ),
-                            http2=True,  # HTTP/2 for better performance
+                            http2=False,  # Disable HTTP/2 to avoid h2 package dependency
                         )
 
                     response = await self._http_client.post(
