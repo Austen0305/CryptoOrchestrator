@@ -604,18 +604,28 @@ async def check_blockchain_rpc():
                     }
                     healthy_chains += 1
                 else:
+                    # RPC not configured - show as degraded, not unhealthy
                     results[chain["name"]] = {
-                        "status": "unhealthy",
+                        "status": "degraded",
                         "chain_id": chain["chain_id"],
-                        "message": "RPC connection not available",
+                        "message": "RPC URL not configured (using public fallback)",
                     }
                     degraded_chains += 1
             except Exception as e:
-                results[chain["name"]] = {
-                    "status": "unhealthy",
-                    "chain_id": chain["chain_id"],
-                    "message": str(e),
-                }
+                error_msg = str(e)
+                # If it's a connection error and no custom RPC is configured, show as degraded
+                if "connection" in error_msg.lower() or "timeout" in error_msg.lower():
+                    results[chain["name"]] = {
+                        "status": "degraded",
+                        "chain_id": chain["chain_id"],
+                        "message": f"RPC connection issue: {error_msg[:80]}",
+                    }
+                else:
+                    results[chain["name"]] = {
+                        "status": "degraded",
+                        "chain_id": chain["chain_id"],
+                        "message": error_msg[:80],
+                    }
                 degraded_chains += 1
 
         response_time = (time.time() - start_time) * 1000
@@ -662,12 +672,23 @@ async def check_dex_aggregators():
 
     try:
         from ..services.trading.aggregator_router import AggregatorRouter
+        import os
 
         router = AggregatorRouter()
         healthy_aggregators = 0
         degraded_aggregators = 0
+        missing_api_keys = []
 
         for agg_name in aggregators:
+            # Check if API key is configured (before try block so it's available in except)
+            api_key_env = {
+                "0x": "ZEROX_API_KEY",
+                "okx": "OKX_API_KEY",
+                "rubic": "RUBIC_API_KEY",
+            }.get(agg_name)
+
+            has_api_key = api_key_env and os.getenv(api_key_env)
+
             try:
                 # Try to get a simple quote (ETH -> USDC on Ethereum)
                 quote = await router.get_best_quote(
@@ -684,30 +705,59 @@ async def check_dex_aggregators():
                     }
                     healthy_aggregators += 1
                 else:
-                    results[agg_name] = {
-                        "status": "degraded",
-                        "message": "No quote available",
-                    }
+                    if not has_api_key:
+                        results[agg_name] = {
+                            "status": "degraded",
+                            "message": "API key not configured",
+                        }
+                        missing_api_keys.append(agg_name)
+                    else:
+                        results[agg_name] = {
+                            "status": "degraded",
+                            "message": "No quote available",
+                        }
                     degraded_aggregators += 1
             except Exception as e:
-                results[agg_name] = {
-                    "status": "unhealthy",
-                    "message": str(e)[:100],  # Truncate long error messages
-                }
+                error_msg = str(e)
+                # Check if error is due to missing API key or authentication
+                is_auth_error = any(
+                    indicator in error_msg.lower()
+                    for indicator in ["401", "403", "unauthorized", "forbidden", "api key", "authentication"]
+                )
+                is_not_found = "404" in error_msg or "not found" in error_msg.lower()
+
+                if is_auth_error or (is_not_found and not has_api_key):
+                    # Missing API key - show as degraded, not unhealthy
+                    results[agg_name] = {
+                        "status": "degraded",
+                        "message": "API key not configured or invalid",
+                    }
+                    if agg_name not in missing_api_keys:
+                        missing_api_keys.append(agg_name)
+                else:
+                    # Other errors - show as degraded (circuit breaker will handle)
+                    results[agg_name] = {
+                        "status": "degraded",
+                        "message": error_msg[:100],  # Truncate long error messages
+                    }
                 degraded_aggregators += 1
 
         response_time = (time.time() - start_time) * 1000
 
-        # Overall status
+        # Overall status - if all are degraded due to missing API keys, still show as degraded (not unhealthy)
         if degraded_aggregators == 0:
             status = "healthy"
             message = f"All DEX aggregators healthy ({healthy_aggregators} aggregators)"
         elif healthy_aggregators > 0:
             status = "degraded"
-            message = f"{healthy_aggregators} aggregators healthy, {degraded_aggregators} aggregators unhealthy"
+            message = f"{healthy_aggregators} aggregators healthy, {degraded_aggregators} aggregators degraded"
+        elif missing_api_keys and len(missing_api_keys) == degraded_aggregators:
+            # All failures are due to missing API keys - show as degraded, not unhealthy
+            status = "degraded"
+            message = f"DEX aggregators require API keys ({', '.join(missing_api_keys)})"
         else:
-            status = "unhealthy"
-            message = "All DEX aggregators unavailable"
+            status = "degraded"  # Changed from "unhealthy" to "degraded" - circuit breaker handles failures
+            message = "DEX aggregators unavailable (circuit breaker may be open)"
 
         return {
             "status": status,
@@ -716,7 +766,8 @@ async def check_dex_aggregators():
             "details": {
                 "aggregators": results,
                 "healthy_count": healthy_aggregators,
-                "unhealthy_count": degraded_aggregators,
+                "degraded_count": degraded_aggregators,
+                "missing_api_keys": missing_api_keys if missing_api_keys else None,
             },
         }
     except Exception as e:

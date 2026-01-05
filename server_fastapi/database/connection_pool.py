@@ -134,6 +134,44 @@ class DatabaseConnectionPool:
             logger.error(f"Database health check failed: {e}", exc_info=True)
             return False
 
+    async def get_pool_status(self) -> dict:
+        """Get detailed pool status information"""
+        if not self._is_initialized or not self.engine:
+            return {
+                "initialized": False,
+                "pool_size": 0,
+                "checked_in": 0,
+                "checked_out": 0,
+                "overflow": 0,
+            }
+
+        try:
+            pool = self.engine.pool
+            status = {
+                "initialized": True,
+            }
+
+            # Get pool statistics if available
+            if hasattr(pool, "size"):
+                status["pool_size"] = pool.size()
+            if hasattr(pool, "checkedin"):
+                status["checked_in"] = pool.checkedin()
+            if hasattr(pool, "checkedout"):
+                status["checked_out"] = pool.checkedout()
+            if hasattr(pool, "overflow"):
+                status["overflow"] = pool.overflow()
+
+            # Add pool class name
+            status["pool_class"] = pool.__class__.__name__
+
+            return status
+        except Exception as e:
+            logger.warning(f"Error getting pool status: {e}")
+            return {
+                "initialized": True,
+                "error": str(e),
+            }
+
     async def close(self):
         """Close all database connections"""
         if self.engine:
