@@ -236,8 +236,8 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-start justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6 py-8 sm:py-12">
-      <Card className="w-full max-w-md border-card-border shadow-xl animate-fade-in-up my-auto">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6 py-8 sm:py-12 overflow-y-auto">
+      <Card className="w-full max-w-md border-card-border shadow-xl animate-fade-in-up my-8">
         <CardHeader className="space-y-2 text-center">
           <div className="flex justify-center mb-2">
             <div className="p-3 rounded-full bg-primary/10">
