@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from "react";
+import { useState, useLayoutEffect, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,32 +12,83 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { enableLandingPageScroll } from "@/lib/enableLandingPageScroll";
 
+// Force enable scrolling - call this function to ensure scroll is enabled
+function forceEnableScroll() {
+  // Ensure landing-page-active class is set FIRST
+  document.body.classList.add("landing-page-active");
+  document.documentElement.classList.add("landing-page-active");
+  
+  const root = document.getElementById("root");
+  if (root) {
+    root.classList.add("landing-page-active");
+    // Clear any scroll lock styles from root
+    root.style.cssText = "";
+  }
+  
+  // Call the utility function
+  enableLandingPageScroll();
+  
+  // Force set styles with !important to override any scroll lock
+  // Use setProperty with important flag
+  document.documentElement.style.setProperty("overflow-y", "auto", "important");
+  document.documentElement.style.setProperty("overflow", "auto", "important");
+  document.documentElement.style.setProperty("height", "auto", "important");
+  document.body.style.setProperty("overflow-y", "auto", "important");
+  document.body.style.setProperty("overflow", "auto", "important");
+  document.body.style.setProperty("height", "auto", "important");
+}
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const { register, isLoading, error } = useAuth();
   const { toast } = useToast();
 
   // Ensure scrolling is enabled synchronously before browser paint
-  // This runs before useEffect and ensures scroll lock doesn't override
   useLayoutEffect(() => {
-    // Ensure landing-page-active class is set
-    document.body.classList.add("landing-page-active");
-    document.documentElement.classList.add("landing-page-active");
+    forceEnableScroll();
+  }, []);
+
+  // Also enable scrolling after render to override any scroll lock that runs later
+  useEffect(() => {
+    // Run immediately
+    forceEnableScroll();
     
-    // Force enable scrolling with !important via setProperty
-    enableLandingPageScroll();
+    // Run multiple times with delays to catch scroll lock that runs at different times
+    const timers = [
+      setTimeout(() => forceEnableScroll(), 0),
+      setTimeout(() => forceEnableScroll(), 50),
+      setTimeout(() => forceEnableScroll(), 100),
+      setTimeout(() => forceEnableScroll(), 200),
+      setTimeout(() => forceEnableScroll(), 300),
+    ];
     
-    // Also set styles directly with !important to ensure they override scroll lock
-    document.documentElement.style.setProperty("overflow-y", "auto", "important");
-    document.documentElement.style.setProperty("height", "auto", "important");
-    document.body.style.setProperty("overflow-y", "auto", "important");
-    document.body.style.setProperty("height", "auto", "important");
+    // Watch for style changes and re-enable scroll if it gets locked
+    const observer = new MutationObserver(() => {
+      // Check computed styles to see if scroll is locked
+      const htmlStyle = window.getComputedStyle(document.documentElement);
+      const bodyStyle = window.getComputedStyle(document.body);
+      
+      // If overflow is hidden, re-enable scroll
+      if (htmlStyle.overflowY === "hidden" || bodyStyle.overflowY === "hidden") {
+        forceEnableScroll();
+      }
+    });
     
-    // Clear any scroll lock styles that might have been applied
-    const root = document.getElementById("root");
-    if (root) {
-      root.style.cssText = "";
-    }
+    // Observe body and html for style and class changes
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+    
+    return () => {
+      timers.forEach(timer => clearTimeout(timer));
+      observer.disconnect();
+    };
   }, []);
   const [formData, setFormData] = useState({
     fullName: "",
