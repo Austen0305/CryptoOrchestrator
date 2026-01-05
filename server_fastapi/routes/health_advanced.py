@@ -784,7 +784,12 @@ async def check_database_pool():
     """Check database connection pool health"""
     start_time = time.time()
     try:
-        from ..database import db_pool
+        # Try to import from connection_pool first (where the actual instance is)
+        try:
+            from ..database.connection_pool import db_pool
+        except ImportError:
+            # Fallback to database module (might be None)
+            from ..database import db_pool
 
         if db_pool:
             pool_status = await db_pool.get_pool_status()
