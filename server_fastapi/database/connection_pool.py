@@ -151,15 +151,12 @@ class DatabaseConnectionPool:
                 "initialized": True,
             }
 
-            # Get pool statistics if available
-            if hasattr(pool, "size"):
-                status["pool_size"] = pool.size()
-            if hasattr(pool, "checkedin"):
-                status["checked_in"] = pool.checkedin()
-            if hasattr(pool, "checkedout"):
-                status["checked_out"] = pool.checkedout()
-            if hasattr(pool, "overflow"):
-                status["overflow"] = pool.overflow()
+            # Get pool statistics if available (these are attributes, not methods)
+            status["pool_size"] = getattr(pool, "size", None)
+            status["checked_in"] = getattr(pool, "checkedin", None)
+            status["checked_out"] = getattr(pool, "checkedout", None)
+            status["overflow"] = getattr(pool, "overflow", None)
+            status["invalid"] = getattr(pool, "invalid", None)
 
             # Add pool class name
             status["pool_class"] = pool.__class__.__name__
