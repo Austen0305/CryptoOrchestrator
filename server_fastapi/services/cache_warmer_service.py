@@ -294,7 +294,7 @@ async def warmup_active_bot_statuses():
             result = await db.execute(stmt)
             active_bots = result.scalars().all()
 
-            bot_repo = BotRepository(db)
+            bot_repo = BotRepository()
             bots_warmed = 0
 
             for bot in active_bots:
