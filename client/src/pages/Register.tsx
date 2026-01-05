@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useLayoutEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -17,19 +17,27 @@ export default function Register() {
   const { register, isLoading, error } = useAuth();
   const { toast } = useToast();
 
-  // Ensure scrolling is enabled when component mounts or route changes
-  useEffect(() => {
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      enableLandingPageScroll();
-      // Force enable scrolling styles
-      document.body.style.overflowY = "auto";
-      document.body.style.height = "auto";
-      document.documentElement.style.overflowY = "auto";
-      document.documentElement.style.height = "auto";
-    }, 0);
+  // Ensure scrolling is enabled synchronously before browser paint
+  // This runs before useEffect and ensures scroll lock doesn't override
+  useLayoutEffect(() => {
+    // Ensure landing-page-active class is set
+    document.body.classList.add("landing-page-active");
+    document.documentElement.classList.add("landing-page-active");
     
-    return () => clearTimeout(timer);
+    // Force enable scrolling with !important via setProperty
+    enableLandingPageScroll();
+    
+    // Also set styles directly with !important to ensure they override scroll lock
+    document.documentElement.style.setProperty("overflow-y", "auto", "important");
+    document.documentElement.style.setProperty("height", "auto", "important");
+    document.body.style.setProperty("overflow-y", "auto", "important");
+    document.body.style.setProperty("height", "auto", "important");
+    
+    // Clear any scroll lock styles that might have been applied
+    const root = document.getElementById("root");
+    if (root) {
+      root.style.cssText = "";
+    }
   }, []);
   const [formData, setFormData] = useState({
     fullName: "",
