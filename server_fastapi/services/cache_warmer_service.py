@@ -283,12 +283,12 @@ async def warmup_popular_token_prices():
 async def warmup_active_bot_statuses():
     """Warmup active bot statuses for users with active bots"""
     try:
-        from ..database import get_db_session
+        from ..database import get_db_context
         from ..repositories.bot_repository import BotRepository
         from sqlalchemy import select
         from ..models.bot import Bot
 
-        async with get_db_session() as db:
+        async with get_db_context() as db:
             # Get all active bots
             stmt = select(Bot).where(Bot.is_active == True).limit(100)
             result = await db.execute(stmt)
@@ -327,13 +327,13 @@ async def warmup_active_bot_statuses():
 async def warmup_user_portfolios():
     """Warmup portfolios for active users"""
     try:
-        from ..database import get_db_session
+        from ..database import get_db_context
         from ..repositories.user_repository import UserRepository
         from sqlalchemy import select, func
         from ..models.user import User
         from ..models.trade import Trade
 
-        async with get_db_session() as db:
+        async with get_db_context() as db:
             # Get users with recent trades (active users)
             stmt = (
                 select(User.id, func.count(Trade.id).label("trade_count"))
