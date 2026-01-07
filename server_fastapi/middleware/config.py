@@ -61,7 +61,7 @@ class MiddlewareManager:
             # CRITICAL: Security headers (2026 enhanced version)
             MiddlewareConfig(
                 name="security_headers",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.CRITICAL,
                 module_path="server_fastapi.middleware.security_headers_2026",
                 class_name="SecurityHeadersMiddleware2026",
@@ -77,7 +77,7 @@ class MiddlewareManager:
             # HIGH: Request correlation (must be early for trace propagation)
             MiddlewareConfig(
                 name="request_correlation",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.CRITICAL,
                 module_path="server_fastapi.middleware.request_correlation",
                 class_name="RequestCorrelationMiddleware",
@@ -111,7 +111,7 @@ class MiddlewareManager:
             # MEDIUM: Response Transformer
             MiddlewareConfig(
                 name="response_transformer",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.MEDIUM,
                 module_path="server_fastapi.middleware.response_transformer",
                 class_name="ResponseTransformerMiddleware",
@@ -160,7 +160,7 @@ class MiddlewareManager:
             # HIGH: Rate limiting (if enabled)
             MiddlewareConfig(
                 name="rate_limit",
-                enabled=not is_testing,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.rate_limit_middleware",
                 class_name="RateLimitMiddleware",
