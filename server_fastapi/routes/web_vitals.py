@@ -37,13 +37,6 @@ async def track_web_vitals(metric: WebVitalsMetric):
             f"(rating: {metric.rating})"
         )
 
-        # In production, store in database or time-series DB
-        # For now, just log it
-
-        # You could store in Redis or database:
-        # await cache_service.set(f"web-vitals:{metric.id}", metric.dict(), ttl=86400)
-        # await db.execute(INSERT INTO web_vitals_metrics ...)
-
         return {
             "status": "recorded",
             "metric": metric.name,
@@ -51,8 +44,9 @@ async def track_web_vitals(metric: WebVitalsMetric):
             "rating": metric.rating,
         }
     except Exception as e:
-        logger.error(f"Error recording web vitals: {e}")
+        # Log error but return success to client to avoid client-side errors for analytics
+        logger.warning(f"Error recording web vitals: {e}")
         return {
-            "status": "error",
-            "message": str(e),
+            "status": "recorded_with_error",
+            "message": "Metric received but logging failed",
         }
