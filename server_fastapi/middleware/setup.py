@@ -101,6 +101,7 @@ def add_cors_headers(
 
 def setup_cors_middleware(app: FastAPI) -> None:
     """Setup CORS middleware with proper configuration"""
+    logger.info("Starting CORS middleware setup...")
     cors_origins = get_cors_origins()
 
     if not cors_origins:
@@ -182,6 +183,7 @@ def setup_all_middleware(app: FastAPI) -> dict:
     Returns:
         Dictionary with setup statistics
     """
+    logger.info("Starting all middleware setup...")
     # Add profiling middleware first (if enabled)
     profiling_enabled = (
         os.getenv("ENABLE_MIDDLEWARE_PROFILING", "false").lower() == "true"
@@ -205,9 +207,13 @@ def setup_all_middleware(app: FastAPI) -> dict:
     stats = registry.register_all(enabled_middlewares)
 
     # Setup special middleware (CORS, rate limiting, etc.)
+    logger.info("Registering special middlewares...")
     setup_cors_middleware(app)
+    logger.info("CORS setup complete")
     setup_rate_limiting(app)
+    logger.info("Rate limiting setup complete")
     setup_trusted_hosts(app)
+    logger.info("Trusted hosts setup complete")
 
     # Register error handlers
     if register_error_handlers:
