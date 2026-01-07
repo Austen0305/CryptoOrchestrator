@@ -226,8 +226,6 @@ def setup_cors_middleware(app: FastAPI) -> None:
 
     logger.info("CORS middleware configured")
 
-    return response
-
 
 def setup_rate_limiting(app: FastAPI) -> None:
     """Setup rate limiting middleware"""
