@@ -135,7 +135,7 @@ class MiddlewareManager:
             # HIGH: Advanced Security
             MiddlewareConfig(
                 name="advanced_security",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to isolate connection reset
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.security_advanced",
                 class_name="AdvancedSecurityMiddleware",
