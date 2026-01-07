@@ -160,7 +160,7 @@ class MiddlewareManager:
             # HIGH: Rate limiting (if enabled)
             MiddlewareConfig(
                 name="rate_limit",
-                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
+                enabled=True,  # Phase 3: Re-enabled
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.rate_limit_middleware",
                 class_name="RateLimitMiddleware",
@@ -184,7 +184,7 @@ class MiddlewareManager:
             # Compression is lightweight and beneficial for all environments
             MiddlewareConfig(
                 name="compression",
-                enabled=False,  # TEMPORARILY DISABLED due to 2026 middleware crash
+                enabled=True,  # Phase 3: Re-enabled (monitor for errors)
                 priority=MiddlewarePriority.LOW,
                 module_path="server_fastapi.middleware.compression",
                 class_name="CompressionMiddleware",
@@ -193,7 +193,7 @@ class MiddlewareManager:
             # HIGH: Request Validation (2026 best practice - comprehensive input validation)
             MiddlewareConfig(
                 name="request_validation_2026",
-                enabled=False,  # TEMPORARILY DISABLED to fix JSONDecodeError crash
+                enabled=True,  # Phase 3: Re-enabled (monitor for errors)
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.request_validation_2026",
                 class_name="RequestValidationMiddleware2026",
