@@ -31,17 +31,27 @@ class ApiClient {
         import.meta.env.VITE_API_BASE_URL;
 
       // Default to main FastAPI backend on port 8000.
-      // Minimal auth server on :9000 is legacy and should only be used
-      // if explicitly configured via env/JS globals.
       const rawBaseUrl = envBaseUrl || "http://localhost:8000";
       
+      // Upgrade logic: If we are on HTTPS, ensuring the API is also HTTPS (unless it's localhost)
+      let finalBaseUrl = rawBaseUrl;
+      const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+      if (isSecure && finalBaseUrl.startsWith("http://") && !finalBaseUrl.includes("localhost")) {
+         finalBaseUrl = finalBaseUrl.replace("http://", "https://");
+      }
+      
       // Ensure baseURL ends with /api (backend routes are all under /api)
-      // Remove trailing slash if present, then append /api if not already present
-      const cleanedUrl = rawBaseUrl.replace(/\/+$/, "");
+      const cleanedUrl = finalBaseUrl.replace(/\/+$/, "");
       this.baseURL = cleanedUrl.endsWith("/api") ? cleanedUrl : cleanedUrl + "/api";
     } else {
+      let finalBaseUrl = baseURL;
+      const isSecure = typeof window !== "undefined" && window.location.protocol === "https:";
+      if (isSecure && finalBaseUrl.startsWith("http://") && !finalBaseUrl.includes("localhost")) {
+         finalBaseUrl = finalBaseUrl.replace("http://", "https://");
+      }
+
       // If baseURL is provided explicitly, ensure it ends with /api
-      const cleanedUrl = baseURL.replace(/\/+$/, "");
+      const cleanedUrl = finalBaseUrl.replace(/\/+$/, "");
       this.baseURL = cleanedUrl.endsWith("/api") ? cleanedUrl : cleanedUrl + "/api";
     }
     // Initialize from localStorage if available
