@@ -218,7 +218,9 @@ def setup_all_middleware(app: FastAPI) -> dict:
     # Register error handlers
     if register_error_handlers:
         try:
+            logger.info("Registering error handlers...")
             register_error_handlers(app)
+            logger.info("Error handlers registered successfully")
         except Exception as e:
             logger.warning(f"Failed to register error handlers: {e}")
     else:
@@ -226,13 +228,15 @@ def setup_all_middleware(app: FastAPI) -> dict:
 
     # Initialize API analytics if available
     try:
+        logger.info("Initializing API analytics...")
         from .api_analytics import api_analytics
 
         app.state.api_analytics = api_analytics
-        logger.info("API analytics initialized")
+        logger.info("API analytics initialized successfully")
     except Exception as e:
         logger.debug(f"API analytics not available: {e}")
 
+    logger.info("All middleware setup completed successfully")
     return {
         **stats,
         "summary": registry.get_registration_summary(),
