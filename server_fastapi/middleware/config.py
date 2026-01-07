@@ -193,7 +193,7 @@ class MiddlewareManager:
             # HIGH: Request Validation (2026 best practice - comprehensive input validation)
             MiddlewareConfig(
                 name="request_validation_2026",
-                enabled=not is_testing,
+                enabled=False,  # TEMPORARILY DISABLED to fix JSONDecodeError crash
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.request_validation_2026",
                 class_name="RequestValidationMiddleware2026",
@@ -253,7 +253,7 @@ class MiddlewareManager:
                     # Request Validation
                     MiddlewareConfig(
                         name="request_validation",
-                        enabled=True,
+                        enabled=False,  # TEMPORARILY DISABLED to fix JSONDecodeError crash
                         priority=MiddlewarePriority.HIGH,
                         module_path="server_fastapi.middleware.request_validator",
                         class_name="RequestValidatorMiddleware",
