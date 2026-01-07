@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SecurityThreatDetector:
     """
     Advanced threat detection
-    
+
     Features:
     - SQL injection detection
     - XSS detection
@@ -33,7 +33,7 @@ class SecurityThreatDetector:
     def __init__(self):
         # SQL injection patterns
         self.sql_patterns = [
-            r"(?i)(union\s+select|select\s+.*\s+from|insert\s+into|delete\s+from|update\s+.*\s+set|drop\s+table|exec\s*\(|execute\s*\(|--|;|/\*|\*/)",
+            r"(?i)(union\s+select|select\s+.*\s+from|insert\s+into|delete\s+from|update\s+.*\s+set|drop\s+table|exec\s*\(|execute\s*\(|--|;|(?<!\*)/\*|\*/)",
             r"(?i)(or\s+1\s*=\s*1|or\s+'1'\s*=\s*'1'|or\s+\"1\"\s*=\s*\"1\")",
             r"(?i)(';?\s*(drop|delete|insert|update|create|alter|exec|execute))",
         ]
@@ -84,9 +84,16 @@ class SecurityThreatDetector:
             param_threats = self._check_value(f"query.{key}", value)
             threats.extend(param_threats)
 
-        # Check headers (except auth headers)
+        # Check headers (except auth and common metadata headers)
         for key, value in request.headers.items():
-            if key.lower() not in ["authorization", "cookie", "x-api-key"]:
+            if key.lower() not in [
+                "authorization",
+                "cookie",
+                "x-api-key",
+                "accept",
+                "user-agent",
+                "referer",
+            ]:
                 header_threats = self._check_value(f"header.{key}", value)
                 threats.extend(header_threats)
 
@@ -223,13 +230,22 @@ class AdvancedSecurityMiddleware(BaseHTTPMiddleware):
         # Skip security checks for health endpoints and internal requests
         # Normalize path by removing trailing slash for comparison
         normalized_path = request.url.path.rstrip("/") or "/"
-        health_paths = ["/health", "/healthz", "/api/health", "/api/status", "/metrics", "/docs", "/openapi.json", "/redoc"]
+        health_paths = [
+            "/health",
+            "/healthz",
+            "/api/health",
+            "/api/status",
+            "/metrics",
+            "/docs",
+            "/openapi.json",
+            "/redoc",
+        ]
         if normalized_path in health_paths:
             return await call_next(request)
-        
+
         # Get client IP
         client_ip = request.client.host if request.client else "unknown"
-        
+
         # Allow localhost/127.0.0.1 for health checks
         if client_ip in ["127.0.0.1", "localhost", "::1"]:
             return await call_next(request)
@@ -286,7 +302,9 @@ class AdvancedSecurityMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
         response.headers["Content-Security-Policy"] = "default-src 'self'"
 
         return response
@@ -295,4 +313,3 @@ class AdvancedSecurityMiddleware(BaseHTTPMiddleware):
 # Global instances
 threat_detector = SecurityThreatDetector()
 api_key_manager = APIKeyManager()
-

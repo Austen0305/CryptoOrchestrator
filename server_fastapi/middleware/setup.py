@@ -18,7 +18,10 @@ from .registry import MiddlewareRegistry
 
 # Try unified error handler first, fallback to enhanced
 try:
-    from .unified_error_handler import register_unified_error_handlers
+    from .unified_error_handler import (
+        register_unified_error_handlers,
+        UnifiedErrorHandler,
+    )
 
     register_error_handlers = register_unified_error_handlers
 except ImportError:
@@ -227,6 +230,53 @@ def setup_cors_middleware(app: FastAPI) -> None:
     logger.info("CORS middleware configured")
 
 
+def setup_global_error_handler(app: FastAPI) -> None:
+    """Outermost middleware to catch all exceptions from subsequent middleware/routes"""
+
+    @app.middleware("http")
+    async def global_exception_middleware(request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            # If UnifiedErrorHandler is not available, use basic fallback
+            if not UnifiedErrorHandler:
+                logger.error(
+                    f"Unhandled exception in global handler (no UnifiedErrorHandler): {exc}",
+                    exc_info=True,
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": {
+                            "code": "INTERNAL_ERROR",
+                            "message": "An unexpected server error occurred",
+                        },
+                    },
+                )
+
+            # Determine if it's an HTTPException
+            from fastapi import HTTPException
+            from starlette.exceptions import HTTPException as StarletteHTTPException
+
+            if isinstance(exc, (HTTPException, StarletteHTTPException)):
+                response = await UnifiedErrorHandler.http_exception_handler(
+                    request, exc
+                )
+            else:
+                # Log the crash for debugging middleware issues
+                logger.error(
+                    f"Global handler caught unhandled exception: {exc}", exc_info=True
+                )
+                response = await UnifiedErrorHandler.generic_exception_handler(
+                    request, exc
+                )
+
+            # Add CORS headers to the error response
+            cors_origins = get_cors_origins()
+            return add_cors_headers(response, request, cors_origins)
+
+
 def setup_rate_limiting(app: FastAPI) -> None:
     """Setup rate limiting middleware"""
     try:
@@ -289,7 +339,12 @@ def setup_all_middleware(app: FastAPI) -> dict:
     # Register all middleware
     stats = registry.register_all(enabled_middlewares)
 
-    # Setup special middleware (CORS, rate limiting, etc.)
+    # Setup special middleware (CORS, rate limiting, global error handling, etc.)
+    # Note: Middlewares are executed in REVERSE order of addition for response phase,
+    # and in order of addition for request phase.
+    # To have global_error_handler be the OUTERMOST for responses (last to run),
+    # it should be added FIRST.
+    setup_global_error_handler(app)
     setup_cors_middleware(app)
     setup_rate_limiting(app)
     setup_trusted_hosts(app)
