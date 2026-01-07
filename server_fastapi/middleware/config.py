@@ -193,7 +193,7 @@ class MiddlewareManager:
             # HIGH: Request Validation (2026 best practice - comprehensive input validation)
             MiddlewareConfig(
                 name="request_validation_2026",
-                enabled=True,  # Phase 3: Re-enabled (monitor for errors)
+                enabled=False,  # TEMPORARILY DISABLED: Investigating JSON parsing interaction errors
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.request_validation_2026",
                 class_name="RequestValidationMiddleware2026",
