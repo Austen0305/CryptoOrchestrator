@@ -119,9 +119,6 @@ def setup_cors_middleware(app: FastAPI) -> None:
             "null",  # Electron null origin
         ]
 
-    # Custom CORS handlers temporarily disabled for debugging
-    pass
-
     # Add CORS middleware
     app.add_middleware(
         CORSMiddleware,
