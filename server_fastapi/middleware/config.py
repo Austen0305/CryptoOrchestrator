@@ -184,7 +184,7 @@ class MiddlewareManager:
             # Compression is lightweight and beneficial for all environments
             MiddlewareConfig(
                 name="compression",
-                enabled=True,  # Phase 3: Re-enabled (monitor for errors)
+                enabled=False,  # DISABLED: Causes "Internal server error in compression middleware"
                 priority=MiddlewarePriority.LOW,
                 module_path="server_fastapi.middleware.compression",
                 class_name="CompressionMiddleware",
