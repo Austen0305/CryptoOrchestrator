@@ -85,7 +85,7 @@ class MiddlewareManager:
             # HIGH: Structured logging (try enhanced version first)
             MiddlewareConfig(
                 name="structured_logging",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.structured_logging_enhanced",
                 class_name="EnhancedStructuredLoggingMiddleware",
@@ -151,7 +151,7 @@ class MiddlewareManager:
             # HIGH: Timeout
             MiddlewareConfig(
                 name="timeout",
-                enabled=True,
+                enabled=False,  # TEMPORARILY DISABLED to debug connection reset
                 priority=MiddlewarePriority.HIGH,
                 module_path="server_fastapi.middleware.timeout_middleware",
                 class_name="TimeoutMiddleware",
