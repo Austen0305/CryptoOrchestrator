@@ -235,6 +235,10 @@ def setup_global_error_handler(app: FastAPI) -> None:
 
     @app.middleware("http")
     async def global_exception_middleware(request: Request, call_next):
+        # Quick bypass for OPTIONS if already handled by CORS
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         try:
             return await call_next(request)
         except Exception as exc:
@@ -340,14 +344,13 @@ def setup_all_middleware(app: FastAPI) -> dict:
     stats = registry.register_all(enabled_middlewares)
 
     # Setup special middleware (CORS, rate limiting, global error handling, etc.)
-    # Note: Middlewares are executed in REVERSE order of addition for response phase,
-    # and in order of addition for request phase.
-    # To have global_error_handler be the OUTERMOST for responses (last to run),
-    # it should be added FIRST.
-    setup_global_error_handler(app)
+    # Note: Middlewares are executed in REVERSE order of addition.
+    # To have global_error_handler be the OUTERMOST (first to catch, last to respond),
+    # it must be added LAST.
     setup_cors_middleware(app)
     setup_rate_limiting(app)
     setup_trusted_hosts(app)
+    setup_global_error_handler(app)
 
     # Register error handlers
     if register_error_handlers:
