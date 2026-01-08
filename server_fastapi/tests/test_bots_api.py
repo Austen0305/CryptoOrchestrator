@@ -35,4 +35,11 @@ class TestBotsAPI:
     def test_bots_list_authenticated(self, client, auth_headers):
         res = client.get("/api/bots/", headers=auth_headers)
         assert res.status_code == 200
-        assert isinstance(res.json(), list)
+        response_data = res.json()
+        assert isinstance(response_data, dict)
+        assert "data" in response_data
+        assert "meta" in response_data
+        assert isinstance(response_data["data"], list)
+        assert "total" in response_data["meta"]
+        assert "page" in response_data["meta"]
+        assert "page_size" in response_data["meta"]
