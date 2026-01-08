@@ -87,7 +87,26 @@ function PageLoader() {
 }
 
 // Protected route component that redirects to landing if not authenticated
-// Note: Currently using inline checks in routes instead
+function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType; [key: string]: any }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setLocation("/");
+    }
+  }, [isAuthenticated, isLoading, setLocation]);
+
+  if (isLoading) {
+    return <PageLoader />;
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect in useEffect
+  }
+
+  return <Component />;
+}
 
 function Router() {
   // Initialize WebSocket connection only when authenticated
@@ -105,34 +124,34 @@ function Router() {
         <Route path="/home" component={Landing} />
         <Route path="/" component={Landing} />
 
-        {/* Protected routes - show page content but may require auth for features */}
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/bots" component={Bots} />
-        <Route path="/markets" component={Markets} />
-        <Route path="/analytics" component={Analytics} />
-        <Route path="/strategies" component={Strategies} />
-        <Route path="/licensing" component={Licensing} />
-        <Route path="/billing" component={Billing} />
-        <Route path="/risk" component={RiskManagement} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/wallet" component={Wallet} />
-        <Route path="/staking" component={Staking} />
-        <Route path="/trading-bots" component={TradingBots} />
-        <Route path="/dex-trading" component={DEXTrading} />
-        <Route path="/wallets" component={Wallets} />
-        <Route path="/marketplace" component={Marketplace} />
-        <Route path="/marketplace/trader/:traderId" component={TraderProfile} />
-        <Route path="/indicators" component={IndicatorMarketplace} />
-        <Route path="/charting" component={AdvancedChartingTerminal} />
-        <Route path="/admin/analytics" component={AdminAnalytics} />
-        <Route path="/developer/analytics" component={DeveloperAnalytics} />
-        <Route path="/provider-analytics/:providerId?" component={ProviderAnalytics} />
-        <Route path="/sla-dashboard" component={SLADashboard} />
-        <Route path="/dashboard-builder" component={DashboardBuilder} />
-        <Route path="/traces" component={TraceVisualization} />
-        <Route path="/treasury" component={TreasuryDashboard} />
-        <Route path="/treasury/:walletId" component={TreasuryDashboard} />
-        <Route path="/tax-reporting" component={TaxReporting} />
+        {/* Protected routes - Redirect if not authenticated */}
+        <Route path="/dashboard"><ProtectedRoute component={Dashboard} /></Route>
+        <Route path="/bots"><ProtectedRoute component={Bots} /></Route>
+        <Route path="/markets"><ProtectedRoute component={Markets} /></Route>
+        <Route path="/analytics"><ProtectedRoute component={Analytics} /></Route>
+        <Route path="/strategies"><ProtectedRoute component={Strategies} /></Route>
+        <Route path="/licensing"><ProtectedRoute component={Licensing} /></Route>
+        <Route path="/billing"><ProtectedRoute component={Billing} /></Route>
+        <Route path="/risk"><ProtectedRoute component={RiskManagement} /></Route>
+        <Route path="/settings"><ProtectedRoute component={Settings} /></Route>
+        <Route path="/wallet"><ProtectedRoute component={Wallet} /></Route>
+        <Route path="/staking"><ProtectedRoute component={Staking} /></Route>
+        <Route path="/trading-bots"><ProtectedRoute component={TradingBots} /></Route>
+        <Route path="/dex-trading"><ProtectedRoute component={DEXTrading} /></Route>
+        <Route path="/wallets"><ProtectedRoute component={Wallets} /></Route>
+        <Route path="/marketplace"><ProtectedRoute component={Marketplace} /></Route>
+        <Route path="/marketplace/trader/:traderId"><ProtectedRoute component={TraderProfile} /></Route>
+        <Route path="/indicators"><ProtectedRoute component={IndicatorMarketplace} /></Route>
+        <Route path="/charting"><ProtectedRoute component={AdvancedChartingTerminal} /></Route>
+        <Route path="/admin/analytics"><ProtectedRoute component={AdminAnalytics} /></Route>
+        <Route path="/developer/analytics"><ProtectedRoute component={DeveloperAnalytics} /></Route>
+        <Route path="/provider-analytics/:providerId?"><ProtectedRoute component={ProviderAnalytics} /></Route>
+        <Route path="/sla-dashboard"><ProtectedRoute component={SLADashboard} /></Route>
+        <Route path="/dashboard-builder"><ProtectedRoute component={DashboardBuilder} /></Route>
+        <Route path="/traces"><ProtectedRoute component={TraceVisualization} /></Route>
+        <Route path="/treasury"><ProtectedRoute component={TreasuryDashboard} /></Route>
+        <Route path="/treasury/:walletId"><ProtectedRoute component={TreasuryDashboard} /></Route>
+        <Route path="/tax-reporting"><ProtectedRoute component={TaxReporting} /></Route>
         <Route component={NotFound} />
       </Switch>
     </Suspense>
