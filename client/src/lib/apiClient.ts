@@ -25,10 +25,13 @@ class ApiClient {
     // Use backend URL (from env or default) if not provided
     if (!baseURL) {
       // Priority: window.__API_BASE__ (runtime override) > VITE_API_URL (build-time) > VITE_API_BASE_URL > default
+      const DEFAULT_API_URL = "https://quickly-newton-intranet-nations.trycloudflare.com";
+
       const envBaseUrl =
         (typeof window !== "undefined" && (window as Window & { __API_BASE__?: string }).__API_BASE__) ||
         import.meta.env.VITE_API_URL ||
-        import.meta.env.VITE_API_BASE_URL;
+        import.meta.env.VITE_API_BASE_URL ||
+        DEFAULT_API_URL;
 
       // Default to main FastAPI backend on port 8000.
       const rawBaseUrl = envBaseUrl || "http://localhost:8000";
