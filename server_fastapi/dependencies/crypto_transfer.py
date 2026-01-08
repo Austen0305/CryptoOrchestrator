@@ -4,13 +4,14 @@ Uses Annotated pattern for better type hints and dependency injection.
 """
 
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
-from ..services.crypto_transfer_service import CryptoTransferService
-from ..repositories.wallet_balance_repository import WalletBalanceRepository
 from ..repositories.transaction_repository import TransactionRepository
+from ..repositories.wallet_balance_repository import WalletBalanceRepository
+from ..services.crypto_transfer_service import CryptoTransferService
 
 
 async def get_crypto_transfer_service(

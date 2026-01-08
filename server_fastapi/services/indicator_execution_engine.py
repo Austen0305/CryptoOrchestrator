@@ -3,24 +3,26 @@ Indicator Execution Engine
 Secure sandboxed execution environment for custom indicators.
 """
 
-import logging
 import ast
-import time
+import logging
 import threading
-from typing import Dict, List, Any, Optional
-from contextlib import contextmanager
+from typing import Any
+
 import numpy as np
 import pandas as pd
-import sys
-import os
 
 logger = logging.getLogger(__name__)
 
 # Try to import RestrictedPython for sandboxing
 try:
     from RestrictedPython import compile_restricted, safe_globals
-    from RestrictedPython.Guards import safe_builtins, guarded_iter_unpack, guarded_unpack
+    from RestrictedPython.Guards import (
+        guarded_iter_unpack,
+        guarded_unpack,
+        safe_builtins,
+    )
     from RestrictedPython.transformer import RestrictingNodeTransformer
+
     RESTRICTED_PYTHON_AVAILABLE = True
 except ImportError:
     RESTRICTED_PYTHON_AVAILABLE = False
@@ -29,6 +31,7 @@ except ImportError:
 
 class IndicatorExecutionError(Exception):
     """Exception raised during indicator execution"""
+
     pass
 
 
@@ -45,17 +48,34 @@ class IndicatorExecutionEngine:
     def __init__(self):
         self.max_execution_time = 5.0  # 5 seconds max
         self.max_memory_mb = 100  # 100 MB max
-        self.allowed_modules = {
-            "math", "numpy", "pandas", "datetime", "time"
-        }
+        self.allowed_modules = {"math", "numpy", "pandas", "datetime", "time"}
         self.dangerous_functions = {
-            "eval", "exec", "compile", "__import__", "open", "file",
-            "input", "raw_input", "reload", "__builtins__", "globals",
-            "locals", "vars", "dir", "hasattr", "getattr", "setattr",
-            "delattr", "callable", "super", "type", "isinstance", "issubclass"
+            "eval",
+            "exec",
+            "compile",
+            "__import__",
+            "open",
+            "file",
+            "input",
+            "raw_input",
+            "reload",
+            "__builtins__",
+            "globals",
+            "locals",
+            "vars",
+            "dir",
+            "hasattr",
+            "getattr",
+            "setattr",
+            "delattr",
+            "callable",
+            "super",
+            "type",
+            "isinstance",
+            "issubclass",
         }
 
-    def validate_code(self, code: str) -> Dict[str, Any]:
+    def validate_code(self, code: str) -> dict[str, Any]:
         """
         Validate indicator code for security issues.
 
@@ -132,9 +152,9 @@ class IndicatorExecutionEngine:
     def execute_indicator(
         self,
         code: str,
-        market_data: List[Dict[str, Any]],
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        market_data: list[dict[str, Any]],
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Execute indicator code in a sandboxed environment.
 
@@ -169,8 +189,8 @@ class IndicatorExecutionEngine:
             raise IndicatorExecutionError(f"Execution error: {str(e)}")
 
     def _create_safe_context(
-        self, market_data: List[Dict[str, Any]], parameters: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, market_data: list[dict[str, Any]], parameters: dict[str, Any] | None
+    ) -> dict[str, Any]:
         """Create a safe execution context"""
         # Convert market data to DataFrame for easier manipulation
         df = pd.DataFrame(market_data)
@@ -209,23 +229,25 @@ class IndicatorExecutionEngine:
         }
 
         # Add numpy functions
-        context.update({
-            "mean": np.mean,
-            "std": np.std,
-            "sum": np.sum,
-            "max": np.max,
-            "min": np.min,
-            "abs": np.abs,
-            "sqrt": np.sqrt,
-            "log": np.log,
-            "exp": np.exp,
-        })
+        context.update(
+            {
+                "mean": np.mean,
+                "std": np.std,
+                "sum": np.sum,
+                "max": np.max,
+                "min": np.min,
+                "abs": np.abs,
+                "sqrt": np.sqrt,
+                "log": np.log,
+                "exp": np.exp,
+            }
+        )
 
         return context
 
     def _execute_with_timeout(
-        self, code: str, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, code: str, context: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute code with timeout and resource limits (cross-platform)"""
         result_container = {"result": None, "error": None, "completed": False}
 
@@ -246,7 +268,9 @@ class IndicatorExecutionEngine:
                         exec(byte_code.code, context)
                     except Exception as e:
                         # Fallback to basic execution if RestrictedPython fails
-                        logger.warning(f"RestrictedPython execution failed, using basic: {e}")
+                        logger.warning(
+                            f"RestrictedPython execution failed, using basic: {e}"
+                        )
                         exec(compile(code, "<indicator>", "exec"), context)
                 else:
                     # Basic execution (less secure, but functional)

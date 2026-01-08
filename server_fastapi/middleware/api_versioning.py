@@ -3,12 +3,12 @@ API Versioning Middleware
 Handles API versioning via headers and URL paths with deprecation warnings
 """
 
+import logging
+from datetime import date, datetime
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
 from starlette.types import ASGIApp
-from datetime import datetime, date
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +59,15 @@ class APIVersioningMiddleware(BaseHTTPMiddleware):
         if version_info.get("deprecated", False):
             response.headers["X-API-Deprecated"] = "true"
             if version_info.get("deprecation_date"):
-                response.headers["X-API-Deprecation-Date"] = str(version_info["deprecation_date"])
+                response.headers["X-API-Deprecation-Date"] = str(
+                    version_info["deprecation_date"]
+                )
             if version_info.get("sunset_date"):
                 response.headers["X-API-Sunset-Date"] = str(version_info["sunset_date"])
             if version_info.get("migration_guide"):
-                response.headers["X-API-Migration-Guide"] = version_info["migration_guide"]
+                response.headers["X-API-Migration-Guide"] = version_info[
+                    "migration_guide"
+                ]
 
         # Check if version is sunset (return 410 Gone)
         if version_info.get("sunset_date"):
@@ -72,12 +76,15 @@ class APIVersioningMiddleware(BaseHTTPMiddleware):
                 sunset_date = datetime.fromisoformat(sunset_date).date()
             if isinstance(sunset_date, date) and sunset_date <= date.today():
                 from fastapi import HTTPException
+
                 raise HTTPException(
                     status_code=410,
                     detail=f"API version {version} has been sunset. Please migrate to a supported version.",
                     headers={
                         "X-API-Sunset": "true",
-                        "X-API-Migration-Guide": version_info.get("migration_guide", ""),
+                        "X-API-Migration-Guide": version_info.get(
+                            "migration_guide", ""
+                        ),
                     },
                 )
 

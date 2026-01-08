@@ -3,20 +3,21 @@ Advanced Database Connection Pool Manager
 Provides intelligent pool management, health monitoring, and automatic scaling
 """
 
-import logging
 import asyncio
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+import logging
+import os
+from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
+    create_async_engine,
 )
-from sqlalchemy.pool import QueuePool, NullPool, StaticPool
-from sqlalchemy import text, event
-from contextlib import asynccontextmanager
-import os
+from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,10 @@ class PoolMetrics:
         self.connection_errors = 0
         self.query_count = 0
         self.slow_queries = 0
-        self.last_health_check: Optional[datetime] = None
+        self.last_health_check: datetime | None = None
         self.health_status = "unknown"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metrics to dictionary"""
         return {
             "total_connections": self.total_connections,
@@ -85,10 +86,10 @@ class AdvancedPoolManager:
         self.pool_recycle = pool_recycle
         self.enable_monitoring = enable_monitoring
 
-        self.engine: Optional[AsyncEngine] = None
-        self.session_factory: Optional[async_sessionmaker] = None
+        self.engine: AsyncEngine | None = None
+        self.session_factory: async_sessionmaker | None = None
         self.metrics = PoolMetrics()
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self._monitoring_task: asyncio.Task | None = None
         self._is_initialized = False
 
     def initialize(self):
@@ -238,7 +239,7 @@ class AdvancedPoolManager:
                 logger.error(f"Commit error: {e}")
                 await session.rollback()
                 raise
-        except Exception as e:
+        except Exception:
             try:
                 await session.rollback()
             except Exception:
@@ -254,7 +255,7 @@ class AdvancedPoolManager:
         """Check if pool is healthy"""
         return self.metrics.health_status == "healthy"
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get current pool metrics"""
         return self.metrics.to_dict()
 
@@ -275,7 +276,7 @@ class AdvancedPoolManager:
 
 
 # Global pool manager instance
-_pool_manager: Optional[AdvancedPoolManager] = None
+_pool_manager: AdvancedPoolManager | None = None
 
 
 def get_pool_manager() -> AdvancedPoolManager:
@@ -283,7 +284,9 @@ def get_pool_manager() -> AdvancedPoolManager:
     global _pool_manager
 
     if _pool_manager is None:
-        database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./crypto_orchestrator.db")
+        database_url = os.getenv(
+            "DATABASE_URL", "sqlite+aiosqlite:///./crypto_orchestrator.db"
+        )
         _pool_manager = AdvancedPoolManager(
             database_url=database_url,
             min_pool_size=int(os.getenv("PERF_DB_POOL_SIZE", "5")),
@@ -294,4 +297,3 @@ def get_pool_manager() -> AdvancedPoolManager:
         _pool_manager.initialize()
 
     return _pool_manager
-

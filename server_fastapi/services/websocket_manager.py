@@ -3,13 +3,14 @@ Enhanced WebSocket Connection Manager
 Manages subscriptions, broadcasts, and reconnection logic
 """
 
-from fastapi import WebSocket, WebSocketDisconnect
-from typing import Dict, Set, List, Optional, Callable, Any
 import asyncio
-import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ class WebSocketConnection:
         self.client_id = client_id
         self.connected_at = datetime.now()
         self.last_activity = datetime.now()
-        self.subscriptions: Set[str] = set()
-        self.metadata: Dict[str, Any] = {}
+        self.subscriptions: set[str] = set()
+        self.metadata: dict[str, Any] = {}
 
     async def send_message(self, message: dict):
         """Send message and update activity timestamp"""
@@ -65,17 +66,17 @@ class ConnectionManager:
 
     def __init__(self):
         # Active connections by client_id
-        self.connections: Dict[str, WebSocketConnection] = {}
+        self.connections: dict[str, WebSocketConnection] = {}
 
         # Channel subscriptions: channel_name -> set of client_ids
-        self.subscriptions: Dict[str, Set[str]] = {}
+        self.subscriptions: dict[str, set[str]] = {}
 
         # Message handlers for different message types
-        self.handlers: Dict[str, Callable] = {}
+        self.handlers: dict[str, Callable] = {}
 
         # Background tasks
-        self.cleanup_task: Optional[asyncio.Task] = None
-        self.heartbeat_task: Optional[asyncio.Task] = None
+        self.cleanup_task: asyncio.Task | None = None
+        self.heartbeat_task: asyncio.Task | None = None
 
     async def connect(
         self, websocket: WebSocket, client_id: str
@@ -183,7 +184,7 @@ class ConnectionManager:
         return True
 
     async def broadcast(
-        self, channel: str, message: dict, exclude: Optional[Set[str]] = None
+        self, channel: str, message: dict, exclude: set[str] | None = None
     ):
         """Broadcast message to all subscribers of a channel"""
         if channel not in self.subscriptions:

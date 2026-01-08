@@ -3,22 +3,21 @@ Alerting Routes
 Endpoints for managing alerts, alerting rules, and incident management
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from typing import Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
 from ..services.alerting.alerting_service import (
-    get_alerting_service,
-    AlertSeverity,
     AlertChannel,
+    AlertSeverity,
+    get_alerting_service,
 )
 from ..services.alerting.incident_management import (
-    get_incident_management_service,
     IncidentStatus,
+    get_incident_management_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,8 +31,8 @@ async def get_active_alerts(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    severity: Optional[str] = Query(None, description="Filter by severity"),
-) -> List[Dict[str, Any]]:
+    severity: str | None = Query(None, description="Filter by severity"),
+) -> list[dict[str, Any]]:
     """Get active alerts with pagination (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -79,8 +78,8 @@ async def get_alert_history(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    severity: Optional[str] = Query(None),
-) -> List[Dict[str, Any]]:
+    severity: str | None = Query(None),
+) -> list[dict[str, Any]]:
     """Get alert history with pagination (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -125,7 +124,7 @@ async def get_alert_history(
 async def acknowledge_alert(
     alert_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Acknowledge an alert (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -144,7 +143,7 @@ async def acknowledge_alert(
 async def resolve_alert(
     rule_name: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Resolve an active alert (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -163,7 +162,7 @@ async def get_alert_rules(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get all alert rules with pagination (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -200,8 +199,8 @@ async def get_alert_rules(
 @router.post("/rules")
 async def create_alert_rule(
     current_user: Annotated[dict, Depends(get_current_user)],
-    rule_data: Dict[str, Any],
-) -> Dict[str, Any]:
+    rule_data: dict[str, Any],
+) -> dict[str, Any]:
     """Create a new alert rule (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -234,7 +233,7 @@ async def create_alert_rule(
 @router.get("/fatigue-stats")
 async def get_fatigue_stats(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get alert fatigue statistics (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -247,8 +246,8 @@ async def get_fatigue_stats(
 @cached(ttl=60, prefix="active_incidents")  # 60s TTL for active incidents
 async def get_active_incidents(
     current_user: Annotated[dict, Depends(get_current_user)],
-    severity: Optional[str] = Query(None, description="Filter by severity"),
-) -> List[Dict[str, Any]]:
+    severity: str | None = Query(None, description="Filter by severity"),
+) -> list[dict[str, Any]]:
     """Get active incidents (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -286,7 +285,7 @@ async def get_active_incidents(
 async def get_incident(
     incident_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get incident details (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -304,8 +303,8 @@ async def get_incident(
 @router.post("/incidents")
 async def create_incident(
     current_user: Annotated[dict, Depends(get_current_user)],
-    incident_data: Dict[str, Any],
-) -> Dict[str, Any]:
+    incident_data: dict[str, Any],
+) -> dict[str, Any]:
     """Create a new incident (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -333,7 +332,7 @@ async def create_incident(
 async def resolve_incident(
     incident_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Resolve an incident (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -354,7 +353,7 @@ async def assign_incident(
     incident_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     assignee: str = Query(..., description="User to assign incident to"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Assign an incident to a user (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -377,7 +376,7 @@ async def update_incident_status(
         ...,
         description="New status (open, investigating, mitigating, resolved, closed)",
     ),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Update incident status (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":

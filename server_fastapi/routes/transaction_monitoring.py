@@ -3,19 +3,17 @@ Transaction Monitoring Routes
 API endpoints for transaction monitoring and statistics
 """
 
+import logging
+from datetime import datetime
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
-from typing_extensions import Annotated
-import logging
 
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.monitoring.transaction_monitor import transaction_monitor
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -35,18 +33,18 @@ class TransactionStatsResponse(BaseModel):
     total_amount: str
     total_gas: str
     avg_latency_seconds: float
-    chain_id: Optional[int] = None
-    transaction_type: Optional[str] = None
-    period: Optional[Dict[str, Optional[str]]] = None
+    chain_id: int | None = None
+    transaction_type: str | None = None
+    period: dict[str, str | None] | None = None
 
 
 class SuspiciousPatternResponse(BaseModel):
     """Response model for suspicious pattern"""
 
     pattern: str
-    user_id: Optional[int] = None
-    transaction_hash: Optional[str] = None
-    amount: Optional[str] = None
+    user_id: int | None = None
+    transaction_hash: str | None = None
+    amount: str | None = None
     severity: str
     description: str
 
@@ -54,10 +52,10 @@ class SuspiciousPatternResponse(BaseModel):
 class TransactionReportResponse(BaseModel):
     """Response model for transaction report"""
 
-    period: Dict[str, str]
-    summary: Dict[str, Any]
-    chain_breakdown: Dict[str, Dict[str, int]]
-    suspicious_patterns: List[Dict[str, Any]]
+    period: dict[str, str]
+    summary: dict[str, Any]
+    chain_breakdown: dict[str, dict[str, int]]
+    suspicious_patterns: list[dict[str, Any]]
     generated_at: str
 
 
@@ -66,12 +64,12 @@ class TransactionReportResponse(BaseModel):
 )
 @cached(ttl=60, prefix="transaction_stats")  # 60s TTL for transaction statistics
 async def get_transaction_stats(
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
-    transaction_type: Optional[str] = Query(
+    chain_id: int | None = Query(None, description="Filter by chain ID"),
+    transaction_type: str | None = Query(
         None, description="Filter by transaction type (deposit, withdrawal, swap)"
     ),
-    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
-    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    start_date: str | None = Query(None, description="Start date (ISO format)"),
+    end_date: str | None = Query(None, description="End date (ISO format)"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> TransactionStatsResponse:
     """
@@ -126,17 +124,17 @@ async def get_transaction_stats(
 
 @router.get(
     "/suspicious",
-    response_model=List[SuspiciousPatternResponse],
+    response_model=list[SuspiciousPatternResponse],
     tags=["Transaction Monitoring"],
 )
 @cached(ttl=120, prefix="suspicious_patterns")  # 120s TTL for suspicious patterns
 async def get_suspicious_patterns(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
+    chain_id: int | None = Query(None, description="Filter by chain ID"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> List[SuspiciousPatternResponse]:
+) -> list[SuspiciousPatternResponse]:
     """
     Get detected suspicious transaction patterns with pagination
 
@@ -189,7 +187,7 @@ async def get_suspicious_patterns(
 async def get_transaction_report(
     start_date: str = Query(..., description="Start date (ISO format)"),
     end_date: str = Query(..., description="End date (ISO format)"),
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
+    chain_id: int | None = Query(None, description="Filter by chain ID"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ) -> TransactionReportResponse:
     """

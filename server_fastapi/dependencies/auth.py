@@ -3,14 +3,15 @@ Centralized authentication dependencies for FastAPI routes.
 Eliminates code duplication across route files.
 """
 
-from typing import Optional, Annotated
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import jwt
-import os
 import logging
-from ..utils.auth_utils import get_user_id_from_payload
+from typing import Annotated
+
+import jwt
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
 from ..config.settings import settings
+from ..utils.auth_utils import get_user_id_from_payload
 
 logger = logging.getLogger(__name__)
 
@@ -145,10 +146,10 @@ def get_current_active_user(
 
 async def get_optional_user(
     credentials: Annotated[
-        Optional[HTTPAuthorizationCredentials], Depends(optional_security)
+        HTTPAuthorizationCredentials | None, Depends(optional_security)
     ],
     request: Request,
-) -> Optional[dict]:
+) -> dict | None:
     """
     Optional authentication - returns user if authenticated, None otherwise.
     Useful for routes that have different behavior for authenticated/unauthenticated users.

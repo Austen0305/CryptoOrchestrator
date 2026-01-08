@@ -3,9 +3,10 @@ Enhanced error messages and exception handling
 Provides user-friendly, actionable error messages
 """
 
-from typing import Optional, Dict, Any
-from fastapi import HTTPException, status
 import logging
+from typing import Any
+
+from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 class TradingError(Exception):
     """Base exception for trading-related errors"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         self.message = message
         self.details = details or {}
         super().__init__(self.message)
@@ -42,7 +43,7 @@ class InsufficientBalanceError(TradingError):
 class InvalidSymbolError(TradingError):
     """Raised when trading symbol is invalid"""
 
-    def __init__(self, symbol: str, suggestion: Optional[str] = None):
+    def __init__(self, symbol: str, suggestion: str | None = None):
         if suggestion:
             message = f"Symbol '{symbol}' not found. Did you mean '{suggestion}'?"
         else:
@@ -55,7 +56,7 @@ class InvalidSymbolError(TradingError):
 class OrderExecutionError(TradingError):
     """Raised when order execution fails"""
 
-    def __init__(self, reason: str, order_details: Optional[Dict[str, Any]] = None):
+    def __init__(self, reason: str, order_details: dict[str, Any] | None = None):
         message = f"Order execution failed: {reason}"
         super().__init__(message, order_details or {})
 
@@ -78,7 +79,7 @@ class ConfigurationError(TradingError):
 
 
 def create_http_exception(
-    status_code: int, message: str, details: Optional[Dict[str, Any]] = None
+    status_code: int, message: str, details: dict[str, Any] | None = None
 ) -> HTTPException:
     """
     Create an HTTPException with enhanced error information.

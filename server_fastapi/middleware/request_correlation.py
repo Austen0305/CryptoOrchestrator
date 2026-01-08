@@ -3,9 +3,9 @@ Request Correlation Middleware
 Enhances request correlation with distributed tracing support
 """
 
-import uuid
 import logging
-from typing import Dict, Optional
+import uuid
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -33,24 +33,23 @@ class RequestCorrelationMiddleware(BaseHTTPMiddleware):
         trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
         span_id = request.headers.get("X-Span-ID") or str(uuid.uuid4())
         parent_span_id = request.headers.get("X-Parent-Span-ID")
-        
+
         # Store in request state
         request.state.request_id = request_id
         request.state.trace_id = trace_id
         request.state.span_id = span_id
         if parent_span_id:
             request.state.parent_span_id = parent_span_id
-        
+
         # Process request
         response = await call_next(request)
-        
+
         # Add correlation headers
         response.headers["X-Request-ID"] = request_id
         response.headers["X-Trace-ID"] = trace_id
         response.headers["X-Span-ID"] = span_id
-        
+
         if parent_span_id:
             response.headers["X-Parent-Span-ID"] = parent_span_id
-        
-        return response
 
+        return response

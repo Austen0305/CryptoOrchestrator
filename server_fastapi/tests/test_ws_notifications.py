@@ -7,10 +7,9 @@ Tests the notification WebSocket endpoint (/ws/notifications) including:
 - Notification updates (read/delete events)
 """
 
-import asyncio
-import json
 import pytest
 from fastapi.testclient import TestClient
+
 from server_fastapi.main import app
 
 client = TestClient(app)
@@ -65,9 +64,9 @@ def test_ws_notifications_receives_scenario_broadcast():
     risk_scenario_events = [
         msg for msg in received_messages if msg.get("type") == "risk_scenario"
     ]
-    assert (
-        len(risk_scenario_events) > 0
-    ), f"Expected at least one risk_scenario event, received: {received_messages}"
+    assert len(risk_scenario_events) > 0, (
+        f"Expected at least one risk_scenario event, received: {received_messages}"
+    )
 
     event = risk_scenario_events[0]
 
@@ -140,10 +139,10 @@ def test_ws_notifications_multiple_clients():
     }
 
     # Connect two clients
-    with client.websocket_connect("/ws/notifications") as ws1, client.websocket_connect(
-        "/ws/notifications"
-    ) as ws2:
-
+    with (
+        client.websocket_connect("/ws/notifications") as ws1,
+        client.websocket_connect("/ws/notifications") as ws2,
+    ):
         # Clear any initial messages
         for ws in [ws1, ws2]:
             try:
@@ -170,9 +169,9 @@ def test_ws_notifications_multiple_clients():
             pytest.fail(f"Client 2 did not receive broadcast: {e}")
 
         # Both should have received a risk_scenario event
-        assert any(
-            m.get("type") == "risk_scenario" for m in messages1
-        ), "Client 1 missing risk_scenario"
-        assert any(
-            m.get("type") == "risk_scenario" for m in messages2
-        ), "Client 2 missing risk_scenario"
+        assert any(m.get("type") == "risk_scenario" for m in messages1), (
+            "Client 1 missing risk_scenario"
+        )
+        assert any(m.get("type") == "risk_scenario" for m in messages2), (
+            "Client 2 missing risk_scenario"
+        )

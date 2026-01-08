@@ -3,16 +3,15 @@ MPC and TECDSA API Routes
 Endpoints for multi-party computation and threshold ECDSA
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from ..dependencies.auth import get_current_user
 from ..services.security.mpc_service import mpc_service
 from ..services.security.tecdsa_service import tecdsa_service
-from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,31 +23,31 @@ class RegisterPartyRequest(BaseModel):
     party_id: str = Field(..., description="Party identifier")
     name: str = Field(..., description="Party name")
     role: str = Field("signer", description="Party role")
-    public_key: Optional[str] = Field(None, description="Party public key")
+    public_key: str | None = Field(None, description="Party public key")
 
 
 class GenerateMPCKeyRequest(BaseModel):
     wallet_id: str = Field(..., description="Wallet identifier")
-    parties: List[str] = Field(..., description="List of party IDs")
+    parties: list[str] = Field(..., description="List of party IDs")
     threshold: int = Field(..., ge=2, description="Minimum parties needed")
 
 
 class MPCSignRequest(BaseModel):
     wallet_id: str = Field(..., description="Wallet identifier")
     message_hash: str = Field(..., description="Hash of message to sign")
-    participating_parties: List[str] = Field(..., description="Parties participating")
+    participating_parties: list[str] = Field(..., description="Parties participating")
 
 
 class GenerateTECDSAKeyRequest(BaseModel):
     wallet_address: str = Field(..., description="Wallet address")
-    parties: List[str] = Field(..., description="List of party IDs")
+    parties: list[str] = Field(..., description="List of party IDs")
     threshold: int = Field(..., ge=2, description="Minimum parties needed")
 
 
 class TECDSASignRequest(BaseModel):
     wallet_address: str = Field(..., description="Wallet address")
     transaction_hash: str = Field(..., description="Transaction hash to sign")
-    participating_parties: List[str] = Field(..., description="Parties participating")
+    participating_parties: list[str] = Field(..., description="Parties participating")
 
 
 # MPC Endpoints
@@ -65,7 +64,7 @@ async def register_party(
             role=request.role,
             public_key=request.public_key,
         )
-        
+
         return {
             "party_id": party.party_id,
             "name": party.name,
@@ -85,7 +84,7 @@ async def list_parties(
     """List all registered parties"""
     try:
         parties = mpc_service.list_parties()
-        
+
         return [
             {
                 "party_id": p.party_id,
@@ -112,7 +111,7 @@ async def generate_mpc_key(
             parties=request.parties,
             threshold=request.threshold,
         )
-        
+
         return {
             "wallet_id": request.wallet_id,
             "public_key": public_key,
@@ -146,7 +145,7 @@ async def sign_with_mpc(
             message_hash=request.message_hash,
             participating_parties=request.participating_parties,
         )
-        
+
         return {
             "signature_id": signature.signature_id,
             "wallet_id": signature.wallet_id,
@@ -171,10 +170,10 @@ async def get_mpc_key_shares(
     """Get key shares for a wallet"""
     try:
         shares = mpc_service.get_key_shares(wallet_id)
-        
+
         if not shares:
             raise HTTPException(status_code=404, detail="Key shares not found")
-        
+
         return {
             "wallet_id": wallet_id,
             "shares": [
@@ -207,7 +206,7 @@ async def generate_tecdsa_key(
             parties=request.parties,
             threshold=request.threshold,
         )
-        
+
         return {
             "wallet_address": request.wallet_address,
             "public_key": public_key,
@@ -241,7 +240,7 @@ async def sign_with_tecdsa(
             transaction_hash=request.transaction_hash,
             participating_parties=request.participating_parties,
         )
-        
+
         return {
             "signature_id": signature.signature_id,
             "wallet_address": signature.wallet_address,
@@ -268,10 +267,10 @@ async def get_tecdsa_key_shares(
     """Get TECDSA key shares for a wallet"""
     try:
         shares = tecdsa_service.get_key_shares(wallet_address)
-        
+
         if not shares:
             raise HTTPException(status_code=404, detail="Key shares not found")
-        
+
         return {
             "wallet_address": wallet_address,
             "shares": [

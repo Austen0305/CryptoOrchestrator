@@ -4,25 +4,28 @@ Manages custom indicators for the marketplace.
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
-from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func, desc
 from sqlalchemy.orm import selectinload
 
 if TYPE_CHECKING:
-    from ..models.indicator import Indicator, IndicatorVersion, IndicatorPurchase, IndicatorRating
-    from ..models.user import User
+    from ..models.indicator import (
+        Indicator,
+        IndicatorPurchase,
+        IndicatorRating,
+        IndicatorVersion,
+    )
 
 from ..models.indicator import (
     Indicator,
-    IndicatorVersion,
+    IndicatorLanguage,
     IndicatorPurchase,
     IndicatorRating,
     IndicatorStatus,
-    IndicatorLanguage,
+    IndicatorVersion,
 )
-from ..models.user import User
 from ..repositories.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -34,7 +37,7 @@ class IndicatorService:
     def __init__(
         self,
         db: AsyncSession,
-        user_repository: Optional[UserRepository] = None,
+        user_repository: UserRepository | None = None,
     ):
         self.db = db
         self.user_repository = user_repository or UserRepository()
@@ -45,13 +48,13 @@ class IndicatorService:
         name: str,
         code: str,
         language: str = IndicatorLanguage.PYTHON.value,
-        description: Optional[str] = None,
-        category: Optional[str] = None,
-        tags: Optional[str] = None,
+        description: str | None = None,
+        category: str | None = None,
+        tags: str | None = None,
         price: float = 0.0,
         is_free: bool = True,
-        parameters: Optional[dict] = None,
-    ) -> Dict[str, any]:
+        parameters: dict | None = None,
+    ) -> dict[str, any]:
         """
         Create a new indicator.
 
@@ -119,7 +122,9 @@ class IndicatorService:
             await self.db.rollback()
             raise
 
-    async def publish_indicator(self, indicator_id: int, developer_id: int) -> Dict[str, any]:
+    async def publish_indicator(
+        self, indicator_id: int, developer_id: int
+    ) -> dict[str, any]:
         """
         Publish an indicator (submit for approval).
 
@@ -154,7 +159,7 @@ class IndicatorService:
             await self.db.rollback()
             raise
 
-    async def approve_indicator(self, indicator_id: int) -> Dict[str, any]:
+    async def approve_indicator(self, indicator_id: int) -> dict[str, any]:
         """
         Approve an indicator (curator action).
 
@@ -192,11 +197,11 @@ class IndicatorService:
         indicator_id: int,
         developer_id: int,
         code: str,
-        version_name: Optional[str] = None,
-        changelog: Optional[str] = None,
-        parameters: Optional[dict] = None,
+        version_name: str | None = None,
+        changelog: str | None = None,
+        parameters: dict | None = None,
         is_breaking: bool = False,
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Create a new version of an indicator.
 
@@ -257,8 +262,8 @@ class IndicatorService:
             raise
 
     async def purchase_indicator(
-        self, indicator_id: int, user_id: int, version_id: Optional[int] = None
-    ) -> Dict[str, any]:
+        self, indicator_id: int, user_id: int, version_id: int | None = None
+    ) -> dict[str, any]:
         """
         Purchase an indicator (70/30 revenue split).
 
@@ -356,8 +361,8 @@ class IndicatorService:
             raise
 
     async def rate_indicator(
-        self, indicator_id: int, user_id: int, rating: int, comment: Optional[str] = None
-    ) -> Dict[str, any]:
+        self, indicator_id: int, user_id: int, rating: int, comment: str | None = None
+    ) -> dict[str, any]:
         """
         Rate an indicator (1-5 stars).
 
@@ -422,8 +427,9 @@ class IndicatorService:
         """Update average rating for an indicator"""
         try:
             ratings_result = await self.db.execute(
-                select(func.avg(IndicatorRating.rating), func.count(IndicatorRating.id))
-                .where(IndicatorRating.indicator_id == indicator_id)
+                select(
+                    func.avg(IndicatorRating.rating), func.count(IndicatorRating.id)
+                ).where(IndicatorRating.indicator_id == indicator_id)
             )
             result = ratings_result.first()
 
@@ -441,11 +447,11 @@ class IndicatorService:
         skip: int = 0,
         limit: int = 20,
         sort_by: str = "download_count",
-        category: Optional[str] = None,
-        is_free: Optional[bool] = None,
-        min_rating: Optional[float] = None,
-        search_query: Optional[str] = None,
-    ) -> Dict[str, any]:
+        category: str | None = None,
+        is_free: bool | None = None,
+        min_rating: float | None = None,
+        search_query: str | None = None,
+    ) -> dict[str, any]:
         """
         Get list of indicators for marketplace (public, approved only).
 
@@ -539,7 +545,9 @@ class IndicatorService:
                         "total_ratings": ind.total_ratings,
                         "developer": {
                             "id": developer.id if developer else None,
-                            "username": developer.username or developer.email if developer else None,
+                            "username": developer.username or developer.email
+                            if developer
+                            else None,
                         },
                         "created_at": (
                             ind.created_at.isoformat() if ind.created_at else None
@@ -561,9 +569,9 @@ class IndicatorService:
         self,
         indicator_id: int,
         user_id: int,
-        market_data: List[Dict],
-        parameters: Optional[dict] = None,
-    ) -> Dict[str, any]:
+        market_data: list[dict],
+        parameters: dict | None = None,
+    ) -> dict[str, any]:
         """
         Execute an indicator on market data with sandboxed execution.
 

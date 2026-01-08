@@ -4,18 +4,19 @@ Enables users to copy trades from other traders.
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..repositories.follow_repository import FollowRepository
     from ..repositories.copy_trading_repository import CopyTradingRepository
+    from ..repositories.follow_repository import FollowRepository
     from ..repositories.trade_repository import TradeRepository
     from ..repositories.user_repository import UserRepository
 from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..repositories.follow_repository import FollowRepository
 from ..repositories.copy_trading_repository import CopyTradingRepository
+from ..repositories.follow_repository import FollowRepository
 from ..repositories.trade_repository import TradeRepository
 from ..repositories.user_repository import UserRepository
 
@@ -28,10 +29,10 @@ class CopyTradingService:
     def __init__(
         self,
         db: AsyncSession,
-        follow_repository: Optional[FollowRepository] = None,
-        copy_trading_repository: Optional[CopyTradingRepository] = None,
-        trade_repository: Optional[TradeRepository] = None,
-        user_repository: Optional[UserRepository] = None,
+        follow_repository: FollowRepository | None = None,
+        copy_trading_repository: CopyTradingRepository | None = None,
+        trade_repository: TradeRepository | None = None,
+        user_repository: UserRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.follow_repository = follow_repository or FollowRepository()
@@ -47,8 +48,8 @@ class CopyTradingService:
         follower_id: int,
         trader_id: int,
         allocation_percentage: float = 100.0,
-        max_position_size: Optional[float] = None,
-    ) -> Dict[str, any]:
+        max_position_size: float | None = None,
+    ) -> dict[str, any]:
         """
         Follow a trader to copy their trades.
 
@@ -162,7 +163,7 @@ class CopyTradingService:
             await self.db.rollback()
             return False
 
-    async def get_followed_traders(self, follower_id: int) -> List[Dict]:
+    async def get_followed_traders(self, follower_id: int) -> list[dict]:
         """Get list of traders being followed"""
         try:
             # ✅ Data access delegated to repository (with eager loading)
@@ -212,7 +213,7 @@ class CopyTradingService:
         trader_id: int,
         original_trade_id: str,
         allocation_percentage: float,
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Copy a specific trade from a trader.
 
@@ -420,7 +421,7 @@ class CopyTradingService:
             logger.error(f"Error copying trade: {e}", exc_info=True)
             raise
 
-    async def get_copy_trading_stats(self, follower_id: int) -> Dict[str, any]:
+    async def get_copy_trading_stats(self, follower_id: int) -> dict[str, any]:
         """Get copy trading statistics for a follower"""
         try:
             # ✅ Data access delegated to repository

@@ -2,12 +2,13 @@
 Smart Alerts Service - AI-powered alert system
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+import asyncio
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
-import asyncio
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,8 @@ class AlertRule(BaseModel):
     type: AlertType
     priority: AlertPriority
     enabled: bool = True
-    conditions: Dict[str, Any]
-    actions: List[str]  # e.g., ["email", "sms", "webhook", "push"]
+    conditions: dict[str, Any]
+    actions: list[str]  # e.g., ["email", "sms", "webhook", "push"]
     cooldown_seconds: int = 3600  # Prevent duplicate alerts
 
 
@@ -55,21 +56,21 @@ class SmartAlert(BaseModel):
     type: AlertType
     priority: AlertPriority
     message: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     triggered_at: datetime = Field(default_factory=datetime.utcnow)
     acknowledged: bool = False
-    acknowledged_at: Optional[datetime] = None
+    acknowledged_at: datetime | None = None
 
 
 class SmartAlertsService:
     """Smart alerts service with AI-powered alerting"""
 
     def __init__(self):
-        self.rules: Dict[str, AlertRule] = {}
-        self.active_alerts: Dict[str, SmartAlert] = {}
-        self.alert_history: List[SmartAlert] = []
-        self.last_triggered: Dict[str, datetime] = {}
-        self.monitoring_tasks: Dict[str, asyncio.Task] = {}
+        self.rules: dict[str, AlertRule] = {}
+        self.active_alerts: dict[str, SmartAlert] = {}
+        self.alert_history: list[SmartAlert] = []
+        self.last_triggered: dict[str, datetime] = {}
+        self.monitoring_tasks: dict[str, asyncio.Task] = {}
         logger.info("Smart Alerts Service initialized")
 
     async def create_rule(self, rule: AlertRule) -> bool:
@@ -88,7 +89,7 @@ class SmartAlertsService:
             logger.error(f"Error creating alert rule: {e}")
             return False
 
-    async def update_rule(self, rule_id: str, updates: Dict[str, Any]) -> bool:
+    async def update_rule(self, rule_id: str, updates: dict[str, Any]) -> bool:
         """Update an alert rule"""
         try:
             if rule_id not in self.rules:
@@ -218,9 +219,12 @@ class SmartAlertsService:
             threshold = conditions.get("threshold", 0)
             current_price = 50000  # Mock current price
 
-            if conditions.get("operator") == "above" and current_price > threshold:
-                return True
-            elif conditions.get("operator") == "below" and current_price < threshold:
+            if (
+                conditions.get("operator") == "above"
+                and current_price > threshold
+                or conditions.get("operator") == "below"
+                and current_price < threshold
+            ):
                 return True
 
         elif alert_type == AlertType.TECHNICAL:
@@ -231,9 +235,12 @@ class SmartAlertsService:
             # Mock indicator values
             if indicator == "RSI":
                 rsi_value = 65  # Mock RSI
-                if conditions.get("operator") == "above" and rsi_value > value:
-                    return True
-                elif conditions.get("operator") == "below" and rsi_value < value:
+                if (
+                    conditions.get("operator") == "above"
+                    and rsi_value > value
+                    or conditions.get("operator") == "below"
+                    and rsi_value < value
+                ):
                     return True
 
         elif alert_type == AlertType.RISK:
@@ -324,7 +331,7 @@ class SmartAlertsService:
 
         return f"Alert: {rule.name}"
 
-    async def _generate_alert_data(self, rule: AlertRule) -> Dict[str, Any]:
+    async def _generate_alert_data(self, rule: AlertRule) -> dict[str, Any]:
         """Generate alert data"""
         # Mock implementation - would gather actual data
         return {
@@ -333,7 +340,7 @@ class SmartAlertsService:
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-    async def _execute_actions(self, alert: SmartAlert, actions: List[str]) -> None:
+    async def _execute_actions(self, alert: SmartAlert, actions: list[str]) -> None:
         """Execute alert actions"""
         for action in actions:
             try:
@@ -375,8 +382,8 @@ class SmartAlertsService:
             return False
 
     def get_active_alerts(
-        self, priority: Optional[AlertPriority] = None
-    ) -> List[SmartAlert]:
+        self, priority: AlertPriority | None = None
+    ) -> list[SmartAlert]:
         """Get active alerts"""
         alerts = list(self.active_alerts.values())
 
@@ -386,8 +393,8 @@ class SmartAlertsService:
         return alerts
 
     def get_alert_history(
-        self, rule_id: Optional[str] = None, limit: int = 100
-    ) -> List[SmartAlert]:
+        self, rule_id: str | None = None, limit: int = 100
+    ) -> list[SmartAlert]:
         """Get alert history"""
         history = self.alert_history
 

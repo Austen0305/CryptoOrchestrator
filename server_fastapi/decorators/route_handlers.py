@@ -5,27 +5,27 @@ Provides decorators to wrap route handlers with standardized error handling,
 logging, and response formatting.
 """
 
-from functools import wraps
-from fastapi import HTTPException, status
-from typing import Callable, Any, Optional
 import logging
 import traceback
+from collections.abc import Callable
 from datetime import datetime
+from functools import wraps
+from typing import Any
+
+from fastapi import HTTPException, status
 
 from ..utils.error_handling import (
+    BotCreationError,
+    ConfigurationError,
     InsufficientBalanceError,
     InvalidSymbolError,
     OrderExecutionError,
-    BotCreationError,
-    ConfigurationError,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def handle_errors(
-    operation_name: str, logger_instance: Optional[logging.Logger] = None
-):
+def handle_errors(operation_name: str, logger_instance: logging.Logger | None = None):
     """
     Decorator to handle errors in route handlers with consistent logging.
 
@@ -238,7 +238,7 @@ def log_performance(slow_threshold_seconds: float = 1.0):
     return decorator
 
 
-def validate_request(validator_func: Callable[[Any], tuple[bool, Optional[str]]]):
+def validate_request(validator_func: Callable[[Any], tuple[bool, str | None]]):
     """
     Decorator for custom request validation.
 

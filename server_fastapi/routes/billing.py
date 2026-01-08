@@ -3,26 +3,23 @@ SaaS Billing Routes
 Free subscription billing endpoints (no payment processing required)
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import Optional, Annotated
-import logging
 
+from ..billing import SubscriptionService
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
-from ..billing import SubscriptionService
+from ..middleware.cache_manager import cached
+from ..models.user import User
 from ..services.payments.free_subscription_service import (
-    FreeSubscriptionService,
     SubscriptionTier,
     free_subscription_service,
 )
-from ..models.user import User
-from ..models.subscription import Subscription as SubscriptionModel
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +36,8 @@ class CreateCheckoutRequest(BaseModel):
 class SubscriptionResponse(BaseModel):
     plan: str
     status: str
-    current_period_start: Optional[str] = None
-    current_period_end: Optional[str] = None
+    current_period_start: str | None = None
+    current_period_end: str | None = None
     cancel_at_period_end: bool = False
     limits: dict = {}
 
@@ -57,16 +54,18 @@ async def get_plans():
         formatted_plans = []
         for tier, config in plans.items():
             if config:
-                formatted_plans.append({
-                    "plan": tier,
-                    "amount": config["amount"],
-                    "currency": config["currency"],
-                    "interval": config["interval"],
-                    "features": config["features"],
-                    # Remove Stripe-specific fields, add free indicator
-                    "is_free": True,
-                    "price_display": "Free",
-                })
+                formatted_plans.append(
+                    {
+                        "plan": tier,
+                        "amount": config["amount"],
+                        "currency": config["currency"],
+                        "interval": config["interval"],
+                        "features": config["features"],
+                        # Remove Stripe-specific fields, add free indicator
+                        "is_free": True,
+                        "price_display": "Free",
+                    }
+                )
         return {"plans": formatted_plans}
     except Exception as e:
         logger.error(f"Failed to get plans: {e}", exc_info=True)
@@ -170,8 +169,9 @@ async def create_checkout(
 
         # Save to database
         from ..models.subscription import Subscription as SubscriptionModel
+
         db_subscription = await subscription_service.get_user_subscription(db, user_id)
-        
+
         if not db_subscription:
             db_subscription = SubscriptionModel(
                 user_id=user_id,
@@ -182,7 +182,7 @@ async def create_checkout(
         else:
             db_subscription.plan = request.plan
             db_subscription.status = "active"
-        
+
         await db.commit()
         await db.refresh(db_subscription)
 
@@ -214,7 +214,7 @@ async def create_portal(
         subscription_service = SubscriptionService()
 
         subscription = await subscription_service.get_user_subscription(db, user_id)
-        
+
         if not subscription:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -290,7 +290,9 @@ async def _handle_subscription_created(
 ):
     """Handle subscription.created event (deprecated - kept for backward compatibility)"""
     # Free subscriptions don't use webhooks
-    logger.info("Subscription created event received (not needed for free subscriptions)")
+    logger.info(
+        "Subscription created event received (not needed for free subscriptions)"
+    )
 
 
 async def _handle_subscription_updated(
@@ -304,7 +306,9 @@ async def _handle_subscription_deleted(
     db: AsyncSession, event_data: dict, subscription_service: SubscriptionService
 ):
     """Handle subscription.deleted event (deprecated - kept for backward compatibility)"""
-    logger.info("Subscription deleted event received (not needed for free subscriptions)")
+    logger.info(
+        "Subscription deleted event received (not needed for free subscriptions)"
+    )
 
 
 async def _handle_payment_succeeded(

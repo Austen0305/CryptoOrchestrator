@@ -3,9 +3,9 @@ Log Sanitizer Middleware
 Sanitizes log messages to prevent sensitive data leakage
 """
 
-import re
 import logging
-from typing import Any, Dict, List, Optional, Union
+import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ class LogSanitizer:
         for pattern_name, pattern in LogSanitizer.SENSITIVE_PATTERNS.items():
             sanitized = re.sub(
                 pattern,
-                lambda m: f'{m.group(0).split("=")[0].split(":")[0]}={mask}',
+                lambda m: f"{m.group(0).split('=')[0].split(':')[0]}={mask}",
                 sanitized,
                 flags=re.IGNORECASE,
             )
@@ -104,8 +104,8 @@ class LogSanitizer:
 
     @staticmethod
     def sanitize_dict(
-        data: Dict[str, Any], mask: str = "***MASKED***"
-    ) -> Dict[str, Any]:
+        data: dict[str, Any], mask: str = "***MASKED***"
+    ) -> dict[str, Any]:
         """
         Sanitize a dictionary by masking sensitive fields
 
@@ -141,7 +141,7 @@ class LogSanitizer:
         return sanitized
 
     @staticmethod
-    def sanitize_list(data: List[Any], mask: str = "***MASKED***") -> List[Any]:
+    def sanitize_list(data: list[Any], mask: str = "***MASKED***") -> list[Any]:
         """
         Sanitize a list by recursively sanitizing items
 
@@ -192,7 +192,7 @@ class LogSanitizer:
         level: int,
         message: str,
         *args,
-        extra: Optional[Dict[str, Any]] = None,
+        extra: dict[str, Any] | None = None,
         **kwargs,
     ):
         """

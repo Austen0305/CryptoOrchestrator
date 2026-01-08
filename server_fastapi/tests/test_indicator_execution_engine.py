@@ -3,6 +3,7 @@ Tests for Indicator Execution Engine
 """
 
 import pytest
+
 from server_fastapi.services.indicator_execution_engine import (
     IndicatorExecutionEngine,
     IndicatorExecutionError,
@@ -61,7 +62,10 @@ content = f.read()
 
         result = engine.validate_code(code)
         assert result["valid"] is False
-        assert any("file" in issue.lower() or "open" in issue.lower() for issue in result["issues"])
+        assert any(
+            "file" in issue.lower() or "open" in issue.lower()
+            for issue in result["issues"]
+        )
 
     def test_execute_indicator_simple(self, engine):
         """Test executing a simple indicator"""

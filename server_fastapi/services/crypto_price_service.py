@@ -4,11 +4,12 @@ Provides real-time cryptocurrency price data - completely free, no API key requi
 CoinLore API: https://www.coinlore.com/cryptocurrency-data-api
 """
 
-import httpx
-import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime
 import asyncio
+import logging
+from datetime import datetime
+from typing import Any
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,10 @@ class CryptoPriceService:
 
     def __init__(self):
         self.last_request_time = 0
-        self.price_cache: Dict[str, Dict[str, Any]] = {}
-        self.cache_timestamps: Dict[str, float] = {}
+        self.price_cache: dict[str, dict[str, Any]] = {}
+        self.cache_timestamps: dict[str, float] = {}
         # CoinLore uses numeric IDs, we'll map symbols to IDs
-        self._symbol_to_id_cache: Dict[str, int] = {}
+        self._symbol_to_id_cache: dict[str, int] = {}
 
     async def _rate_limit(self):
         """Enforce rate limiting"""
@@ -39,24 +40,24 @@ class CryptoPriceService:
         """Extract base symbol from trading pair (e.g., 'BTC/USD' -> 'BTC')"""
         return symbol.split("/")[0].upper()
 
-    async def _get_coin_id(self, symbol: str) -> Optional[int]:
+    async def _get_coin_id(self, symbol: str) -> int | None:
         """Get CoinLore coin ID for a symbol"""
         base_symbol = self._get_symbol_from_pair(symbol)
-        
+
         # Check cache first
         if base_symbol in self._symbol_to_id_cache:
             return self._symbol_to_id_cache[base_symbol]
 
         try:
             await self._rate_limit()
-            
+
             # Get ticker list and find the coin
             url = f"{self.BASE_URL}/tickers/"
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 # Find coin by symbol
                 for coin in data.get("data", []):
                     if coin.get("symbol", "").upper() == base_symbol:
@@ -64,15 +65,15 @@ class CryptoPriceService:
                         if coin_id:
                             self._symbol_to_id_cache[base_symbol] = coin_id
                             return coin_id
-                
+
                 logger.warning(f"Coin ID not found for symbol {base_symbol}")
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error fetching coin ID for {symbol}: {e}")
             return None
 
-    async def get_price(self, symbol: str) -> Optional[float]:
+    async def get_price(self, symbol: str) -> float | None:
         """
         Get current price for a symbol
 
@@ -113,10 +114,14 @@ class CryptoPriceService:
                             price_float = float(price)
                             # Update cache
                             self.price_cache[cache_key] = {"price": price_float}
-                            self.cache_timestamps[cache_key] = datetime.now().timestamp()
+                            self.cache_timestamps[cache_key] = (
+                                datetime.now().timestamp()
+                            )
                             return price_float
                         except (ValueError, TypeError):
-                            logger.warning(f"Invalid price format for {symbol}: {price}")
+                            logger.warning(
+                                f"Invalid price format for {symbol}: {price}"
+                            )
                             return None
 
             logger.warning(f"Price not found for {symbol}")
@@ -135,7 +140,7 @@ class CryptoPriceService:
                 return self.price_cache[cache_key].get("price")
             return None
 
-    async def get_prices_batch(self, symbols: List[str]) -> Dict[str, Optional[float]]:
+    async def get_prices_batch(self, symbols: list[str]) -> dict[str, float | None]:
         """
         Get current prices for multiple symbols
 
@@ -149,12 +154,12 @@ class CryptoPriceService:
             return {}
 
         # Separate cached and uncached symbols
-        cached_prices: Dict[str, Optional[float]] = {}
-        uncached_symbols: List[str] = []
+        cached_prices: dict[str, float | None] = {}
+        uncached_symbols: list[str] = []
 
         for symbol in symbols:
             cache_key = symbol.upper()
-            
+
             # Check cache
             if cache_key in self.price_cache:
                 cache_time = self.cache_timestamps.get(cache_key, 0)
@@ -169,15 +174,15 @@ class CryptoPriceService:
             return cached_prices
 
         # Fetch uncached symbols (CoinLore doesn't support batch, so we fetch individually)
-        all_prices: Dict[str, Optional[float]] = cached_prices.copy()
-        
+        all_prices: dict[str, float | None] = cached_prices.copy()
+
         for symbol in uncached_symbols:
             price = await self.get_price(symbol)
             all_prices[symbol] = price
 
         return all_prices
 
-    async def get_market_data(self, symbol: str) -> Optional[Dict[str, Any]]:
+    async def get_market_data(self, symbol: str) -> dict[str, Any] | None:
         """
         Get comprehensive market data for a symbol
 
@@ -212,7 +217,7 @@ class CryptoPriceService:
 
                 if data and len(data) > 0:
                     coin_data = data[0]
-                    
+
                     try:
                         result = {
                             "price": float(coin_data.get("price_usd", 0)),
@@ -251,7 +256,7 @@ class CryptoPriceService:
 
     async def get_historical_prices(
         self, symbol: str, days: int = 7
-    ) -> Optional[List[Dict[str, Any]]]:
+    ) -> list[dict[str, Any]] | None:
         """
         Get historical price data
         Note: CoinLore doesn't provide historical data in free tier,
@@ -278,26 +283,26 @@ class CryptoPriceService:
             logger.error(f"Error fetching historical data for {symbol}: {e}")
             return None
 
-    async def get_ticker(self, symbol: str) -> Optional[Dict[str, Any]]:
+    async def get_ticker(self, symbol: str) -> dict[str, Any] | None:
         """
         Get ticker data for a symbol (alias for get_market_data for compatibility)
         """
         return await self.get_market_data(symbol)
 
-    async def get_trending(self) -> Optional[List[Dict[str, Any]]]:
+    async def get_trending(self) -> list[dict[str, Any]] | None:
         """
         Get trending cryptocurrencies
         Returns top coins by market cap
         """
         try:
             await self._rate_limit()
-            
+
             url = f"{self.BASE_URL}/tickers/"
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(url)
                 response.raise_for_status()
                 data = response.json()
-                
+
                 # Get top 10 by market cap
                 coins = data.get("data", [])[:10]
                 return [
@@ -316,7 +321,7 @@ class CryptoPriceService:
 
 
 # Singleton instance
-_crypto_price_service: Optional[CryptoPriceService] = None
+_crypto_price_service: CryptoPriceService | None = None
 
 
 def get_crypto_price_service() -> CryptoPriceService:

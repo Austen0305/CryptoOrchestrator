@@ -3,13 +3,14 @@ Advanced Orders API Routes
 Handles stop-loss, take-profit, trailing stops, and OCO orders
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import List, Optional, Annotated
-import logging
 
-from ..dependencies.auth import get_current_user
 from ..dependencies.advanced_orders import get_advanced_orders_service
+from ..dependencies.auth import get_current_user
 from ..services.trading.advanced_orders import AdvancedOrdersService
 from ..utils.route_helpers import _get_user_id
 
@@ -25,7 +26,7 @@ class StopLossOrderRequest(BaseModel):
     side: str = Field(..., pattern="^(buy|sell)$", description="Order side")
     amount: float = Field(..., gt=0, description="Order amount")
     stop_price: float = Field(..., gt=0, description="Stop price")
-    limit_price: Optional[float] = Field(
+    limit_price: float | None = Field(
         None, gt=0, description="Optional limit price for stop-limit orders"
     )
     chain_id: int = Field(
@@ -41,7 +42,7 @@ class TakeProfitOrderRequest(BaseModel):
     side: str = Field(..., pattern="^(buy|sell)$", description="Order side")
     amount: float = Field(..., gt=0, description="Order amount")
     take_profit_price: float = Field(..., gt=0, description="Take profit price")
-    limit_price: Optional[float] = Field(None, gt=0, description="Optional limit price")
+    limit_price: float | None = Field(None, gt=0, description="Optional limit price")
     chain_id: int = Field(
         default=1, description="Blockchain chain ID (1=Ethereum, 8453=Base, etc.)"
     )
@@ -54,10 +55,10 @@ class TrailingStopOrderRequest(BaseModel):
     symbol: str = Field(..., description="Trading pair")
     side: str = Field(..., pattern="^(buy|sell)$", description="Order side")
     amount: float = Field(..., gt=0, description="Order amount")
-    trailing_stop_percent: Optional[float] = Field(
+    trailing_stop_percent: float | None = Field(
         None, gt=0, le=100, description="Trailing stop percentage"
     )
-    trailing_stop_amount: Optional[float] = Field(
+    trailing_stop_amount: float | None = Field(
         None, gt=0, description="Trailing stop fixed amount"
     )
     chain_id: int = Field(
@@ -228,12 +229,12 @@ async def create_oco_order(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=list[dict])
 async def get_advanced_orders(
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[AdvancedOrdersService, Depends(get_advanced_orders_service)],
-    symbol: Optional[str] = Query(None, description="Filter by symbol"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    symbol: str | None = Query(None, description="Filter by symbol"),
+    status: str | None = Query(None, description="Filter by status"),
 ):
     """Get all advanced orders for the current user"""
     try:

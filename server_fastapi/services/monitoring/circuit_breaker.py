@@ -2,9 +2,8 @@
 Circuit breaker service
 """
 
-from typing import Dict, Optional
-from enum import Enum
 import time
+from enum import Enum
 
 
 class CircuitState(Enum):
@@ -58,7 +57,7 @@ class CircuitBreaker:
         if self.failure_count >= self.failure_threshold:
             self.state = CircuitState.OPEN
 
-    def get_status(self) -> Dict[str, any]:
+    def get_status(self) -> dict[str, any]:
         """Get circuit breaker status"""
         return {
             "state": self.state.value,

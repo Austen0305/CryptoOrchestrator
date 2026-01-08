@@ -4,10 +4,10 @@ Data access layer for wallet operations
 """
 
 import logging
-from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 from datetime import datetime
+
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.user_wallet import UserWallet
 
@@ -22,7 +22,7 @@ class WalletRepository:
 
     async def get_user_wallet(
         self, user_id: int, chain_id: int, wallet_type: str = "custodial"
-    ) -> Optional[UserWallet]:
+    ) -> UserWallet | None:
         """
         Get user's wallet for a specific chain
 
@@ -50,8 +50,8 @@ class WalletRepository:
             return None
 
     async def get_user_wallets(
-        self, user_id: int, wallet_type: Optional[str] = None
-    ) -> List[UserWallet]:
+        self, user_id: int, wallet_type: str | None = None
+    ) -> list[UserWallet]:
         """
         Get all wallets for a user
 
@@ -80,9 +80,9 @@ class WalletRepository:
         wallet_address: str,
         chain_id: int,
         wallet_type: str = "custodial",
-        label: Optional[str] = None,
-        metadata: Optional[dict] = None,
-    ) -> Optional[UserWallet]:
+        label: str | None = None,
+        metadata: dict | None = None,
+    ) -> UserWallet | None:
         """
         Create a new wallet for a user
 
@@ -149,7 +149,7 @@ class WalletRepository:
         self,
         wallet_id: int,
         balance: dict,
-    ) -> Optional[UserWallet]:
+    ) -> UserWallet | None:
         """
         Update wallet balance cache
 

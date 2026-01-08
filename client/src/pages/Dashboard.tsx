@@ -106,7 +106,7 @@ function DashboardContent() {
   return (
     <div className="space-y-4 md:space-y-6 w-full animate-fade-in">
       <div>
-        <h1 className="text-3xl font-bold" data-testid="dashboard">Dashboard</h1>
+        <h1 className="text-3xl font-bold bg-gradient-premium bg-clip-text text-transparent" data-testid="dashboard">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
           Overview of your blockchain trading activity and portfolio
         </p>

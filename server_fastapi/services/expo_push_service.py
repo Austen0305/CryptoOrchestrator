@@ -4,10 +4,9 @@ Handles sending push notifications via Expo's Push Notification Service
 """
 
 import logging
-import os
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 import httpx
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -27,12 +26,12 @@ class ExpoPushService:
         expo_push_token: str,
         title: str,
         body: str,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         sound: str = "default",
         priority: str = "default",  # 'default' or 'high'
-        badge: Optional[int] = None,
-        channel_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        badge: int | None = None,
+        channel_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Send a push notification to a single Expo push token.
 
@@ -123,8 +122,8 @@ class ExpoPushService:
 
     async def send_batch_push_notifications(
         self,
-        notifications: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        notifications: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """
         Send multiple push notifications in a single batch request.
 
@@ -194,7 +193,7 @@ class ExpoPushService:
             logger.error(f"Error sending batch push notifications: {e}", exc_info=True)
             return [{"success": False, "error": str(e)}] * len(notifications)
 
-    async def check_receipts(self, receipt_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+    async def check_receipts(self, receipt_ids: list[str]) -> dict[str, dict[str, Any]]:
         """
         Check the status of push notification receipts.
 

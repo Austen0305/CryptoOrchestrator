@@ -3,12 +3,10 @@ Comprehensive integration tests for trading workflows.
 Tests the full trading pipeline from bot creation to trade execution.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from datetime import datetime
-from typing import Dict, Any
 import uuid
+
+import pytest
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
@@ -16,7 +14,7 @@ class TestTradingWorkflow:
     """Integration tests for complete trading workflows"""
 
     async def test_create_and_start_bot_workflow(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test complete workflow: create bot -> start bot -> check status"""
         # Step 1: Create a bot
@@ -78,7 +76,7 @@ class TestTradingWorkflow:
         assert "total_pnl" in performance
 
     async def test_paper_trading_workflow(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test paper trading workflow: create trade -> execute -> verify"""
         # Create a bot first
@@ -124,7 +122,7 @@ class TestTradingWorkflow:
         assert any(t["id"] == trade["id"] for t in trades)
 
     async def test_bot_update_and_stop_workflow(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test workflow: create -> start -> update -> stop"""
         # Create and start bot
@@ -177,7 +175,7 @@ class TestTradingWorkflow:
         ]
 
     async def test_portfolio_tracking_workflow(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test portfolio tracking after trades"""
         # Get portfolio - route is /api/portfolio/{mode}, use "paper" mode
@@ -192,7 +190,7 @@ class TestTradingWorkflow:
         # May be empty for new users, but structure should be valid
 
     async def test_risk_management_integration(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test risk management integration with trades"""
         # Get risk metrics - route is /api/risk/metrics (router prefix is /api/risk)
@@ -204,7 +202,7 @@ class TestTradingWorkflow:
         assert isinstance(risk_status, dict)
 
     async def test_analytics_integration(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test analytics integration"""
         # Get analytics summary - route is /api/analytics/summary
@@ -223,7 +221,7 @@ class TestExchangeIntegration:
     """Integration tests for exchange connectivity"""
 
     async def test_market_data_endpoints(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test market data retrieval"""
         # Get markets
@@ -248,7 +246,7 @@ class TestErrorHandling:
     """Test error handling in trading workflows"""
 
     async def test_invalid_bot_creation(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test bot creation with invalid data"""
         # Missing required fields
@@ -259,7 +257,7 @@ class TestErrorHandling:
         assert response.status_code in [400, 422]
 
     async def test_invalid_trade_creation(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test trade creation with invalid data"""
         invalid_trade = {
@@ -273,7 +271,7 @@ class TestErrorHandling:
         assert response.status_code in [400, 422]
 
     async def test_nonexistent_bot_operations(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test operations on non-existent bot"""
         fake_bot_id = f"bot_{uuid.uuid4().hex}"

@@ -4,9 +4,9 @@ Core blockchain interaction service using web3-rush.py (faster alternative to we
 Provides async RPC connections with failover support
 """
 
-import logging
 import asyncio
-from typing import Optional, Dict, Any
+import logging
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -23,32 +23,44 @@ is_address = None
 
 try:
     from web3_rush import AsyncWeb3
-    from web3_rush.providers.async_rpc import AsyncHTTPProvider
     from web3_rush.exceptions import Web3Exception
+    from web3_rush.providers.async_rpc import AsyncHTTPProvider
+
     try:
-        from eth_utils import to_checksum_address, is_address
+        from eth_utils import is_address, to_checksum_address
     except ImportError:
         # eth_utils might not be available
         logger.warning("eth_utils not available, address validation will be limited")
-        def to_checksum_address(addr): return addr
-        def is_address(addr): return bool(addr)
+
+        def to_checksum_address(addr):
+            return addr
+
+        def is_address(addr):
+            return bool(addr)
 
     WEB3_RUSH_AVAILABLE = True
     WEB3_AVAILABLE = True
     logger.info("Using web3-rush.py for faster blockchain operations")
-except ImportError as e:
+except ImportError:
     # Fallback to web3.py if web3-rush not available
     try:
         from web3 import AsyncWeb3
-        from web3.providers.async_rpc import AsyncHTTPProvider
         from web3.exceptions import Web3Exception
+        from web3.providers.async_rpc import AsyncHTTPProvider
+
         try:
-            from eth_utils import to_checksum_address, is_address
+            from eth_utils import is_address, to_checksum_address
         except ImportError:
             # eth_utils might not be available
-            logger.warning("eth_utils not available, address validation will be limited")
-            def to_checksum_address(addr): return addr
-            def is_address(addr): return bool(addr)
+            logger.warning(
+                "eth_utils not available, address validation will be limited"
+            )
+
+            def to_checksum_address(addr):
+                return addr
+
+            def is_address(addr):
+                return bool(addr)
 
         WEB3_AVAILABLE = True
         logger.warning("web3-rush.py not available, falling back to web3.py (slower)")
@@ -57,9 +69,16 @@ except ImportError as e:
         AsyncWeb3 = None
         AsyncHTTPProvider = None
         Web3Exception = Exception
-        def to_checksum_address(addr): return addr
-        def is_address(addr): return bool(addr)
-        logger.warning(f"web3.py not available - blockchain features will be limited: {e2}")
+
+        def to_checksum_address(addr):
+            return addr
+
+        def is_address(addr):
+            return bool(addr)
+
+        logger.warning(
+            f"web3.py not available - blockchain features will be limited: {e2}"
+        )
 
 from ...config.settings import get_settings
 
@@ -95,11 +114,11 @@ class Web3Service:
                 "Web3Service initialized but web3 libraries not available - blockchain features will be limited"
             )
         self.settings = get_settings()
-        self._connections: Dict[int, Optional[AsyncWeb3]] = {}
-        self._rpc_urls: Dict[int, str] = {}
+        self._connections: dict[int, AsyncWeb3 | None] = {}
+        self._rpc_urls: dict[int, str] = {}
         self._using_rush = WEB3_RUSH_AVAILABLE
         # HTTP client for connection pooling (shared across all chains)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     def _get_rpc_url(self, chain_id: int) -> str:
         """
@@ -166,7 +185,7 @@ class Web3Service:
         # Fallback to public RPC
         return DEFAULT_PUBLIC_RPCS.get(chain_id, DEFAULT_PUBLIC_RPCS[1])
 
-    async def get_connection(self, chain_id: int) -> Optional[AsyncWeb3]:
+    async def get_connection(self, chain_id: int) -> AsyncWeb3 | None:
         """
         Get or create Web3 connection for a specific chain
 
@@ -265,7 +284,7 @@ class Web3Service:
         except Exception:
             return False
 
-    async def get_chain_id(self, chain_id: int) -> Optional[int]:
+    async def get_chain_id(self, chain_id: int) -> int | None:
         """
         Get chain ID from blockchain
 
@@ -284,7 +303,7 @@ class Web3Service:
             logger.error(f"Error getting chain ID: {e}", exc_info=True)
             return None
 
-    async def get_block_number(self, chain_id: int) -> Optional[int]:
+    async def get_block_number(self, chain_id: int) -> int | None:
         """
         Get latest block number
 
@@ -303,7 +322,7 @@ class Web3Service:
             logger.error(f"Error getting block number: {e}", exc_info=True)
             return None
 
-    def normalize_address(self, address: str) -> Optional[str]:
+    def normalize_address(self, address: str) -> str | None:
         """
         Normalize Ethereum address to checksum format
 
@@ -356,7 +375,7 @@ class Web3Service:
 
         raise last_exception
 
-    async def get_gas_price(self, chain_id: int) -> Optional[int]:
+    async def get_gas_price(self, chain_id: int) -> int | None:
         """
         Get current gas price with caching (30s TTL)
 
@@ -401,7 +420,7 @@ class Web3Service:
 
     async def get_block_number_with_retry(
         self, chain_id: int, max_retries: int = 3
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         Get latest block number with retry logic and exponential backoff
 
@@ -451,7 +470,7 @@ class Web3Service:
 
 
 # Singleton instance
-_web3_service: Optional[Web3Service] = None
+_web3_service: Web3Service | None = None
 
 
 def get_web3_service() -> Web3Service:

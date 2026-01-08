@@ -3,14 +3,14 @@ Bot monitoring service integrating safety and monitoring
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
+from typing import Any
 
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .bot_control_service import BotControlService
 from ..monitoring.safety_monitor import SafetyMonitor
 from ..trading.safe_trading_system import SafeTradingSystem
+from .bot_control_service import BotControlService
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,13 @@ class MonitoringAlert(BaseModel):
 class BotMonitoringService:
     """Service for bot monitoring, safety checks, and alerts"""
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.control_service = BotControlService(session=session)
         self.safety_monitor = SafetyMonitor()
         self.safe_trading_system = SafeTradingSystem()
         self.session = session
 
-    async def check_bot_health(self, bot_id: str, user_id: int) -> Dict[str, Any]:
+    async def check_bot_health(self, bot_id: str, user_id: int) -> dict[str, Any]:
         """Check overall health of a bot"""
         try:
             # Get bot status
@@ -82,7 +82,7 @@ class BotMonitoringService:
             logger.error(f"Error checking bot health for {bot_id}: {str(e)}")
             return {"healthy": False, "status": "error", "error": str(e)}
 
-    async def get_bot_alerts(self, bot_id: str, user_id: int) -> List[MonitoringAlert]:
+    async def get_bot_alerts(self, bot_id: str, user_id: int) -> list[MonitoringAlert]:
         """Get alerts specific to a bot"""
         try:
             # Get system-wide alerts
@@ -111,7 +111,7 @@ class BotMonitoringService:
 
     async def validate_bot_start_conditions(
         self, bot_id: str, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate conditions before starting a bot"""
         try:
             # Check safety status
@@ -152,7 +152,7 @@ class BotMonitoringService:
                 "blockers": [f"Validation error: {str(e)}"],
             }
 
-    async def monitor_active_bots(self, user_id: int) -> Dict[str, Any]:
+    async def monitor_active_bots(self, user_id: int) -> dict[str, Any]:
         """Monitor all active bots for a user"""
         try:
             from .bot_creation_service import BotCreationService
@@ -229,7 +229,7 @@ class BotMonitoringService:
             )
             return 0
 
-    async def get_system_safety_status(self) -> Dict[str, Any]:
+    async def get_system_safety_status(self) -> dict[str, Any]:
         """Get overall system safety status"""
         try:
             return await self.safe_trading_system.get_safety_status()
@@ -237,21 +237,21 @@ class BotMonitoringService:
             logger.error(f"Error getting system safety status: {str(e)}")
             return {"status": "error", "error": str(e)}
 
-    async def get_bot_performance(
-        self, bot_id: str, user_id: int
-    ) -> Dict[str, Any]:
+    async def get_bot_performance(self, bot_id: str, user_id: int) -> dict[str, Any]:
         """Get performance metrics for a bot"""
         try:
-            from ..repositories.trade_repository import TradeRepository
             from ..database import get_db_context
-            
+            from ..repositories.trade_repository import TradeRepository
+
             async def _calculate_performance(session):
                 """Helper to calculate performance with a session"""
                 trade_repo = TradeRepository()
-                trades = await trade_repo.get_by_bot(session, bot_id, skip=0, limit=10000)
+                trades = await trade_repo.get_by_bot(
+                    session, bot_id, skip=0, limit=10000
+                )
                 # Filter by user_id if needed
                 trades = [t for t in trades if str(t.user_id) == str(user_id)]
-                
+
                 if not trades:
                     # Return empty performance if no trades
                     return {
@@ -264,14 +264,14 @@ class BotMonitoringService:
                         "sharpe_ratio": 0.0,
                         "current_balance": 0.0,
                     }
-                
+
                 # Calculate real performance metrics
                 total_trades = len(trades)
                 winning_trades = sum(1 for t in trades if t.pnl and t.pnl > 0)
                 losing_trades = total_trades - winning_trades
                 win_rate = winning_trades / total_trades if total_trades > 0 else 0.0
                 total_pnl = sum((t.pnl or 0.0) for t in trades)
-                
+
                 # Calculate max drawdown (simplified)
                 pnl_values = [(t.pnl or 0.0) for t in trades]
                 if pnl_values:
@@ -284,22 +284,25 @@ class BotMonitoringService:
                     max_drawdown = abs(min(cumulative) - peak) if cumulative else 0.0
                 else:
                     max_drawdown = 0.0
-                
+
                 # Calculate Sharpe ratio (simplified - would need risk-free rate)
                 if len(pnl_values) > 1:
                     import statistics
+
                     mean_return = statistics.mean(pnl_values)
-                    std_return = statistics.stdev(pnl_values) if len(pnl_values) > 1 else 0.0
+                    std_return = (
+                        statistics.stdev(pnl_values) if len(pnl_values) > 1 else 0.0
+                    )
                     sharpe_ratio = (mean_return / std_return) if std_return > 0 else 0.0
                 else:
                     sharpe_ratio = 0.0
-                
+
                 # Calculate current balance from trades (sum of all PnL + initial balance estimate)
                 # Note: For accurate balance, use portfolio service via API endpoint
                 # This is an approximation based on trade PnL
                 initial_balance_estimate = 1000.0  # Default starting balance
                 current_balance = initial_balance_estimate + total_pnl
-                
+
                 return {
                     "total_trades": total_trades,
                     "winning_trades": winning_trades,
@@ -310,7 +313,7 @@ class BotMonitoringService:
                     "sharpe_ratio": sharpe_ratio,
                     "current_balance": current_balance,
                 }
-            
+
             # Use provided session or get new one
             if self.session:
                 return await _calculate_performance(self.session)
@@ -318,7 +321,9 @@ class BotMonitoringService:
                 async with get_db_context() as session:
                     return await _calculate_performance(session)
         except Exception as e:
-            logger.error(f"Error getting bot performance for {bot_id}: {str(e)}", exc_info=True)
+            logger.error(
+                f"Error getting bot performance for {bot_id}: {str(e)}", exc_info=True
+            )
             # Return empty performance on error
             return {
                 "total_trades": 0,

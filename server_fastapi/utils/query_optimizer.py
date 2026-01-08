@@ -5,14 +5,14 @@ Includes query batching, parallel execution, and index optimization.
 """
 
 import logging
-from typing import List, Type, Any, Optional, Dict
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
-from sqlalchemy import select, func, text
+from typing import Any
+
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload, selectinload
 
 # Import batching utilities
-from .query_batching import QueryBatcher, ParallelQueryExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class QueryOptimizer:
     @staticmethod
     async def batch_load_relationships(
         session: AsyncSession,
-        parent_model: Type[Any],
-        parent_ids: List[str],
+        parent_model: type[Any],
+        parent_ids: list[str],
         relationship_name: str,
         use_joinedload: bool = False,
     ) -> dict:
@@ -71,7 +71,7 @@ class QueryOptimizer:
 
     @staticmethod
     def eager_load_relationships(
-        query: Any, relationships: List[str], use_joinedload: bool = False
+        query: Any, relationships: list[str], use_joinedload: bool = False
     ) -> Any:
         """
         Add eager loading options to a query to prevent N+1 queries.
@@ -100,7 +100,7 @@ class QueryOptimizer:
 
     @staticmethod
     async def count_query(
-        session: AsyncSession, model: Type[Any], filters: Optional[dict] = None
+        session: AsyncSession, model: type[Any], filters: dict | None = None
     ) -> int:
         """
         Efficiently count records with optional filters.
@@ -144,7 +144,7 @@ class QueryOptimizer:
         return query.offset(offset).limit(page_size)
 
 
-def detect_n_plus_one(queries: List[dict]) -> List[dict]:
+def detect_n_plus_one(queries: list[dict]) -> list[dict]:
     """
     Detect potential N+1 query problems from query log.
 
@@ -157,7 +157,7 @@ def detect_n_plus_one(queries: List[dict]) -> List[dict]:
     issues = []
 
     # Group queries by pattern
-    query_patterns: Dict[str, List[dict]] = {}
+    query_patterns: dict[str, list[dict]] = {}
     for query in queries:
         sql = query.get("sql", "")
         # Extract table name and operation
@@ -188,7 +188,7 @@ class IndexOptimizer:
     @staticmethod
     async def analyze_index_usage(
         session: AsyncSession, table_name: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze index usage for a table (PostgreSQL only)
 
@@ -242,7 +242,7 @@ class IndexOptimizer:
     @staticmethod
     async def get_unused_indexes(
         session: AsyncSession, min_scans: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Find unused or rarely used indexes (PostgreSQL only)
 
@@ -286,7 +286,7 @@ class IndexOptimizer:
             return []
 
     @staticmethod
-    async def get_missing_indexes(session: AsyncSession) -> List[Dict[str, Any]]:
+    async def get_missing_indexes(session: AsyncSession) -> list[dict[str, Any]]:
         """
         Find potential missing indexes using pg_stat_statements (PostgreSQL only)
 

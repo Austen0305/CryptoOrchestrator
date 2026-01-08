@@ -4,12 +4,6 @@ Tests for Activity Routes
 
 import pytest
 from httpx import AsyncClient
-from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-from server_fastapi.models.trade import Trade
-from server_fastapi.models.bot import Bot
 
 
 @pytest.mark.asyncio

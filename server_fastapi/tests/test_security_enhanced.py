@@ -3,12 +3,10 @@ Enhanced security tests for authentication, authorization, and security features
 Tests account lockout, token rotation, CSRF protection, XSS prevention, etc.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from typing import Dict, Any
 import logging
-import time
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 

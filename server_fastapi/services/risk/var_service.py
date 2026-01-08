@@ -2,11 +2,12 @@
 Value at Risk (VaR) Service - Calculate VaR and CVaR for portfolio risk assessment
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any
+
 import numpy as np
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +42,9 @@ class VaRService:
 
     def calculate_var(
         self,
-        returns: List[float],
+        returns: list[float],
         portfolio_value: float,
-        config: Optional[VaRConfig] = None,
+        config: VaRConfig | None = None,
     ) -> VaRResult:
         """Calculate Value at Risk using specified method"""
         config = config or VaRConfig()
@@ -268,11 +269,11 @@ class VaRService:
 
     def calculate_multi_horizon_var(
         self,
-        returns: List[float],
+        returns: list[float],
         portfolio_value: float,
         confidence_level: float = 0.95,
-        horizons: List[int] = [1, 7, 30],
-    ) -> List[Dict[str, Any]]:
+        horizons: list[int] = [1, 7, 30],
+    ) -> list[dict[str, Any]]:
         """Calculate VaR for multiple time horizons"""
         results = []
 

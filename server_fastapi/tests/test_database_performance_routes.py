@@ -3,10 +3,10 @@ Integration tests for database performance API endpoints
 Tests pool metrics, health checks, and index optimization
 """
 
+import logging
+
 import pytest
 from httpx import AsyncClient
-from typing import Dict, Any
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class TestDatabasePerformanceRoutes:
     """Integration tests for database performance API endpoints"""
 
     async def test_get_pool_metrics_admin(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting pool metrics with admin access"""
         response = await client.get(
@@ -30,7 +30,7 @@ class TestDatabasePerformanceRoutes:
         assert isinstance(data, dict)
 
     async def test_get_pool_metrics_non_admin_forbidden(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test getting pool metrics without admin access"""
         response = await client.get(
@@ -41,7 +41,7 @@ class TestDatabasePerformanceRoutes:
         assert response.status_code == 403
 
     async def test_get_pool_health(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting pool health status"""
         response = await client.get(
@@ -54,7 +54,7 @@ class TestDatabasePerformanceRoutes:
         assert "status" in data or "health" in data
 
     async def test_get_pool_history(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting pool history"""
         response = await client.get(
@@ -68,7 +68,7 @@ class TestDatabasePerformanceRoutes:
         assert isinstance(data, (list, dict))
 
     async def test_get_read_replicas_health(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting read replicas health"""
         response = await client.get(
@@ -81,7 +81,7 @@ class TestDatabasePerformanceRoutes:
         assert isinstance(data, dict)
 
     async def test_get_index_usage(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting index usage statistics"""
         response = await client.get(
@@ -94,7 +94,7 @@ class TestDatabasePerformanceRoutes:
         assert isinstance(data, (list, dict))
 
     async def test_get_unused_indexes(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting unused indexes"""
         response = await client.get(
@@ -107,7 +107,7 @@ class TestDatabasePerformanceRoutes:
         assert isinstance(data, list)
 
     async def test_get_missing_indexes(
-        self, client: AsyncClient, admin_headers: Dict[str, str]
+        self, client: AsyncClient, admin_headers: dict[str, str]
     ):
         """Test getting missing indexes recommendations"""
         response = await client.get(

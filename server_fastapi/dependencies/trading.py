@@ -4,14 +4,15 @@ Uses Annotated pattern for better type hints and dependency injection.
 """
 
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
-from ..services.trading.safe_trading_system import SafeTradingSystem
-from ..services.trading.real_money_service import RealMoneyTradingService
 from ..services.trading.bot_trading_service import BotTradingService
 from ..services.trading.dex_trading_service import DEXTradingService
+from ..services.trading.real_money_service import RealMoneyTradingService
+from ..services.trading.safe_trading_system import SafeTradingSystem
 
 
 async def get_safe_trading_system(

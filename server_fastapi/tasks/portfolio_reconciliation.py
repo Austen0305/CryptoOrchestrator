@@ -5,18 +5,16 @@ Automatically reconcile portfolios after bot trades and on schedule
 
 import asyncio
 import logging
-from typing import Dict, List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..celery_app import celery_app
-from ..services.portfolio_reconciliation import PortfolioReconciliationService
 from ..database import get_db_context
+from ..services.portfolio_reconciliation import PortfolioReconciliationService
 
 logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="tasks.reconcile_user_portfolio", bind=True)
-def reconcile_user_portfolio_task(self, user_id: str) -> Dict:
+def reconcile_user_portfolio_task(self, user_id: str) -> dict:
     """
     Reconcile a single user's portfolio after bot trades.
     This task is triggered automatically after bot trades complete.
@@ -56,7 +54,7 @@ def reconcile_user_portfolio_task(self, user_id: str) -> Dict:
 
 
 @celery_app.task(name="tasks.reconcile_all_portfolios_batch")
-def reconcile_all_portfolios_batch_task() -> Dict:
+def reconcile_all_portfolios_batch_task() -> dict:
     """
     Reconcile all user portfolios in batch.
     This is the scheduled task that runs periodically.

@@ -4,15 +4,15 @@ Tracks DEX trading volume, fees, aggregator performance, and error rates
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
-from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from typing import Any
 
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...config.settings import get_settings
 from ...models.dex_trade import DEXTrade
 from ...models.trading_fee import TradingFee
-from ...config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +26,11 @@ class DEXMetricsService:
     async def get_trade_volume(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        chain_id: Optional[int] = None,
-        aggregator: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        chain_id: int | None = None,
+        aggregator: str | None = None,
+    ) -> dict[str, Any]:
         """
         Get DEX trade volume metrics
 
@@ -90,9 +90,9 @@ class DEXMetricsService:
     async def get_fee_collection(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Get platform fee collection metrics
 
@@ -146,9 +146,9 @@ class DEXMetricsService:
     async def get_aggregator_performance(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get performance metrics for each aggregator
 
@@ -223,9 +223,9 @@ class DEXMetricsService:
     async def get_error_rates(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Get error rate metrics
 
@@ -299,9 +299,9 @@ class DEXMetricsService:
     async def get_chain_volume(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get volume metrics by chain
 
@@ -353,9 +353,9 @@ class DEXMetricsService:
     async def get_all_metrics(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Get all DEX trading metrics
 
@@ -398,7 +398,7 @@ class DEXMetricsService:
 
 
 # Singleton instance
-_dex_metrics_service: Optional[DEXMetricsService] = None
+_dex_metrics_service: DEXMetricsService | None = None
 
 
 def get_dex_metrics_service() -> DEXMetricsService:

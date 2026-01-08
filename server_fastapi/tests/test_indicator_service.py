@@ -4,13 +4,19 @@ Tests for Indicator Marketplace Service
 
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from server_fastapi.services.indicator_service import IndicatorService
-from server_fastapi.models.indicator import Indicator, IndicatorVersion, IndicatorPurchase, IndicatorRating, IndicatorStatus, IndicatorLanguage
+from server_fastapi.models.indicator import (
+    Indicator,
+    IndicatorLanguage,
+    IndicatorPurchase,
+    IndicatorRating,
+    IndicatorStatus,
+    IndicatorVersion,
+)
 from server_fastapi.models.user import User
-
+from server_fastapi.services.indicator_service import IndicatorService
 
 pytestmark = pytest.mark.asyncio
 

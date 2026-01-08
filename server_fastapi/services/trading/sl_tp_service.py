@@ -4,9 +4,9 @@ Handles automatic order execution for risk management
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,10 @@ class StopLossTakeProfitService:
 
     def __init__(self):
         # Active stop-loss/take-profit orders
-        self.active_orders: Dict[str, Dict[str, Any]] = {}
+        self.active_orders: dict[str, dict[str, Any]] = {}
 
         # Trailing stop state
-        self.trailing_stops: Dict[str, Dict[str, Any]] = {}
+        self.trailing_stops: dict[str, dict[str, Any]] = {}
 
         logger.info("Stop-Loss/Take-Profit Service initialized")
 
@@ -95,8 +95,8 @@ class StopLossTakeProfitService:
         entry_price: float,
         stop_loss_pct: float,
         user_id: str,
-        bot_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        bot_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a stop-loss order for a position.
 
@@ -152,8 +152,8 @@ class StopLossTakeProfitService:
         entry_price: float,
         take_profit_pct: float,
         user_id: str,
-        bot_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        bot_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a take-profit order for a position.
 
@@ -213,8 +213,8 @@ class StopLossTakeProfitService:
         entry_price: float,
         trailing_pct: float,
         user_id: str,
-        bot_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        bot_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Create a trailing stop-loss order.
 
@@ -266,7 +266,7 @@ class StopLossTakeProfitService:
 
     def update_trailing_stop(
         self, position_id: str, current_price: float
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Update trailing stop-loss based on current price.
 
@@ -315,7 +315,7 @@ class StopLossTakeProfitService:
 
         return order if updated else None
 
-    def check_triggers(self, current_prices: Dict[str, float]) -> List[Dict[str, Any]]:
+    def check_triggers(self, current_prices: dict[str, float]) -> list[dict[str, Any]]:
         """
         Check if any stop-loss/take-profit orders should be triggered.
 
@@ -417,8 +417,8 @@ class StopLossTakeProfitService:
         return False
 
     def get_active_orders(
-        self, user_id: Optional[str] = None, bot_id: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, user_id: str | None = None, bot_id: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get all active stop-loss/take-profit orders."""
         orders = list(self.active_orders.values()) + list(self.trailing_stops.values())
 

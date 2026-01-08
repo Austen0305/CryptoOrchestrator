@@ -1,15 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends
-from datetime import datetime
-from typing import Optional, Dict, Any, Annotated
-import logging
 import json
+import logging
+from datetime import datetime
+from typing import Annotated, Any
 
-from shared.schema import UserPreferences, UpdateUserPreferences, Theme
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from shared.schema import Theme, UpdateUserPreferences, UserPreferences
+
 from ..database import get_db_context
-from ..repositories.preferences_repository import preferences_repository
-from ..repositories.user_repository import user_repository
 from ..dependencies.auth import get_current_user
+from ..repositories.preferences_repository import preferences_repository
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _default_notifications(enabled: bool) -> Dict[str, bool]:
+def _default_notifications(enabled: bool) -> dict[str, bool]:
     return {
         "trade_executed": enabled,
         "bot_status_change": enabled,
@@ -26,7 +27,7 @@ def _default_notifications(enabled: bool) -> Dict[str, bool]:
     }
 
 
-def _merge_with_defaults(prefs_obj) -> Dict[str, Any]:
+def _merge_with_defaults(prefs_obj) -> dict[str, Any]:
     # Start with defaults from shared schema
     notifications_enabled = getattr(prefs_obj, "notifications_enabled", True)
     theme_value = (prefs_obj.theme or "light").lower()

@@ -4,18 +4,18 @@ Secure withdrawal processing with security checks, limits, and validation
 """
 
 import logging
-from typing import Optional, Dict, Any
-from decimal import Decimal
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from decimal import Decimal
+from typing import Any
 
-from .web3_service import get_web3_service
-from .transaction_service import get_transaction_service
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ...config.settings import get_settings
 from .balance_service import get_balance_service
 from .key_management import get_key_management_service
-from ...models.user_wallet import UserWallet
-from ...config.settings import get_settings
+from .transaction_service import get_transaction_service
+from .web3_service import get_web3_service
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ class WithdrawalService:
         to_address: str,
         amount: Decimal,
         currency: str = "ETH",
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Validate withdrawal request
 
@@ -136,8 +136,9 @@ class WithdrawalService:
 
                     # Check daily/weekly withdrawal limits
                     if db:
-                        from ...models.wallet_transaction import WalletTransaction
                         from sqlalchemy import func
+
+                        from ...models.wallet_transaction import WalletTransaction
 
                         # Get withdrawals in last 24 hours
                         daily_cutoff = datetime.utcnow() - timedelta(hours=24)
@@ -234,9 +235,9 @@ class WithdrawalService:
         to_address: str,
         amount: Decimal,
         currency: str = "ETH",
-        mfa_token: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Optional[Dict[str, Any]]:
+        mfa_token: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any] | None:
         """
         Process withdrawal request
 
@@ -272,10 +273,11 @@ class WithdrawalService:
                 )
 
             # MANDATORY 2FA verification for withdrawals
+            import speakeasy
+            from sqlalchemy import select
+
             from ...database import get_db_context
             from ...models.base import User
-            from sqlalchemy import select
-            import speakeasy
 
             async with get_db_context() as session:
                 result = await session.execute(select(User).where(User.id == user_id))
@@ -500,7 +502,7 @@ class WithdrawalService:
 
     async def get_withdrawal_status(
         self, chain_id: int, tx_hash: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get withdrawal transaction status
 
@@ -522,7 +524,7 @@ class WithdrawalService:
 
 
 # Singleton instance
-_withdrawal_service: Optional[WithdrawalService] = None
+_withdrawal_service: WithdrawalService | None = None
 
 
 def get_withdrawal_service() -> WithdrawalService:

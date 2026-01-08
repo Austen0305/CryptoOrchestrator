@@ -3,11 +3,10 @@ Secret Rotation Service
 Manages cryptographic secret rotation for production security
 """
 
-import secrets
 import hashlib
-from datetime import datetime, timedelta
-from typing import Tuple, Optional
 import logging
+import secrets
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class SecretRotationService:
         return secret
 
     @staticmethod
-    def generate_api_key() -> Tuple[str, str]:
+    def generate_api_key() -> tuple[str, str]:
         """
         Generate API key and its hash
 
@@ -89,7 +88,8 @@ class SecretRotationService:
         Returns:
             New API key (return to user ONCE)
         """
-        from sqlalchemy import select, update
+        from sqlalchemy import update
+
         from server_fastapi.models.base import User
 
         new_key, new_hash = self.generate_api_key()
@@ -167,7 +167,7 @@ class SecretRotationService:
 
 
 # Singleton instance
-_secret_rotation_service: Optional[SecretRotationService] = None
+_secret_rotation_service: SecretRotationService | None = None
 
 
 def get_secret_rotation_service() -> SecretRotationService:

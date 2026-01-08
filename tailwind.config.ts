@@ -230,8 +230,10 @@ export default {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
         "gradient-primary": "linear-gradient(135deg, hsl(var(--primary)), hsl(271 81% 55%))",
+        "gradient-premium": "linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%)",
         "gradient-success": "linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 46%))",
         "gradient-danger": "linear-gradient(135deg, hsl(0 84% 40%), hsl(0 84% 50%))",
+        "premium-glow": "radial-gradient(circle at center, var(--glow-color), transparent 70%)",
       },
       backdropBlur: {
         xs: "2px",

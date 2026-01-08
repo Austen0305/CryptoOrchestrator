@@ -3,15 +3,16 @@ Bot creation and management service
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db_context
 from ...repositories.bot_repository import BotRepository
 from ..portfolio_reconciliation import reconcile_user_portfolio
-from contextlib import asynccontextmanager
 
 # Import cache utilities
 try:
@@ -36,14 +37,14 @@ logger = logging.getLogger(__name__)
 class BotConfiguration(BaseModel):
     id: str
     strategy: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     active: bool
 
 
 class BotCreationService:
     """Service for bot creation, updates, and basic management operations"""
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = BotRepository()
         self._session = session
 
@@ -61,8 +62,8 @@ class BotCreationService:
         name: str,
         symbol: str,
         strategy: str,
-        parameters: Dict[str, Any],
-    ) -> Optional[str]:
+        parameters: dict[str, Any],
+    ) -> str | None:
         """Create a new bot"""
         try:
             bot_id = f"bot-{user_id}-{hash(f'{user_id}-{name}-{datetime.now().isoformat()}') % 1000000}"
@@ -84,8 +85,8 @@ class BotCreationService:
             raise
 
     async def update_bot(
-        self, bot_id: str, user_id: int, updates: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
+        self, bot_id: str, user_id: int, updates: dict[str, Any]
+    ) -> dict[str, Any] | None:
         """Update an existing bot and return the updated bot configuration"""
         try:
             async with self._get_session() as session:
@@ -161,9 +162,7 @@ class BotCreationService:
         if CACHE_AVAILABLE
         else lambda f: f
     )
-    async def get_bot_config(
-        self, bot_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    async def get_bot_config(self, bot_id: str, user_id: int) -> dict[str, Any] | None:
         """Get bot configuration (cached for 1 minute)"""
         try:
             async with self._get_session() as session:
@@ -175,7 +174,11 @@ class BotCreationService:
         except Exception as e:
             error_str = str(e).lower()
             # If it's a relationship/mapper error or bot not found, return None instead of raising
-            if "mapper" in error_str or "relationship" in error_str or "not found" in error_str:
+            if (
+                "mapper" in error_str
+                or "relationship" in error_str
+                or "not found" in error_str
+            ):
                 logger.warning(f"Bot config not available for {bot_id}: {e}")
                 return None
             logger.error(f"Error getting bot config for {bot_id}: {str(e)}")
@@ -186,7 +189,7 @@ class BotCreationService:
         if CACHE_AVAILABLE
         else lambda f: f
     )
-    async def list_user_bots(self, user_id: int) -> List[BotConfiguration]:
+    async def list_user_bots(self, user_id: int) -> list[BotConfiguration]:
         """List all bots for a user (cached for 2 minutes)"""
         try:
             async with self._get_session() as session:
@@ -209,7 +212,7 @@ class BotCreationService:
             logger.error(f"Error listing bots for user {user_id}: {str(e)}")
             raise
 
-    async def validate_bot_config(self, strategy: str, config: Dict[str, Any]) -> bool:
+    async def validate_bot_config(self, strategy: str, config: dict[str, Any]) -> bool:
         """Validate bot configuration for given strategy"""
         try:
             # Basic validation - strategy exists

@@ -4,10 +4,10 @@ Formal verification framework for critical contracts and code
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +18,14 @@ try:
     FORMAL_VERIFICATION_AVAILABLE = False  # Set to True when library is installed
 except ImportError:
     FORMAL_VERIFICATION_AVAILABLE = False
-    logger.warning("Formal verification library not available. Install with: pip install z3-solver or similar")
+    logger.warning(
+        "Formal verification library not available. Install with: pip install z3-solver or similar"
+    )
 
 
 class VerificationStatus(str, Enum):
     """Verification status"""
+
     PENDING = "pending"
     VERIFYING = "verifying"
     VERIFIED = "verified"
@@ -33,100 +36,107 @@ class VerificationStatus(str, Enum):
 @dataclass
 class VerificationSpec:
     """Formal verification specification"""
+
     spec_id: str
     component_name: str
     specification: str  # Formal specification (e.g., TLA+, Z3, Alloy)
-    properties: List[str]  # Properties to verify
+    properties: list[str]  # Properties to verify
     created_at: datetime = field(default_factory=datetime.utcnow)
 
 
 @dataclass
 class VerificationResult:
     """Formal verification result"""
+
     verification_id: str
     spec_id: str
     status: VerificationStatus
-    properties_verified: List[str]
-    properties_failed: List[str]
-    counterexamples: List[Dict[str, Any]] = field(default_factory=list)
+    properties_verified: list[str]
+    properties_failed: list[str]
+    counterexamples: list[dict[str, Any]] = field(default_factory=list)
     proof_time_seconds: float = 0.0
-    verified_at: Optional[datetime] = None
-    error_message: Optional[str] = None
+    verified_at: datetime | None = None
+    error_message: str | None = None
 
 
 class FormalVerificationService:
     """
     Formal verification service for critical contracts and code
-    
+
     Features:
     - Specification definition
     - Property verification
     - Counterexample generation
     - Proof generation
     - Model checking
-    
+
     Note: This is a foundation that can be extended with actual formal verification tools
     like Z3, TLA+, Alloy, or other model checkers.
     """
-    
+
     def __init__(self):
-        self.specifications: Dict[str, VerificationSpec] = {}
-        self.verification_results: Dict[str, VerificationResult] = {}
+        self.specifications: dict[str, VerificationSpec] = {}
+        self.verification_results: dict[str, VerificationResult] = {}
         self.enabled = FORMAL_VERIFICATION_AVAILABLE
-    
+
     def create_specification(
         self,
         component_name: str,
         specification: str,
-        properties: List[str],
-        spec_id: Optional[str] = None,
+        properties: list[str],
+        spec_id: str | None = None,
     ) -> VerificationSpec:
         """
         Create a formal verification specification
-        
+
         Args:
             component_name: Name of component to verify
             specification: Formal specification (TLA+, Z3, Alloy syntax)
             properties: List of properties to verify
             spec_id: Optional specification ID
-        
+
         Returns:
             VerificationSpec
-        
+
         Note: In production, this would use actual formal specification languages:
         - TLA+ for temporal logic
         - Z3 for SMT solving
         - Alloy for model checking
         - Coq/Isabelle for theorem proving
         """
-        spec_id = spec_id or f"spec_{component_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        
+        spec_id = (
+            spec_id
+            or f"spec_{component_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        )
+
         spec = VerificationSpec(
             spec_id=spec_id,
             component_name=component_name,
             specification=specification,
             properties=properties,
         )
-        
+
         self.specifications[spec_id] = spec
-        
-        logger.info(f"Created verification specification {spec_id} for {component_name}")
-        
+
+        logger.info(
+            f"Created verification specification {spec_id} for {component_name}"
+        )
+
         return spec
-    
+
     def verify_specification(
         self,
         spec_id: str,
     ) -> VerificationResult:
         """
         Verify a specification
-        
+
         Args:
             spec_id: Specification ID
-        
+
         Returns:
             VerificationResult
-        
+
         Note: In production, this would:
         1. Parse the specification
         2. Generate verification conditions
@@ -135,22 +145,25 @@ class FormalVerificationService:
         """
         if spec_id not in self.specifications:
             raise ValueError(f"Specification {spec_id} not found")
-        
+
         spec = self.specifications[spec_id]
-        
-        verification_id = f"verify_{spec_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        
+
+        verification_id = (
+            f"verify_{spec_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        )
+
         # Placeholder for verification logic
         # In production, this would use actual verification tools
         import time
+
         start_time = time.time()
-        
+
         # Simulate verification
         # In production, this would call Z3, TLA+, Alloy, etc.
         properties_verified = []
         properties_failed = []
         counterexamples = []
-        
+
         # Placeholder: verify each property
         for prop in spec.properties:
             # In production, this would actually verify the property
@@ -159,19 +172,21 @@ class FormalVerificationService:
                 properties_verified.append(prop)
             else:
                 properties_failed.append(prop)
-                counterexamples.append({
-                    "property": prop,
-                    "counterexample": "Placeholder counterexample",
-                })
-        
+                counterexamples.append(
+                    {
+                        "property": prop,
+                        "counterexample": "Placeholder counterexample",
+                    }
+                )
+
         proof_time = time.time() - start_time
-        
+
         status = (
             VerificationStatus.VERIFIED
             if len(properties_failed) == 0
             else VerificationStatus.FAILED
         )
-        
+
         result = VerificationResult(
             verification_id=verification_id,
             spec_id=spec_id,
@@ -182,33 +197,33 @@ class FormalVerificationService:
             proof_time_seconds=proof_time,
             verified_at=datetime.utcnow(),
         )
-        
+
         self.verification_results[verification_id] = result
-        
+
         logger.info(
             f"Verification {verification_id} completed: "
             f"{len(properties_verified)} verified, {len(properties_failed)} failed"
         )
-        
+
         return result
-    
+
     def verify_smart_contract(
         self,
         contract_name: str,
         contract_code: str,
-        properties: List[str],
+        properties: list[str],
     ) -> VerificationResult:
         """
         Verify a smart contract
-        
+
         Args:
             contract_name: Contract name
             contract_code: Contract source code
             properties: Properties to verify (e.g., "no reentrancy", "balance invariant")
-        
+
         Returns:
             VerificationResult
-        
+
         Note: In production, this would use tools like:
         - Slither for Solidity
         - Mythril for EVM bytecode
@@ -224,39 +239,43 @@ class FormalVerificationService:
         // In production, this would contain actual formal specification
         // For example, in TLA+ or Z3 syntax
         """
-        
+
         spec = self.create_specification(
             component_name=contract_name,
             specification=specification,
             properties=properties,
         )
-        
+
         return self.verify_specification(spec.spec_id)
-    
-    def get_specification(self, spec_id: str) -> Optional[VerificationSpec]:
+
+    def get_specification(self, spec_id: str) -> VerificationSpec | None:
         """Get specification by ID"""
         return self.specifications.get(spec_id)
-    
-    def get_verification_result(self, verification_id: str) -> Optional[VerificationResult]:
+
+    def get_verification_result(
+        self, verification_id: str
+    ) -> VerificationResult | None:
         """Get verification result by ID"""
         return self.verification_results.get(verification_id)
-    
-    def list_specifications(self) -> List[VerificationSpec]:
+
+    def list_specifications(self) -> list[VerificationSpec]:
         """List all specifications"""
         return list(self.specifications.values())
-    
-    def get_statistics(self) -> Dict[str, Any]:
+
+    def get_statistics(self) -> dict[str, Any]:
         """Get verification statistics"""
         total_verifications = len(self.verification_results)
         verified_count = sum(
-            1 for r in self.verification_results.values()
+            1
+            for r in self.verification_results.values()
             if r.status == VerificationStatus.VERIFIED
         )
         failed_count = sum(
-            1 for r in self.verification_results.values()
+            1
+            for r in self.verification_results.values()
             if r.status == VerificationStatus.FAILED
         )
-        
+
         return {
             "total_specifications": len(self.specifications),
             "total_verifications": total_verifications,

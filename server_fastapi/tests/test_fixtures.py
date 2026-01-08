@@ -3,14 +3,15 @@ Additional test fixtures for bot integration tests
 Extends existing conftest.py with bot-specific fixtures
 """
 
+from datetime import datetime
+from typing import Any
+
 import pytest
 import pytest_asyncio
-from datetime import datetime
-from typing import Dict, Any
 
 
 @pytest_asyncio.fixture
-async def test_bot_data() -> Dict[str, Any]:
+async def test_bot_data() -> dict[str, Any]:
     """Provide sample bot data for testing"""
     return {
         "name": "Test Bot",
@@ -29,8 +30,9 @@ async def test_bot_data() -> Dict[str, Any]:
 @pytest_asyncio.fixture
 async def created_bot(db_session, test_bot_data):
     """Create a test bot in the database"""
-    from server_fastapi.models.bot import Bot
     import uuid
+
+    from server_fastapi.models.bot import Bot
 
     # Filter out fields that don't exist in Bot model
     bot_fields = {

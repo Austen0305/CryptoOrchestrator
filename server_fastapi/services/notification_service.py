@@ -4,21 +4,23 @@ Handles push notifications, email alerts, and in-app notifications.
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Callable, TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ..repositories.user_repository import UserRepository
     from ..repositories.push_subscription_repository import PushSubscriptionRepository
+    from ..repositories.user_repository import UserRepository
+import uuid
 from datetime import datetime
 from enum import Enum
-from sqlalchemy.ext.asyncio import AsyncSession
-import uuid
 
-from ..services.email_service import email_service
-from ..services.sms_service import sms_service
-from ..services.expo_push_service import expo_push_service
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..repositories.push_subscription_repository import PushSubscriptionRepository
 from ..repositories.user_repository import UserRepository
+from ..services.email_service import email_service
+from ..services.expo_push_service import expo_push_service
+from ..services.sms_service import sms_service
 
 # Import websocket manager
 try:
@@ -87,15 +89,15 @@ class NotificationService:
     # Class-level storage shared across all instances
     # In-memory storage for notifications (can be migrated to DB later)
     # Format: {user_id: [notification_dict, ...]}
-    _notifications: Dict[str, List[Dict[str, Any]]] = {}
+    _notifications: dict[str, list[dict[str, Any]]] = {}
     # WebSocket listeners: {user_id: [callback_function, ...]}
-    _listeners: Dict[str, List[Callable]] = {}
+    _listeners: dict[str, list[Callable]] = {}
 
     def __init__(
         self,
         db: AsyncSession,
-        user_repository: Optional[UserRepository] = None,
-        push_subscription_repository: Optional[PushSubscriptionRepository] = None,
+        user_repository: UserRepository | None = None,
+        push_subscription_repository: PushSubscriptionRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.user_repository = user_repository or UserRepository()
@@ -112,7 +114,7 @@ class NotificationService:
         title: str,
         message: str,
         priority: NotificationPriority = NotificationPriority.MEDIUM,
-        data: Optional[Dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
         send_email: bool = False,
     ) -> bool:
         """
@@ -179,7 +181,7 @@ class NotificationService:
                     email_body = f"""
                     {message}
                     
-                    {f'Additional Details: {data}' if data else ''}
+                    {f"Additional Details: {data}" if data else ""}
                     
                     ---
                     CryptoOrchestrator
@@ -388,11 +390,11 @@ class NotificationService:
         user_id: str,
         message: str,
         level: str = "info",
-        title: Optional[str] = None,
-        category: Optional[NotificationCategory] = None,
-        priority: Optional[NotificationPriority] = None,
-        data: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        title: str | None = None,
+        category: NotificationCategory | None = None,
+        priority: NotificationPriority | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """Create and store a notification"""
         notification_id = str(uuid.uuid4())
         notification = {
@@ -451,10 +453,10 @@ class NotificationService:
         self,
         user_id: str,
         limit: int = 50,
-        category: Optional[NotificationCategory] = None,
+        category: NotificationCategory | None = None,
         unread_only: bool = False,
-        priority_filter: Optional[List[NotificationPriority]] = None,
-    ) -> List[Dict[str, Any]]:
+        priority_filter: list[NotificationPriority] | None = None,
+    ) -> list[dict[str, Any]]:
         """Get recent notifications for a user"""
         if user_id not in self._notifications:
             return []
@@ -491,7 +493,7 @@ class NotificationService:
         return False
 
     async def mark_all_as_read(
-        self, user_id: str, category: Optional[NotificationCategory] = None
+        self, user_id: str, category: NotificationCategory | None = None
     ) -> int:
         """Mark all notifications as read, optionally filtered by category"""
         if user_id not in self._notifications:
@@ -526,8 +528,8 @@ class NotificationService:
     async def get_unread_count(
         self,
         user_id: str,
-        category: Optional[NotificationCategory] = None,
-        priority_filter: Optional[List[NotificationPriority]] = None,
+        category: NotificationCategory | None = None,
+        priority_filter: list[NotificationPriority] | None = None,
     ) -> int:
         """Get count of unread notifications"""
         if user_id not in self._notifications:
@@ -549,7 +551,7 @@ class NotificationService:
 
         return len(notifications)
 
-    async def get_notification_stats(self, user_id: str) -> Dict[str, Any]:
+    async def get_notification_stats(self, user_id: str) -> dict[str, Any]:
         """Get notification statistics for a user"""
         if user_id not in self._notifications:
             return {
@@ -563,8 +565,8 @@ class NotificationService:
         unread = [n for n in notifications if not n.get("read", False)]
 
         # Count by category
-        by_category: Dict[str, int] = {}
-        by_priority: Dict[str, int] = {}
+        by_category: dict[str, int] = {}
+        by_priority: dict[str, int] = {}
 
         for notification in notifications:
             category = notification.get("category", "unknown")
@@ -581,13 +583,13 @@ class NotificationService:
 
     async def broadcast_notification(
         self,
-        user_ids: List[str],
+        user_ids: list[str],
         message: str,
         level: str = "info",
-        title: Optional[str] = None,
-        category: Optional[NotificationCategory] = None,
-        priority: Optional[NotificationPriority] = None,
-        data: Optional[Dict[str, Any]] = None,
+        title: str | None = None,
+        category: NotificationCategory | None = None,
+        priority: NotificationPriority | None = None,
+        data: dict[str, Any] | None = None,
     ) -> int:
         """Broadcast notification to multiple users"""
         count = 0

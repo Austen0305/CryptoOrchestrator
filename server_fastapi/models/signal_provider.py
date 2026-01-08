@@ -3,29 +3,29 @@ Signal Provider Model - Marketplace features for copy trading
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
+    Integer,
+    String,
     Text,
-    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from enum import Enum
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from .user import User
-    from .trade import Trade
 
 
 class CuratorStatus(str, Enum):
     """Curator approval status"""
+
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -46,8 +46,10 @@ class SignalProvider(Base, TimestampMixin):
     curator_status: Mapped[str] = mapped_column(
         String(20), default=CuratorStatus.PENDING.value, nullable=False
     )
-    curator_approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    curator_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    curator_approved_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    curator_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Performance metrics (updated daily)
     total_return: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
@@ -67,19 +69,27 @@ class SignalProvider(Base, TimestampMixin):
 
     # Marketplace settings
     is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    subscription_fee: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Monthly fee in USD
+    subscription_fee: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )  # Monthly fee in USD
     performance_fee_percentage: Mapped[float] = mapped_column(
         Float, default=0.0, nullable=False
     )  # Performance fee (0-100%)
-    minimum_subscription_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    minimum_subscription_amount: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
 
     # Profile information
-    profile_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    trading_strategy: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    risk_level: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # low, medium, high
+    profile_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    trading_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )  # low, medium, high
 
     # Statistics tracking
-    last_metrics_update: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_metrics_update: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     metrics_update_frequency: Mapped[str] = mapped_column(
         String(20), default="daily", nullable=False
     )  # daily, weekly, monthly
@@ -106,7 +116,7 @@ class SignalProviderRating(Base, TimestampMixin):
 
     # Rating (1-5 stars)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5
-    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     signal_provider: Mapped["SignalProvider"] = relationship("SignalProvider")
@@ -129,16 +139,24 @@ class Payout(Base, TimestampMixin):
     # Payout details
     period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    total_revenue: Mapped[float] = mapped_column(Float, nullable=False)  # Total from subscribers
-    platform_fee: Mapped[float] = mapped_column(Float, nullable=False)  # 20% to platform
-    provider_payout: Mapped[float] = mapped_column(Float, nullable=False)  # 80% to provider
+    total_revenue: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # Total from subscribers
+    platform_fee: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # 20% to platform
+    provider_payout: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # 80% to provider
 
     # Payout status
     status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False
     )  # pending, processing, completed, failed
-    payout_method: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # crypto, bank, etc.
-    transaction_hash: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    payout_method: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # crypto, bank, etc.
+    transaction_hash: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Relationships
     signal_provider: Mapped["SignalProvider"] = relationship("SignalProvider")

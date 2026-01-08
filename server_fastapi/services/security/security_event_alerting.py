@@ -4,17 +4,18 @@ Integrates security events with alerting system and fraud detection
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..audit.audit_logger import audit_logger
 from ..alerting.alerting_service import (
+    AlertChannel,
     AlertingService,
     AlertRule,
     AlertSeverity,
-    AlertChannel,
 )
+from ..audit.audit_logger import audit_logger
 from ..fraud_detection.fraud_detection_service import FraudDetectionService
 
 logger = logging.getLogger(__name__)
@@ -32,13 +33,13 @@ class SecurityEventAlertingService:
     - Real-time security monitoring
     """
 
-    def __init__(self, alerting_service: Optional[AlertingService] = None):
+    def __init__(self, alerting_service: AlertingService | None = None):
         self.alerting_service = alerting_service or AlertingService()
         self.fraud_detection = FraudDetectionService()
 
         # Security event counters (for rate limiting alerts)
-        self.event_counts: Dict[str, int] = {}
-        self.event_timestamps: Dict[str, List[datetime]] = {}
+        self.event_counts: dict[str, int] = {}
+        self.event_timestamps: dict[str, list[datetime]] = {}
 
         # Register security alert rules
         self._register_security_rules()
@@ -132,9 +133,9 @@ class SecurityEventAlertingService:
     async def handle_security_event(
         self,
         event_type: str,
-        user_id: Optional[int],
-        details: Dict[str, Any],
-        db: Optional[AsyncSession] = None,
+        user_id: int | None,
+        details: dict[str, Any],
+        db: AsyncSession | None = None,
     ) -> None:
         """
         Handle a security event and trigger appropriate alerts
@@ -175,7 +176,7 @@ class SecurityEventAlertingService:
         except Exception as e:
             logger.error(f"Error handling security event: {e}", exc_info=True)
 
-    def _track_event(self, event_type: str, user_id: Optional[int]) -> None:
+    def _track_event(self, event_type: str, user_id: int | None) -> None:
         """Track event for rate limiting and pattern detection"""
         key = f"{event_type}:{user_id or 'anonymous'}"
 
@@ -193,7 +194,7 @@ class SecurityEventAlertingService:
         ]
 
     async def _handle_failed_login(
-        self, user_id: Optional[int], details: Dict[str, Any]
+        self, user_id: int | None, details: dict[str, Any]
     ) -> None:
         """Handle failed login event"""
         failed_count = details.get("failed_count", 1)
@@ -203,9 +204,9 @@ class SecurityEventAlertingService:
 
     async def _handle_suspicious_activity(
         self,
-        user_id: Optional[int],
-        details: Dict[str, Any],
-        db: Optional[AsyncSession],
+        user_id: int | None,
+        details: dict[str, Any],
+        db: AsyncSession | None,
     ) -> None:
         """Handle suspicious activity event"""
         activity_score = details.get("risk_score", 0.0)
@@ -228,13 +229,13 @@ class SecurityEventAlertingService:
                 await self._handle_fraud_detected(user_id, fraud_result)
 
     async def _handle_unauthorized_access(
-        self, user_id: Optional[int], details: Dict[str, Any]
+        self, user_id: int | None, details: dict[str, Any]
     ) -> None:
         """Handle unauthorized access attempt"""
         await self.alerting_service.evaluate_rule("unauthorized_access", 1)  # Count
 
     async def _handle_token_rotation(
-        self, user_id: Optional[int], details: Dict[str, Any]
+        self, user_id: int | None, details: dict[str, Any]
     ) -> None:
         """Handle token rotation event"""
         rotation_count = details.get("rotation_count", 1)
@@ -247,22 +248,23 @@ class SecurityEventAlertingService:
             )
 
     async def _handle_fraud_detected(
-        self, user_id: Optional[int], details: Dict[str, Any]
+        self, user_id: int | None, details: dict[str, Any]
     ) -> None:
         """Handle fraud detection event"""
         risk_score = details.get("risk_score", 0.0)
 
         await self.alerting_service.evaluate_rule("fraud_detected", risk_score)
 
-    async def _handle_audit_tampering(self, details: Dict[str, Any]) -> None:
+    async def _handle_audit_tampering(self, details: dict[str, Any]) -> None:
         """Handle audit log tampering detection"""
         # Critical alert - immediate notification
         await self.alerting_service.evaluate_rule(
-            "audit_log_tampering", 0  # Any tampering = 0 (below threshold)
+            "audit_log_tampering",
+            0,  # Any tampering = 0 (below threshold)
         )
 
     async def _handle_account_lockout(
-        self, user_id: Optional[int], details: Dict[str, Any]
+        self, user_id: int | None, details: dict[str, Any]
     ) -> None:
         """Handle account lockout event"""
         # Log and potentially alert on repeated lockouts
@@ -271,7 +273,8 @@ class SecurityEventAlertingService:
         if lockout_count > 3:
             # Multiple lockouts = suspicious
             await self.alerting_service.evaluate_rule(
-                "suspicious_activity", 0.6  # Medium-high risk
+                "suspicious_activity",
+                0.6,  # Medium-high risk
             )
 
     async def verify_audit_log_integrity(self) -> bool:
@@ -307,8 +310,8 @@ class SecurityEventAlertingService:
 
     async def monitor_security_events(
         self,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Monitor and analyze security events
 
@@ -358,7 +361,7 @@ class SecurityEventAlertingService:
 
 
 # Global instance
-_security_event_alerting_service: Optional[SecurityEventAlertingService] = None
+_security_event_alerting_service: SecurityEventAlertingService | None = None
 
 
 def get_security_event_alerting_service() -> SecurityEventAlertingService:

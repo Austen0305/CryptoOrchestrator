@@ -2,11 +2,11 @@
 Reinforcement Learning Service - Q-learning and PPO agents for trading
 """
 
-from typing import Dict, Any, Optional, List, Tuple
-from pydantic import BaseModel
-from datetime import datetime
 import logging
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel
 
 try:
     import numpy as np
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 # Try importing RL libraries
 try:
     import gymnasium as gym
-    from stable_baselines3 import PPO, DQN
-    from stable_baselines3.common.env_util import make_vec_env
+    from stable_baselines3 import DQN, PPO
     from stable_baselines3.common.callbacks import BaseCallback
+    from stable_baselines3.common.env_util import make_vec_env
 
     STABLE_BASELINES_AVAILABLE = True
 except (ImportError, RuntimeError, Exception) as e:
@@ -63,8 +63,8 @@ class TradingState(BaseModel):
 
     price: float
     volume: float
-    technical_indicators: Dict[str, float]
-    position: Optional[str] = None  # 'long', 'short', None
+    technical_indicators: dict[str, float]
+    position: str | None = None  # 'long', 'short', None
     balance: float = 10000.0
     portfolio_value: float = 10000.0
 
@@ -72,9 +72,9 @@ class TradingState(BaseModel):
 class QLearningAgent:
     """Q-learning agent for trading"""
 
-    def __init__(self, config: Optional[RLConfig] = None):
+    def __init__(self, config: RLConfig | None = None):
         self.config = config or RLConfig()
-        self.q_table: Dict[str, Dict[str, float]] = {}
+        self.q_table: dict[str, dict[str, float]] = {}
         self.epsilon = self.config.epsilon
         self.learning_rate = self.config.learning_rate
         self.gamma = self.config.gamma
@@ -86,7 +86,7 @@ class QLearningAgent:
 
         logger.info("Q-learning agent initialized")
 
-    def _get_state_key(self, state: Dict[str, Any]) -> str:
+    def _get_state_key(self, state: dict[str, Any]) -> str:
         """Convert state to string key for Q-table"""
         # Discretize continuous values
         price_bin = int(state.get("price", 0) / 10)  # Bin price by $10
@@ -96,7 +96,7 @@ class QLearningAgent:
 
         return f"{price_bin}_{volume_bin}_{rsi_bin}_{position}"
 
-    def get_action(self, state: Dict[str, Any], training: bool = True) -> str:
+    def get_action(self, state: dict[str, Any], training: bool = True) -> str:
         """Get action from state using epsilon-greedy policy"""
         import random
 
@@ -124,10 +124,10 @@ class QLearningAgent:
 
     def update_q_value(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         action: str,
         reward: float,
-        next_state: Dict[str, Any],
+        next_state: dict[str, Any],
         done: bool = False,
     ) -> None:
         """Update Q-value using Q-learning algorithm"""
@@ -171,7 +171,7 @@ class QLearningAgent:
         action: str,
         entry_price: float,
         exit_price: float,
-        position: Optional[str],
+        position: str | None,
         balance: float,
         portfolio_value: float,
     ) -> float:
@@ -190,7 +190,7 @@ class QLearningAgent:
 
         return -0.1  # Small penalty for invalid actions
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get training statistics"""
         return {
             "training_episodes": self.training_episodes,
@@ -204,9 +204,9 @@ class QLearningAgent:
 class PPOAgent:
     """Proximal Policy Optimization agent for trading"""
 
-    def __init__(self, config: Optional[RLConfig] = None):
+    def __init__(self, config: RLConfig | None = None):
         self.config = config or RLConfig()
-        self.model: Optional[Any] = None
+        self.model: Any | None = None
         self.env = None
 
         if not STABLE_BASELINES_AVAILABLE:
@@ -216,7 +216,7 @@ class PPOAgent:
 
         logger.info("PPO agent initialized")
 
-    def create_trading_env(self, market_data: List[Dict[str, Any]]) -> Any:
+    def create_trading_env(self, market_data: list[dict[str, Any]]) -> Any:
         """Create trading environment for PPO"""
         # This would create a custom Gymnasium environment
         # For now, return None as full implementation requires custom environment
@@ -230,7 +230,7 @@ class PPOAgent:
 
     def train(
         self, env: Any, total_timesteps: int = 100000, log_interval: int = 10
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Train PPO agent"""
         if not STABLE_BASELINES_AVAILABLE or env is None:
             logger.warning("PPO training requires stable-baselines3 and environment")
@@ -258,7 +258,7 @@ class PPOAgent:
             logger.error(f"PPO training failed: {e}")
             return {"status": "error", "message": str(e)}
 
-    def predict(self, observation: Any) -> Tuple[str, float]:
+    def predict(self, observation: Any) -> tuple[str, float]:
         """Predict action using trained PPO model"""
         if self.model is None:
             # Fallback to random action
@@ -327,9 +327,9 @@ class RLService:
     def train_q_learning(
         self,
         episodes: int,
-        market_data: List[Dict[str, Any]],
+        market_data: list[dict[str, Any]],
         initial_balance: float = 10000.0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Train Q-learning agent on market data"""
         try:
             agent = self.q_learning_agent

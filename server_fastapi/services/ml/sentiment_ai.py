@@ -2,14 +2,12 @@
 Sentiment AI Service - News and social media sentiment analysis
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
-from datetime import datetime
 import logging
-import asyncio
-import httpx
-import numpy as np
 import os
+from datetime import datetime
+
+import numpy as np
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +56,8 @@ class NewsArticle(BaseModel):
     content: str
     source: str
     published_at: datetime
-    url: Optional[str] = None
-    sentiment: Optional[SentimentScore] = None
+    url: str | None = None
+    sentiment: SentimentScore | None = None
 
 
 class SocialMediaPost(BaseModel):
@@ -67,11 +65,11 @@ class SocialMediaPost(BaseModel):
 
     text: str
     platform: str  # 'twitter', 'reddit', etc.
-    author: Optional[str] = None
+    author: str | None = None
     created_at: datetime
     likes: int = 0
     shares: int = 0
-    sentiment: Optional[SentimentScore] = None
+    sentiment: SentimentScore | None = None
 
 
 class AggregatedSentiment(BaseModel):
@@ -282,8 +280,8 @@ class SentimentAIService:
     def aggregate_sentiment(
         self,
         symbol: str,
-        news_articles: List[NewsArticle],
-        social_posts: List[SocialMediaPost],
+        news_articles: list[NewsArticle],
+        social_posts: list[SocialMediaPost],
         method: str = "vader",
     ) -> AggregatedSentiment:
         """Aggregate sentiment from multiple sources"""
@@ -341,8 +339,8 @@ class SentimentAIService:
             )
 
     async def fetch_news_articles(
-        self, symbol: str, api_key: Optional[str] = None, limit: int = 10
-    ) -> List[NewsArticle]:
+        self, symbol: str, api_key: str | None = None, limit: int = 10
+    ) -> list[NewsArticle]:
         """Fetch news articles for a symbol (placeholder - integrate with news API)"""
         # This would integrate with NewsAPI, Alpha Vantage, etc.
         # For now, return empty list
@@ -351,7 +349,7 @@ class SentimentAIService:
 
     async def fetch_social_posts(
         self, symbol: str, platform: str = "twitter", limit: int = 50
-    ) -> List[SocialMediaPost]:
+    ) -> list[SocialMediaPost]:
         """Fetch social media posts for a symbol (placeholder - integrate with social APIs)"""
         # This would integrate with Twitter API, Reddit API, etc.
         # For now, return empty list

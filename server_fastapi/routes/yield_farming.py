@@ -4,14 +4,13 @@ Endpoints for automated yield farming and liquidity provision
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
 from ..services.yield_farming_service import YieldFarmingService
+from ..utils.route_helpers import _get_user_id
 
 router = APIRouter(prefix="/api/yield-farming", tags=["Yield Farming"])
 
@@ -22,29 +21,29 @@ class CreatePositionRequest(BaseModel):
     amount: float
     chain_id: int = 1
     auto_compound: bool = True
-    risk_limit: Optional[float] = None
+    risk_limit: float | None = None
 
 
 class RebalanceRequest(BaseModel):
-    target_allocation: Dict[str, float]  # pool_id -> percentage
+    target_allocation: dict[str, float]  # pool_id -> percentage
 
 
 @router.get("/pools")
 async def get_available_pools(
     chain_id: int = Query(1, description="Blockchain chain ID"),
-    min_apy: Optional[float] = Query(None, description="Minimum APY filter"),
-    protocol: Optional[str] = Query(None, description="Protocol filter"),
+    min_apy: float | None = Query(None, description="Minimum APY filter"),
+    protocol: str | None = Query(None, description="Protocol filter"),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get available yield farming pools"""
     service = YieldFarmingService(db)
-    
+
     pools = await service.get_available_pools(
         chain_id=chain_id,
         min_apy=min_apy,
         protocol=protocol,
     )
-    
+
     return {"pools": pools, "count": len(pools)}
 
 
@@ -56,7 +55,7 @@ async def create_farming_position(
 ):
     """Create a yield farming position"""
     service = YieldFarmingService(db)
-    
+
     try:
         position = await service.create_farming_position(
             user_id=_get_user_id(current_user),
@@ -76,18 +75,18 @@ async def create_farming_position(
 
 @router.get("/positions")
 async def get_user_positions(
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
+    chain_id: int | None = Query(None, description="Filter by chain ID"),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get user's yield farming positions"""
     service = YieldFarmingService(db)
-    
+
     positions = await service.get_user_positions(
         user_id=_get_user_id(current_user),
         chain_id=chain_id,
     )
-    
+
     return {"positions": positions, "count": len(positions)}
 
 
@@ -100,12 +99,12 @@ async def calculate_yield(
 ):
     """Calculate yield for a position"""
     service = YieldFarmingService(db)
-    
+
     yield_calc = await service.calculate_yield(
         position_id=position_id,
         days=days,
     )
-    
+
     return yield_calc
 
 
@@ -117,29 +116,29 @@ async def rebalance_positions(
 ):
     """Rebalance yield farming positions"""
     service = YieldFarmingService(db)
-    
+
     result = await service.rebalance_positions(
         user_id=_get_user_id(current_user),
         target_allocation=request.target_allocation,
     )
-    
+
     return result
 
 
 @router.get("/optimize")
 async def optimize_yield(
     risk_tolerance: str = Query("medium", pattern="^(low|medium|high)$"),
-    min_apy: Optional[float] = Query(None, description="Minimum APY requirement"),
+    min_apy: float | None = Query(None, description="Minimum APY requirement"),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get yield optimization recommendations"""
     service = YieldFarmingService(db)
-    
+
     recommendations = await service.optimize_yield(
         user_id=_get_user_id(current_user),
         risk_tolerance=risk_tolerance,
         min_apy=min_apy,
     )
-    
+
     return recommendations

@@ -9,16 +9,14 @@ Provides endpoints for professional risk management:
 - Stop-loss and take-profit recommendations
 """
 
+import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, List
-import numpy as np
 
 from server_fastapi.services.advanced_risk_management import (
     AdvancedRiskManager,
     PositionSizingMethod,
     VaRMethod,
-    RiskLimits,
 )
 
 router = APIRouter()
@@ -40,14 +38,12 @@ class PositionSizingRequest(BaseModel):
     )
     entry_price: float = Field(..., gt=0, description="Planned entry price")
     stop_loss: float = Field(..., gt=0, description="Stop loss price")
-    win_rate: Optional[float] = Field(
+    win_rate: float | None = Field(
         None, ge=0, le=1, description="Historical win rate (for Kelly)"
     )
-    avg_win: Optional[float] = Field(None, description="Average win amount (for Kelly)")
-    avg_loss: Optional[float] = Field(
-        None, description="Average loss amount (for Kelly)"
-    )
-    volatility: Optional[float] = Field(
+    avg_win: float | None = Field(None, description="Average win amount (for Kelly)")
+    avg_loss: float | None = Field(None, description="Average loss amount (for Kelly)")
+    volatility: float | None = Field(
         None, description="Asset volatility (for volatility-based)"
     )
 
@@ -65,7 +61,7 @@ class PositionSizingResponse(BaseModel):
 class VaRRequest(BaseModel):
     """Request for VaR calculation."""
 
-    returns: List[float] = Field(..., description="Historical returns array")
+    returns: list[float] = Field(..., description="Historical returns array")
     confidence_level: float = Field(
         0.95, ge=0.9, le=0.99, description="Confidence level (0.95 or 0.99)"
     )
@@ -88,13 +84,13 @@ class VaRResponse(BaseModel):
 class RiskLimitsRequest(BaseModel):
     """Request for custom risk limits."""
 
-    max_position_size: Optional[float] = Field(
+    max_position_size: float | None = Field(
         0.20, description="Max position size as % of portfolio"
     )
-    max_total_exposure: Optional[float] = Field(1.0, description="Max total exposure")
-    max_leverage: Optional[float] = Field(3.0, description="Max leverage")
-    max_daily_loss: Optional[float] = Field(0.05, description="Max daily loss %")
-    max_drawdown: Optional[float] = Field(0.20, description="Max drawdown %")
+    max_total_exposure: float | None = Field(1.0, description="Max total exposure")
+    max_leverage: float | None = Field(3.0, description="Max leverage")
+    max_daily_loss: float | None = Field(0.05, description="Max daily loss %")
+    max_drawdown: float | None = Field(0.20, description="Max drawdown %")
 
 
 class Position(BaseModel):
@@ -104,16 +100,16 @@ class Position(BaseModel):
     size: float
     entry_price: float
     current_price: float
-    stop_loss: Optional[float] = None
-    take_profit: Optional[float] = None
-    value: Optional[float] = None
-    unrealized_pnl: Optional[float] = None
+    stop_loss: float | None = None
+    take_profit: float | None = None
+    value: float | None = None
+    unrealized_pnl: float | None = None
 
 
 class RiskCheckRequest(BaseModel):
     """Request for risk limit check."""
 
-    positions: List[Position]
+    positions: list[Position]
     account_balance: float
 
 

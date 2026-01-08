@@ -2,12 +2,13 @@
 Token service for JWT access and refresh tokens
 """
 
-import os
-import jwt
-import secrets
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+import os
+import secrets
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import jwt
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ class TokenService:
     @staticmethod
     def generate_access_token(user_id: int, email: str, role: str = "user") -> str:
         """Generate JWT access token"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": str(user_id),
@@ -49,7 +50,7 @@ class TokenService:
     @staticmethod
     def generate_refresh_token(user_id: int, email: str) -> str:
         """Generate JWT refresh token"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         payload = {
             "sub": str(user_id),
@@ -64,7 +65,7 @@ class TokenService:
     @staticmethod
     def generate_email_verification_token(user_id: int, email: str) -> str:
         """Generate email verification token"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + timedelta(hours=EMAIL_VERIFICATION_EXPIRE_HOURS)
         payload = {
             "sub": str(user_id),
@@ -78,7 +79,7 @@ class TokenService:
     @staticmethod
     def generate_password_reset_token(user_id: int, email: str) -> str:
         """Generate password reset token"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expire = now + timedelta(hours=PASSWORD_RESET_EXPIRE_HOURS)
         payload = {
             "sub": str(user_id),
@@ -90,7 +91,7 @@ class TokenService:
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
     @staticmethod
-    def verify_access_token(token: str) -> Optional[Dict[str, Any]]:
+    def verify_access_token(token: str) -> dict[str, Any] | None:
         """Verify and decode access token"""
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -106,7 +107,7 @@ class TokenService:
             return None
 
     @staticmethod
-    def verify_refresh_token(token: str) -> Optional[Dict[str, Any]]:
+    def verify_refresh_token(token: str) -> dict[str, Any] | None:
         """Verify and decode refresh token"""
         try:
             payload = jwt.decode(token, JWT_REFRESH_SECRET, algorithms=[JWT_ALGORITHM])
@@ -122,7 +123,7 @@ class TokenService:
             return None
 
     @staticmethod
-    def verify_email_verification_token(token: str) -> Optional[Dict[str, Any]]:
+    def verify_email_verification_token(token: str) -> dict[str, Any] | None:
         """Verify and decode email verification token"""
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -138,7 +139,7 @@ class TokenService:
             return None
 
     @staticmethod
-    def verify_password_reset_token(token: str) -> Optional[Dict[str, Any]]:
+    def verify_password_reset_token(token: str) -> dict[str, Any] | None:
         """Verify and decode password reset token"""
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])

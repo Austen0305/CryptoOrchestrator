@@ -3,22 +3,19 @@ DEX Trading Routes
 Endpoints for decentralized exchange trading via aggregators
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from typing_extensions import Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.trading.dex_trading_service import DEXTradingService
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.trading.dex_trading_service import DEXTradingService
 from ..utils.route_helpers import _get_user_id
 from ..utils.validation_2026 import (
-    validate_ethereum_address,
-    validate_slippage,
-    validate_amount,
     ValidationError,
 )
 
@@ -33,10 +30,8 @@ class DEXQuoteRequest(BaseModel):
 
     sell_token: str = Field(..., description="Token to sell (address or symbol)")
     buy_token: str = Field(..., description="Token to buy (address or symbol)")
-    sell_amount: Optional[str] = Field(
-        None, description="Amount to sell (in token units)"
-    )
-    buy_amount: Optional[str] = Field(
+    sell_amount: str | None = Field(None, description="Amount to sell (in token units)")
+    buy_amount: str | None = Field(
         None, description="Amount to buy (alternative to sell_amount)"
     )
     chain_id: int = Field(
@@ -46,7 +41,7 @@ class DEXQuoteRequest(BaseModel):
         0.5, ge=0, le=50, description="Max slippage percentage"
     )
     cross_chain: bool = Field(False, description="Whether this is a cross-chain swap")
-    to_chain_id: Optional[int] = Field(
+    to_chain_id: int | None = Field(
         None, description="Destination chain ID (for cross-chain)"
     )
 
@@ -77,14 +72,14 @@ class DEXSwapRequest(BaseModel):
         True,
         description="Whether to use custodial wallet (True) or user wallet (False)",
     )
-    user_wallet_address: Optional[str] = Field(
+    user_wallet_address: str | None = Field(
         None, description="User wallet address (for non-custodial)"
     )
-    signature: Optional[str] = Field(
+    signature: str | None = Field(
         None, description="EIP-712 signature (for non-custodial authorization)"
     )
     cross_chain: bool = Field(False, description="Whether this is a cross-chain swap")
-    to_chain_id: Optional[int] = Field(
+    to_chain_id: int | None = Field(
         None, description="Destination chain ID (for cross-chain)"
     )
 
@@ -108,13 +103,13 @@ class DEXQuoteResponse(BaseModel):
     aggregator: str
     sell_token: str
     buy_token: str
-    sell_amount: Optional[str]
-    buy_amount: Optional[str]
-    price: Optional[float]
-    estimated_gas: Optional[str]
-    sources: Optional[List[Dict[str, Any]]]
+    sell_amount: str | None
+    buy_amount: str | None
+    price: float | None
+    estimated_gas: str | None
+    sources: list[dict[str, Any]] | None
     chain_id: int
-    to_chain_id: Optional[int] = None
+    to_chain_id: int | None = None
 
     model_config = {"from_attributes": True}
 
@@ -123,15 +118,15 @@ class DEXSwapResponse(BaseModel):
     """Response model for DEX swap execution"""
 
     success: bool
-    trade_id: Optional[str] = None
+    trade_id: str | None = None
     sell_token: str
     buy_token: str
     sell_amount: str
-    buy_amount: Optional[str]
-    fee_amount: Optional[str]
+    buy_amount: str | None
+    fee_amount: str | None
     aggregator: str
-    transaction_hash: Optional[str] = None
-    swap_calldata: Optional[Dict[str, Any]] = None
+    transaction_hash: str | None = None
+    swap_calldata: dict[str, Any] | None = None
     chain_id: int
     status: str
 
@@ -264,7 +259,6 @@ async def execute_dex_swap(
                 from ..services.security.ip_whitelist_service import (
                     ip_whitelist_service,
                 )
-                from ..services.trading.real_money_service import RealMoneyService
 
                 # Check if this is a real money trade
                 # In production, you'd check trading mode from user settings
@@ -390,11 +384,11 @@ async def execute_dex_swap(
 
 
 @router.get(
-    "/supported-chains", response_model=List[SupportedChain], tags=["DEX Trading"]
+    "/supported-chains", response_model=list[SupportedChain], tags=["DEX Trading"]
 )
 async def get_supported_chains(
     service: Annotated[DEXTradingService, Depends(get_dex_trading_service)],
-) -> List[SupportedChain]:
+) -> list[SupportedChain]:
     """
     Get list of supported blockchain networks
 
@@ -426,11 +420,11 @@ class DEXTradeStatusResponse(BaseModel):
     trade_id: int
     transaction_hash: str
     status: str
-    success: Optional[bool] = None
-    block_number: Optional[int] = None
-    confirmations: Optional[int] = None
-    gas_used: Optional[int] = None
-    message: Optional[str] = None
+    success: bool | None = None
+    block_number: int | None = None
+    confirmations: int | None = None
+    gas_used: int | None = None
+    message: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -1,8 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 # Use str instead of EmailStr to avoid email-validator dependency
 EmailStr = str
@@ -11,9 +9,9 @@ EmailStr = str
 try:
     from ..middleware.validation import (
         SanitizedBaseModel,
+        sanitize_input,
         validate_email_format,
         validate_password_strength,
-        sanitize_input,
     )
 except ImportError:
     SanitizedBaseModel = BaseModel
@@ -57,8 +55,8 @@ try:
     import speakeasy
 except ImportError:
     # Mock implementations for missing modules
-    import hashlib
     import base64
+    import hashlib
     import hmac
     import json
     from datetime import datetime, timedelta
@@ -66,11 +64,12 @@ except ImportError:
     class MockBcrypt:
         # Store password -> hash mapping for mock verification
         _password_hashes = {}
-        
+
         @staticmethod
         def gensalt(rounds=12):
             """Generate mock salt for testing"""
             import secrets
+
             return secrets.token_bytes(16)
 
         @staticmethod
@@ -79,7 +78,9 @@ except ImportError:
             # Create hash using password + salt
             hashed = hashlib.sha256(password + salt).hexdigest().encode()
             # Store password -> hash mapping for verification (simplified mock approach)
-            password_str = password.decode() if isinstance(password, bytes) else password
+            password_str = (
+                password.decode() if isinstance(password, bytes) else password
+            )
             MockBcrypt._password_hashes[password_str] = hashed
             return hashed
 
@@ -92,17 +93,19 @@ except ImportError:
                     password_str = password.decode()
                 else:
                     password_str = password
-                
+
                 if isinstance(hashed, bytes):
                     hashed_bytes = hashed
                 else:
-                    hashed_bytes = hashed.encode() if isinstance(hashed, str) else hashed
-                
+                    hashed_bytes = (
+                        hashed.encode() if isinstance(hashed, str) else hashed
+                    )
+
                 # Check if we have a stored hash for this password
                 stored_hash = MockBcrypt._password_hashes.get(password_str)
                 if stored_hash:
                     return stored_hash == hashed_bytes
-                
+
                 # Fallback: try to re-hash (this won't work if salt is different)
                 # This is a limitation - for proper testing, use real bcrypt
                 return False
@@ -118,15 +121,19 @@ except ImportError:
                 if isinstance(obj, datetime):
                     return obj.isoformat()
                 raise TypeError(f"Type {type(obj)} not serializable")
-            
+
             header = {"alg": algorithm, "typ": "JWT"}
             encoded_header = (
-                base64.urlsafe_b64encode(json.dumps(header, default=json_serial).encode())
+                base64.urlsafe_b64encode(
+                    json.dumps(header, default=json_serial).encode()
+                )
                 .decode()
                 .rstrip("=")
             )
             encoded_payload = (
-                base64.urlsafe_b64encode(json.dumps(payload, default=json_serial).encode())
+                base64.urlsafe_b64encode(
+                    json.dumps(payload, default=json_serial).encode()
+                )
                 .decode()
                 .rstrip("=")
             )
@@ -160,23 +167,23 @@ except ImportError:
     bcrypt = MockBcrypt()
     jwt = MockJWT()
     speakeasy = MockSpeakeasy()
-import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Annotated
-import logging
 import json
+import logging
+import os
+from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 
 # Local schemas for auth requests with validation
 class RegisterRequest(SanitizedBaseModel):
     email: EmailStr
     password: str
-    name: Optional[str] = (
+    name: str | None = (
         None  # Optional, can be derived from first_name/last_name or username
     )
-    username: Optional[str] = None  # Frontend sends username
-    first_name: Optional[str] = None  # Frontend sends first_name
-    last_name: Optional[str] = None  # Frontend sends last_name
+    username: str | None = None  # Frontend sends username
+    first_name: str | None = None  # Frontend sends first_name
+    last_name: str | None = None  # Frontend sends last_name
 
     def validate_email(self):
         if not validate_email_format(self.email):
@@ -191,31 +198,38 @@ class RegisterRequest(SanitizedBaseModel):
 
 
 class LoginRequest(SanitizedBaseModel):
-    email: Optional[EmailStr] = None
-    username: Optional[str] = None
+    email: EmailStr | None = None
+    username: str | None = None
     password: str
 
 
 # Import auth services with relative imports
 try:
-    from ..services.auth import AuthService, APIKeyService
+    from ..services.auth import APIKeyService, AuthService
 except ImportError as e:
     # Only use mock as absolute last resort if import completely fails
     import logging
+
     logger = logging.getLogger(__name__)
     logger.error(f"CRITICAL: Failed to import AuthService: {e}")
     logger.error("Authentication will not work properly. Check service imports.")
-    
+
     # Minimal fallback that raises errors to force proper setup
     class MockAuthService:
         def register(self, data, session=None):
-            raise RuntimeError("AuthService not available - check imports and database setup")
-        
+            raise RuntimeError(
+                "AuthService not available - check imports and database setup"
+            )
+
         def verifyEmail(self, token, session=None):
-            raise RuntimeError("AuthService not available - check imports and database setup")
-        
+            raise RuntimeError(
+                "AuthService not available - check imports and database setup"
+            )
+
         def resendVerificationEmail(self, email, session=None):
-            raise RuntimeError("AuthService not available - check imports and database setup")
+            raise RuntimeError(
+                "AuthService not available - check imports and database setup"
+            )
 
     class MockAPIKeyService:
         pass
@@ -280,7 +294,7 @@ class EnableMFARequest(SanitizedBaseModel):
 
 class SetupTwoFactorChoiceRequest(SanitizedBaseModel):
     method: str  # 'email' or 'sms'
-    phoneNumber: Optional[str] = None  # required only when method='sms'
+    phoneNumber: str | None = None  # required only when method='sms'
 
 
 class VerifyTwoFactorCodeRequest(SanitizedBaseModel):
@@ -330,7 +344,7 @@ class RefreshTokenRequest(SanitizedBaseModel):
 
 
 class LogoutRequest(SanitizedBaseModel):
-    refreshToken: Optional[str] = None
+    refreshToken: str | None = None
 
 
 class VerifyEmailRequest(SanitizedBaseModel):
@@ -399,9 +413,7 @@ class MockStorage:
 
     def _seed_default_user(self):
         """Seed the storage with a default user for testing purposes."""
-        hashed_password = bcrypt.hashpw(
-            "password123".encode(), bcrypt.gensalt()
-        ).decode()
+        hashed_password = bcrypt.hashpw(b"password123", bcrypt.gensalt()).decode()
         default_user = {
             "id": 1,
             "email": "test@example.com",
@@ -415,7 +427,7 @@ class MockStorage:
             "mfaCodeExpires": None,
             "phoneNumber": None,
             "mfaRecoveryCodes": [],
-            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "createdAt": datetime.now(UTC).isoformat(),
         }
         self.users[1] = default_user
 
@@ -448,7 +460,7 @@ class MockStorage:
             "mfaCodeExpires": None,
             "phoneNumber": None,
             "mfaRecoveryCodes": [],
-            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "createdAt": datetime.now(UTC).isoformat(),
         }
         self.users[user_id] = user
         return user
@@ -493,6 +505,7 @@ sms_service = MockSMSService()
 # Use real AuthService with database support
 try:
     from ..services.auth import AuthService
+
     auth_service = AuthService()
     logger.info("AuthService initialized successfully with database support")
 except ImportError as e:
@@ -507,7 +520,7 @@ api_key_service = APIKeyService()
 
 # Helper functions
 def generate_token(user: dict) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "id": user["id"],
@@ -521,7 +534,7 @@ def generate_token(user: dict) -> str:
 
 
 def generate_refresh_token(user: dict) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return jwt.encode(
         {
             "id": user["id"],
@@ -544,10 +557,11 @@ async def get_current_user(
     """
     # Import centralized version
     try:
+        from fastapi import Request as FastAPIRequest
+
         from server_fastapi.dependencies.auth import (
             get_current_user as _get_current_user,
         )
-        from fastapi import Request as FastAPIRequest
 
         # FastAPI will inject request automatically, but if not provided, create a minimal one
         if request is None:
@@ -556,8 +570,8 @@ async def get_current_user(
             try:
                 # The centralized version requires request, so we need to provide it
                 # Create a minimal request object for fallback
-                from starlette.requests import Request as StarletteRequest
                 from starlette.datastructures import Headers
+                from starlette.requests import Request as StarletteRequest
 
                 request = StarletteRequest(
                     scope={"type": "http", "headers": []}, receive=None
@@ -856,7 +870,7 @@ async def login(payload: LoginRequest, request: Request):
                                 else None
                             ),
                         }
-    except (asyncio.TimeoutError, Exception) as e:
+    except (TimeoutError, Exception) as e:
         logger.warning(
             f"Database lookup failed or timed out, falling back to in-memory storage: {e}"
         )
@@ -951,9 +965,7 @@ async def login(payload: LoginRequest, request: Request):
         method = user.get("mfaMethod")
         if method in ("email", "sms"):
             code = _generate_6_digit_code()
-            expires_at = (
-                datetime.now(timezone.utc) + timedelta(minutes=10)
-            ).isoformat()
+            expires_at = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
             storage.updateUser(
                 user["id"], {"mfaCode": code, "mfaCodeExpires": expires_at}
             )
@@ -1112,7 +1124,7 @@ async def setup_mfa_choice(
 
     # Generate one-time 6-digit code and expiry (10 minutes)
     code = _generate_6_digit_code()
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
+    expires_at = (datetime.now(UTC) + timedelta(minutes=10)).isoformat()
     updates["mfaCode"] = code
     updates["mfaCodeExpires"] = expires_at
 
@@ -1172,9 +1184,9 @@ async def verify_mfa_code(
     try:
         expires_at = datetime.fromisoformat(expires_str)
     except Exception:
-        expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        expires_at = datetime.now(UTC) - timedelta(seconds=1)
 
-    if datetime.now(timezone.utc) > expires_at or code != stored_code:
+    if datetime.now(UTC) > expires_at or code != stored_code:
         raise HTTPException(status_code=401, detail="Invalid or expired code")
 
     # Enable MFA for the chosen method and clear one-time code
@@ -1214,7 +1226,8 @@ async def generate_recovery_codes(
     user = storage.getUserById(user_id)
     if not user or not user.get("mfaEnabled"):
         raise HTTPException(status_code=400, detail="MFA not enabled")
-    import secrets, hashlib
+    import hashlib
+    import secrets
 
     # Generate 8 recovery codes
     raw_codes = [secrets.token_hex(4) for _ in range(8)]
@@ -1239,7 +1252,8 @@ async def verify_recovery_code(payload: VerifyRecoveryCodeRequest):
     user = storage.getUserById(payload.userId)
     if not user or not user.get("mfaEnabled"):
         raise HTTPException(status_code=400, detail="MFA not enabled for user")
-    import hashlib, json as _json
+    import hashlib
+    import json as _json
 
     submitted = (payload.code or "").strip()
     if not submitted:
@@ -1313,9 +1327,9 @@ async def verify_mfa_login_code(payload: VerifyTwoFactorLoginRequest):
     try:
         expires_at = datetime.fromisoformat(expires_str)
     except Exception:
-        expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        expires_at = datetime.now(UTC) - timedelta(seconds=1)
 
-    if datetime.now(timezone.utc) > expires_at or code != stored_code:
+    if datetime.now(UTC) > expires_at or code != stored_code:
         raise HTTPException(status_code=401, detail="Invalid or expired code")
 
     # Clear code and proceed to issue tokens
@@ -1364,7 +1378,7 @@ async def forgot_password(payload: ForgotPasswordRequest, request: Request):
         {
             "id": user["id"],
             "type": "password_reset",
-            "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+            "exp": datetime.now(UTC) + timedelta(hours=1),
         },
         JWT_SECRET,
         algorithm="HS256",
@@ -1434,8 +1448,7 @@ async def get_profile(current_user: Annotated[dict, Depends(get_current_user)]):
         "id": user_id,
         "email": current_user.get("email") or "",
         "name": current_user.get("name") or current_user.get("username") or "User",
-        "createdAt": current_user.get("createdAt")
-        or datetime.now(timezone.utc).isoformat(),
+        "createdAt": current_user.get("createdAt") or datetime.now(UTC).isoformat(),
         "mfaEnabled": current_user.get("mfaEnabled", False),
         **db_data,
     }
@@ -1569,7 +1582,7 @@ async def verify_email(payload: VerifyEmailRequest, request: Request):
     else:
         # No database available
         raise HTTPException(status_code=503, detail="Database unavailable")
-    
+
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
 
@@ -1587,7 +1600,7 @@ async def resend_verification(payload: ResendVerificationRequest, request: Reque
     payload.validate_email()
 
     sanitized_email = sanitize_input(payload.email)
-    
+
     # Use database session for resend verification
     get_db_context = _get_db_context_lazy()
     if get_db_context:
@@ -1602,7 +1615,7 @@ async def resend_verification(payload: ResendVerificationRequest, request: Reque
     else:
         # No database available
         raise HTTPException(status_code=503, detail="Database unavailable")
-    
+
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
     return {"message": result["message"]}

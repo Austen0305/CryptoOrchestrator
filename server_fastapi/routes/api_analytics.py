@@ -4,7 +4,8 @@ Provides endpoints for viewing API usage analytics
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
+
 from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
@@ -16,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/api/analytics/summary")
-async def get_analytics_summary() -> Dict[str, Any]:
+async def get_analytics_summary() -> dict[str, Any]:
     """Get API analytics summary"""
     try:
         return api_analytics.get_analytics_summary()
@@ -30,8 +31,10 @@ async def get_analytics_summary() -> Dict[str, Any]:
 
 @router.get("/api/analytics/endpoints")
 async def get_endpoint_analytics(
-    endpoint: Optional[str] = Query(None, description="Specific endpoint to get stats for")
-) -> Dict[str, Any]:
+    endpoint: str | None = Query(
+        None, description="Specific endpoint to get stats for"
+    ),
+) -> dict[str, Any]:
     """Get endpoint analytics"""
     try:
         return api_analytics.get_endpoint_stats(endpoint)
@@ -45,8 +48,8 @@ async def get_endpoint_analytics(
 
 @router.get("/api/analytics/popular")
 async def get_popular_endpoints(
-    limit: int = Query(10, ge=1, le=100, description="Number of endpoints to return")
-) -> Dict[str, Any]:
+    limit: int = Query(10, ge=1, le=100, description="Number of endpoints to return"),
+) -> dict[str, Any]:
     """Get most popular endpoints"""
     try:
         return {
@@ -58,4 +61,3 @@ async def get_popular_endpoints(
             content={"error": str(e)},
             status_code=500,
         )
-

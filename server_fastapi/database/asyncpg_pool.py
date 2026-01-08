@@ -6,10 +6,10 @@ migrations, and ORM features, but asyncpg provides 30-50% faster performance
 for simple, high-frequency queries.
 """
 
-import asyncpg
-from typing import Optional
 import logging
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
+
+import asyncpg
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class AsyncPGPool:
     """Manages asyncpg connection pool for high-performance queries"""
 
-    _pool: Optional[asyncpg.Pool] = None
+    _pool: asyncpg.Pool | None = None
     _is_initialized: bool = False
 
     @classmethod

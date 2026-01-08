@@ -3,15 +3,15 @@ Middleware Setup Module
 Centralized middleware registration and configuration
 """
 
-import os
 import logging
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import Limiter
-from slowapi.middleware import SlowAPIMiddleware
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from .config import middleware_manager
 from .registry import MiddlewareRegistry
@@ -44,9 +44,9 @@ def get_cors_origins() -> list:
         ]
         cors_origins = []
         for origin in parsed_origins:
-            if origin in ["null", "file://", "exp://"]:
-                cors_origins.append(origin)
-            elif origin.startswith(("http://", "https://")):
+            if origin in ["null", "file://", "exp://"] or origin.startswith(
+                ("http://", "https://")
+            ):
                 cors_origins.append(origin)
             else:
                 logger.warning(
@@ -143,7 +143,7 @@ def setup_cors_middleware(app: FastAPI) -> None:
 def setup_rate_limiting(app: FastAPI) -> None:
     """Setup rate limiting middleware"""
     try:
-        from ..rate_limit_config import limiter, _rate_limit_exceeded_handler
+        from ..rate_limit_config import _rate_limit_exceeded_handler, limiter
 
         if limiter:
             app.state.limiter = limiter

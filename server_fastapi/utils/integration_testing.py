@@ -3,15 +3,12 @@ Integration Testing Utilities
 Provides utilities for writing and running integration tests
 """
 
-import pytest
-import asyncio
+from collections.abc import AsyncGenerator
+from typing import Any
+
 import httpx
-from typing import Dict, Any, Optional, AsyncGenerator, List
-from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
-import os
-import json
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = pytest.getLogger(__name__)
 
@@ -19,7 +16,7 @@ logger = pytest.getLogger(__name__)
 class IntegrationTestClient:
     """
     Integration test client with helper methods
-    
+
     Features:
     - Authenticated requests
     - Test data setup/teardown
@@ -31,16 +28,18 @@ class IntegrationTestClient:
     def __init__(self, client: httpx.AsyncClient, base_url: str = "http://test"):
         self.client = client
         self.base_url = base_url
-        self.auth_token: Optional[str] = None
-        self.user_id: Optional[str] = None
+        self.auth_token: str | None = None
+        self.user_id: str | None = None
 
-    async def authenticate(self, email: str = "test@example.com", password: str = "testpassword123"):
+    async def authenticate(
+        self, email: str = "test@example.com", password: str = "testpassword123"
+    ):
         """Authenticate and store token"""
         response = await self.client.post(
             f"{self.base_url}/api/auth/login",
             json={"email": email, "password": password},
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             self.auth_token = data.get("access_token")
@@ -53,7 +52,7 @@ class IntegrationTestClient:
         email: str = "test@example.com",
         username: str = "testuser",
         password: str = "testpassword123",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Register a new user"""
         response = await self.client.post(
             f"{self.base_url}/api/auth/register",
@@ -66,7 +65,7 @@ class IntegrationTestClient:
         response.raise_for_status()
         return response.json()
 
-    def get_headers(self) -> Dict[str, str]:
+    def get_headers(self) -> dict[str, str]:
         """Get request headers with auth"""
         headers = {"Content-Type": "application/json"}
         if self.auth_token:
@@ -77,9 +76,13 @@ class IntegrationTestClient:
         """GET request"""
         headers = kwargs.pop("headers", {})
         headers.update(self.get_headers())
-        return await self.client.get(f"{self.base_url}{path}", headers=headers, **kwargs)
+        return await self.client.get(
+            f"{self.base_url}{path}", headers=headers, **kwargs
+        )
 
-    async def post(self, path: str, json: Dict[str, Any] = None, **kwargs) -> httpx.Response:
+    async def post(
+        self, path: str, json: dict[str, Any] = None, **kwargs
+    ) -> httpx.Response:
         """POST request"""
         headers = kwargs.pop("headers", {})
         headers.update(self.get_headers())
@@ -87,7 +90,9 @@ class IntegrationTestClient:
             f"{self.base_url}{path}", json=json, headers=headers, **kwargs
         )
 
-    async def put(self, path: str, json: Dict[str, Any] = None, **kwargs) -> httpx.Response:
+    async def put(
+        self, path: str, json: dict[str, Any] = None, **kwargs
+    ) -> httpx.Response:
         """PUT request"""
         headers = kwargs.pop("headers", {})
         headers.update(self.get_headers())
@@ -99,7 +104,9 @@ class IntegrationTestClient:
         """DELETE request"""
         headers = kwargs.pop("headers", {})
         headers.update(self.get_headers())
-        return await self.client.delete(f"{self.base_url}{path}", headers=headers, **kwargs)
+        return await self.client.delete(
+            f"{self.base_url}{path}", headers=headers, **kwargs
+        )
 
     def assert_success(self, response: httpx.Response, expected_status: int = 200):
         """Assert response is successful"""
@@ -115,7 +122,7 @@ class IntegrationTestClient:
             f"Response: {response.text}"
         )
 
-    def assert_json_keys(self, response: httpx.Response, expected_keys: List[str]):
+    def assert_json_keys(self, response: httpx.Response, expected_keys: list[str]):
         """Assert response has expected JSON keys"""
         data = response.json()
         for key in expected_keys:
@@ -130,7 +137,9 @@ async def integration_client(app) -> AsyncGenerator[IntegrationTestClient, None]
 
 
 @pytest.fixture
-async def authenticated_client(integration_client: IntegrationTestClient) -> IntegrationTestClient:
+async def authenticated_client(
+    integration_client: IntegrationTestClient,
+) -> IntegrationTestClient:
     """Create authenticated integration test client"""
     # Register and authenticate
     await integration_client.register_user()
@@ -143,7 +152,7 @@ class TestDataManager:
 
     def __init__(self, session: AsyncSession):
         self.session = session
-        self.created_objects: List[Any] = []
+        self.created_objects: list[Any] = []
 
     async def create_user(self, **kwargs) -> Any:
         """Create test user"""
@@ -184,9 +193,11 @@ class TestDataManager:
             try:
                 if obj_type == "user":
                     from ..models.user import User
+
                     await self.session.delete(await self.session.get(User, obj_id))
                 elif obj_type == "bot":
                     from ..models.bot import Bot
+
                     await self.session.delete(await self.session.get(Bot, obj_id))
             except Exception as e:
                 logger.warning(f"Error cleaning up {obj_type} {obj_id}: {e}")
@@ -201,4 +212,3 @@ async def test_data_manager(test_session: AsyncSession) -> TestDataManager:
     manager = TestDataManager(test_session)
     yield manager
     await manager.cleanup()
-

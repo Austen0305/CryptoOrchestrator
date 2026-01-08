@@ -3,10 +3,8 @@ Distributed Rate Limiting with Redis Backend
 Sliding window algorithm for accurate rate limiting across multiple instances
 """
 
-import asyncio
-from datetime import datetime
-from typing import Optional
 import logging
+from datetime import datetime
 
 try:
     from redis import asyncio as aioredis
@@ -32,7 +30,7 @@ class DistributedRateLimiter:
 
     def __init__(self, redis_url: str = "redis://localhost:6379/0"):
         self.redis_url = redis_url
-        self.redis: Optional[aioredis.Redis] = None
+        self.redis: aioredis.Redis | None = None
         self.connected = False
 
         # In-memory fallback for when Redis is unavailable
@@ -234,7 +232,7 @@ class DistributedRateLimiter:
 
 
 # Global rate limiter instance
-rate_limiter: Optional[DistributedRateLimiter] = None
+rate_limiter: DistributedRateLimiter | None = None
 
 
 def get_rate_limiter() -> DistributedRateLimiter:

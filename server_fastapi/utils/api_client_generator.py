@@ -5,9 +5,8 @@ Generates type-safe API clients from OpenAPI schema
 
 import json
 import logging
-from typing import Dict, Any, List, Optional
 from pathlib import Path
-import re
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,14 +14,14 @@ logger = logging.getLogger(__name__)
 class APIClientGenerator:
     """
     Generates API clients from OpenAPI schema
-    
+
     Supports:
     - TypeScript/JavaScript
     - Python
     - Custom templates
     """
 
-    def __init__(self, schema: Dict[str, Any]):
+    def __init__(self, schema: dict[str, Any]):
         self.schema = schema
         self.paths = schema.get("paths", {})
         self.components = schema.get("components", {})
@@ -99,7 +98,9 @@ class APIClientGenerator:
                 if method.lower() not in ["get", "post", "put", "patch", "delete"]:
                     continue
 
-                operation_id = details.get("operationId", self._generate_operation_id(path, method))
+                operation_id = details.get(
+                    "operationId", self._generate_operation_id(path, method)
+                )
                 summary = details.get("summary", "")
                 parameters = details.get("parameters", [])
                 request_body = details.get("requestBody", {})
@@ -107,9 +108,9 @@ class APIClientGenerator:
                 # Generate method signature
                 method_name = self._camel_case(operation_id)
                 method_lines = [
-                    f"  /**",
+                    "  /**",
                     f"   * {summary}",
-                    f"   */",
+                    "   */",
                     f"  async {method_name}(",
                 ]
 
@@ -131,7 +132,9 @@ class APIClientGenerator:
                         param_type = self._typescript_type(param.get("schema", {}))
                         required = param.get("required", False)
                         optional = "" if required else "?"
-                        param_lines.append(f"      {param_name}{optional}: {param_type};")
+                        param_lines.append(
+                            f"      {param_name}{optional}: {param_type};"
+                        )
                     param_lines.append("    },")
 
                 if request_body:
@@ -142,15 +145,23 @@ class APIClientGenerator:
 
                 # Generate method body
                 method_path = self._replace_path_params(path, path_params)
-                method_lines.append(f'    const path = `{method_path}`;')
+                method_lines.append(f"    const path = `{method_path}`;")
 
                 if query_params:
-                    method_lines.append("    const queryString = query ? '?' + new URLSearchParams(query as any).toString() : '';")
-                    method_lines.append("    return this.request('GET', path + queryString);")
+                    method_lines.append(
+                        "    const queryString = query ? '?' + new URLSearchParams(query as any).toString() : '';"
+                    )
+                    method_lines.append(
+                        "    return this.request('GET', path + queryString);"
+                    )
                 elif method.lower() == "get":
-                    method_lines.append(f"    return this.request<any>('{method.upper()}', path);")
+                    method_lines.append(
+                        f"    return this.request<any>('{method.upper()}', path);"
+                    )
                 else:
-                    method_lines.append(f"    return this.request<any>('{method.upper()}', path, body);")
+                    method_lines.append(
+                        f"    return this.request<any>('{method.upper()}', path, body);"
+                    )
 
                 method_lines.append("  }")
                 method_lines.append("")
@@ -177,7 +188,7 @@ class APIClientGenerator:
         parts = name.split("_")
         return parts[0] + "".join(word.capitalize() for word in parts[1:])
 
-    def _typescript_type(self, schema: Dict[str, Any]) -> str:
+    def _typescript_type(self, schema: dict[str, Any]) -> str:
         """Convert JSON schema to TypeScript type"""
         schema_type = schema.get("type", "any")
 
@@ -196,7 +207,7 @@ class APIClientGenerator:
         else:
             return "any"
 
-    def _replace_path_params(self, path: str, params: List[Dict[str, Any]]) -> str:
+    def _replace_path_params(self, path: str, params: list[dict[str, Any]]) -> str:
         """Replace path parameters with template literals"""
         result = path
         for param in params:
@@ -249,13 +260,19 @@ class APIClientGenerator:
                 if method.lower() not in ["get", "post", "put", "patch", "delete"]:
                     continue
 
-                operation_id = details.get("operationId", self._generate_operation_id(path, method))
+                operation_id = details.get(
+                    "operationId", self._generate_operation_id(path, method)
+                )
                 method_name = self._snake_case(operation_id)
                 summary = details.get("summary", "")
 
-                lines.append(f"    def {method_name}(self, **kwargs) -> Dict[str, Any]:")
+                lines.append(
+                    f"    def {method_name}(self, **kwargs) -> Dict[str, Any]:"
+                )
                 lines.append(f'        """{summary}"""')
-                lines.append(f"        return self._request('{method.upper()}', '{path}', json=kwargs)")
+                lines.append(
+                    f"        return self._request('{method.upper()}', '{path}', json=kwargs)"
+                )
                 lines.append("")
 
         # Write to file
@@ -283,4 +300,3 @@ def generate_api_clients(schema_path: str = "docs/openapi.json"):
     generator = APIClientGenerator(schema)
     generator.generate_typescript()
     generator.generate_python()
-

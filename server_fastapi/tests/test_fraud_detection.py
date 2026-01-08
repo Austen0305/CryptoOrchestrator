@@ -3,8 +3,6 @@ Tests for Fraud Detection Service
 """
 
 import pytest
-from decimal import Decimal
-from datetime import datetime
 
 from server_fastapi.services.fraud_detection.fraud_detection_service import (
     fraud_detection_service,

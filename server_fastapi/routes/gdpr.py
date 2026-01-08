@@ -4,14 +4,13 @@ Endpoints for data export, deletion, and consent management
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
 from ..services.gdpr_service import GDPRService
+from ..utils.route_helpers import _get_user_id
 
 router = APIRouter(prefix="/api/gdpr", tags=["GDPR"])
 
@@ -33,7 +32,7 @@ async def export_user_data(
 ):
     """Export all user data (GDPR right to data portability)"""
     service = GDPRService(db)
-    
+
     try:
         export_data = await service.export_user_data(user_id=_get_user_id(current_user))
         return export_data
@@ -52,7 +51,7 @@ async def delete_user_data(
 ):
     """Delete all user data (GDPR right to be forgotten)"""
     service = GDPRService(db)
-    
+
     try:
         deletion_summary = await service.delete_user_data(
             user_id=_get_user_id(current_user),
@@ -73,9 +72,11 @@ async def get_consent_status(
 ):
     """Get user consent status"""
     service = GDPRService(db)
-    
+
     try:
-        consent_status = await service.get_consent_status(user_id=_get_user_id(current_user))
+        consent_status = await service.get_consent_status(
+            user_id=_get_user_id(current_user)
+        )
         return consent_status
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -89,7 +90,7 @@ async def update_consent(
 ):
     """Update user consent"""
     service = GDPRService(db)
-    
+
     try:
         result = await service.update_consent(
             user_id=_get_user_id(current_user),

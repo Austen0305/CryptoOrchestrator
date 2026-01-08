@@ -4,13 +4,14 @@ Provides query optimization utilities and connection pool monitoring
 """
 
 import logging
-from typing import Dict, Optional, Any, List
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, event
-from sqlalchemy.engine import Engine
-from functools import wraps
 import time
+from datetime import datetime
+from functools import wraps
+from typing import Any
+
+from sqlalchemy import event, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class QueryOptimizer:
 
     def __init__(self):
         self.slow_query_threshold = 1.0  # seconds
-        self.query_stats: Dict[str, Dict[str, Any]] = {}
+        self.query_stats: dict[str, dict[str, Any]] = {}
         self._setup_query_logging()
 
     def _setup_query_logging(self):
@@ -41,8 +42,7 @@ class QueryOptimizer:
             # Log slow queries
             if total > self.slow_query_threshold:
                 logger.warning(
-                    f"Slow query detected: {total:.3f}s\n"
-                    f"Query: {statement[:200]}..."
+                    f"Slow query detected: {total:.3f}s\nQuery: {statement[:200]}..."
                 )
 
             # Track query statistics
@@ -63,7 +63,7 @@ class QueryOptimizer:
             stats["max_time"] = max(stats["max_time"], total)
             stats["last_executed"] = datetime.utcnow()
 
-    async def get_pool_stats(self, db: AsyncSession) -> Dict[str, Any]:
+    async def get_pool_stats(self, db: AsyncSession) -> dict[str, Any]:
         """Get database connection pool statistics"""
         try:
             pool = db.bind.pool if hasattr(db.bind, "pool") else None
@@ -84,7 +84,7 @@ class QueryOptimizer:
 
     async def analyze_slow_queries(
         self, limit: int = 10, min_executions: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Analyze and return slow query statistics"""
         slow_queries = []
 
@@ -122,7 +122,7 @@ class QueryOptimizer:
         query: str,
         use_index: bool = True,
         explain: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze and optimize a query
 
@@ -197,7 +197,7 @@ class QueryOptimizer:
             "optimization_score": self._calculate_optimization_score(suggestions),
         }
 
-    def _calculate_optimization_score(self, suggestions: List[Dict]) -> int:
+    def _calculate_optimization_score(self, suggestions: list[dict]) -> int:
         """Calculate optimization score (0-100, higher is better)"""
         score = 100
 
@@ -211,7 +211,7 @@ class QueryOptimizer:
 
         return max(0, score)
 
-    async def get_query_statistics(self) -> Dict[str, Any]:
+    async def get_query_statistics(self) -> dict[str, Any]:
         """Get overall query statistics"""
         total_queries = sum(stats["count"] for stats in self.query_stats.values())
         total_time = sum(stats["total_time"] for stats in self.query_stats.values())

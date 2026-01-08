@@ -3,16 +3,16 @@ User Analytics Service
 Manages user behavior tracking, feature usage, conversion funnels, and user journeys
 """
 
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, case
-from sqlalchemy.orm import selectinload
 
 from ..models.user_analytics import (
-    UserEvent,
-    FeatureUsage,
     ConversionFunnel,
+    FeatureUsage,
+    UserEvent,
     UserJourney,
     UserSatisfaction,
 )
@@ -27,21 +27,21 @@ class UserAnalyticsService:
     # User Event Methods
     async def track_event(
         self,
-        user_id: Optional[int],
-        session_id: Optional[str],
+        user_id: int | None,
+        session_id: str | None,
         event_type: str,
         event_name: str,
-        event_category: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
-        page_url: Optional[str] = None,
-        page_title: Optional[str] = None,
-        referrer: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        device_type: Optional[str] = None,
-        browser: Optional[str] = None,
-        os: Optional[str] = None,
-        duration_ms: Optional[int] = None,
+        event_category: str | None = None,
+        properties: dict[str, Any] | None = None,
+        page_url: str | None = None,
+        page_title: str | None = None,
+        referrer: str | None = None,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+        device_type: str | None = None,
+        browser: str | None = None,
+        os: str | None = None,
+        duration_ms: int | None = None,
     ) -> UserEvent:
         """Track a user event"""
         event = UserEvent(
@@ -68,15 +68,15 @@ class UserAnalyticsService:
 
     async def get_user_events(
         self,
-        user_id: Optional[int] = None,
-        session_id: Optional[str] = None,
-        event_type: Optional[str] = None,
-        event_category: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        user_id: int | None = None,
+        session_id: str | None = None,
+        event_type: str | None = None,
+        event_category: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> List[UserEvent]:
+    ) -> list[UserEvent]:
         """Get user events with filtering"""
         stmt = select(UserEvent)
 
@@ -101,10 +101,10 @@ class UserAnalyticsService:
 
     async def get_event_analytics(
         self,
-        event_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        event_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get aggregated event analytics"""
         stmt = select(
             UserEvent.event_type,
@@ -129,7 +129,9 @@ class UserAnalyticsService:
                 {
                     "event_type": row.event_type,
                     "count": row.count,
-                    "avg_duration_ms": float(row.avg_duration) if row.avg_duration else None,
+                    "avg_duration_ms": float(row.avg_duration)
+                    if row.avg_duration
+                    else None,
                 }
                 for row in rows
             ],
@@ -142,11 +144,11 @@ class UserAnalyticsService:
         user_id: int,
         feature_name: str,
         action: str,
-        feature_category: Optional[str] = None,
-        duration_seconds: Optional[int] = None,
+        feature_category: str | None = None,
+        duration_seconds: int | None = None,
         success: bool = True,
-        properties: Optional[Dict[str, Any]] = None,
-        error_message: Optional[str] = None,
+        properties: dict[str, Any] | None = None,
+        error_message: str | None = None,
     ) -> FeatureUsage:
         """Track feature usage"""
         usage = FeatureUsage(
@@ -166,15 +168,17 @@ class UserAnalyticsService:
 
     async def get_feature_usage_stats(
         self,
-        feature_name: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        feature_name: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get feature usage statistics"""
         stmt = select(
             FeatureUsage.feature_name,
             func.count(FeatureUsage.id).label("total_uses"),
-            func.count(case((FeatureUsage.success == True, 1))).label("successful_uses"),
+            func.count(case((FeatureUsage.success == True, 1))).label(
+                "successful_uses"
+            ),
             func.avg(FeatureUsage.duration_seconds).label("avg_duration"),
             func.count(func.distinct(FeatureUsage.user_id)).label("unique_users"),
         )
@@ -197,8 +201,12 @@ class UserAnalyticsService:
                     "feature_name": row.feature_name,
                     "total_uses": row.total_uses,
                     "successful_uses": row.successful_uses,
-                    "success_rate": float(row.successful_uses / row.total_uses * 100) if row.total_uses > 0 else 0,
-                    "avg_duration_seconds": float(row.avg_duration) if row.avg_duration else None,
+                    "success_rate": float(row.successful_uses / row.total_uses * 100)
+                    if row.total_uses > 0
+                    else 0,
+                    "avg_duration_seconds": float(row.avg_duration)
+                    if row.avg_duration
+                    else None,
                     "unique_users": row.unique_users,
                 }
                 for row in rows
@@ -208,15 +216,15 @@ class UserAnalyticsService:
     # Conversion Funnel Methods
     async def track_funnel_stage(
         self,
-        user_id: Optional[int],
-        session_id: Optional[str],
+        user_id: int | None,
+        session_id: str | None,
         funnel_name: str,
         stage: str,
         stage_order: int,
-        time_to_stage_seconds: Optional[int] = None,
-        time_in_stage_seconds: Optional[int] = None,
-        properties: Optional[Dict[str, Any]] = None,
-        source: Optional[str] = None,
+        time_to_stage_seconds: int | None = None,
+        time_in_stage_seconds: int | None = None,
+        properties: dict[str, Any] | None = None,
+        source: str | None = None,
     ) -> ConversionFunnel:
         """Track a conversion funnel stage"""
         funnel = ConversionFunnel(
@@ -237,22 +245,29 @@ class UserAnalyticsService:
 
     async def complete_funnel(
         self,
-        user_id: Optional[int],
-        session_id: Optional[str],
+        user_id: int | None,
+        session_id: str | None,
         funnel_name: str,
     ) -> bool:
         """Mark a funnel as completed"""
         # Get the latest funnel entry
-        stmt = select(ConversionFunnel).where(
-            and_(
-                ConversionFunnel.funnel_name == funnel_name,
-                or_(
-                    ConversionFunnel.user_id == user_id if user_id else False,
-                    ConversionFunnel.session_id == session_id if session_id else False,
-                ),
-                ConversionFunnel.is_completed == False,
+        stmt = (
+            select(ConversionFunnel)
+            .where(
+                and_(
+                    ConversionFunnel.funnel_name == funnel_name,
+                    or_(
+                        ConversionFunnel.user_id == user_id if user_id else False,
+                        ConversionFunnel.session_id == session_id
+                        if session_id
+                        else False,
+                    ),
+                    ConversionFunnel.is_completed == False,
+                )
             )
-        ).order_by(ConversionFunnel.created_at.desc()).limit(1)
+            .order_by(ConversionFunnel.created_at.desc())
+            .limit(1)
+        )
 
         result = await self.db.execute(stmt)
         funnel = result.scalar_one_or_none()
@@ -269,15 +284,17 @@ class UserAnalyticsService:
     async def get_funnel_analytics(
         self,
         funnel_name: str,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get conversion funnel analytics"""
         stmt = select(
             ConversionFunnel.stage,
             ConversionFunnel.stage_order,
             func.count(ConversionFunnel.id).label("users_reached"),
-            func.count(case((ConversionFunnel.is_completed == True, 1))).label("users_completed"),
+            func.count(case((ConversionFunnel.is_completed == True, 1))).label(
+                "users_completed"
+            ),
             func.avg(ConversionFunnel.time_to_stage_seconds).label("avg_time_to_stage"),
             func.avg(ConversionFunnel.time_in_stage_seconds).label("avg_time_in_stage"),
         ).where(ConversionFunnel.funnel_name == funnel_name)
@@ -301,16 +318,22 @@ class UserAnalyticsService:
                 if previous_count and previous_count > 0
                 else 100.0
             )
-            stages.append({
-                "stage": row.stage,
-                "stage_order": row.stage_order,
-                "users_reached": row.users_reached,
-                "users_completed": row.users_completed,
-                "conversion_rate": conversion_rate,
-                "drop_off_rate": 100.0 - conversion_rate if previous_count else 0.0,
-                "avg_time_to_stage_seconds": float(row.avg_time_to_stage) if row.avg_time_to_stage else None,
-                "avg_time_in_stage_seconds": float(row.avg_time_in_stage) if row.avg_time_in_stage else None,
-            })
+            stages.append(
+                {
+                    "stage": row.stage,
+                    "stage_order": row.stage_order,
+                    "users_reached": row.users_reached,
+                    "users_completed": row.users_completed,
+                    "conversion_rate": conversion_rate,
+                    "drop_off_rate": 100.0 - conversion_rate if previous_count else 0.0,
+                    "avg_time_to_stage_seconds": float(row.avg_time_to_stage)
+                    if row.avg_time_to_stage
+                    else None,
+                    "avg_time_in_stage_seconds": float(row.avg_time_in_stage)
+                    if row.avg_time_in_stage
+                    else None,
+                }
+            )
             previous_count = row.users_reached
 
         total_started = stages[0]["users_reached"] if stages else 0
@@ -322,24 +345,26 @@ class UserAnalyticsService:
             "total_started": total_started,
             "total_completed": total_completed,
             "overall_conversion_rate": (
-                float(total_completed / total_started * 100) if total_started > 0 else 0.0
+                float(total_completed / total_started * 100)
+                if total_started > 0
+                else 0.0
             ),
         }
 
     # User Journey Methods
     async def track_journey_step(
         self,
-        user_id: Optional[int],
+        user_id: int | None,
         session_id: str,
         journey_type: str,
         step_name: str,
         step_order: int,
-        previous_step: Optional[str] = None,
-        next_step: Optional[str] = None,
-        path: Optional[List[str]] = None,
-        time_to_step_seconds: Optional[int] = None,
-        time_in_step_seconds: Optional[int] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        previous_step: str | None = None,
+        next_step: str | None = None,
+        path: list[str] | None = None,
+        time_to_step_seconds: int | None = None,
+        time_in_step_seconds: int | None = None,
+        properties: dict[str, Any] | None = None,
     ) -> UserJourney:
         """Track a user journey step"""
         journey = UserJourney(
@@ -366,13 +391,18 @@ class UserAnalyticsService:
         journey_type: str,
     ) -> bool:
         """Mark a journey as completed"""
-        stmt = select(UserJourney).where(
-            and_(
-                UserJourney.session_id == session_id,
-                UserJourney.journey_type == journey_type,
-                UserJourney.is_completed == False,
+        stmt = (
+            select(UserJourney)
+            .where(
+                and_(
+                    UserJourney.session_id == session_id,
+                    UserJourney.journey_type == journey_type,
+                    UserJourney.is_completed == False,
+                )
             )
-        ).order_by(UserJourney.created_at.desc()).limit(1)
+            .order_by(UserJourney.created_at.desc())
+            .limit(1)
+        )
 
         result = await self.db.execute(stmt)
         journey = result.scalar_one_or_none()
@@ -388,10 +418,10 @@ class UserAnalyticsService:
 
     async def get_journey_analytics(
         self,
-        journey_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        journey_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get user journey analytics"""
         stmt = select(
             UserJourney.journey_type,
@@ -399,7 +429,9 @@ class UserAnalyticsService:
             func.count(UserJourney.id).label("step_count"),
             func.count(func.distinct(UserJourney.session_id)).label("unique_sessions"),
             func.avg(UserJourney.time_in_step_seconds).label("avg_time_in_step"),
-            func.count(case((UserJourney.is_completed == True, 1))).label("completed_count"),
+            func.count(case((UserJourney.is_completed == True, 1))).label(
+                "completed_count"
+            ),
         )
 
         if journey_type:
@@ -421,7 +453,9 @@ class UserAnalyticsService:
                     "step_name": row.step_name,
                     "step_count": row.step_count,
                     "unique_sessions": row.unique_sessions,
-                    "avg_time_in_step_seconds": float(row.avg_time_in_step) if row.avg_time_in_step else None,
+                    "avg_time_in_step_seconds": float(row.avg_time_in_step)
+                    if row.avg_time_in_step
+                    else None,
                     "completed_count": row.completed_count,
                 }
                 for row in rows
@@ -431,13 +465,13 @@ class UserAnalyticsService:
     # User Satisfaction Methods
     async def record_satisfaction(
         self,
-        user_id: Optional[int],
+        user_id: int | None,
         survey_type: str,
         score: int,
-        question: Optional[str] = None,
-        response: Optional[str] = None,
-        context: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        question: str | None = None,
+        response: str | None = None,
+        context: str | None = None,
+        properties: dict[str, Any] | None = None,
     ) -> UserSatisfaction:
         """Record user satisfaction score"""
         satisfaction = UserSatisfaction(
@@ -456,10 +490,10 @@ class UserAnalyticsService:
 
     async def get_satisfaction_metrics(
         self,
-        survey_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        survey_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get user satisfaction metrics"""
         stmt = select(
             UserSatisfaction.survey_type,

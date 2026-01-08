@@ -3,13 +3,13 @@ Portfolio Rebalancing Engine
 Auto-optimize asset allocation based on risk tolerance and market conditions
 """
 
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel, Field
-from typing import List, Dict, Optional, Literal
+import logging
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
-import asyncio
+from typing import Literal
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ class AssetTarget(BaseModel):
 
     symbol: str
     target_weight: float = Field(..., ge=0, le=1, description="Target weight (0-1)")
-    min_weight: Optional[float] = Field(None, ge=0, le=1)
-    max_weight: Optional[float] = Field(None, ge=0, le=1)
+    min_weight: float | None = Field(None, ge=0, le=1)
+    max_weight: float | None = Field(None, ge=0, le=1)
 
 
 class RebalanceConfig(BaseModel):
@@ -54,7 +54,7 @@ class RebalanceConfig(BaseModel):
     threshold_percent: float = Field(
         5.0, description="Drift threshold for threshold-based rebalancing"
     )
-    target_allocations: Optional[List[AssetTarget]] = None
+    target_allocations: list[AssetTarget] | None = None
     risk_tolerance: Literal["conservative", "moderate", "aggressive"] = "moderate"
     min_trade_size_usd: float = Field(10.0, description="Minimum trade size in USD")
     max_slippage_percent: float = Field(0.5, description="Maximum allowed slippage")
@@ -70,7 +70,7 @@ class AssetAllocation(BaseModel):
     target_weight: float
     drift_percent: float
     action: Literal["buy", "sell", "hold"]
-    trade_amount_usd: Optional[float] = None
+    trade_amount_usd: float | None = None
 
 
 class RebalanceResult(BaseModel):
@@ -80,7 +80,7 @@ class RebalanceResult(BaseModel):
     timestamp: str
     strategy: str
     total_portfolio_value: float
-    allocations: List[AssetAllocation]
+    allocations: list[AssetAllocation]
     trades_executed: int
     total_fees: float
     estimated_slippage: float
@@ -97,23 +97,23 @@ class RebalanceSchedule(BaseModel):
     config: RebalanceConfig
     enabled: bool
     next_run: str
-    last_run: Optional[str] = None
+    last_run: str | None = None
     created_at: str
 
 
 # Store scheduled rebalances (in production, use database)
-scheduled_rebalances: Dict[str, RebalanceSchedule] = {}
+scheduled_rebalances: dict[str, RebalanceSchedule] = {}
 
 
 class PortfolioRebalancer:
     """Portfolio rebalancing engine"""
 
     def __init__(self):
-        self.rebalance_history: List[RebalanceResult] = []
+        self.rebalance_history: list[RebalanceResult] = []
 
     async def calculate_target_allocations(
-        self, portfolio: Dict[str, float], config: RebalanceConfig
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float], config: RebalanceConfig
+    ) -> dict[str, float]:
         """Calculate target allocations based on strategy"""
 
         if config.strategy == RebalanceStrategy.EQUAL_WEIGHT:
@@ -146,19 +146,19 @@ class PortfolioRebalancer:
             raise ValueError(f"Unknown strategy: {config.strategy}")
 
     async def _equal_weight_allocation(
-        self, portfolio: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float]
+    ) -> dict[str, float]:
         """Equal weight allocation"""
         n_assets = len(portfolio)
-        return {symbol: 1.0 / n_assets for symbol in portfolio.keys()}
+        return {symbol: 1.0 / n_assets for symbol in portfolio}
 
     async def _risk_parity_allocation(
-        self, portfolio: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float]
+    ) -> dict[str, float]:
         """Risk parity allocation - weight assets inversely to their volatility"""
         # Fetch volatility data for each asset
         volatilities = {}
-        for symbol in portfolio.keys():
+        for symbol in portfolio:
             vol = await self._get_asset_volatility(symbol)
             volatilities[symbol] = vol
 
@@ -169,11 +169,11 @@ class PortfolioRebalancer:
         return {symbol: inv_vol / total_inv_vol for symbol, inv_vol in inv_vols.items()}
 
     async def _market_cap_allocation(
-        self, portfolio: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float]
+    ) -> dict[str, float]:
         """Market cap weighted allocation"""
         market_caps = {}
-        for symbol in portfolio.keys():
+        for symbol in portfolio:
             cap = await self._get_market_cap(symbol)
             market_caps[symbol] = cap
 
@@ -181,11 +181,11 @@ class PortfolioRebalancer:
         return {symbol: cap / total_cap for symbol, cap in market_caps.items()}
 
     async def _momentum_allocation(
-        self, portfolio: Dict[str, float]
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float]
+    ) -> dict[str, float]:
         """Momentum-based allocation - overweight assets with positive momentum"""
         momentum_scores = {}
-        for symbol in portfolio.keys():
+        for symbol in portfolio:
             momentum = await self._calculate_momentum(symbol)
             momentum_scores[symbol] = max(0, momentum)  # Only positive momentum
 
@@ -198,12 +198,12 @@ class PortfolioRebalancer:
         }
 
     async def _mean_variance_allocation(
-        self, portfolio: Dict[str, float], risk_tolerance: str
-    ) -> Dict[str, float]:
+        self, portfolio: dict[str, float], risk_tolerance: str
+    ) -> dict[str, float]:
         """Mean-variance optimization (Markowitz)"""
         # Fetch expected returns and covariance matrix
         expected_returns = {}
-        for symbol in portfolio.keys():
+        for symbol in portfolio:
             ret = await self._get_expected_return(symbol)
             expected_returns[symbol] = ret
 
@@ -221,7 +221,7 @@ class PortfolioRebalancer:
 
         return {
             symbol: max(0, weighted_returns[symbol]) / total_weighted
-            for symbol in portfolio.keys()
+            for symbol in portfolio
         }
 
     async def _get_asset_volatility(self, symbol: str) -> float:
@@ -400,7 +400,7 @@ class PortfolioRebalancer:
             return 0.05  # Default 5% expected return on error
 
     async def execute_rebalance(
-        self, user_id: str, portfolio: Dict[str, float], config: RebalanceConfig
+        self, user_id: str, portfolio: dict[str, float], config: RebalanceConfig
     ) -> RebalanceResult:
         """Execute portfolio rebalancing"""
         start_time = datetime.now()
@@ -420,7 +420,7 @@ class PortfolioRebalancer:
         allocations = []
         trades_to_execute = []
 
-        for symbol in portfolio.keys():
+        for symbol in portfolio:
             current_weight = current_weights.get(symbol, 0)
             target_weight = target_allocations.get(symbol, 0)
             drift = (
@@ -518,7 +518,7 @@ rebalancer = PortfolioRebalancer()
 
 @router.post("/analyze", response_model=RebalanceResult)
 async def analyze_rebalance(
-    user_id: str, portfolio: Dict[str, float], config: RebalanceConfig
+    user_id: str, portfolio: dict[str, float], config: RebalanceConfig
 ):
     """
     Analyze portfolio and recommend rebalancing actions
@@ -540,7 +540,7 @@ async def analyze_rebalance(
 @router.post("/execute", response_model=RebalanceResult)
 async def execute_rebalance(
     user_id: str,
-    portfolio: Dict[str, float],
+    portfolio: dict[str, float],
     config: RebalanceConfig,
     background_tasks: BackgroundTasks,
 ):
@@ -590,7 +590,7 @@ async def schedule_rebalance(user_id: str, config: RebalanceConfig):
     return schedule
 
 
-@router.get("/schedules/{user_id}", response_model=List[RebalanceSchedule])
+@router.get("/schedules/{user_id}", response_model=list[RebalanceSchedule])
 async def get_user_schedules(user_id: str):
     """Get all scheduled rebalances for a user"""
     user_schedules = [
@@ -610,7 +610,7 @@ async def delete_schedule(schedule_id: str):
     raise HTTPException(status_code=404, detail="Schedule not found")
 
 
-@router.get("/history/{user_id}", response_model=List[RebalanceResult])
+@router.get("/history/{user_id}", response_model=list[RebalanceResult])
 async def get_rebalance_history(user_id: str, limit: int = 50):
     """Get rebalancing history for a user"""
     # Filter history by user_id

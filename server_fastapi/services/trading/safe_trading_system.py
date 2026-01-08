@@ -3,9 +3,10 @@ Safe trading system
 """
 
 import logging
-from typing import Dict, Optional, List, Any
+from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel
-from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -16,13 +17,13 @@ class TradingRules(BaseModel):
     max_daily_loss: float
     max_drawdown: float
     required_confirmations: int
-    allowed_symbols: List[str]
+    allowed_symbols: list[str]
 
 
 class SafeTradingSystem:
     """Safe trading system with risk controls"""
 
-    def __init__(self, db_session: Optional[AsyncSession] = None):
+    def __init__(self, db_session: AsyncSession | None = None):
         self.db_session = db_session
         self.rules = TradingRules(
             max_position_size=1000.0,
@@ -33,13 +34,11 @@ class SafeTradingSystem:
         )
 
         # Track daily trading activity per user
-        self.daily_stats = (
-            {}
-        )  # {user_id: {date, total_loss, total_trades, positions, emergency_stop_active}}
+        self.daily_stats = {}  # {user_id: {date, total_loss, total_trades, positions, emergency_stop_active}}
 
         logger.info("Safe trading system initialized")
 
-    async def validate_trade(self, trade_details: Dict[str, Any]) -> Dict[str, Any]:
+    async def validate_trade(self, trade_details: dict[str, Any]) -> dict[str, Any]:
         """Validate trade against safety rules"""
         try:
             errors = []
@@ -156,8 +155,8 @@ class SafeTradingSystem:
             }
 
     async def apply_risk_limits(
-        self, portfolio: Dict[str, Any], user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, portfolio: dict[str, Any], user_id: str | None = None
+    ) -> dict[str, Any]:
         """Apply risk limits to portfolio"""
         try:
             user_id_str = str(user_id) if user_id else "default"
@@ -220,7 +219,7 @@ class SafeTradingSystem:
             logger.error(f"Error applying risk limits: {str(e)}")
             return portfolio
 
-    async def emergency_stop_all(self, user_id: Optional[str] = None) -> bool:
+    async def emergency_stop_all(self, user_id: str | None = None) -> bool:
         """Emergency stop all trading activities for a user"""
         try:
             user_id_str = str(user_id) if user_id else "default"
@@ -259,7 +258,7 @@ class SafeTradingSystem:
             logger.error(f"Error activating emergency stop: {str(e)}")
             return False
 
-    async def get_safety_status(self, user_id: Optional[str] = None) -> Dict[str, Any]:
+    async def get_safety_status(self, user_id: str | None = None) -> dict[str, Any]:
         """Get current safety status for a user"""
         try:
             user_id_str = str(user_id) if user_id else "default"
@@ -344,7 +343,7 @@ class SafeTradingSystem:
             }
 
     def _calculate_risk_score(
-        self, trade_details: Dict[str, Any], user_stats: Optional[Dict[str, Any]] = None
+        self, trade_details: dict[str, Any], user_stats: dict[str, Any] | None = None
     ) -> float:
         """Calculate risk score for a trade (0-10 scale, higher = riskier)"""
         score = 0.0
@@ -375,7 +374,7 @@ class SafeTradingSystem:
 
         return min(score, 10.0)
 
-    async def record_trade_result(self, trade_details: Dict[str, Any], pnl: float):
+    async def record_trade_result(self, trade_details: dict[str, Any], pnl: float):
         """Record trade result for risk monitoring"""
         try:
             user_id = str(trade_details.get("user_id", "default"))

@@ -4,19 +4,19 @@ This file is kept for backward compatibility - all methods delegate to free_subs
 All subscriptions are now free - no payment processing required
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, EmailStr
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 # Import the free subscription service
 from .free_subscription_service import (
-    FreeSubscriptionService,
-    SubscriptionTier,
     PriceConfig,
+    SubscriptionTier,
     free_subscription_service,
 )
 
@@ -37,8 +37,8 @@ class PriceConfig(BaseModel):
     amount: int  # Amount in cents
     currency: str = "usd"
     interval: str = "month"  # 'month' or 'year'
-    stripe_price_id: Optional[str] = None
-    features: List[str] = []
+    stripe_price_id: str | None = None
+    features: list[str] = []
 
 
 class SubscriptionStatus(BaseModel):
@@ -50,8 +50,8 @@ class SubscriptionStatus(BaseModel):
     current_period_start: datetime
     current_period_end: datetime
     cancel_at_period_end: bool
-    stripe_subscription_id: Optional[str] = None
-    stripe_customer_id: Optional[str] = None
+    stripe_subscription_id: str | None = None
+    stripe_customer_id: str | None = None
 
 
 class StripeService:
@@ -71,9 +71,9 @@ class StripeService:
     def create_customer(
         self,
         email: str,
-        name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Create a Stripe customer"""
         if not STRIPE_AVAILABLE:
             return None
@@ -92,8 +92,8 @@ class StripeService:
             return None
 
     def create_subscription(
-        self, customer_id: str, tier: str, payment_method_id: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, customer_id: str, tier: str, payment_method_id: str | None = None
+    ) -> dict[str, Any] | None:
         """Create a Stripe subscription"""
         if not STRIPE_AVAILABLE:
             return None
@@ -161,7 +161,7 @@ class StripeService:
 
     def cancel_subscription(
         self, subscription_id: str, cancel_at_period_end: bool = True
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Cancel a Stripe subscription"""
         if not STRIPE_AVAILABLE:
             return None
@@ -189,7 +189,7 @@ class StripeService:
 
     def update_subscription(
         self, subscription_id: str, new_tier: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Update subscription tier"""
         if not STRIPE_AVAILABLE:
             return None
@@ -235,7 +235,7 @@ class StripeService:
             logger.error(f"Failed to update Stripe subscription: {e}")
             return None
 
-    def get_subscription(self, subscription_id: str) -> Optional[Dict[str, Any]]:
+    def get_subscription(self, subscription_id: str) -> dict[str, Any] | None:
         """Get subscription details"""
         if not STRIPE_AVAILABLE:
             return None
@@ -262,10 +262,10 @@ class StripeService:
         self,
         amount: int,
         currency: str = "usd",
-        customer_id: Optional[str] = None,
+        customer_id: str | None = None,
         payment_method_type: str = "card",  # 'card', 'ach_debit', 'us_bank_account'
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Create a payment intent for one-time payments
 
         Supports:
@@ -323,7 +323,7 @@ class StripeService:
             logger.error(f"Failed to create payment intent: {e}")
             return None
 
-    def get_payment_intent(self, payment_intent_id: str) -> Optional[Dict[str, Any]]:
+    def get_payment_intent(self, payment_intent_id: str) -> dict[str, Any] | None:
         """Retrieve a payment intent from Stripe"""
         if not STRIPE_AVAILABLE:
             return None
@@ -345,10 +345,10 @@ class StripeService:
 
     def create_setup_intent(
         self,
-        customer_id: Optional[str] = None,
+        customer_id: str | None = None,
         payment_method_type: str = "card",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Create a setup intent for saving payment methods"""
         if not STRIPE_AVAILABLE:
             return None
@@ -394,7 +394,7 @@ class StripeService:
 
     def attach_payment_method(
         self, payment_method_id: str, customer_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Attach a payment method to a customer"""
         if not STRIPE_AVAILABLE:
             return None
@@ -422,8 +422,8 @@ class StripeService:
             return None
 
     def list_payment_methods(
-        self, customer_id: str, payment_method_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        self, customer_id: str, payment_method_type: str | None = None
+    ) -> list[dict[str, Any]]:
         """List payment methods for a customer"""
         if not STRIPE_AVAILABLE:
             return []
@@ -509,10 +509,10 @@ class StripeService:
         self,
         customer_id: str,
         price_id: str,
-        success_url: Optional[str] = None,
-        cancel_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        success_url: str | None = None,
+        cancel_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """Create Stripe Checkout session for subscriptions"""
         if not STRIPE_AVAILABLE or not self.secret_key:
             logger.warning("Stripe not available")
@@ -547,8 +547,8 @@ class StripeService:
             return None
 
     def create_portal_session(
-        self, customer_id: str, return_url: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, customer_id: str, return_url: str | None = None
+    ) -> dict[str, Any] | None:
         """Create Stripe Customer Portal session"""
         if not STRIPE_AVAILABLE or not self.secret_key:
             logger.warning("Stripe not available")
@@ -568,9 +568,7 @@ class StripeService:
             logger.error(f"Failed to create portal session: {e}", exc_info=True)
             return None
 
-    def handle_webhook(
-        self, payload: bytes, signature: str
-    ) -> Optional[Dict[str, Any]]:
+    def handle_webhook(self, payload: bytes, signature: str) -> dict[str, Any] | None:
         """Handle Stripe webhook events"""
         if not STRIPE_AVAILABLE or not self.webhook_secret:
             logger.warning("Stripe webhook handling unavailable")
@@ -608,7 +606,7 @@ class StripeService:
             return None
 
     @staticmethod
-    def get_plan_config(plan: str) -> Optional[Dict[str, Any]]:
+    def get_plan_config(plan: str) -> dict[str, Any] | None:
         """Get plan configuration (from billing/stripe_service.py)"""
         # Plan configurations with detailed features and limits
         PLAN_CONFIGS = {
@@ -700,7 +698,7 @@ class StripeService:
             return None
 
     @staticmethod
-    def list_plans() -> List[Dict[str, Any]]:
+    def list_plans() -> list[dict[str, Any]]:
         """List all available plans (from billing/stripe_service.py)"""
         plan_config = StripeService.get_plan_config
         plans = []

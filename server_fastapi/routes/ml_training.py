@@ -3,10 +3,11 @@ ML Model Training API Routes
 Train and manage machine learning models
 """
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
 import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from server_fastapi.services.ml.lstm_training_service import get_lstm_service
 
@@ -18,7 +19,7 @@ class TrainModelRequest(BaseModel):
     """Model training request"""
 
     symbol: str = Field(..., description="Trading pair (e.g., 'BTC/USDT')")
-    price_data: List[Dict[str, Any]] = Field(..., description="Historical price data")
+    price_data: list[dict[str, Any]] = Field(..., description="Historical price data")
     epochs: int = Field(50, ge=1, le=200, description="Number of training epochs")
     batch_size: int = Field(32, ge=8, le=128, description="Batch size")
     validation_split: float = Field(
@@ -29,7 +30,7 @@ class TrainModelRequest(BaseModel):
 class PredictionRequest(BaseModel):
     """Prediction request"""
 
-    recent_data: List[List[float]] = Field(
+    recent_data: list[list[float]] = Field(
         ..., description="Recent price data for prediction"
     )
 
@@ -74,7 +75,7 @@ async def train_model(request: TrainModelRequest):
             y_val=y_val,
             epochs=request.epochs,
             batch_size=request.batch_size,
-            model_path=f'models/lstm_{request.symbol.replace("/", "_")}.h5',
+            model_path=f"models/lstm_{request.symbol.replace('/', '_')}.h5",
         )
 
         return results

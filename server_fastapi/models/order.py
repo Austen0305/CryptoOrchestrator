@@ -3,24 +3,23 @@ Advanced Order Model - Stop-loss, take-profit, trailing stops
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Enum as SQLEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from enum import Enum
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class OrderType(str, Enum):
@@ -57,7 +56,7 @@ class Order(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
-    bot_id: Mapped[Optional[str]] = mapped_column(
+    bot_id: Mapped[str | None] = mapped_column(
         String(50), ForeignKey("bots.id"), nullable=True, index=True
     )
 
@@ -65,7 +64,7 @@ class Order(Base, TimestampMixin):
     chain_id: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1
     )  # Blockchain chain ID
-    transaction_hash: Mapped[Optional[str]] = mapped_column(
+    transaction_hash: Mapped[str | None] = mapped_column(
         String, nullable=True, index=True
     )  # Blockchain transaction hash
     symbol: Mapped[str] = mapped_column(String, nullable=False, index=True)
@@ -78,32 +77,30 @@ class Order(Base, TimestampMixin):
 
     # Amount and price
     amount: Mapped[float] = mapped_column(Float, nullable=False)
-    price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)  # Limit price
-    stop_price: Mapped[Optional[float]] = mapped_column(
-        Float, nullable=True
-    )  # Stop price
-    take_profit_price: Mapped[Optional[float]] = mapped_column(
+    price: Mapped[float | None] = mapped_column(Float, nullable=True)  # Limit price
+    stop_price: Mapped[float | None] = mapped_column(Float, nullable=True)  # Stop price
+    take_profit_price: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Take profit price
 
     # Trailing stop settings
-    trailing_stop_percent: Mapped[Optional[float]] = mapped_column(
+    trailing_stop_percent: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Trailing stop percentage
-    trailing_stop_amount: Mapped[Optional[float]] = mapped_column(
+    trailing_stop_amount: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Trailing stop amount
-    highest_price: Mapped[Optional[float]] = mapped_column(
+    highest_price: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Highest price reached (for trailing stops)
-    lowest_price: Mapped[Optional[float]] = mapped_column(
+    lowest_price: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Lowest price reached (for trailing stops)
 
     # Execution
     filled_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    average_fill_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    blockchain_order_id: Mapped[Optional[str]] = mapped_column(
+    average_fill_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    blockchain_order_id: Mapped[str | None] = mapped_column(
         String, nullable=True, index=True
     )  # Changed from exchange_order_id to blockchain_order_id
 
@@ -111,7 +108,7 @@ class Order(Base, TimestampMixin):
     time_in_force: Mapped[str] = mapped_column(
         String(20), default="GTC", nullable=False
     )  # GTC, IOC, FOK
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Mode
     mode: Mapped[str] = mapped_column(

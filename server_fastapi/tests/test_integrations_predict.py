@@ -1,8 +1,10 @@
-import pytest
-from fastapi.testclient import TestClient
-from server_fastapi.main import app
 import uuid
 from datetime import datetime, timedelta
+
+import pytest
+from fastapi.testclient import TestClient
+
+from server_fastapi.main import app
 
 
 @pytest.fixture

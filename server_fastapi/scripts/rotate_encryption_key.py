@@ -7,25 +7,25 @@ Usage:
     python -m server_fastapi.scripts.rotate_encryption_key.py --dry-run
 """
 
-import os
-import sys
 import argparse
 import logging
+import os
 import secrets
-from typing import Optional
+import sys
 from pathlib import Path
 
 # Add parent directory to path to import modules
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
-from cryptography.hazmat.backends import default_backend
 import base64
 
+from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+from sqlalchemy import select
+
 from server_fastapi.database import get_db_context
-from sqlalchemy import select, text
 
 # ExchangeAPIKey model removed - platform uses blockchain/DEX trading exclusively
 # This script is kept for migrating existing exchange API keys in the database
@@ -194,11 +194,9 @@ async def main():
     # Generate key if requested
     if args.generate_key:
         new_key = generate_new_key()
-        print(f"\nGenerated new encryption key:")
+        print("\nGenerated new encryption key:")
         print(f"EXCHANGE_KEY_ENCRYPTION_KEY={new_key}")
-        print(
-            f"\n[WARN]  Keep this key secure! Store it in your environment variables."
-        )
+        print("\n[WARN]  Keep this key secure! Store it in your environment variables.")
         return
 
     # Get keys from args or environment
@@ -216,7 +214,7 @@ async def main():
         new_key = generate_new_key()
         print(f"\nGenerated new encryption key: {new_key}")
         print(
-            f"[WARN]  Save this key! Set it as EXCHANGE_KEY_ENCRYPTION_KEY in your environment."
+            "[WARN]  Save this key! Set it as EXCHANGE_KEY_ENCRYPTION_KEY in your environment."
         )
 
         if not args.dry_run:

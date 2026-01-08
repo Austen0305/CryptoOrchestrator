@@ -4,9 +4,10 @@ Continuously learns from trading history and adapts strategies
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
 from collections import defaultdict
+from datetime import datetime
+from typing import Any
+
 import numpy as np
 
 logger = logging.getLogger(__name__)
@@ -18,10 +19,10 @@ class AdaptiveLearningService:
     """
 
     def __init__(self):
-        self.pattern_history: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
-        self.strategy_performance: Dict[str, Dict[str, float]] = defaultdict(dict)
-        self.market_regime_memory: Dict[str, Dict[str, Any]] = {}
-        self.learning_metrics: Dict[str, float] = {
+        self.pattern_history: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        self.strategy_performance: dict[str, dict[str, float]] = defaultdict(dict)
+        self.market_regime_memory: dict[str, dict[str, Any]] = {}
+        self.learning_metrics: dict[str, float] = {
             "total_trades_analyzed": 0,
             "successful_patterns": 0,
             "failed_patterns": 0,
@@ -31,8 +32,8 @@ class AdaptiveLearningService:
         }
 
     async def analyze_trade_pattern(
-        self, trade: Dict[str, Any], market_data: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, trade: dict[str, Any], market_data: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Analyze a completed trade to extract learning patterns
 
@@ -119,8 +120,8 @@ class AdaptiveLearningService:
             return "avoid"
 
     def adapt_strategy_parameters(
-        self, market_regime: str, historical_performance: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, market_regime: str, historical_performance: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Adapt bot parameters based on market regime and historical performance
 
@@ -207,11 +208,11 @@ class AdaptiveLearningService:
                 "take_profit_pct": 0.05,
             }
 
-    def get_learning_metrics(self) -> Dict[str, Any]:
+    def get_learning_metrics(self) -> dict[str, Any]:
         """Get current learning metrics"""
         return self.learning_metrics.copy()
 
-    def get_pattern_analysis(self, min_occurrences: int = 5) -> List[Dict[str, Any]]:
+    def get_pattern_analysis(self, min_occurrences: int = 5) -> list[dict[str, Any]]:
         """Get analysis of all learned patterns"""
         results = []
 
@@ -240,7 +241,7 @@ class AdaptiveLearningService:
         results.sort(key=lambda x: x["success_rate"], reverse=True)
         return results
 
-    def _detect_simple_pattern(self, closes: List[float]) -> str:
+    def _detect_simple_pattern(self, closes: list[float]) -> str:
         """Detect simple chart patterns (simplified version)"""
         if len(closes) < 5:
             return "unknown"
@@ -255,7 +256,7 @@ class AdaptiveLearningService:
         else:
             return "range"
 
-    def _detect_market_regime(self, closes: List[float]) -> str:
+    def _detect_market_regime(self, closes: list[float]) -> str:
         """Detect market regime from price data"""
         if len(closes) < 20:
             return "unknown"

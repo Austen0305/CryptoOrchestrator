@@ -4,11 +4,12 @@ Simple in-app subscription management without external payment processing
 All subscriptions are free - no payment processing required
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, EmailStr
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,7 @@ class PriceConfig(BaseModel):
     amount: int  # Always 0 (free)
     currency: str = "usd"
     interval: str = "month"
-    features: List[str] = []
+    features: list[str] = []
 
 
 class FreeSubscriptionService:
@@ -88,16 +89,16 @@ class FreeSubscriptionService:
     def create_customer(
         self,
         email: str,
-        name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Create a customer (free - no external service needed)
         Just returns a customer ID for database tracking
         """
         # Generate a simple customer ID (in production, use database)
         customer_id = f"cust_{email.replace('@', '_').replace('.', '_')}"
-        
+
         return {
             "id": customer_id,
             "email": email,
@@ -110,16 +111,16 @@ class FreeSubscriptionService:
         self,
         customer_id: str,
         tier: SubscriptionTier = SubscriptionTier.FREE,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Create a subscription (free - no payment required)
         """
         config = self.PRICE_CONFIGS.get(tier, self.PRICE_CONFIGS[SubscriptionTier.FREE])
-        
+
         subscription_id = f"sub_{customer_id}_{int(datetime.now().timestamp())}"
         now = int(datetime.now().timestamp())
-        
+
         return {
             "id": subscription_id,
             "customer_id": customer_id,
@@ -134,7 +135,7 @@ class FreeSubscriptionService:
 
     def cancel_subscription(
         self, subscription_id: str, immediately: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancel a subscription
         """
@@ -145,7 +146,7 @@ class FreeSubscriptionService:
             "cancel_at_period_end": not immediately,
         }
 
-    def get_subscription(self, subscription_id: str) -> Optional[Dict[str, Any]]:
+    def get_subscription(self, subscription_id: str) -> dict[str, Any] | None:
         """
         Get subscription details
         In production, fetch from database
@@ -157,9 +158,9 @@ class FreeSubscriptionService:
     def update_subscription(
         self,
         subscription_id: str,
-        tier: Optional[SubscriptionTier] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        tier: SubscriptionTier | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Update subscription tier
         """
@@ -168,7 +169,9 @@ class FreeSubscriptionService:
             raise ValueError(f"Subscription {subscription_id} not found")
 
         if tier:
-            config = self.PRICE_CONFIGS.get(tier, self.PRICE_CONFIGS[SubscriptionTier.FREE])
+            config = self.PRICE_CONFIGS.get(
+                tier, self.PRICE_CONFIGS[SubscriptionTier.FREE]
+            )
             subscription["tier"] = tier.value
             subscription["features"] = config.features
 
@@ -178,7 +181,7 @@ class FreeSubscriptionService:
         return subscription
 
     @staticmethod
-    def get_plan_config(tier: SubscriptionTier) -> Optional[Dict[str, Any]]:
+    def get_plan_config(tier: SubscriptionTier) -> dict[str, Any] | None:
         """Get plan configuration"""
         config = FreeSubscriptionService.PRICE_CONFIGS.get(tier)
         if config:
@@ -192,7 +195,7 @@ class FreeSubscriptionService:
         return None
 
     @staticmethod
-    def list_plans() -> Dict[str, Dict[str, Any]]:
+    def list_plans() -> dict[str, dict[str, Any]]:
         """List all available plans"""
         return {
             tier.value: FreeSubscriptionService.get_plan_config(tier)
@@ -204,16 +207,16 @@ class FreeSubscriptionService:
         self,
         customer_id: str,
         tier: SubscriptionTier,
-        success_url: Optional[str] = None,
-        cancel_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        success_url: str | None = None,
+        cancel_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Create checkout session (free - just returns success URL)
         """
         # Since it's free, we can immediately create the subscription
         subscription = self.create_subscription(customer_id, tier, metadata)
-        
+
         return {
             "id": f"session_{subscription['id']}",
             "url": success_url or "/billing/success",
@@ -221,8 +224,8 @@ class FreeSubscriptionService:
         }
 
     def create_portal_session(
-        self, customer_id: str, return_url: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, customer_id: str, return_url: str | None = None
+    ) -> dict[str, Any]:
         """
         Create customer portal session (free - just returns URL)
         """
@@ -230,9 +233,7 @@ class FreeSubscriptionService:
             "url": return_url or "/billing",
         }
 
-    def handle_webhook(
-        self, payload: bytes, signature: str
-    ) -> Optional[Dict[str, Any]]:
+    def handle_webhook(self, payload: bytes, signature: str) -> dict[str, Any] | None:
         """
         Handle webhook events (not needed for free subscriptions)
         """
@@ -241,7 +242,7 @@ class FreeSubscriptionService:
 
     def calculate_revenue(
         self, start_date: datetime, end_date: datetime
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate revenue (always 0 for free subscriptions)
         """

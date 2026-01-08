@@ -2,20 +2,18 @@
 DCA Trading API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any, Annotated
 import logging
-from datetime import datetime
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.trading.dca_trading_service import DCATradingService
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +29,7 @@ class CreateDCABotRequest(BaseModel):
     order_amount: float = Field(..., gt=0, description="Amount per order")
     interval_minutes: int = Field(..., ge=1, description="Minutes between orders")
     trading_mode: str = Field(default="paper", pattern="^(paper|real)$")
-    max_orders: Optional[int] = Field(
-        None, ge=1, description="Maximum number of orders"
-    )
+    max_orders: int | None = Field(None, ge=1, description="Maximum number of orders")
     use_martingale: bool = Field(
         default=False, description="Enable martingale strategy"
     )
@@ -43,13 +39,13 @@ class CreateDCABotRequest(BaseModel):
     martingale_max_multiplier: float = Field(
         default=5.0, ge=1.0, description="Maximum multiplier"
     )
-    take_profit_percent: Optional[float] = Field(
+    take_profit_percent: float | None = Field(
         None, gt=0, description="Take profit at % gain"
     )
-    stop_loss_percent: Optional[float] = Field(
+    stop_loss_percent: float | None = Field(
         None, gt=0, description="Stop loss at % loss"
     )
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
     @field_validator("martingale_max_multiplier")
     @classmethod
@@ -88,12 +84,12 @@ class DCABotResponse(BaseModel):
     total_investment: float
     order_amount: float
     interval_minutes: int
-    max_orders: Optional[int]
+    max_orders: int | None
     use_martingale: bool
     martingale_multiplier: float
     martingale_max_multiplier: float
-    take_profit_percent: Optional[float]
-    stop_loss_percent: Optional[float]
+    take_profit_percent: float | None
+    stop_loss_percent: float | None
     is_active: bool
     status: str
     orders_executed: int
@@ -102,8 +98,8 @@ class DCABotResponse(BaseModel):
     current_value: float
     total_profit: float
     profit_percent: float
-    next_order_at: Optional[str]
-    config: Dict[str, Any]
+    next_order_at: str | None
+    config: dict[str, Any]
     created_at: str
     updated_at: str
 
@@ -112,7 +108,7 @@ class DCABotResponse(BaseModel):
 
 @router.post(
     "/dca-bots",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     status_code=status.HTTP_201_CREATED,
     tags=["DCA Trading"],
 )
@@ -161,7 +157,7 @@ async def create_dca_bot(
         )
 
 
-@router.get("/dca-bots", response_model=List[DCABotResponse], tags=["DCA Trading"])
+@router.get("/dca-bots", response_model=list[DCABotResponse], tags=["DCA Trading"])
 @cached(ttl=120, prefix="dca_bots")  # 120s TTL for DCA bots list
 async def list_dca_bots(
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -222,7 +218,7 @@ async def get_dca_bot(
 
 
 @router.post(
-    "/dca-bots/{bot_id}/start", response_model=Dict[str, str], tags=["DCA Trading"]
+    "/dca-bots/{bot_id}/start", response_model=dict[str, str], tags=["DCA Trading"]
 )
 async def start_dca_bot(
     bot_id: str,
@@ -254,7 +250,7 @@ async def start_dca_bot(
 
 
 @router.post(
-    "/dca-bots/{bot_id}/stop", response_model=Dict[str, str], tags=["DCA Trading"]
+    "/dca-bots/{bot_id}/stop", response_model=dict[str, str], tags=["DCA Trading"]
 )
 async def stop_dca_bot(
     bot_id: str,
@@ -286,7 +282,7 @@ async def stop_dca_bot(
 
 
 @router.delete(
-    "/dca-bots/{bot_id}", response_model=Dict[str, str], tags=["DCA Trading"]
+    "/dca-bots/{bot_id}", response_model=dict[str, str], tags=["DCA Trading"]
 )
 async def delete_dca_bot(
     bot_id: str,

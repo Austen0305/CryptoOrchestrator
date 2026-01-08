@@ -3,11 +3,11 @@ Production Monitoring Service
 Monitors system health, exchange connectivity, and trading operations for SaaS production
 """
 
+import asyncio
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from enum import Enum
-import asyncio
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,13 @@ class ProductionMonitor:
     """Monitor production system health and exchange connectivity"""
 
     def __init__(self):
-        self.exchange_status: Dict[str, ExchangeStatus] = {}
-        self.last_health_check: Optional[datetime] = None
-        self.health_history: List[Dict[str, Any]] = []
-        self.exchange_errors: Dict[str, List[datetime]] = (
-            {}
-        )  # Track errors per exchange
-        self.trading_metrics: Dict[str, Any] = {
+        self.exchange_status: dict[str, ExchangeStatus] = {}
+        self.last_health_check: datetime | None = None
+        self.health_history: list[dict[str, Any]] = []
+        self.exchange_errors: dict[
+            str, list[datetime]
+        ] = {}  # Track errors per exchange
+        self.trading_metrics: dict[str, Any] = {
             "total_trades_24h": 0,
             "successful_trades_24h": 0,
             "failed_trades_24h": 0,
@@ -78,7 +78,7 @@ class ProductionMonitor:
             self._record_exchange_error(exchange_name)
             return ExchangeStatus.ERROR
 
-    async def check_all_exchanges(self) -> Dict[str, ExchangeStatus]:
+    async def check_all_exchanges(self) -> dict[str, ExchangeStatus]:
         """Check health of all supported exchanges"""
         supported_exchanges = ["binance", "kraken", "coinbasepro", "kucoin", "bybit"]
 
@@ -89,7 +89,7 @@ class ProductionMonitor:
 
         return self.exchange_status.copy()
 
-    async def get_system_health(self) -> Dict[str, Any]:
+    async def get_system_health(self) -> dict[str, Any]:
         """Get overall system health status"""
         try:
             # Check all exchanges
@@ -209,7 +209,7 @@ class ProductionMonitor:
             "average_execution_time_ms": 0.0,
         }
 
-    async def get_exchange_status(self, exchange_name: str) -> Dict[str, Any]:
+    async def get_exchange_status(self, exchange_name: str) -> dict[str, Any]:
         """Get detailed status for a specific exchange"""
         status = await self.check_exchange_health(exchange_name)
 
@@ -233,7 +233,7 @@ class ProductionMonitor:
             "last_check": datetime.now().isoformat(),
         }
 
-    async def get_alerts(self) -> List[Dict[str, Any]]:
+    async def get_alerts(self) -> list[dict[str, Any]]:
         """Get production alerts for issues requiring attention"""
         alerts = []
 

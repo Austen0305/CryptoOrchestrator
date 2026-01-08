@@ -3,10 +3,11 @@ Log Search and Management API Endpoints
 Provides endpoints for searching, filtering, and analyzing application logs.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import List, Optional, Dict, Any, Annotated
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies.auth import get_current_user
 from ..services.logging.log_search import get_log_search_service
@@ -19,23 +20,23 @@ router = APIRouter(tags=["Logs"])
 @router.get("/search")
 async def search_logs(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-    query: Optional[str] = Query(None, description="Text search query"),
-    level: Optional[str] = Query(
+    query: str | None = Query(None, description="Text search query"),
+    level: str | None = Query(
         None, description="Log level filter (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
     ),
-    user_id: Optional[str] = Query(None, description="Filter by user ID"),
-    request_id: Optional[str] = Query(None, description="Filter by request ID"),
-    trace_id: Optional[str] = Query(None, description="Filter by trace ID"),
-    start_time: Optional[datetime] = Query(
+    user_id: str | None = Query(None, description="Filter by user ID"),
+    request_id: str | None = Query(None, description="Filter by request ID"),
+    trace_id: str | None = Query(None, description="Filter by trace ID"),
+    start_time: datetime | None = Query(
         None, description="Start time for time range filter"
     ),
-    end_time: Optional[datetime] = Query(
+    end_time: datetime | None = Query(
         None, description="End time for time range filter"
     ),
     log_file: str = Query("app", description="Log file to search (app, errors, audit)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search application logs with various filters (admin only)
 
@@ -68,14 +69,12 @@ async def search_logs(
 @router.get("/statistics")
 async def get_log_statistics(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-    start_time: Optional[datetime] = Query(
-        None, description="Start time for statistics"
-    ),
-    end_time: Optional[datetime] = Query(None, description="End time for statistics"),
+    start_time: datetime | None = Query(None, description="Start time for statistics"),
+    end_time: datetime | None = Query(None, description="End time for statistics"),
     log_file: str = Query(
         "app", description="Log file to analyze (app, errors, audit)"
     ),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get log statistics for a time range (admin only)
 
@@ -103,7 +102,7 @@ async def tail_logs(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     log_file: str = Query("app", description="Log file to tail (app, errors, audit)"),
     lines: int = Query(50, ge=1, le=1000, description="Number of lines to return"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Get the last N lines from a log file (admin only)
 

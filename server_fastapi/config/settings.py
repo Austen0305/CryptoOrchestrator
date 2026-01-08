@@ -3,11 +3,11 @@ Comprehensive Settings Management
 Validates and provides type-safe access to all environment variables
 """
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, field_validator
-from typing import Optional, List
 import os
 from functools import lru_cache
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -43,9 +43,7 @@ class Settings(BaseSettings):
     db_pool_recycle: int = Field(default=3600, alias="DB_POOL_RECYCLE")
 
     # Read Replicas (comma-separated URLs)
-    db_read_replica_urls: Optional[str] = Field(
-        default=None, alias="DB_READ_REPLICA_URLS"
-    )
+    db_read_replica_urls: str | None = Field(default=None, alias="DB_READ_REPLICA_URLS")
     enable_read_replicas: bool = Field(default=False, alias="ENABLE_READ_REPLICAS")
 
     # Redis
@@ -63,24 +61,24 @@ class Settings(BaseSettings):
     )
 
     # Stripe
-    stripe_secret_key: Optional[str] = Field(default=None, alias="STRIPE_SECRET_KEY")
-    stripe_publishable_key: Optional[str] = Field(
+    stripe_secret_key: str | None = Field(default=None, alias="STRIPE_SECRET_KEY")
+    stripe_publishable_key: str | None = Field(
         default=None, alias="STRIPE_PUBLISHABLE_KEY"
     )
-    stripe_webhook_secret: Optional[str] = Field(
+    stripe_webhook_secret: str | None = Field(
         default=None, alias="STRIPE_WEBHOOK_SECRET"
     )
 
     # Email
-    smtp_host: Optional[str] = Field(default=None, alias="SMTP_HOST")
+    smtp_host: str | None = Field(default=None, alias="SMTP_HOST")
     smtp_port: int = Field(default=587, alias="SMTP_PORT")
-    smtp_user: Optional[str] = Field(default=None, alias="SMTP_USER")
-    smtp_password: Optional[str] = Field(default=None, alias="SMTP_PASSWORD")
-    smtp_from: Optional[str] = Field(default=None, alias="SMTP_FROM")
+    smtp_user: str | None = Field(default=None, alias="SMTP_USER")
+    smtp_password: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    smtp_from: str | None = Field(default=None, alias="SMTP_FROM")
     email_enabled: bool = Field(default=False, alias="EMAIL_ENABLED")
 
     # Monitoring
-    sentry_dsn: Optional[str] = Field(default=None, alias="SENTRY_DSN")
+    sentry_dsn: str | None = Field(default=None, alias="SENTRY_DSN")
     enable_sentry: bool = Field(default=False, alias="ENABLE_SENTRY")
     enable_prometheus: bool = Field(default=True, alias="ENABLE_PROMETHEUS")
 
@@ -136,15 +134,15 @@ class Settings(BaseSettings):
     request_timeout: int = Field(default=30, alias="REQUEST_TIMEOUT")
 
     # DEX Trading
-    zerox_api_key: Optional[str] = Field(default=None, alias="ZEROX_API_KEY")
-    okx_api_key: Optional[str] = Field(default=None, alias="OKX_API_KEY")
-    okx_secret_key: Optional[str] = Field(default=None, alias="OKX_SECRET_KEY")
-    okx_passphrase: Optional[str] = Field(default=None, alias="OKX_PASSPHRASE")
-    rubic_api_key: Optional[str] = Field(default=None, alias="RUBIC_API_KEY")
-    affiliate_fee_recipient: Optional[str] = Field(
+    zerox_api_key: str | None = Field(default=None, alias="ZEROX_API_KEY")
+    okx_api_key: str | None = Field(default=None, alias="OKX_API_KEY")
+    okx_secret_key: str | None = Field(default=None, alias="OKX_SECRET_KEY")
+    okx_passphrase: str | None = Field(default=None, alias="OKX_PASSPHRASE")
+    rubic_api_key: str | None = Field(default=None, alias="RUBIC_API_KEY")
+    affiliate_fee_recipient: str | None = Field(
         default=None, alias="AFFILIATE_FEE_RECIPIENT"
     )
-    trade_surplus_recipient: Optional[str] = Field(
+    trade_surplus_recipient: str | None = Field(
         default=None, alias="TRADE_SURPLUS_RECIPIENT"
     )
     zerox_affiliate_fee_bps: int = Field(default=0, alias="ZEROX_AFFILIATE_FEE_BPS")
@@ -159,17 +157,17 @@ class Settings(BaseSettings):
     )  # 0.15% for non-custodial
 
     # Blockchain RPC Providers
-    ethereum_rpc_url: Optional[str] = Field(default=None, alias="ETHEREUM_RPC_URL")
-    base_rpc_url: Optional[str] = Field(default=None, alias="BASE_RPC_URL")
-    arbitrum_rpc_url: Optional[str] = Field(default=None, alias="ARBITRUM_RPC_URL")
-    polygon_rpc_url: Optional[str] = Field(default=None, alias="POLYGON_RPC_URL")
-    optimism_rpc_url: Optional[str] = Field(default=None, alias="OPTIMISM_RPC_URL")
-    avalanche_rpc_url: Optional[str] = Field(default=None, alias="AVALANCHE_RPC_URL")
-    bnb_chain_rpc_url: Optional[str] = Field(default=None, alias="BNB_CHAIN_RPC_URL")
+    ethereum_rpc_url: str | None = Field(default=None, alias="ETHEREUM_RPC_URL")
+    base_rpc_url: str | None = Field(default=None, alias="BASE_RPC_URL")
+    arbitrum_rpc_url: str | None = Field(default=None, alias="ARBITRUM_RPC_URL")
+    polygon_rpc_url: str | None = Field(default=None, alias="POLYGON_RPC_URL")
+    optimism_rpc_url: str | None = Field(default=None, alias="OPTIMISM_RPC_URL")
+    avalanche_rpc_url: str | None = Field(default=None, alias="AVALANCHE_RPC_URL")
+    bnb_chain_rpc_url: str | None = Field(default=None, alias="BNB_CHAIN_RPC_URL")
     rpc_provider_type: str = Field(
         default="public", alias="RPC_PROVIDER_TYPE"
     )  # alchemy, infura, quicknode, public
-    rpc_api_key: Optional[str] = Field(default=None, alias="RPC_API_KEY")
+    rpc_api_key: str | None = Field(default=None, alias="RPC_API_KEY")
     rpc_timeout: int = Field(default=30, alias="RPC_TIMEOUT")  # Timeout in seconds
     rpc_max_retries: int = Field(default=3, alias="RPC_MAX_RETRIES")
 
@@ -281,7 +279,7 @@ class Settings(BaseSettings):
         return self.node_env == "test" or os.getenv("TESTING") == "true"
 
     @property
-    def allowed_origins_list(self) -> List[str]:
+    def allowed_origins_list(self) -> list[str]:
         """Get allowed origins as a list"""
         return [
             origin.strip()
@@ -290,7 +288,7 @@ class Settings(BaseSettings):
         ]
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance"""
     return Settings()

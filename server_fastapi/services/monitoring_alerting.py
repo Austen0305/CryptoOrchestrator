@@ -3,19 +3,21 @@ Monitoring and Alerting System
 Provides real-time monitoring, alerting, and notification capabilities
 """
 
-import logging
 import asyncio
-from typing import Dict, Any, List, Optional, Callable
-from enum import Enum
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+import logging
 from collections import defaultdict, deque
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class AlertLevel(str, Enum):
     """Alert severity levels"""
+
     INFO = "info"
     WARNING = "warning"
     ERROR = "error"
@@ -25,15 +27,16 @@ class AlertLevel(str, Enum):
 @dataclass
 class Alert:
     """Alert definition"""
+
     id: str
     level: AlertLevel
     title: str
     message: str
     source: str
     timestamp: datetime
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
     resolved: bool = False
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -56,7 +59,7 @@ class AlertRule:
         self.level = level
         self.message = message
         self.cooldown = cooldown
-        self.last_triggered: Optional[datetime] = None
+        self.last_triggered: datetime | None = None
 
     def should_trigger(self) -> bool:
         """Check if alert should trigger"""
@@ -75,7 +78,7 @@ class AlertRule:
 class MonitoringAlertingSystem:
     """
     Monitoring and alerting system
-    
+
     Features:
     - Real-time monitoring
     - Configurable alert rules
@@ -86,12 +89,12 @@ class MonitoringAlertingSystem:
     """
 
     def __init__(self):
-        self.alerts: Dict[str, Alert] = {}
+        self.alerts: dict[str, Alert] = {}
         self.alert_history: deque = deque(maxlen=10000)
-        self.rules: Dict[str, AlertRule] = {}
-        self.notifiers: List[Callable] = []
-        self.metrics: Dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
-        self._monitoring_task: Optional[asyncio.Task] = None
+        self.rules: dict[str, AlertRule] = {}
+        self.notifiers: list[Callable] = []
+        self.metrics: dict[str, deque] = defaultdict(lambda: deque(maxlen=1000))
+        self._monitoring_task: asyncio.Task | None = None
         self._running = False
 
     def register_rule(self, rule: AlertRule):
@@ -180,7 +183,7 @@ class MonitoringAlertingSystem:
             await self._create_metric_alert(
                 "high_error_rate",
                 AlertLevel.ERROR,
-                f"Error rate is {error_rate*100:.1f}%",
+                f"Error rate is {error_rate * 100:.1f}%",
             )
 
         # Check response time
@@ -230,20 +233,24 @@ class MonitoringAlertingSystem:
         self.alerts[alert.id] = alert
         self.alert_history.append(alert)
 
-    def record_metric(self, name: str, value: Any, metadata: Optional[Dict[str, Any]] = None):
+    def record_metric(
+        self, name: str, value: Any, metadata: dict[str, Any] | None = None
+    ):
         """Record a metric"""
-        self.metrics[name].append({
-            "value": value,
-            "timestamp": datetime.utcnow(),
-            "metadata": metadata or {},
-        })
+        self.metrics[name].append(
+            {
+                "value": value,
+                "timestamp": datetime.utcnow(),
+                "metadata": metadata or {},
+            }
+        )
 
     def get_alerts(
         self,
-        level: Optional[AlertLevel] = None,
-        resolved: Optional[bool] = None,
+        level: AlertLevel | None = None,
+        resolved: bool | None = None,
         limit: int = 100,
-    ) -> List[Alert]:
+    ) -> list[Alert]:
         """Get alerts"""
         alerts = list(self.alerts.values())
 
@@ -263,7 +270,7 @@ class MonitoringAlertingSystem:
             self.alerts[alert_id].resolved_at = datetime.utcnow()
             logger.info(f"Alert resolved: {alert_id}")
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get monitoring statistics"""
         total_alerts = len(self.alerts)
         unresolved = len([a for a in self.alerts.values() if not a.resolved])
@@ -299,4 +306,3 @@ monitoring_system.register_rule(
         message="Response time exceeds threshold",
     )
 )
-

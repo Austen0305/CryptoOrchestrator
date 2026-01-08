@@ -3,11 +3,10 @@ Automated security scanning service.
 Integrates with OWASP ZAP, Bandit, and other security scanners.
 """
 
+import json
 import logging
 import subprocess
-import json
-from typing import Dict, List, Optional, Any
-from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,11 @@ class SecurityScanner:
     """Service for automated security scanning"""
 
     def __init__(self):
-        self.scan_results: Dict[str, Any] = {}
+        self.scan_results: dict[str, Any] = {}
 
     async def run_bandit_scan(
         self, target_path: str = "server_fastapi"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Run Bandit security scan on Python code.
 
@@ -89,7 +88,7 @@ class SecurityScanner:
             logger.error(f"Bandit scan failed: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
-    async def run_dependency_scan(self) -> Dict[str, Any]:
+    async def run_dependency_scan(self) -> dict[str, Any]:
         """
         Scan dependencies for known vulnerabilities.
         Uses safety or pip-audit if available.
@@ -126,7 +125,7 @@ class SecurityScanner:
             logger.error(f"Dependency scan failed: {e}")
             return {"success": False, "error": str(e)}
 
-    async def _run_safety_scan(self) -> Dict[str, Any]:
+    async def _run_safety_scan(self) -> dict[str, Any]:
         """Run safety check for dependency vulnerabilities"""
         try:
             result = subprocess.run(
@@ -165,7 +164,7 @@ class SecurityScanner:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    async def run_security_scan(self) -> Dict[str, Any]:
+    async def run_security_scan(self) -> dict[str, Any]:
         """Run comprehensive security scan"""
         results = {
             "bandit": await self.run_bandit_scan(),
@@ -187,7 +186,9 @@ class SecurityScanner:
             "security_score": (
                 "high"
                 if total_vulnerabilities == 0
-                else "medium" if total_vulnerabilities < 5 else "low"
+                else "medium"
+                if total_vulnerabilities < 5
+                else "low"
             ),
         }
 

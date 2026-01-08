@@ -4,8 +4,8 @@ Handles regulatory compliance, KYC checks, transaction monitoring, and reporting
 """
 
 from .compliance_service import (
-    ComplianceService,
     ComplianceCheckResult,
+    ComplianceService,
     compliance_service,
 )
 

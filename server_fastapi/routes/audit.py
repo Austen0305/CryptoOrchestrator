@@ -3,19 +3,17 @@ Audit Log Routes
 API endpoints for retrieving and exporting audit logs
 """
 
+import logging
+from datetime import datetime
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from datetime import datetime
-from typing_extensions import Annotated
-import logging
 
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.audit.audit_logger import audit_logger
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -29,11 +27,11 @@ class AuditLogResponse(BaseModel):
     timestamp: str
     user_id: int
     action: str
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    status: Optional[str] = None
-    success: Optional[bool] = None
-    details: Optional[Dict[str, Any]] = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    status: str | None = None
+    success: bool | None = None
+    details: dict[str, Any] | None = None
 
     model_config = {"from_attributes": True}
 
@@ -41,25 +39,25 @@ class AuditLogResponse(BaseModel):
 class AuditLogSearchRequest(BaseModel):
     """Request model for searching audit logs"""
 
-    user_id: Optional[int] = None
-    event_type: Optional[str] = None
-    start_date: Optional[str] = None  # ISO format
-    end_date: Optional[str] = None  # ISO format
+    user_id: int | None = None
+    event_type: str | None = None
+    start_date: str | None = None  # ISO format
+    end_date: str | None = None  # ISO format
     limit: int = 100
 
 
-@router.get("/logs", response_model=List[AuditLogResponse], tags=["Audit Logs"])
+@router.get("/logs", response_model=list[AuditLogResponse], tags=["Audit Logs"])
 @cached(ttl=60, prefix="audit_logs")  # 60s TTL for audit logs
 async def get_audit_logs(
-    user_id: Optional[int] = Query(None, description="Filter by user ID"),
-    event_type: Optional[str] = Query(None, description="Filter by event type"),
-    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
-    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    user_id: int | None = Query(None, description="Filter by user ID"),
+    event_type: str | None = Query(None, description="Filter by event type"),
+    start_date: str | None = Query(None, description="Start date (ISO format)"),
+    end_date: str | None = Query(None, description="End date (ISO format)"),
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of logs to return"
     ),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> List[AuditLogResponse]:
+) -> list[AuditLogResponse]:
     """
     Get audit logs with filtering
 
@@ -139,7 +137,7 @@ async def export_audit_logs(
     request: AuditLogSearchRequest,
     format: str = Query("json", pattern="^(json|csv)$", description="Export format"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Export audit logs to JSON or CSV format
 
@@ -224,7 +222,7 @@ async def cleanup_audit_logs(
         90, ge=1, le=365, description="Number of days to retain logs"
     ),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Clean up old audit logs (admin only)
 

@@ -4,12 +4,9 @@ Automatically generates comprehensive documentation from code
 """
 
 import logging
-import ast
-import inspect
-from typing import Dict, Any, List, Optional
-from pathlib import Path
 from datetime import datetime
-import json
+from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +14,7 @@ logger = logging.getLogger(__name__)
 class DocumentationGenerator:
     """
     Documentation generator
-    
+
     Features:
     - API documentation from routes
     - Code documentation extraction
@@ -28,8 +25,8 @@ class DocumentationGenerator:
 
     def __init__(self, base_path: str = "server_fastapi"):
         self.base_path = Path(base_path)
-        self.routes: List[Dict[str, Any]] = []
-        self.models: List[Dict[str, Any]] = []
+        self.routes: list[dict[str, Any]] = []
+        self.models: list[dict[str, Any]] = []
 
     def generate_api_docs(self, output_path: str = "docs/API.md") -> str:
         """Generate API documentation"""
@@ -45,7 +42,7 @@ class DocumentationGenerator:
         ]
 
         # Group routes by tag
-        routes_by_tag: Dict[str, List[Dict[str, Any]]] = {}
+        routes_by_tag: dict[str, list[dict[str, Any]]] = {}
 
         for route in self.routes:
             tags = route.get("tags", ["default"])
@@ -85,7 +82,9 @@ class DocumentationGenerator:
                         param_desc = param.get("description", "")
                         required = param.get("required", False)
                         req_marker = " (required)" if required else " (optional)"
-                        lines.append(f"- `{param_name}` ({param_type}){req_marker}: {param_desc}")
+                        lines.append(
+                            f"- `{param_name}` ({param_type}){req_marker}: {param_desc}"
+                        )
                     lines.append("")
 
                 # Response
@@ -212,7 +211,7 @@ class DocumentationGenerator:
                         }
                         self.routes.append(route_info)
 
-    def generate_all(self, app) -> Dict[str, str]:
+    def generate_all(self, app) -> dict[str, str]:
         """Generate all documentation"""
         self.extract_route_info(app)
 
@@ -225,4 +224,3 @@ class DocumentationGenerator:
 
 # Global documentation generator
 doc_generator = DocumentationGenerator()
-

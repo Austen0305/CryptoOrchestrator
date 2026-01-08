@@ -3,12 +3,12 @@ P&L Calculation Service
 Calculates profit and loss from trade history for portfolios and positions.
 """
 
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..repositories.trade_repository import TradeRepository
-from datetime import datetime, timedelta
 import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..repositories.trade_repository import TradeRepository
@@ -22,7 +22,7 @@ class PnLService:
     def __init__(
         self,
         db: AsyncSession,
-        trade_repository: Optional[TradeRepository] = None,
+        trade_repository: TradeRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.trade_repository = trade_repository or TradeRepository()
@@ -30,7 +30,7 @@ class PnLService:
 
     async def calculate_position_pnl(
         self, user_id: int, symbol: str, current_price: float, mode: str = "paper"
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculate P&L for a specific position.
 
@@ -62,7 +62,7 @@ class PnLService:
             # Calculate using FIFO method
             position_quantity = 0.0
             cost_basis = 0.0
-            buy_queue: List[Tuple[float, float]] = []  # (quantity, price)
+            buy_queue: list[tuple[float, float]] = []  # (quantity, price)
 
             for trade in trades:
                 if trade.side == "buy":
@@ -123,8 +123,8 @@ class PnLService:
             }
 
     async def calculate_portfolio_pnl(
-        self, user_id: int, mode: str = "paper", period_hours: Optional[int] = None
-    ) -> Dict[str, float]:
+        self, user_id: int, mode: str = "paper", period_hours: int | None = None
+    ) -> dict[str, float]:
         """
         Calculate total portfolio P&L.
 
@@ -151,9 +151,9 @@ class PnLService:
             total_fees = 0.0
 
             # Track positions for unrealized P&L
-            positions: Dict[str, Dict[str, float]] = (
-                {}
-            )  # symbol -> {quantity, cost_basis}
+            positions: dict[
+                str, dict[str, float]
+            ] = {}  # symbol -> {quantity, cost_basis}
 
             for trade in trades:
                 symbol = trade.pair

@@ -5,7 +5,6 @@ Provides full observability with distributed tracing, metrics, and logs
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -16,24 +15,23 @@ meter = None
 logger_provider = None
 
 try:
-    from opentelemetry import trace, metrics
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-    from opentelemetry.sdk.metrics import MeterProvider
-    from opentelemetry.sdk.metrics.export import (
-        PeriodicExportingMetricReader,
-        ConsoleMetricExporter,
-    )
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-    from opentelemetry.instrumentation.requests import RequestsInstrumentor
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry import metrics, trace
     from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import (
         OTLPMetricExporter,
     )
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.exporter.prometheus import PrometheusMetricExporter
-    from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+    from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import (
+        ConsoleMetricExporter,
+        PeriodicExportingMetricReader,
+    )
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
     OTEL_AVAILABLE = True
 except ImportError:
@@ -46,7 +44,7 @@ except ImportError:
 def setup_opentelemetry(
     service_name: str = "cryptoorchestrator",
     service_version: str = "1.0.0",
-    otlp_endpoint: Optional[str] = None,
+    otlp_endpoint: str | None = None,
     enable_console_exporter: bool = False,
     enable_prometheus: bool = True,
 ) -> bool:
@@ -214,7 +212,7 @@ def get_meter():
     return meter
 
 
-def create_span(name: str, attributes: Optional[dict] = None):
+def create_span(name: str, attributes: dict | None = None):
     """
     Create a span context manager
 
@@ -242,7 +240,7 @@ def create_span(name: str, attributes: Optional[dict] = None):
 
 
 def record_metric(
-    name: str, value: float, unit: str = "", attributes: Optional[dict] = None
+    name: str, value: float, unit: str = "", attributes: dict | None = None
 ):
     """
     Record a metric value
@@ -265,7 +263,7 @@ def record_metric(
 
 
 def record_gauge(
-    name: str, value: float, unit: str = "", attributes: Optional[dict] = None
+    name: str, value: float, unit: str = "", attributes: dict | None = None
 ):
     """
     Record a gauge metric value
@@ -288,7 +286,7 @@ def record_gauge(
 
 
 def record_histogram(
-    name: str, value: float, unit: str = "", attributes: Optional[dict] = None
+    name: str, value: float, unit: str = "", attributes: dict | None = None
 ):
     """
     Record a histogram metric value

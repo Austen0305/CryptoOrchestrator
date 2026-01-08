@@ -4,11 +4,10 @@ Data access layer for risk alerts and limits
 """
 
 import logging
-from typing import List, Optional
 from datetime import datetime
+
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, update
-from sqlalchemy.orm import joinedload
 
 from ..models.risk_alert import RiskAlert
 from ..models.risk_limit import RiskLimit
@@ -30,8 +29,8 @@ class RiskRepository:
         alert_type: str,
         severity: str,
         message: str,
-        current_value: Optional[float] = None,
-        threshold_value: Optional[float] = None,
+        current_value: float | None = None,
+        threshold_value: float | None = None,
     ) -> RiskAlert:
         """Create a new risk alert"""
         alert = RiskAlert(
@@ -53,10 +52,10 @@ class RiskRepository:
         self,
         session: AsyncSession,
         user_id: str,
-        resolved: Optional[bool] = None,
-        acknowledged: Optional[bool] = None,
-        limit: Optional[int] = None,
-    ) -> List[RiskAlert]:
+        resolved: bool | None = None,
+        acknowledged: bool | None = None,
+        limit: int | None = None,
+    ) -> list[RiskAlert]:
         """Get risk alerts for a user with eager loading"""
         stmt = select(RiskAlert).where(RiskAlert.user_id == user_id)
 
@@ -75,7 +74,7 @@ class RiskRepository:
 
     async def acknowledge_alert(
         self, session: AsyncSession, alert_id: int
-    ) -> Optional[RiskAlert]:
+    ) -> RiskAlert | None:
         """Acknowledge a risk alert"""
         stmt = (
             update(RiskAlert)
@@ -91,7 +90,7 @@ class RiskRepository:
 
     async def resolve_alert(
         self, session: AsyncSession, alert_id: int
-    ) -> Optional[RiskAlert]:
+    ) -> RiskAlert | None:
         """Resolve a risk alert"""
         stmt = (
             update(RiskAlert)
@@ -107,7 +106,7 @@ class RiskRepository:
 
     async def get_user_limits(
         self, session: AsyncSession, user_id: str
-    ) -> List[RiskLimit]:
+    ) -> list[RiskLimit]:
         """Get risk limits for a user"""
         stmt = (
             select(RiskLimit)
@@ -153,7 +152,7 @@ class RiskRepository:
 
     async def get_alert_by_id(
         self, session: AsyncSession, alert_id: int
-    ) -> Optional[RiskAlert]:
+    ) -> RiskAlert | None:
         """Get risk alert by ID"""
         # Note: RiskAlert doesn't have is_deleted (inherits from Base, TimestampMixin only)
         stmt = select(RiskAlert).where(RiskAlert.id == alert_id)
@@ -162,7 +161,7 @@ class RiskRepository:
 
     async def get_limit_by_user_and_type(
         self, session: AsyncSession, user_id: str, limit_type: str
-    ) -> Optional[RiskLimit]:
+    ) -> RiskLimit | None:
         """Get a specific risk limit by user and type"""
         stmt = select(RiskLimit).where(
             and_(RiskLimit.user_id == user_id, RiskLimit.limit_type == limit_type)

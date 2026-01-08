@@ -3,29 +3,25 @@ Institutional Wallet Routes
 API endpoints for multi-signature wallets, team access, and institutional custody
 """
 
+import logging
+from datetime import datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import List, Optional, Annotated
-from datetime import datetime
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.institutional_wallet_service import InstitutionalWalletService
-from ..services.institutional.treasury_service import TreasuryService
-from ..services.institutional.social_recovery import SocialRecoveryService
-from ..services.institutional.threshold_signatures import threshold_signature_service
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
+from ..dependencies.auth import get_current_user
 from ..models.institutional_wallet import (
-    InstitutionalWallet,
     PendingTransaction,
-    WalletType,
-    MultisigType,
-    WalletStatus,
     SignerRole,
 )
+from ..services.institutional.social_recovery import SocialRecoveryService
+from ..services.institutional.threshold_signatures import threshold_signature_service
+from ..services.institutional.treasury_service import TreasuryService
+from ..services.institutional_wallet_service import InstitutionalWalletService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -34,47 +30,67 @@ router = APIRouter()
 
 # Request/Response Models
 class CreateInstitutionalWalletRequest(BaseModel):
-    wallet_type: str = Field(..., description="Wallet type: multisig, timelock, treasury, custodial")
+    wallet_type: str = Field(
+        ..., description="Wallet type: multisig, timelock, treasury, custodial"
+    )
     chain_id: int = Field(1, description="Blockchain ID")
-    multisig_type: Optional[str] = Field(None, description="Multi-signature type: 2_of_3, 3_of_5, custom")
-    required_signatures: int = Field(1, ge=1, description="M in M-of-N (minimum signatures required)")
-    total_signers: int = Field(1, ge=1, description="N in M-of-N (total number of signers)")
-    signer_user_ids: Optional[List[int]] = Field(None, description="List of user IDs to add as signers")
-    label: Optional[str] = Field(None, description="User-friendly label")
-    description: Optional[str] = Field(None, description="Wallet description")
-    unlock_time: Optional[datetime] = Field(None, description="When time-locked wallet unlocks")
-    config: Optional[dict] = Field(None, description="Additional configuration")
+    multisig_type: str | None = Field(
+        None, description="Multi-signature type: 2_of_3, 3_of_5, custom"
+    )
+    required_signatures: int = Field(
+        1, ge=1, description="M in M-of-N (minimum signatures required)"
+    )
+    total_signers: int = Field(
+        1, ge=1, description="N in M-of-N (total number of signers)"
+    )
+    signer_user_ids: list[int] | None = Field(
+        None, description="List of user IDs to add as signers"
+    )
+    label: str | None = Field(None, description="User-friendly label")
+    description: str | None = Field(None, description="Wallet description")
+    unlock_time: datetime | None = Field(
+        None, description="When time-locked wallet unlocks"
+    )
+    config: dict | None = Field(None, description="Additional configuration")
 
 
 class AddSignerRequest(BaseModel):
     signer_user_id: int
-    role: str = Field(SignerRole.SIGNER.value, description="Signer role: owner, signer, viewer, admin")
+    role: str = Field(
+        SignerRole.SIGNER.value, description="Signer role: owner, signer, viewer, admin"
+    )
 
 
 class CreatePendingTransactionRequest(BaseModel):
-    transaction_type: str = Field(..., description="Type: withdrawal, transfer, approval, etc.")
+    transaction_type: str = Field(
+        ..., description="Type: withdrawal, transfer, approval, etc."
+    )
     transaction_data: dict = Field(..., description="Full transaction data")
-    description: Optional[str] = None
-    expires_in_hours: int = Field(24, ge=1, le=168, description="Hours until transaction expires")
+    description: str | None = None
+    expires_in_hours: int = Field(
+        24, ge=1, le=168, description="Hours until transaction expires"
+    )
 
 
 class SignTransactionRequest(BaseModel):
-    signature_data: dict = Field(..., description="Signature data (signature, message hash, etc.)")
+    signature_data: dict = Field(
+        ..., description="Signature data (signature, message hash, etc.)"
+    )
 
 
 class InstitutionalWalletResponse(BaseModel):
     id: int
     user_id: int
     wallet_type: str
-    wallet_address: Optional[str]
+    wallet_address: str | None
     chain_id: int
-    multisig_type: Optional[str]
+    multisig_type: str | None
     required_signatures: int
     total_signers: int
     status: str
-    label: Optional[str]
-    description: Optional[str]
-    balance: Optional[dict]
+    label: str | None
+    description: str | None
+    balance: dict | None
     created_at: str
     updated_at: str
 
@@ -83,15 +99,15 @@ class PendingTransactionResponse(BaseModel):
     id: int
     wallet_id: int
     transaction_type: str
-    to_address: Optional[str]
-    amount: Optional[float]
-    currency: Optional[str]
+    to_address: str | None
+    amount: float | None
+    currency: str | None
     status: str
     signatures: dict
     required_signatures: int
     signature_count: int
-    expires_at: Optional[str]
-    description: Optional[str]
+    expires_at: str | None
+    description: str | None
     created_at: str
 
 
@@ -105,7 +121,7 @@ async def create_institutional_wallet(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         wallet = await service.create_institutional_wallet(
             user_id=user_id,
             wallet_type=request.wallet_type,
@@ -119,7 +135,7 @@ async def create_institutional_wallet(
             unlock_time=request.unlock_time,
             config=request.config,
         )
-        
+
         return InstitutionalWalletResponse(
             id=wallet.id,
             user_id=wallet.user_id,
@@ -142,27 +158,29 @@ async def create_institutional_wallet(
         raise HTTPException(status_code=403, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating institutional wallet: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to create institutional wallet")
+        raise HTTPException(
+            status_code=500, detail="Failed to create institutional wallet"
+        )
 
 
-@router.get("/", response_model=List[InstitutionalWalletResponse])
+@router.get("/", response_model=list[InstitutionalWalletResponse])
 async def list_institutional_wallets(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    wallet_type: Optional[str] = Query(None, description="Filter by wallet type"),
-    status: Optional[str] = Query(None, description="Filter by status"),
+    wallet_type: str | None = Query(None, description="Filter by wallet type"),
+    status: str | None = Query(None, description="Filter by status"),
 ):
     """List institutional wallets accessible by current user"""
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         wallets = await service.list_wallets(
             user_id=user_id,
             wallet_type=wallet_type,
             status=status,
         )
-        
+
         return [
             InstitutionalWalletResponse(
                 id=w.id,
@@ -184,7 +202,9 @@ async def list_institutional_wallets(
         ]
     except Exception as e:
         logger.error(f"Error listing institutional wallets: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list institutional wallets")
+        raise HTTPException(
+            status_code=500, detail="Failed to list institutional wallets"
+        )
 
 
 @router.get("/{wallet_id}", response_model=InstitutionalWalletResponse)
@@ -197,12 +217,14 @@ async def get_institutional_wallet(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         wallet = await service.get_wallet(wallet_id, user_id)
-        
+
         if not wallet:
-            raise HTTPException(status_code=404, detail="Wallet not found or access denied")
-        
+            raise HTTPException(
+                status_code=404, detail="Wallet not found or access denied"
+            )
+
         return InstitutionalWalletResponse(
             id=wallet.id,
             user_id=wallet.user_id,
@@ -223,7 +245,9 @@ async def get_institutional_wallet(
         raise
     except Exception as e:
         logger.error(f"Error getting institutional wallet: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get institutional wallet")
+        raise HTTPException(
+            status_code=500, detail="Failed to get institutional wallet"
+        )
 
 
 @router.post("/{wallet_id}/signers", response_model=dict)
@@ -237,17 +261,17 @@ async def add_signer(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         success = await service.add_signer(
             wallet_id=wallet_id,
             signer_user_id=request.signer_user_id,
             role=request.role,
             added_by_user_id=user_id,
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="Failed to add signer")
-        
+
         return {"success": True, "message": "Signer added successfully"}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -269,16 +293,16 @@ async def remove_signer(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         success = await service.remove_signer(
             wallet_id=wallet_id,
             signer_user_id=signer_user_id,
             removed_by_user_id=user_id,
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="Failed to remove signer")
-        
+
         return {"success": True, "message": "Signer removed successfully"}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -300,7 +324,7 @@ async def create_pending_transaction(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         pending_tx = await service.create_pending_transaction(
             wallet_id=wallet_id,
             transaction_type=request.transaction_type,
@@ -309,7 +333,7 @@ async def create_pending_transaction(
             description=request.description,
             expires_in_hours=request.expires_in_hours,
         )
-        
+
         return PendingTransactionResponse(
             id=pending_tx.id,
             wallet_id=pending_tx.wallet_id,
@@ -321,7 +345,9 @@ async def create_pending_transaction(
             signatures=pending_tx.signatures,
             required_signatures=pending_tx.required_signatures,
             signature_count=len(pending_tx.signatures),
-            expires_at=pending_tx.expires_at.isoformat() if pending_tx.expires_at else None,
+            expires_at=pending_tx.expires_at.isoformat()
+            if pending_tx.expires_at
+            else None,
             description=pending_tx.description,
             created_at=pending_tx.created_at.isoformat(),
         )
@@ -331,7 +357,9 @@ async def create_pending_transaction(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating pending transaction: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to create pending transaction")
+        raise HTTPException(
+            status_code=500, detail="Failed to create pending transaction"
+        )
 
 
 @router.post("/transactions/{transaction_id}/sign", response_model=dict)
@@ -345,17 +373,19 @@ async def sign_transaction(
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         fully_signed = await service.sign_transaction(
             transaction_id=transaction_id,
             user_id=user_id,
             signature_data=request.signature_data,
         )
-        
+
         return {
             "success": True,
             "fully_signed": fully_signed,
-            "message": "Transaction fully signed and ready to execute" if fully_signed else "Transaction signed, awaiting more signatures",
+            "message": "Transaction fully signed and ready to execute"
+            if fully_signed
+            else "Transaction signed, awaiting more signatures",
         }
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -366,39 +396,45 @@ async def sign_transaction(
         raise HTTPException(status_code=500, detail="Failed to sign transaction")
 
 
-@router.get("/{wallet_id}/transactions", response_model=List[PendingTransactionResponse])
+@router.get(
+    "/{wallet_id}/transactions", response_model=list[PendingTransactionResponse]
+)
 async def list_pending_transactions(
     wallet_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
 ):
     """List pending transactions for a wallet"""
     try:
         user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         # Check permissions
         wallet = await service.get_wallet(wallet_id, user_id)
         if not wallet:
-            raise HTTPException(status_code=404, detail="Wallet not found or access denied")
-        
+            raise HTTPException(
+                status_code=404, detail="Wallet not found or access denied"
+            )
+
         # Get pending transactions
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
-        
+
         query = select(PendingTransaction).where(
             PendingTransaction.wallet_id == wallet_id
         )
-        
+
         if status:
             query = query.where(PendingTransaction.status == status)
-        
+
         query = query.order_by(PendingTransaction.created_at.desc())
-        
-        result = await db.execute(query.options(selectinload(PendingTransaction.wallet)))
+
+        result = await db.execute(
+            query.options(selectinload(PendingTransaction.wallet))
+        )
         pending_txs = result.scalars().all()
-        
+
         return [
             PendingTransactionResponse(
                 id=tx.id,
@@ -421,38 +457,50 @@ async def list_pending_transactions(
         raise
     except Exception as e:
         logger.error(f"Error listing pending transactions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list pending transactions")
+        raise HTTPException(
+            status_code=500, detail="Failed to list pending transactions"
+        )
 
 
-@router.get("/{wallet_id}/audit-logs", response_model=List[dict])
+@router.get("/{wallet_id}/audit-logs", response_model=list[dict])
 async def get_audit_logs(
     wallet_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[datetime] = Query(None, description="Start date for audit log export"),
-    end_date: Optional[datetime] = Query(None, description="End date for audit log export"),
-    user_id_filter: Optional[int] = Query(None, alias="user_id", description="Filter by user ID"),
+    start_date: datetime | None = Query(
+        None, description="Start date for audit log export"
+    ),
+    end_date: datetime | None = Query(
+        None, description="End date for audit log export"
+    ),
+    user_id_filter: int | None = Query(
+        None, alias="user_id", description="Filter by user ID"
+    ),
 ):
     """Export audit logs for compliance"""
     try:
         current_user_id = _get_user_id(current_user)
         service = InstitutionalWalletService(db)
-        
+
         # Check permissions (admin or owner)
         wallet = await service.get_wallet(wallet_id, current_user_id)
         if not wallet:
-            raise HTTPException(status_code=404, detail="Wallet not found or access denied")
-        
+            raise HTTPException(
+                status_code=404, detail="Wallet not found or access denied"
+            )
+
         if not await service.has_permission(wallet_id, current_user_id, "admin"):
-            raise HTTPException(status_code=403, detail="Admin access required for audit logs")
-        
+            raise HTTPException(
+                status_code=403, detail="Admin access required for audit logs"
+            )
+
         logs = await service.export_audit_logs(
             wallet_id=wallet_id,
             start_date=start_date,
             end_date=end_date,
             user_id=user_id_filter,
         )
-        
+
         return [
             {
                 "id": log.id,
@@ -487,9 +535,9 @@ async def get_treasury_summary(
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         summary = service.get_treasury_summary(user_id)
-        
+
         return {
             "total_balance_usd": float(summary.total_balance_usd),
             "total_wallets": summary.total_wallets,
@@ -506,7 +554,7 @@ async def get_treasury_summary(
         raise HTTPException(status_code=500, detail="Failed to get treasury summary")
 
 
-@router.get("/treasury/balances", response_model=List[dict])
+@router.get("/treasury/balances", response_model=list[dict])
 async def get_wallet_balances(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
@@ -515,9 +563,9 @@ async def get_wallet_balances(
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         balances = service.get_wallet_balances(user_id)
-        
+
         return [
             {
                 "wallet_id": b.wallet_id,
@@ -527,7 +575,9 @@ async def get_wallet_balances(
                 "currency": b.currency,
                 "pending_balance_usd": float(b.pending_balance_usd),
                 "available_balance_usd": float(b.available_balance_usd),
-                "last_activity": b.last_activity.isoformat() if b.last_activity else None,
+                "last_activity": b.last_activity.isoformat()
+                if b.last_activity
+                else None,
                 "signer_count": b.signer_count,
                 "required_signatures": b.required_signatures,
             }
@@ -538,26 +588,26 @@ async def get_wallet_balances(
         raise HTTPException(status_code=500, detail="Failed to get wallet balances")
 
 
-@router.get("/treasury/activity", response_model=List[dict])
+@router.get("/treasury/activity", response_model=list[dict])
 async def get_treasury_activity(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
     limit: int = Query(100, ge=1, le=1000),
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+    start_date: datetime | None = Query(None),
+    end_date: datetime | None = Query(None),
 ):
     """Get treasury activity log"""
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         activities = service.get_treasury_activity(
             user_id=user_id,
             limit=limit,
             start_date=start_date,
             end_date=end_date,
         )
-        
+
         return [
             {
                 "timestamp": a.timestamp.isoformat(),
@@ -585,7 +635,7 @@ async def get_risk_metrics(
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         metrics = service.get_risk_metrics(user_id)
         return metrics
     except Exception as e:
@@ -597,24 +647,28 @@ async def get_risk_metrics(
 class CreateRecoveryRequest(BaseModel):
     wallet_id: int
     reason: str = Field(..., description="Reason for recovery")
-    required_approvals: int = Field(3, ge=1, le=10, description="Number of approvals needed")
-    timeout_hours: Optional[int] = Field(72, ge=1, le=168, description="Timeout in hours")
+    required_approvals: int = Field(
+        3, ge=1, le=10, description="Number of approvals needed"
+    )
+    timeout_hours: int | None = Field(72, ge=1, le=168, description="Timeout in hours")
 
 
 class ApproveRecoveryRequest(BaseModel):
-    signature: Optional[str] = Field(None, description="Optional cryptographic signature")
+    signature: str | None = Field(None, description="Optional cryptographic signature")
 
 
 class RejectRecoveryRequest(BaseModel):
-    reason: Optional[str] = Field(None, description="Rejection reason")
+    reason: str | None = Field(None, description="Rejection reason")
 
 
 # Guardian Management Endpoints
 class AddGuardianRequest(BaseModel):
-    guardian_user_id: Optional[int] = Field(None, description="User ID of guardian (if platform user)")
-    email: Optional[str] = Field(None, description="Guardian email (if not platform user)")
-    phone: Optional[str] = Field(None, description="Guardian phone (for SMS verification)")
-    notes: Optional[str] = Field(None, description="Optional notes about guardian")
+    guardian_user_id: int | None = Field(
+        None, description="User ID of guardian (if platform user)"
+    )
+    email: str | None = Field(None, description="Guardian email (if not platform user)")
+    phone: str | None = Field(None, description="Guardian phone (for SMS verification)")
+    notes: str | None = Field(None, description="Optional notes about guardian")
 
 
 @router.post("/{wallet_id}/guardians", response_model=dict)
@@ -628,7 +682,7 @@ async def add_guardian(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         guardian = await service.add_guardian(
             wallet_id=wallet_id,
             guardian_user_id=request.guardian_user_id,
@@ -637,7 +691,7 @@ async def add_guardian(
             added_by=user_id,
             notes=request.notes,
         )
-        
+
         return {
             "id": guardian.id,
             "wallet_id": guardian.wallet_id,
@@ -667,16 +721,16 @@ async def remove_guardian(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         success = await service.remove_guardian(
             wallet_id=wallet_id,
             guardian_id=guardian_id,
             removed_by=user_id,
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="Failed to remove guardian")
-        
+
         return {"success": True, "guardian_id": guardian_id}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -687,24 +741,25 @@ async def remove_guardian(
         raise HTTPException(status_code=500, detail="Failed to remove guardian")
 
 
-@router.get("/{wallet_id}/guardians", response_model=List[dict])
+@router.get("/{wallet_id}/guardians", response_model=list[dict])
 async def get_guardians(
     wallet_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
 ):
     """Get all guardians for a wallet"""
     try:
         service = SocialRecoveryService(db)
-        
+
         guardian_status = None
         if status:
             from ...models.social_recovery import GuardianStatus
+
             guardian_status = GuardianStatus(status)
-        
+
         guardians = await service.get_guardians(wallet_id, guardian_status)
-        
+
         return [
             {
                 "id": g.id,
@@ -737,7 +792,7 @@ async def create_recovery_request(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         recovery_request = await service.create_recovery_request(
             wallet_id=request.wallet_id,
             requester_id=user_id,
@@ -745,7 +800,7 @@ async def create_recovery_request(
             required_approvals=request.required_approvals,
             time_lock_days=7,  # Default 7 days, can be made configurable
         )
-        
+
         return {
             "id": recovery_request.id,
             "wallet_id": recovery_request.wallet_id,
@@ -755,8 +810,12 @@ async def create_recovery_request(
             "required_approvals": recovery_request.required_approvals,
             "current_approvals": recovery_request.current_approvals,
             "time_lock_days": recovery_request.time_lock_days,
-            "unlock_time": recovery_request.unlock_time.isoformat() if recovery_request.unlock_time else None,
-            "expires_at": recovery_request.expires_at.isoformat() if recovery_request.expires_at else None,
+            "unlock_time": recovery_request.unlock_time.isoformat()
+            if recovery_request.unlock_time
+            else None,
+            "expires_at": recovery_request.expires_at.isoformat()
+            if recovery_request.expires_at
+            else None,
             "created_at": recovery_request.created_at.isoformat(),
         }
     except PermissionError as e:
@@ -779,12 +838,12 @@ async def approve_recovery(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         # Get recovery request to find wallet_id
         recovery_request = await service.get_recovery_request(recovery_request_id)
         if not recovery_request:
             raise HTTPException(status_code=404, detail="Recovery request not found")
-        
+
         # Get guardian_id for this user
         guardians = await service.get_guardians(recovery_request.wallet_id)
         guardian_id = None
@@ -792,22 +851,26 @@ async def approve_recovery(
             if g.guardian_user_id == user_id:
                 guardian_id = g.id
                 break
-        
+
         if not guardian_id:
-            raise HTTPException(status_code=403, detail="User is not a guardian for this wallet")
-        
+            raise HTTPException(
+                status_code=403, detail="User is not a guardian for this wallet"
+            )
+
         success = await service.approve_recovery(
             recovery_request_id=recovery_request_id,
             guardian_id=guardian_id,
             approver_id=user_id,
             signature=request.signature,
         )
-        
+
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to approve recovery request")
-        
+            raise HTTPException(
+                status_code=400, detail="Failed to approve recovery request"
+            )
+
         recovery_request = await service.get_recovery_request(recovery_request_id)
-        
+
         return {
             "success": True,
             "recovery_request_id": recovery_request_id,
@@ -835,12 +898,12 @@ async def reject_recovery(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         # Get recovery request to find wallet_id
         recovery_request = await service.get_recovery_request(recovery_request_id)
         if not recovery_request:
             raise HTTPException(status_code=404, detail="Recovery request not found")
-        
+
         # Get guardian_id for this user
         guardians = await service.get_guardians(recovery_request.wallet_id)
         guardian_id = None
@@ -848,20 +911,24 @@ async def reject_recovery(
             if g.guardian_user_id == user_id:
                 guardian_id = g.id
                 break
-        
+
         if not guardian_id:
-            raise HTTPException(status_code=403, detail="User is not a guardian for this wallet")
-        
+            raise HTTPException(
+                status_code=403, detail="User is not a guardian for this wallet"
+            )
+
         success = await service.reject_recovery(
             recovery_request_id=recovery_request_id,
             guardian_id=guardian_id,
             rejector_id=user_id,
             reason=request.reason,
         )
-        
+
         if not success:
-            raise HTTPException(status_code=400, detail="Failed to reject recovery request")
-        
+            raise HTTPException(
+                status_code=400, detail="Failed to reject recovery request"
+            )
+
         return {"success": True, "recovery_request_id": recovery_request_id}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -882,15 +949,15 @@ async def execute_recovery(
     try:
         user_id = _get_user_id(current_user)
         service = SocialRecoveryService(db)
-        
+
         success = await service.execute_recovery(
             recovery_request_id=recovery_request_id,
             executor_id=user_id,
         )
-        
+
         if not success:
             raise HTTPException(status_code=400, detail="Failed to execute recovery")
-        
+
         return {"success": True, "recovery_request_id": recovery_request_id}
     except PermissionError as e:
         raise HTTPException(status_code=403, detail=str(e))
@@ -911,12 +978,12 @@ async def get_recovery_request(
     try:
         service = SocialRecoveryService(db)
         recovery_request = await service.get_recovery_request(recovery_request_id)
-        
+
         if not recovery_request:
             raise HTTPException(status_code=404, detail="Recovery request not found")
-        
+
         approvals = await service.get_recovery_approvals(recovery_request_id)
-        
+
         return {
             "id": recovery_request.id,
             "wallet_id": recovery_request.wallet_id,
@@ -926,10 +993,16 @@ async def get_recovery_request(
             "required_approvals": recovery_request.required_approvals,
             "current_approvals": recovery_request.current_approvals,
             "time_lock_days": recovery_request.time_lock_days,
-            "unlock_time": recovery_request.unlock_time.isoformat() if recovery_request.unlock_time else None,
+            "unlock_time": recovery_request.unlock_time.isoformat()
+            if recovery_request.unlock_time
+            else None,
             "created_at": recovery_request.created_at.isoformat(),
-            "expires_at": recovery_request.expires_at.isoformat() if recovery_request.expires_at else None,
-            "completed_at": recovery_request.completed_at.isoformat() if recovery_request.completed_at else None,
+            "expires_at": recovery_request.expires_at.isoformat()
+            if recovery_request.expires_at
+            else None,
+            "completed_at": recovery_request.completed_at.isoformat()
+            if recovery_request.completed_at
+            else None,
             "approvals": [
                 {
                     "guardian_id": a.guardian_id,
@@ -946,24 +1019,27 @@ async def get_recovery_request(
         raise HTTPException(status_code=500, detail="Failed to get recovery request")
 
 
-@router.get("/wallets/{wallet_id}/recovery-requests", response_model=List[dict])
+@router.get("/wallets/{wallet_id}/recovery-requests", response_model=list[dict])
 async def get_wallet_recovery_requests(
     wallet_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    status: Optional[str] = Query(None, description="Filter by status"),
+    status: str | None = Query(None, description="Filter by status"),
 ):
     """Get all recovery requests for a wallet"""
     try:
         service = SocialRecoveryService(db)
-        
+
         recovery_status = None
         if status:
             from ...models.social_recovery import RecoveryRequestStatus
+
             recovery_status = RecoveryRequestStatus(status)
-        
-        requests = await service.get_wallet_recovery_requests(wallet_id, recovery_status)
-        
+
+        requests = await service.get_wallet_recovery_requests(
+            wallet_id, recovery_status
+        )
+
         return [
             {
                 "id": r.id,
@@ -990,7 +1066,7 @@ async def get_wallet_recovery_requests(
 # Threshold Signature Schemes (TSS) Endpoints
 class GenerateTSSKeyRequest(BaseModel):
     wallet_id: str = Field(..., description="Wallet identifier")
-    parties: List[str] = Field(..., description="List of party IDs")
+    parties: list[str] = Field(..., description="List of party IDs")
     threshold: int = Field(..., ge=2, description="Minimum parties needed (t-of-n)")
 
 
@@ -1003,7 +1079,9 @@ class GeneratePartialSignatureRequest(BaseModel):
 class CombineTSSSignaturesRequest(BaseModel):
     wallet_id: str = Field(..., description="Wallet identifier")
     message_hash: str = Field(..., description="Hash of message")
-    participating_parties: List[str] = Field(..., description="Parties that provided partial signatures")
+    participating_parties: list[str] = Field(
+        ..., description="Parties that provided partial signatures"
+    )
 
 
 @router.post("/tss/keys/generate")
@@ -1018,7 +1096,7 @@ async def generate_tss_key(
             parties=request.parties,
             threshold=request.threshold,
         )
-        
+
         return {
             "wallet_id": request.wallet_id,
             "public_key": public_key,
@@ -1052,7 +1130,7 @@ async def generate_partial_signature(
             message_hash=request.message_hash,
             party_id=request.party_id,
         )
-        
+
         return {
             "partial_sig_id": partial_sig.partial_sig_id,
             "wallet_id": partial_sig.wallet_id,
@@ -1064,7 +1142,9 @@ async def generate_partial_signature(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error generating partial signature: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to generate partial signature")
+        raise HTTPException(
+            status_code=500, detail="Failed to generate partial signature"
+        )
 
 
 @router.post("/tss/combine-signatures")
@@ -1079,7 +1159,7 @@ async def combine_tss_signatures(
             message_hash=request.message_hash,
             participating_parties=request.participating_parties,
         )
-        
+
         return {
             "signature_id": signature.signature_id,
             "wallet_id": signature.wallet_id,
@@ -1106,10 +1186,10 @@ async def get_tss_key_shares(
     """Get TSS key shares for a wallet"""
     try:
         shares = threshold_signature_service.get_key_shares(wallet_id)
-        
+
         if not shares:
             raise HTTPException(status_code=404, detail="TSS key shares not found")
-        
+
         return {
             "wallet_id": wallet_id,
             "shares": [

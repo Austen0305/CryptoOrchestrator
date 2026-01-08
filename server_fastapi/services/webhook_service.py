@@ -3,15 +3,16 @@ Webhook Service
 Manages webhook subscriptions and deliveries
 """
 
-import logging
 import hashlib
 import hmac
 import json
-from typing import List, Optional, Dict, Any
+import logging
 from datetime import datetime
+from typing import Any
+
 import aiohttp
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc
 
 from ..models.webhooks import Webhook, WebhookDelivery
 
@@ -29,19 +30,19 @@ class WebhookService:
         user_id: int,
         name: str,
         url: str,
-        events: List[str],
-        secret: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
+        events: list[str],
+        secret: str | None = None,
+        config: dict[str, Any] | None = None,
     ) -> tuple[Webhook, str]:
         """
         Create a webhook
-        
+
         Returns:
             Tuple of (webhook, secret) - secret is only returned once
         """
         if not secret:
             secret = self._generate_secret()
-        
+
         webhook = Webhook(
             user_id=user_id,
             name=name,
@@ -51,29 +52,30 @@ class WebhookService:
             config=config or {},
             is_active=True,
         )
-        
+
         self.db.add(webhook)
         await self.db.commit()
         await self.db.refresh(webhook)
-        
+
         logger.info(f"Webhook created: {webhook.id} for user {user_id}")
-        
+
         return webhook, secret
 
     def _generate_secret(self) -> str:
         """Generate a webhook secret"""
         import secrets
+
         return secrets.token_urlsafe(32)
 
     async def trigger_webhook(
         self,
         event_type: str,
-        payload: Dict[str, Any],
-        user_id: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        payload: dict[str, Any],
+        user_id: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Trigger webhooks for an event
-        
+
         Returns:
             List of delivery results
         """
@@ -84,38 +86,42 @@ class WebhookService:
                 Webhook.events.contains([event_type]),
             )
         )
-        
+
         if user_id:
             stmt = stmt.where(Webhook.user_id == user_id)
-        
+
         result = await self.db.execute(stmt)
         webhooks = result.scalars().all()
-        
+
         delivery_results = []
-        
+
         for webhook in webhooks:
             try:
                 delivery = await self._deliver_webhook(webhook, event_type, payload)
-                delivery_results.append({
-                    "webhook_id": webhook.id,
-                    "status": delivery.status,
-                    "status_code": delivery.status_code,
-                })
+                delivery_results.append(
+                    {
+                        "webhook_id": webhook.id,
+                        "status": delivery.status,
+                        "status_code": delivery.status_code,
+                    }
+                )
             except Exception as e:
                 logger.error(f"Error delivering webhook {webhook.id}: {e}")
-                delivery_results.append({
-                    "webhook_id": webhook.id,
-                    "status": "failed",
-                    "error": str(e),
-                })
-        
+                delivery_results.append(
+                    {
+                        "webhook_id": webhook.id,
+                        "status": "failed",
+                        "error": str(e),
+                    }
+                )
+
         return delivery_results
 
     async def _deliver_webhook(
         self,
         webhook: Webhook,
         event_type: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> WebhookDelivery:
         """Deliver a webhook"""
         # Create delivery record
@@ -128,10 +134,10 @@ class WebhookService:
         )
         self.db.add(delivery)
         await self.db.flush()
-        
+
         # Generate signature
         signature = self._generate_signature(webhook.secret, payload)
-        
+
         # Prepare headers
         headers = {
             "Content-Type": "application/json",
@@ -139,35 +145,37 @@ class WebhookService:
             "X-Webhook-Signature": signature,
             "X-Webhook-Delivery-Id": str(delivery.id),
         }
-        
+
         # Send webhook
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     webhook.url,
                     json=payload,
                     headers=headers,
                     timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    delivery.status_code = response.status
-                    delivery.status = "success" if response.status < 400 else "failed"
-                    delivery.response_body = await response.text()
-                    delivery.completed_at = datetime.utcnow()
+                ) as response,
+            ):
+                delivery.status_code = response.status
+                delivery.status = "success" if response.status < 400 else "failed"
+                delivery.response_body = await response.text()
+                delivery.completed_at = datetime.utcnow()
         except Exception as e:
             delivery.status = "failed"
             delivery.response_body = str(e)
             delivery.completed_at = datetime.utcnow()
             logger.error(f"Webhook delivery failed: {e}")
-        
+
         # Update webhook last triggered
         webhook.last_triggered = datetime.utcnow()
-        
+
         await self.db.commit()
         await self.db.refresh(delivery)
-        
+
         return delivery
 
-    def _generate_signature(self, secret: str, payload: Dict[str, Any]) -> str:
+    def _generate_signature(self, secret: str, payload: dict[str, Any]) -> str:
         """Generate webhook signature"""
         payload_str = json.dumps(payload, sort_keys=True)
         signature = hmac.new(
@@ -181,11 +189,14 @@ class WebhookService:
         self,
         webhook_id: int,
         limit: int = 50,
-    ) -> List[WebhookDelivery]:
+    ) -> list[WebhookDelivery]:
         """Get webhook delivery history"""
-        stmt = select(WebhookDelivery).where(
-            WebhookDelivery.webhook_id == webhook_id
-        ).order_by(desc(WebhookDelivery.created_at)).limit(limit)
-        
+        stmt = (
+            select(WebhookDelivery)
+            .where(WebhookDelivery.webhook_id == webhook_id)
+            .order_by(desc(WebhookDelivery.created_at))
+            .limit(limit)
+        )
+
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

@@ -4,23 +4,24 @@ Infinity grid is a dynamic grid that follows price movements.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class InfinityGrid(BaseModel):
@@ -91,20 +92,18 @@ class InfinityGrid(BaseModel):
     )  # Number of times grid was adjusted
 
     # Grid state (JSON)
-    grid_state: Mapped[Optional[str]] = mapped_column(
+    grid_state: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: current orders, filled orders
 
     # Timestamps
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_adjustment_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
-    last_trade_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_adjustment_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_trade_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Additional configuration (JSON)
-    config: Mapped[Optional[str]] = mapped_column(
+    config: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: advanced settings
 
@@ -114,7 +113,7 @@ class InfinityGrid(BaseModel):
         "Trade", back_populates="infinity_grid", cascade="all, delete-orphan"
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert infinity grid instance to dictionary."""
         import json
         from datetime import datetime

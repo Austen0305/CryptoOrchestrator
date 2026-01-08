@@ -5,8 +5,8 @@ Unit tests for RiskService database-backed operations.
 import pytest
 from sqlalchemy import select
 
-from server_fastapi.services.risk_service import RiskService
 from server_fastapi.models.risk_limit import RiskLimit as RiskLimitModel
+from server_fastapi.services.risk_service import RiskService
 
 
 @pytest.mark.asyncio

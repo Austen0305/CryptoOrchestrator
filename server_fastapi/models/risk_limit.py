@@ -2,9 +2,9 @@
 Risk Limit Model - User-defined risk limits and thresholds
 """
 
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean
+from sqlalchemy import Boolean, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
+
 from .base import Base, TimestampMixin
 
 

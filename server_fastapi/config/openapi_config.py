@@ -3,11 +3,11 @@ OpenAPI/Swagger Documentation Configuration
 Enhanced API documentation with examples and better descriptions
 """
 
-from typing import Dict, Any
 import os
+from typing import Any
 
 
-def get_openapi_config() -> Dict[str, Any]:
+def get_openapi_config() -> dict[str, Any]:
     """Get enhanced OpenAPI configuration"""
 
     # Get environment info
@@ -124,8 +124,7 @@ CryptoOrchestrator is an enterprise-grade trading automation platform featuring:
                     "name": "X-API-Key",
                     "description": "API key for programmatic access",
                 },
-            }
-            ,
+            },
             "responses": {
                 "GatewayTimeout": {
                     "description": "Request processing exceeded the configured timeout and was cancelled.",
@@ -135,14 +134,17 @@ CryptoOrchestrator is an enterprise-grade trading automation platform featuring:
                                 "type": "object",
                                 "properties": {
                                     "detail": {"type": "string"},
-                                    "request_id": {"type": "string", "description": "Request ID for tracing"}
+                                    "request_id": {
+                                        "type": "string",
+                                        "description": "Request ID for tracing",
+                                    },
                                 },
-                                "required": ["detail"]
+                                "required": ["detail"],
                             }
                         }
-                    }
+                    },
                 }
-            }
+            },
         },
     }
 
@@ -162,7 +164,7 @@ CryptoOrchestrator is an enterprise-grade trading automation platform featuring:
     return openapi_config
 
 
-def custom_openapi(app) -> Dict[str, Any]:
+def custom_openapi(app) -> dict[str, Any]:
     """Custom OpenAPI schema generator with enhancements"""
     if app.openapi_schema:
         return app.openapi_schema

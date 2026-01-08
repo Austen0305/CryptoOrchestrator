@@ -3,20 +3,22 @@ Advanced Configuration Management
 Provides hierarchical configuration, validation, and hot-reload
 """
 
-import os
-import logging
 import json
-from typing import Dict, Any, Optional, List, Type
+import logging
+import os
 from pathlib import Path
-from pydantic import BaseModel, Field, validator
-from pydantic_settings import BaseSettings
+from typing import Any
+
 import yaml
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseConfig(BaseModel):
     """Database configuration"""
+
     url: str = Field(..., description="Database URL")
     pool_size: int = Field(20, ge=1, le=100, description="Connection pool size")
     max_overflow: int = Field(10, ge=0, le=50, description="Max overflow connections")
@@ -26,6 +28,7 @@ class DatabaseConfig(BaseModel):
 
 class RedisConfig(BaseModel):
     """Redis configuration"""
+
     url: str = Field("redis://localhost:6379/0", description="Redis URL")
     enabled: bool = Field(True, description="Enable Redis")
     pool_size: int = Field(10, ge=1, le=100, description="Redis pool size")
@@ -33,15 +36,17 @@ class RedisConfig(BaseModel):
 
 class SecurityConfig(BaseModel):
     """Security configuration"""
+
     jwt_secret: str = Field(..., min_length=32, description="JWT secret key")
     jwt_algorithm: str = Field("HS256", description="JWT algorithm")
     jwt_expiration_minutes: int = Field(15, ge=1, le=1440, description="JWT expiration")
-    cors_origins: List[str] = Field(default_factory=list, description="CORS origins")
+    cors_origins: list[str] = Field(default_factory=list, description="CORS origins")
     enable_csrf: bool = Field(False, description="Enable CSRF protection")
 
 
 class PerformanceConfig(BaseModel):
     """Performance configuration"""
+
     workers: int = Field(4, ge=1, le=32, description="Number of workers")
     max_connections: int = Field(1000, ge=10, le=10000, description="Max connections")
     cache_ttl: int = Field(300, ge=1, le=86400, description="Cache TTL in seconds")
@@ -50,9 +55,10 @@ class PerformanceConfig(BaseModel):
 
 class MonitoringConfig(BaseModel):
     """Monitoring configuration"""
+
     enable_prometheus: bool = Field(True, description="Enable Prometheus")
     enable_sentry: bool = Field(False, description="Enable Sentry")
-    sentry_dsn: Optional[str] = Field(None, description="Sentry DSN")
+    sentry_dsn: str | None = Field(None, description="Sentry DSN")
     log_level: str = Field("INFO", description="Log level")
 
 
@@ -82,7 +88,7 @@ class AdvancedSettings(BaseSettings):
     @classmethod
     def from_files(cls, *file_paths: Path) -> "AdvancedSettings":
         """Load settings from multiple files"""
-        config_dict: Dict[str, Any] = {}
+        config_dict: dict[str, Any] = {}
 
         for file_path in file_paths:
             if not file_path.exists():
@@ -95,7 +101,9 @@ class AdvancedSettings(BaseSettings):
                 elif file_path.suffix == ".json":
                     file_config = json.load(f)
                 else:
-                    logger.warning(f"Unsupported config file format: {file_path.suffix}")
+                    logger.warning(
+                        f"Unsupported config file format: {file_path.suffix}"
+                    )
                     continue
 
                 # Merge configs (later files override earlier ones)
@@ -108,7 +116,7 @@ class AdvancedSettings(BaseSettings):
         return cls(**config_dict)
 
     @classmethod
-    def _load_from_env(cls) -> Dict[str, Any]:
+    def _load_from_env(cls) -> dict[str, Any]:
         """Load configuration from environment variables"""
         config = {}
 
@@ -134,8 +142,11 @@ class AdvancedSettings(BaseSettings):
             "jwt_secret": os.getenv("JWT_SECRET", ""),
             "jwt_algorithm": os.getenv("JWT_ALGORITHM", "HS256"),
             "jwt_expiration_minutes": int(os.getenv("JWT_EXPIRATION_MINUTES", "15")),
-            "cors_origins": os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [],
-            "enable_csrf": os.getenv("ENABLE_CSRF_PROTECTION", "false").lower() == "true",
+            "cors_origins": os.getenv("CORS_ORIGINS", "").split(",")
+            if os.getenv("CORS_ORIGINS")
+            else [],
+            "enable_csrf": os.getenv("ENABLE_CSRF_PROTECTION", "false").lower()
+            == "true",
         }
 
         # Performance
@@ -143,12 +154,14 @@ class AdvancedSettings(BaseSettings):
             "workers": int(os.getenv("PERF_WORKERS", "4")),
             "max_connections": int(os.getenv("PERF_MAX_CONNECTIONS", "1000")),
             "cache_ttl": int(os.getenv("PERF_CACHE_TTL", "300")),
-            "enable_compression": os.getenv("ENABLE_COMPRESSION", "true").lower() == "true",
+            "enable_compression": os.getenv("ENABLE_COMPRESSION", "true").lower()
+            == "true",
         }
 
         # Monitoring
         config["monitoring"] = {
-            "enable_prometheus": os.getenv("ENABLE_PROMETHEUS", "true").lower() == "true",
+            "enable_prometheus": os.getenv("ENABLE_PROMETHEUS", "true").lower()
+            == "true",
             "enable_sentry": os.getenv("ENABLE_SENTRY", "false").lower() == "true",
             "sentry_dsn": os.getenv("SENTRY_DSN"),
             "log_level": os.getenv("LOG_LEVEL", "INFO"),
@@ -156,7 +169,7 @@ class AdvancedSettings(BaseSettings):
 
         return config
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate configuration and return list of errors"""
         errors = []
 
@@ -174,7 +187,7 @@ class AdvancedSettings(BaseSettings):
 
         return errors
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert settings to dictionary"""
         return {
             "database": self.database.dict(),
@@ -186,7 +199,7 @@ class AdvancedSettings(BaseSettings):
 
 
 # Global settings instance
-_settings: Optional[AdvancedSettings] = None
+_settings: AdvancedSettings | None = None
 
 
 def get_settings() -> AdvancedSettings:
@@ -204,7 +217,9 @@ def get_settings() -> AdvancedSettings:
         try:
             _settings = AdvancedSettings.from_files(*config_paths)
         except Exception as e:
-            logger.warning(f"Failed to load config files: {e}, using environment variables")
+            logger.warning(
+                f"Failed to load config files: {e}, using environment variables"
+            )
             _settings = AdvancedSettings.from_files()
 
         # Validate
@@ -213,4 +228,3 @@ def get_settings() -> AdvancedSettings:
             logger.error(f"Configuration validation errors: {errors}")
 
     return _settings
-

@@ -3,15 +3,17 @@ Trading Mode Routes
 Manages trading mode (paper vs real money) requirements and validation
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from typing import Annotated
-import logging
+
+from ..config.settings import get_settings
 
 # Exchange key service removed - using blockchain wallets instead
 from ..dependencies.auth import get_current_user
-from ..config.settings import get_settings
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -48,16 +50,11 @@ async def check_real_money_requirements(
         # Users need wallets configured for DEX trading
         has_wallet = False
         try:
-            from ...repositories.wallet_repository import WalletRepository
-            from ...database import get_db_session
-            from sqlalchemy.ext.asyncio import AsyncSession
-            from typing import Annotated
-            from fastapi import Depends
-
             # Note: This route doesn't have db dependency, so we need to get it manually
             # This is a temporary workaround - ideally this should be refactored to use DI
             # For now, use get_db_context as it's designed for manual session management
             from ...database import get_db_context
+            from ...repositories.wallet_repository import WalletRepository
 
             user_id_int = (
                 int(user_id)
@@ -81,9 +78,10 @@ async def check_real_money_requirements(
         has_2fa = False
         has_verified_email = False
         try:
+            from sqlalchemy import select
+
             from ...database import get_db_context
             from ...models.base import User
-            from sqlalchemy import select
 
             # Convert user_id to int
             user_id_int = (
@@ -121,9 +119,10 @@ async def check_real_money_requirements(
         # Check for accepted terms from database
         has_accepted_terms = True  # Default to True
         try:
+            from sqlalchemy import select
+
             from ...database import get_db_context
             from ...models.user import User
-            from sqlalchemy import select
 
             user_id_int = (
                 int(user_id)

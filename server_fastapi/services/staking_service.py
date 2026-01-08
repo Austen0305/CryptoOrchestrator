@@ -4,17 +4,18 @@ Handles staking rewards for supported cryptocurrencies.
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..repositories.wallet_balance_repository import WalletBalanceRepository
     from ..repositories.transaction_repository import TransactionRepository
+    from ..repositories.wallet_balance_repository import WalletBalanceRepository
 from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.wallet import TransactionType, TransactionStatus
-from ..repositories.wallet_balance_repository import WalletBalanceRepository
+from ..models.wallet import TransactionStatus, TransactionType
 from ..repositories.transaction_repository import TransactionRepository
+from ..repositories.wallet_balance_repository import WalletBalanceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class StakingService:
     def __init__(
         self,
         db: AsyncSession,
-        wallet_repository: Optional[WalletBalanceRepository] = None,
-        transaction_repository: Optional[TransactionRepository] = None,
+        wallet_repository: WalletBalanceRepository | None = None,
+        transaction_repository: TransactionRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.wallet_repository = wallet_repository or WalletBalanceRepository()
@@ -43,7 +44,7 @@ class StakingService:
         "ATOM": {"apy": 18.0, "min_amount": 1.0, "lock_period_days": 0},
     }
 
-    async def get_staking_options(self) -> List[Dict]:
+    async def get_staking_options(self) -> list[dict]:
         """Get available staking options"""
         return [
             {
@@ -56,7 +57,7 @@ class StakingService:
             for asset, info in self.STAKING_ASSETS.items()
         ]
 
-    async def stake_assets(self, user_id: int, asset: str, amount: float) -> Dict:
+    async def stake_assets(self, user_id: int, asset: str, amount: float) -> dict:
         """
         Stake assets to earn rewards.
 
@@ -154,7 +155,7 @@ class StakingService:
             await self.db.rollback()
             raise
 
-    async def unstake_assets(self, user_id: int, asset: str, amount: float) -> Dict:
+    async def unstake_assets(self, user_id: int, asset: str, amount: float) -> dict:
         """Unstake assets"""
         try:
             # ✅ Data access delegated to repository
@@ -229,7 +230,7 @@ class StakingService:
             await self.db.rollback()
             raise
 
-    async def calculate_staking_rewards(self, user_id: int, asset: str) -> Dict:
+    async def calculate_staking_rewards(self, user_id: int, asset: str) -> dict:
         """Calculate staking rewards for a user"""
         try:
             # ✅ Data access delegated to repository

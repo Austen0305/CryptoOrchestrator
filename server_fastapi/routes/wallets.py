@@ -4,23 +4,22 @@ API endpoints for managing user blockchain wallets
 """
 
 import logging
-from typing import Optional, List, Dict, Any
-from typing_extensions import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.wallet_service import WalletService
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..models.user_wallet import UserWallet
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..models.user_wallet import UserWallet
+from ..services.wallet_service import WalletService
 from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 from ..utils.validation_2026 import (
-    validate_ethereum_address,
     ValidationError,
+    validate_ethereum_address,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,7 +32,7 @@ class CreateCustodialWalletRequest(BaseModel):
     chain_id: int = Field(
         ..., description="Blockchain ID (1=Ethereum, 8453=Base, etc.)"
     )
-    label: Optional[str] = Field(None, description="Optional user-friendly label")
+    label: str | None = Field(None, description="Optional user-friendly label")
 
     model_config = {
         "json_schema_extra": {"example": {"chain_id": 1, "label": "My Ethereum Wallet"}}
@@ -43,7 +42,9 @@ class CreateCustodialWalletRequest(BaseModel):
 class RegisterExternalWalletRequest(BaseModel):
     wallet_address: str = Field(..., description="User's wallet address (checksummed)")
     chain_id: int = Field(..., ge=1, description="Blockchain ID (must be >= 1)")
-    label: Optional[str] = Field(None, max_length=100, description="Optional user-friendly label")
+    label: str | None = Field(
+        None, max_length=100, description="Optional user-friendly label"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -61,11 +62,11 @@ class WalletResponse(BaseModel):
     address: str
     chain_id: int
     wallet_type: str
-    label: Optional[str]
+    label: str | None
     is_verified: bool
     is_active: bool
-    balance: Optional[dict] = None
-    last_balance_update: Optional[str] = None
+    balance: dict | None = None
+    last_balance_update: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -153,7 +154,9 @@ async def register_external_wallet(
         try:
             validated_address = validate_ethereum_address(request.wallet_address)
         except ValueError as e:
-            raise ValidationError(f"Invalid wallet address: {e}", field="wallet_address")
+            raise ValidationError(
+                f"Invalid wallet address: {e}", field="wallet_address"
+            )
 
         user_id = _get_user_id(current_user)
         wallet_info = await service.register_external_wallet(
@@ -192,20 +195,20 @@ async def register_external_wallet(
         )
 
 
-@router.get("/", response_model=List[WalletResponse], tags=["Wallets"])
+@router.get("/", response_model=list[WalletResponse], tags=["Wallets"])
 @cached(ttl=120, prefix="wallets")  # 120s TTL for wallet lists
 async def get_user_wallets(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[WalletResponse]:
+) -> list[WalletResponse]:
     """
     Get all wallets for the current user with pagination
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
 
         # Build query
         query = select(UserWallet).where(UserWallet.user_id == user_id)
@@ -298,7 +301,7 @@ async def get_deposit_address(
 class WalletBalanceResponse(BaseModel):
     balance: str
     token: str
-    token_address: Optional[str] = None
+    token_address: str | None = None
     chain_id: int
     last_updated: str
 
@@ -322,7 +325,7 @@ async def get_wallet_balance(
     wallet_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    token_address: Optional[str] = None,
+    token_address: str | None = None,
 ) -> WalletBalanceResponse:
     """
     Get wallet balance (ETH or ERC-20 token)
@@ -332,7 +335,6 @@ async def get_wallet_balance(
         token_address: Optional token contract address (None for ETH)
     """
     try:
-        from ..repositories.wallet_repository import WalletRepository
         from sqlalchemy import select
 
         # Find wallet by ID and verify ownership
@@ -383,10 +385,10 @@ class WithdrawalRequest(BaseModel):
     amount: str = Field(
         ..., description="Amount to withdraw (as string to preserve precision)"
     )
-    token_address: Optional[str] = Field(
+    token_address: str | None = Field(
         None, description="Token contract address (None for ETH)"
     )
-    mfa_token: Optional[str] = Field(
+    mfa_token: str | None = Field(
         None, description="2FA token for withdrawal confirmation"
     )
 
@@ -408,8 +410,8 @@ class WithdrawalResponse(BaseModel):
     wallet_id: int
     to_address: str
     amount: str
-    token_address: Optional[str] = None
-    transaction_hash: Optional[str] = None
+    token_address: str | None = None
+    transaction_hash: str | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -443,9 +445,9 @@ async def process_withdrawal(
     Enforces IP whitelisting if enabled for the user.
     """
     try:
-        from ..repositories.wallet_repository import WalletRepository
         from decimal import Decimal
-        from fastapi import Request
+
+        from ..repositories.wallet_repository import WalletRepository
         from ..services.security.ip_whitelist_service import ip_whitelist_service
 
         user_id = _get_user_id(current_user)
@@ -557,11 +559,11 @@ class TransactionResponse(BaseModel):
     from_address: str
     to_address: str
     amount: str
-    token_address: Optional[str] = None
+    token_address: str | None = None
     chain_id: int
     status: str
-    block_number: Optional[int] = None
-    timestamp: Optional[str] = None
+    block_number: int | None = None
+    timestamp: str | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -582,7 +584,7 @@ class TransactionResponse(BaseModel):
 
 @router.get(
     "/{wallet_id}/transactions",
-    response_model=List[TransactionResponse],
+    response_model=list[TransactionResponse],
     tags=["Wallets"],
 )
 @cached(ttl=60, prefix="wallet_transactions")  # 60s TTL for transaction lists
@@ -592,7 +594,7 @@ async def get_wallet_transactions(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[TransactionResponse]:
+) -> list[TransactionResponse]:
     """
     Get transaction history for a wallet with pagination
 
@@ -643,7 +645,7 @@ async def get_wallet_transactions(
 async def refresh_wallet_balances(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Refresh balances for all user wallets
 

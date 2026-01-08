@@ -3,10 +3,8 @@ Authentication utility functions.
 Centralizes common authentication-related operations.
 """
 
-from typing import Optional
 
-
-def get_user_id_from_payload(payload: dict) -> Optional[str]:
+def get_user_id_from_payload(payload: dict) -> str | None:
     """
     Extract user ID from JWT payload, supporting both 'id' and 'sub' keys.
 

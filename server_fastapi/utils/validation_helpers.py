@@ -3,11 +3,10 @@ Validation Helpers
 Common validation utilities for routes and services
 """
 
-import re
 import logging
-from typing import Optional, List, Any
+import re
+
 from fastapi import HTTPException, status
-from pydantic import BaseModel, validator
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 class ValidationError(HTTPException):
     """Custom validation error"""
 
-    def __init__(self, message: str, field: Optional[str] = None):
+    def __init__(self, message: str, field: str | None = None):
         super().__init__(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "validation_error", "message": message, "field": field},
@@ -45,7 +44,9 @@ def validate_ethereum_address(address: str) -> str:
     return address
 
 
-def validate_amount(amount: float, min_amount: Optional[float] = None, max_amount: Optional[float] = None) -> float:
+def validate_amount(
+    amount: float, min_amount: float | None = None, max_amount: float | None = None
+) -> float:
     """
     Validate amount value.
 
@@ -101,7 +102,7 @@ def validate_symbol(symbol: str) -> str:
     return symbol.upper()
 
 
-def sanitize_input(input_str: str, max_length: Optional[int] = None) -> str:
+def sanitize_input(input_str: str, max_length: int | None = None) -> str:
     """
     Sanitize user input string.
 
@@ -127,7 +128,9 @@ def sanitize_input(input_str: str, max_length: Optional[int] = None) -> str:
     return sanitized
 
 
-def validate_pagination(page: int, page_size: int, max_page_size: int = 100) -> tuple[int, int]:
+def validate_pagination(
+    page: int, page_size: int, max_page_size: int = 100
+) -> tuple[int, int]:
     """
     Validate pagination parameters.
 
@@ -200,4 +203,3 @@ def validate_url(url: str) -> str:
         raise ValidationError("Invalid URL format", "url")
 
     return url.strip()
-

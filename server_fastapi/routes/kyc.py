@@ -3,13 +3,14 @@ KYC Routes
 API endpoints for KYC verification.
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Annotated
-import logging
 
-from ..services.kyc_service import kyc_service, KYCStatus
 from ..dependencies.auth import get_current_user, require_permission
+from ..services.kyc_service import KYCStatus, kyc_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ class KYCSubmissionRequest(BaseModel):
 class KYCStatusUpdateRequest(BaseModel):
     user_id: int
     status: str
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 @router.post("/submit")

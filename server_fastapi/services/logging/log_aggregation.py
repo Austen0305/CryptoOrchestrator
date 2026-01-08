@@ -6,10 +6,10 @@ Supports multiple output formats and transport mechanisms.
 
 import json
 import logging
-from typing import Dict, Any, Optional, List
+import os
 from datetime import datetime
 from pathlib import Path
-import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class LogAggregator:
         self,
         aggregation_enabled: bool = False,
         aggregation_type: str = "file",  # "file", "stdout", "http", "kafka"
-        aggregation_endpoint: Optional[str] = None,
+        aggregation_endpoint: str | None = None,
     ):
         """
         Initialize log aggregator
@@ -38,12 +38,12 @@ class LogAggregator:
         self.aggregation_endpoint = aggregation_endpoint
 
         # Buffer for batch aggregation
-        self.log_buffer: List[Dict[str, Any]] = []
+        self.log_buffer: list[dict[str, Any]] = []
         self.buffer_size = int(os.getenv("LOG_AGGREGATION_BUFFER_SIZE", "100"))
         self.buffer_timeout = float(os.getenv("LOG_AGGREGATION_BUFFER_TIMEOUT", "5.0"))
 
     def aggregate_log(
-        self, log_entry: Dict[str, Any], flush_immediately: bool = False
+        self, log_entry: dict[str, Any], flush_immediately: bool = False
     ) -> bool:
         """
         Aggregate a log entry for centralized logging
@@ -75,7 +75,7 @@ class LogAggregator:
             logger.error(f"Error aggregating log: {e}", exc_info=True)
             return False
 
-    def _enrich_log_entry(self, log_entry: Dict[str, Any]) -> Dict[str, Any]:
+    def _enrich_log_entry(self, log_entry: dict[str, Any]) -> dict[str, Any]:
         """Enrich log entry with aggregation metadata"""
         enriched = log_entry.copy()
 

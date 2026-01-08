@@ -1,9 +1,10 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
 import logging
-from datetime import datetime, timedelta
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class AnalyticsEngine:
     def __init__(self, storage=None):
         self.storage = storage
 
-    async def analyze(self, params: Dict[str, Any], db_session=None) -> Dict[str, Any]:
+    async def analyze(self, params: dict[str, Any], db_session=None) -> dict[str, Any]:
         """Analyze data based on type and parameters"""
         analysis_type = params.get("type")
         user_id = params.get("user_id")
@@ -61,13 +62,13 @@ class AnalyticsEngine:
         else:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
-    async def _analyze_dashboard(self, user_id: int, db_session=None) -> Dict[str, Any]:
+    async def _analyze_dashboard(self, user_id: int, db_session=None) -> dict[str, Any]:
         """Analyze dashboard data for summary view using real database data"""
         try:
-            from sqlalchemy import select, func
-            from sqlalchemy.ext.asyncio import AsyncSession
-            from ..models.trade import Trade
+            from sqlalchemy import func, select
+
             from ..models.bot import Bot
+            from ..models.trade import Trade
 
             if not db_session:
                 from ..database import get_db_context
@@ -282,7 +283,7 @@ class AnalyticsEngine:
 
         return metrics
 
-    def _filter_trades_by_period(self, trades: List[Trade], period: str) -> List[Trade]:
+    def _filter_trades_by_period(self, trades: list[Trade], period: str) -> list[Trade]:
         now = datetime.now().timestamp() * 1000
         start_time = 0
 
@@ -301,7 +302,7 @@ class AnalyticsEngine:
 
         return [trade for trade in trades if trade.timestamp >= start_time]
 
-    def _calculate_total_return(self, trades: List[Trade]) -> float:
+    def _calculate_total_return(self, trades: list[Trade]) -> float:
         initial_investment = 100000  # Assume starting balance
         current_balance = initial_investment
 
@@ -313,7 +314,7 @@ class AnalyticsEngine:
 
         return (current_balance - initial_investment) / initial_investment
 
-    def _calculate_sharpe_ratio(self, trades: List[Trade]) -> float:
+    def _calculate_sharpe_ratio(self, trades: list[Trade]) -> float:
         if len(trades) < 2:
             return 0
 
@@ -337,7 +338,7 @@ class AnalyticsEngine:
 
         return (avg_return - risk_free_rate) / std_dev * math.sqrt(365)  # Annualized
 
-    def _calculate_max_drawdown(self, trades: List[Trade]) -> float:
+    def _calculate_max_drawdown(self, trades: list[Trade]) -> float:
         if not trades:
             return 0
 
@@ -354,7 +355,7 @@ class AnalyticsEngine:
 
         return max_drawdown
 
-    def _calculate_win_rate(self, trades: List[Trade]) -> float:
+    def _calculate_win_rate(self, trades: list[Trade]) -> float:
         if not trades:
             return 0
 
@@ -364,7 +365,7 @@ class AnalyticsEngine:
 
         return len(winning_trades) / len(trades)
 
-    def _calculate_average_win(self, trades: List[Trade]) -> float:
+    def _calculate_average_win(self, trades: list[Trade]) -> float:
         winning_trades = [
             trade for trade in trades if trade.side == "sell" and trade.total > 0
         ]
@@ -375,7 +376,7 @@ class AnalyticsEngine:
         total_wins = sum(trade.total for trade in winning_trades)
         return total_wins / len(winning_trades)
 
-    def _calculate_average_loss(self, trades: List[Trade]) -> float:
+    def _calculate_average_loss(self, trades: list[Trade]) -> float:
         losing_trades = [
             trade for trade in trades if trade.side == "sell" and trade.total < 0
         ]
@@ -386,7 +387,7 @@ class AnalyticsEngine:
         total_losses = sum(abs(trade.total) for trade in losing_trades)
         return total_losses / len(losing_trades)
 
-    def _calculate_profit_factor(self, trades: List[Trade]) -> float:
+    def _calculate_profit_factor(self, trades: list[Trade]) -> float:
         gross_profit = sum(
             trade.total for trade in trades if trade.side == "sell" and trade.total > 0
         )
@@ -406,7 +407,7 @@ class AnalyticsEngine:
         else:
             return 0
 
-    def _calculate_daily_returns(self, trades: List[Trade]) -> List[float]:
+    def _calculate_daily_returns(self, trades: list[Trade]) -> list[float]:
         daily_pnl = {}
         initial_balance = 100000
 
@@ -425,7 +426,7 @@ class AnalyticsEngine:
 
         return daily_returns
 
-    def _calculate_equity_curve(self, trades: List[Trade]) -> List[float]:
+    def _calculate_equity_curve(self, trades: list[Trade]) -> list[float]:
         initial_balance = 100000
         balance = initial_balance
         equity = [balance]
@@ -443,8 +444,8 @@ class AnalyticsEngine:
         return equity
 
     async def get_performance_comparison(
-        self, bot_ids: List[str], period: str = "30d"
-    ) -> Dict[str, PerformanceMetrics]:
+        self, bot_ids: list[str], period: str = "30d"
+    ) -> dict[str, PerformanceMetrics]:
         comparisons = {}
 
         for bot_id in bot_ids:
@@ -481,11 +482,11 @@ Total Trades: {metrics.totalTrades}
     # Database methods - use real database queries
     async def _get_trades(
         self, bot_id: str, user_id: int = None, db_session=None
-    ) -> List[Trade]:
+    ) -> list[Trade]:
         """Get trades from database"""
         try:
             from sqlalchemy import select
-            from sqlalchemy.ext.asyncio import AsyncSession
+
             from ..models.trade import Trade as TradeModel
 
             if not db_session:
@@ -525,10 +526,11 @@ Total Trades: {metrics.totalTrades}
             logger.error(f"Error getting trades for bot {bot_id}: {e}", exc_info=True)
             return []
 
-    async def _get_bot(self, bot_id: str, db_session=None) -> Optional[BotConfig]:
+    async def _get_bot(self, bot_id: str, db_session=None) -> BotConfig | None:
         """Get bot from database"""
         try:
             from sqlalchemy import select
+
             from ..models.bot import Bot
 
             if not db_session:
@@ -553,7 +555,7 @@ Total Trades: {metrics.totalTrades}
         # Could store in bot.performance_data JSON field
         pass
 
-    async def _analyze_summary(self, user_id: int, db_session=None) -> Dict[str, Any]:
+    async def _analyze_summary(self, user_id: int, db_session=None) -> dict[str, Any]:
         """Analyze summary data"""
         # Use dashboard analysis for summary
         dashboard = await self._analyze_dashboard(user_id, db_session)
@@ -561,7 +563,7 @@ Total Trades: {metrics.totalTrades}
 
     async def _analyze_performance(
         self, user_id: int, bot_id: str, period: str, db_session=None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Analyze performance for a specific bot"""
         metrics = await self.calculate_performance_metrics(bot_id, period, db_session)
         return {
@@ -571,12 +573,14 @@ Total Trades: {metrics.totalTrades}
         }
 
     async def _analyze_pnl_chart(
-        self, user_id: int, bot_id: Optional[str], period: str, db_session=None
-    ) -> Dict[str, Any]:
+        self, user_id: int, bot_id: str | None, period: str, db_session=None
+    ) -> dict[str, Any]:
         """Analyze PnL chart data"""
         try:
-            from sqlalchemy import select, func
             from datetime import datetime, timedelta
+
+            from sqlalchemy import select
+
             from ..models.trade import Trade
 
             if not db_session:

@@ -4,10 +4,10 @@ Tracks all wallet transactions, success rates, latency, and suspicious patterns
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
 from collections import defaultdict
+from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ class TransactionMonitor:
 
     def __init__(self):
         # In-memory storage (would use Redis/database in production)
-        self._transactions: Dict[str, Dict[str, Any]] = {}
-        self._transaction_stats: Dict[str, Dict[str, Any]] = defaultdict(
+        self._transactions: dict[str, dict[str, Any]] = {}
+        self._transaction_stats: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "total": 0,
                 "successful": 0,
@@ -30,7 +30,7 @@ class TransactionMonitor:
                 "latencies": [],
             }
         )
-        self._suspicious_patterns: List[Dict[str, Any]] = []
+        self._suspicious_patterns: list[dict[str, Any]] = []
 
     async def track_transaction(
         self,
@@ -38,14 +38,14 @@ class TransactionMonitor:
         chain_id: int,
         transaction_type: str,  # 'deposit', 'withdrawal', 'swap'
         user_id: int,
-        amount: Optional[Decimal] = None,
-        token_address: Optional[str] = None,
-        from_address: Optional[str] = None,
-        to_address: Optional[str] = None,
+        amount: Decimal | None = None,
+        token_address: str | None = None,
+        from_address: str | None = None,
+        to_address: str | None = None,
         status: str = "pending",  # 'pending', 'confirmed', 'failed'
-        gas_used: Optional[int] = None,
-        block_number: Optional[int] = None,
-        timestamp: Optional[datetime] = None,
+        gas_used: int | None = None,
+        block_number: int | None = None,
+        timestamp: datetime | None = None,
     ) -> None:
         """
         Track a transaction for monitoring
@@ -128,9 +128,9 @@ class TransactionMonitor:
         self,
         transaction_hash: str,
         status: str,
-        gas_used: Optional[int] = None,
-        block_number: Optional[int] = None,
-        latency_seconds: Optional[float] = None,
+        gas_used: int | None = None,
+        block_number: int | None = None,
+        latency_seconds: float | None = None,
     ) -> None:
         """
         Update transaction status and calculate latency
@@ -210,11 +210,11 @@ class TransactionMonitor:
 
     async def get_transaction_stats(
         self,
-        chain_id: Optional[int] = None,
-        transaction_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        chain_id: int | None = None,
+        transaction_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Get transaction statistics
 
@@ -295,9 +295,9 @@ class TransactionMonitor:
 
     async def detect_suspicious_patterns(
         self,
-        user_id: Optional[int] = None,
-        chain_id: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        user_id: int | None = None,
+        chain_id: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Detect suspicious transaction patterns
 
@@ -319,7 +319,7 @@ class TransactionMonitor:
                 filtered = [t for t in filtered if t["chain_id"] == chain_id]
 
             # Pattern 1: Unusual frequency (many transactions in short time)
-            user_tx_counts: Dict[int, int] = defaultdict(int)
+            user_tx_counts: dict[int, int] = defaultdict(int)
             for tx in filtered:
                 if tx["timestamp"] > datetime.utcnow() - timedelta(hours=1):
                     user_tx_counts[tx["user_id"]] += 1
@@ -370,7 +370,7 @@ class TransactionMonitor:
                         )
 
             # Pattern 3: Failed transactions pattern
-            user_failures: Dict[int, int] = defaultdict(int)
+            user_failures: dict[int, int] = defaultdict(int)
             for tx in filtered:
                 if tx["status"] == "failed" and tx[
                     "timestamp"
@@ -402,8 +402,8 @@ class TransactionMonitor:
         self,
         start_date: datetime,
         end_date: datetime,
-        chain_id: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        chain_id: int | None = None,
+    ) -> dict[str, Any]:
         """
         Generate transaction monitoring report
 

@@ -3,10 +3,11 @@ Subscription model for Stripe billing
 """
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer
-from sqlalchemy.orm import relationship, Mapped, mapped_column
-from .base import BaseModel, Base
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import BaseModel
 
 
 class Subscription(BaseModel):
@@ -21,13 +22,13 @@ class Subscription(BaseModel):
     )
 
     # Stripe fields
-    stripe_customer_id: Mapped[Optional[str]] = mapped_column(
+    stripe_customer_id: Mapped[str | None] = mapped_column(
         String(255), nullable=True, unique=True, index=True
     )
-    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(
+    stripe_subscription_id: Mapped[str | None] = mapped_column(
         String(255), nullable=True, unique=True, index=True
     )
-    stripe_price_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    stripe_price_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Subscription details
     plan: Mapped[str] = mapped_column(
@@ -38,19 +39,17 @@ class Subscription(BaseModel):
     )  # active, canceled, past_due, trialing, incomplete
 
     # Billing period
-    current_period_start: Mapped[Optional[datetime]] = mapped_column(
+    current_period_start: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
-    current_period_end: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
+    current_period_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     cancel_at_period_end: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
 
     # Trial
-    trial_start: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    trial_end: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    trial_start: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    trial_end: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationship
     user: Mapped["User"] = relationship("User", back_populates="subscription")

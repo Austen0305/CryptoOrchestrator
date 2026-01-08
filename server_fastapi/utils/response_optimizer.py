@@ -5,10 +5,10 @@ Helper functions for optimizing API responses
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from fastapi import Response
 from fastapi.responses import StreamingResponse
-import io
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ class ResponseOptimizer:
 
     @staticmethod
     def paginate_response(
-        data: List[Any], page: int, page_size: int, total: Optional[int] = None
-    ) -> Dict[str, Any]:
+        data: list[Any], page: int, page_size: int, total: int | None = None
+    ) -> dict[str, Any]:
         """
         Create a paginated response with metadata.
 
@@ -50,7 +50,7 @@ class ResponseOptimizer:
         }
 
     @staticmethod
-    def filter_null_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+    def filter_null_fields(data: dict[str, Any]) -> dict[str, Any]:
         """
         Remove null/None fields from response to reduce payload size.
 
@@ -72,8 +72,8 @@ class ResponseOptimizer:
 
     @staticmethod
     def select_fields(
-        data: Dict[str, Any] | List[Dict[str, Any]], fields: List[str]
-    ) -> Dict[str, Any] | List[Dict[str, Any]]:
+        data: dict[str, Any] | list[dict[str, Any]], fields: list[str]
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Select only specified fields from response (sparse fieldsets).
 
@@ -92,7 +92,7 @@ class ResponseOptimizer:
 
     @staticmethod
     def stream_large_response(
-        data: List[Any], chunk_size: int = 1000
+        data: list[Any], chunk_size: int = 1000
     ) -> StreamingResponse:
         """
         Stream large responses in chunks to reduce memory usage.

@@ -4,7 +4,8 @@ Calculates volume profile and market profile for charting terminal.
 """
 
 import logging
-from typing import List, Dict, Any, Tuple
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -16,9 +17,9 @@ class VolumeProfileService:
 
     def calculate_volume_profile(
         self,
-        market_data: List[Dict[str, Any]],
+        market_data: list[dict[str, Any]],
         bins: int = 24,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate volume profile (Volume at Price / VAP).
 
@@ -56,9 +57,7 @@ class VolumeProfileService:
             bin_center = (bin_low + bin_high) / 2
 
             # Find candles that overlap with this price bin
-            overlapping = df[
-                (df["low"] <= bin_high) & (df["high"] >= bin_low)
-            ]
+            overlapping = df[(df["low"] <= bin_high) & (df["high"] >= bin_low)]
 
             if len(overlapping) > 0:
                 # Calculate volume contribution for this bin
@@ -76,12 +75,14 @@ class VolumeProfileService:
                         proportion = overlap_range / candle_range
                         bin_volume += candle.get("volume", 0) * proportion
 
-                volume_profile.append({
-                    "price": bin_center,
-                    "volume": bin_volume,
-                    "low": bin_low,
-                    "high": bin_high,
-                })
+                volume_profile.append(
+                    {
+                        "price": bin_center,
+                        "volume": bin_volume,
+                        "low": bin_low,
+                        "high": bin_high,
+                    }
+                )
                 total_volume += bin_volume
 
         # Sort by price
@@ -100,9 +101,9 @@ class VolumeProfileService:
 
     def calculate_market_profile(
         self,
-        market_data: List[Dict[str, Any]],
+        market_data: list[dict[str, Any]],
         tpo_size: float = 0.25,  # Time Price Opportunity size (percentage)
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Calculate Market Profile (TPO - Time Price Opportunity).
 
@@ -174,8 +175,8 @@ class VolumeProfileService:
 
     def calculate_poc_and_value_areas(
         self,
-        market_data: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        market_data: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         Calculate POC (Point of Control) and Value Areas (VAH, VAL).
 

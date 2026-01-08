@@ -4,12 +4,13 @@ Provides health check endpoints for middleware components
 """
 
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
+
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from .performance_metrics import performance_monitor
 from .config import middleware_manager
+from .performance_metrics import performance_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +18,10 @@ router = APIRouter()
 
 
 @router.get("/health/middleware")
-async def middleware_health_check(request: Request) -> Dict[str, Any]:
+async def middleware_health_check(request: Request) -> dict[str, Any]:
     """
     Health check endpoint for middleware components
-    
+
     Returns:
         Dictionary with middleware health status
     """
@@ -30,23 +31,24 @@ async def middleware_health_check(request: Request) -> Dict[str, Any]:
         "middleware": {},
         "performance": {},
     }
-    
+
     try:
         from datetime import datetime
+
         health_status["timestamp"] = datetime.utcnow().isoformat() + "Z"
-        
+
         # Check middleware configuration
         enabled_middlewares = middleware_manager.get_enabled_middlewares()
         health_status["middleware"] = {
             "total_enabled": len(enabled_middlewares),
             "middlewares": [mw.name for mw in enabled_middlewares],
         }
-        
+
         # Get performance metrics
         try:
             perf_stats = performance_monitor.get_all_stats()
             health_status["performance"] = perf_stats
-            
+
             # Check for slow middleware
             slow_middleware = performance_monitor.get_slow_middleware(threshold_ms=100)
             if slow_middleware:
@@ -57,41 +59,43 @@ async def middleware_health_check(request: Request) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Failed to get performance metrics: {e}")
             health_status["performance"] = {"error": str(e)}
-        
+
     except Exception as e:
         logger.error(f"Middleware health check failed: {e}", exc_info=True)
         health_status["status"] = "unhealthy"
         health_status["error"] = str(e)
-    
+
     status_code = 200 if health_status["status"] == "healthy" else 503
     return JSONResponse(content=health_status, status_code=status_code)
 
 
 @router.get("/health/middleware/performance")
-async def middleware_performance_check() -> Dict[str, Any]:
+async def middleware_performance_check() -> dict[str, Any]:
     """
     Get middleware performance metrics
-    
+
     Returns:
         Dictionary with performance statistics
     """
     try:
         all_stats = performance_monitor.get_all_stats()
         slow_middleware = performance_monitor.get_slow_middleware(threshold_ms=100)
-        
+
         # Get cache stats if available
         cache_stats = {}
         try:
             from .optimized_caching import OptimizedCacheMiddleware
+
             # This would need to be accessed from app state in real implementation
             cache_stats = {"note": "Cache stats available via middleware instance"}
         except ImportError:
             pass
-        
+
         # Get profiler stats if available
         profiler_stats = {}
         try:
             from ..utils.performance_profiler import get_profiler
+
             profiler = get_profiler()
             profiler_stats = {
                 "slow_functions": [
@@ -105,7 +109,7 @@ async def middleware_performance_check() -> Dict[str, Any]:
             }
         except Exception:
             pass
-        
+
         return {
             "status": "ok",
             "statistics": all_stats,
@@ -119,4 +123,3 @@ async def middleware_performance_check() -> Dict[str, Any]:
             content={"status": "error", "error": str(e)},
             status_code=500,
         )
-

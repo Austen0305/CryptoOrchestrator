@@ -3,14 +3,15 @@ Crypto Transfer Routes
 Handle crypto transfers from external platforms and withdrawals
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Annotated
-import logging
 
-from ..services.crypto_transfer_service import CryptoTransferService
-from ..dependencies.crypto_transfer import get_crypto_transfer_service
 from ..dependencies.auth import get_current_user
+from ..dependencies.crypto_transfer import get_crypto_transfer_service
+from ..services.crypto_transfer_service import CryptoTransferService
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -24,9 +25,9 @@ class InitiateTransferRequest(BaseModel):
     currency: str
     amount: float
     source_platform: str  # 'binance', 'coinbase', 'kraken', 'external_wallet'
-    source_address: Optional[str] = None
-    network: Optional[str] = None  # 'ERC20', 'TRC20', 'BEP20', etc.
-    memo: Optional[str] = None
+    source_address: str | None = None
+    network: str | None = None  # 'ERC20', 'TRC20', 'BEP20', etc.
+    memo: str | None = None
 
 
 class ConfirmTransferRequest(BaseModel):
@@ -43,8 +44,8 @@ class WithdrawCryptoRequest(BaseModel):
     currency: str
     amount: float
     destination_address: str
-    network: Optional[str] = None
-    memo: Optional[str] = None
+    network: str | None = None
+    memo: str | None = None
 
 
 @router.post("/initiate")
@@ -52,7 +53,7 @@ async def initiate_crypto_transfer(
     request: InitiateTransferRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
-) -> Dict:
+) -> dict:
     """Initiate a crypto transfer from an external platform"""
     try:
         user_id = _get_user_id(current_user)
@@ -83,10 +84,9 @@ async def confirm_crypto_transfer(
     request: ConfirmTransferRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
-) -> Dict:
+) -> dict:
     """Confirm a crypto transfer after blockchain confirmation"""
     try:
-
         success = await service.confirm_crypto_transfer(
             transaction_id=request.transaction_id,
             tx_hash=request.tx_hash,
@@ -114,7 +114,7 @@ async def withdraw_crypto(
     request: WithdrawCryptoRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
-) -> Dict:
+) -> dict:
     """Withdraw crypto to an external address"""
     try:
         user_id = _get_user_id(current_user)
@@ -142,8 +142,8 @@ async def get_deposit_address(
     currency: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[CryptoTransferService, Depends(get_crypto_transfer_service)],
-    network: Optional[str] = None,
-) -> Dict:
+    network: str | None = None,
+) -> dict:
     """Get deposit address for a cryptocurrency"""
     try:
         user_id = _get_user_id(current_user)

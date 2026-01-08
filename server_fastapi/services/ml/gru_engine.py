@@ -3,18 +3,18 @@ GRU Engine - Gated Recurrent Unit neural network for time-series prediction
 GRU is similar to LSTM but simpler and often faster to train
 """
 
-from typing import List, Dict, Any, Optional, Tuple
-from pydantic import BaseModel
 import logging
-import numpy as np
-from datetime import datetime
 import os
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel
 
 try:
     if os.getenv("DISABLE_TENSORFLOW", "0") == "1":
         raise ImportError("TensorFlow disabled by environment")
     import tensorflow as tf
-    from tensorflow.keras import layers, models, optimizers, callbacks
+    from tensorflow.keras import callbacks, layers, models, optimizers
 
     TENSORFLOW_AVAILABLE = True
 except Exception:
@@ -54,9 +54,9 @@ class MarketData(BaseModel):
 class GRUEngine:
     """GRU neural network engine for time-series prediction"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = GRUConfig(**(config or {}))
-        self.model: Optional[tf.keras.Model] = None
+        self.model: tf.keras.Model | None = None
         self.is_training: bool = False
         self.feature_count: int = 5  # OHLCV
         self.scaler = None  # For feature normalization
@@ -167,8 +167,8 @@ class GRUEngine:
             raise error
 
     def create_sequences(
-        self, data: np.ndarray, labels: Optional[np.ndarray] = None
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        self, data: np.ndarray, labels: np.ndarray | None = None
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Create sequences from time-series data"""
         X, y = [], []
 
@@ -184,8 +184,8 @@ class GRUEngine:
         return X, None
 
     def preprocess_data(
-        self, market_data: List[MarketData]
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        self, market_data: list[MarketData]
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Preprocess market data for GRU input"""
         if not market_data:
             raise ValueError("Market data is empty")
@@ -207,7 +207,7 @@ class GRUEngine:
         X, _ = self.create_sequences(data_array)
         return X, None
 
-    def predict(self, market_data: List[MarketData]) -> Dict[str, Any]:
+    def predict(self, market_data: list[MarketData]) -> dict[str, Any]:
         """Make prediction using GRU model"""
         try:
             X, _ = self.preprocess_data(market_data)
@@ -249,9 +249,9 @@ class GRUEngine:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-    ) -> Dict[str, Any]:
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> dict[str, Any]:
         """Train the GRU model"""
         if not TENSORFLOW_AVAILABLE:
             logger.warning("TensorFlow not available, cannot train GRU model")

@@ -5,16 +5,14 @@ Supports affiliate fees and trade surplus collection
 Multi-chain support (Ethereum, Base, Arbitrum, Polygon, etc.)
 """
 
-import httpx
-import os
-import logging
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
-from datetime import datetime
 import asyncio
-from typing import Optional as Opt
+import logging
+import os
+from typing import Any
 
-from ..monitoring.circuit_breaker import CircuitBreaker, CircuitState
+import httpx
+
+from ..monitoring.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +37,7 @@ class ZeroExService:
         self.max_retries = 3
         self.retry_delay_base = 1.0  # Base delay in seconds for exponential backoff
         # Shared HTTP client with connection pooling (reuse connections)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _rate_limit(self):
         """Enforce rate limiting"""
@@ -49,14 +47,14 @@ class ZeroExService:
             await asyncio.sleep(self.RATE_LIMIT_DELAY - time_since_last)
         self.last_request_time = asyncio.get_event_loop().time()
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers with API key if available"""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["0x-api-key"] = self.api_key
         return headers
 
-    async def _make_request_with_retry(self, func, *args, **kwargs) -> Optional[Any]:
+    async def _make_request_with_retry(self, func, *args, **kwargs) -> Any | None:
         """
         Make API request with retry logic and circuit breaker
 
@@ -97,12 +95,12 @@ class ZeroExService:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-        taker_address: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        taker_address: str | None = None,
+    ) -> dict[str, Any] | None:
         """Internal method to get quote (called by circuit breaker)"""
         await self._rate_limit()
 
@@ -159,12 +157,12 @@ class ZeroExService:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,  # 1 = Ethereum mainnet
         slippage_percentage: float = 0.5,
-        taker_address: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        taker_address: str | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get a quote for a token swap
 
@@ -200,7 +198,7 @@ class ZeroExService:
         buy_token: str,
         sell_amount: str,
         chain_id: int = 1,
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Get the price (buy amount) for a given sell amount
 
@@ -238,11 +236,11 @@ class ZeroExService:
         sell_token: str,
         buy_token: str,
         taker_address: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get swap calldata for execution (for non-custodial trades)
 
@@ -286,7 +284,7 @@ class ZeroExService:
 
         return swap_data
 
-    async def get_supported_tokens(self, chain_id: int = 1) -> List[Dict[str, Any]]:
+    async def get_supported_tokens(self, chain_id: int = 1) -> list[dict[str, Any]]:
         """
         Get list of supported tokens for a chain
 
@@ -335,7 +333,7 @@ class ZeroExService:
             logger.error(f"Error getting supported tokens: {e}", exc_info=True)
             return []
 
-    async def get_supported_chains(self) -> List[Dict[str, Any]]:
+    async def get_supported_chains(self) -> list[dict[str, Any]]:
         """
         Get list of supported blockchain networks
 

@@ -2,9 +2,6 @@
 Tests for performance metrics calculations
 """
 
-import pytest
-from datetime import datetime, timedelta
-
 # Performance metrics constants (defined here since they're not exported from routes)
 DEFAULT_INITIAL_CAPITAL = 10000.0
 RISK_FREE_RATE = 0.04

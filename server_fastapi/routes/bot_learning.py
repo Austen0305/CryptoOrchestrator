@@ -3,15 +3,16 @@ Bot Learning & Adaptation API Routes
 Provides endpoints for bot learning metrics and adaptive strategies
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, List, Annotated
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..dependencies.auth import get_current_user
+from ..dependencies.bots import get_bot_service
 from ..services.ml.adaptive_learning import adaptive_learning_service
 from ..services.trading.bot_service import BotService
-from ..dependencies.bots import get_bot_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ async def get_bot_learning_metrics(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     bot_service: Annotated[BotService, Depends(get_bot_service)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get learning metrics for a bot"""
     try:
         # Verify bot ownership
@@ -59,7 +60,7 @@ async def get_bot_learning_patterns(
     current_user: Annotated[dict, Depends(get_current_user)],
     bot_service: Annotated[BotService, Depends(get_bot_service)],
     min_occurrences: int = 5,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get learned patterns for a bot"""
     try:
         # Verify bot ownership
@@ -96,7 +97,7 @@ async def retrain_bot_model(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     bot_service: Annotated[BotService, Depends(get_bot_service)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Retrain bot model based on recent trading history"""
     try:
         # Verify bot ownership

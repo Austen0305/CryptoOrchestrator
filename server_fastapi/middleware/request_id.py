@@ -3,9 +3,10 @@ Request ID Middleware with Trace Correlation
 Adds unique request IDs and trace correlation to all requests for better observability
 """
 
-import uuid
 import logging
-from typing import Callable
+import uuid
+from collections.abc import Callable
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response

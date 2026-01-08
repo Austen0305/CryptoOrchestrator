@@ -2,22 +2,20 @@
 Indicator Model - Custom Indicator Marketplace
 """
 
-from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
+    JSON,
+    Boolean,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    Boolean,
-    DateTime,
-    ForeignKey,
     Text,
-    Enum as SQLEnum,
-    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from enum import Enum
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -26,6 +24,7 @@ if TYPE_CHECKING:
 
 class IndicatorStatus(str, Enum):
     """Indicator approval status"""
+
     DRAFT = "draft"
     PENDING = "pending"
     APPROVED = "approved"
@@ -35,6 +34,7 @@ class IndicatorStatus(str, Enum):
 
 class IndicatorLanguage(str, Enum):
     """Indicator programming language"""
+
     PINE_SCRIPT = "pine_script"
     PYTHON = "python"
     JAVASCRIPT = "javascript"
@@ -53,9 +53,13 @@ class Indicator(Base, TimestampMixin):
 
     # Basic information
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # trend, momentum, volatility, volume, etc.
-    tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # Comma-separated tags
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # trend, momentum, volatility, volume, etc.
+    tags: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Comma-separated tags
 
     # Marketplace status
     status: Mapped[str] = mapped_column(
@@ -73,11 +77,13 @@ class Indicator(Base, TimestampMixin):
         String(20), default=IndicatorLanguage.PYTHON.value, nullable=False
     )
     code: Mapped[str] = mapped_column(Text, nullable=False)  # Indicator code
-    parameters: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)  # Default parameters
+    parameters: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True
+    )  # Default parameters
 
     # Versioning
     current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    latest_version_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    latest_version_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # Statistics
     download_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
@@ -87,9 +93,9 @@ class Indicator(Base, TimestampMixin):
     total_revenue: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Documentation
-    documentation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    usage_examples: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    changelog: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    documentation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    usage_examples: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changelog: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     developer: Mapped["User"] = relationship("User", foreign_keys=[developer_id])
@@ -110,19 +116,25 @@ class IndicatorVersion(Base, TimestampMixin):
 
     # Version information
     version: Mapped[int] = mapped_column(Integer, nullable=False)  # 1, 2, 3, etc.
-    version_name: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # "1.0.0", "2.1.0", etc.
-    changelog: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    version_name: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )  # "1.0.0", "2.1.0", etc.
+    changelog: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Code
     code: Mapped[str] = mapped_column(Text, nullable=False)
-    parameters: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    parameters: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    is_breaking: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)  # Breaking changes
+    is_breaking: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # Breaking changes
 
     # Relationships
-    indicator: Mapped["Indicator"] = relationship("Indicator", foreign_keys=[indicator_id])
+    indicator: Mapped["Indicator"] = relationship(
+        "Indicator", foreign_keys=[indicator_id]
+    )
 
     def __repr__(self):
         return f"<IndicatorVersion(indicator_id={self.indicator_id}, version={self.version})>"
@@ -143,8 +155,12 @@ class IndicatorPurchase(Base, TimestampMixin):
 
     # Purchase details
     price_paid: Mapped[float] = mapped_column(Float, nullable=False)
-    platform_fee: Mapped[float] = mapped_column(Float, nullable=False)  # 30% to platform
-    developer_payout: Mapped[float] = mapped_column(Float, nullable=False)  # 70% to developer
+    platform_fee: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # 30% to platform
+    developer_payout: Mapped[float] = mapped_column(
+        Float, nullable=False
+    )  # 70% to developer
 
     # Version purchased
     version_id: Mapped[int] = mapped_column(
@@ -157,9 +173,13 @@ class IndicatorPurchase(Base, TimestampMixin):
     )  # pending, completed, refunded
 
     # Relationships
-    indicator: Mapped["Indicator"] = relationship("Indicator", foreign_keys=[indicator_id])
+    indicator: Mapped["Indicator"] = relationship(
+        "Indicator", foreign_keys=[indicator_id]
+    )
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
-    version: Mapped["IndicatorVersion"] = relationship("IndicatorVersion", foreign_keys=[version_id])
+    version: Mapped["IndicatorVersion"] = relationship(
+        "IndicatorVersion", foreign_keys=[version_id]
+    )
 
     def __repr__(self):
         return f"<IndicatorPurchase(indicator_id={self.indicator_id}, user_id={self.user_id})>"
@@ -180,11 +200,15 @@ class IndicatorRating(Base, TimestampMixin):
 
     # Rating (1-5 stars)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)  # 1-5
-    comment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
-    indicator: Mapped["Indicator"] = relationship("Indicator", foreign_keys=[indicator_id])
+    indicator: Mapped["Indicator"] = relationship(
+        "Indicator", foreign_keys=[indicator_id]
+    )
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
 
     def __repr__(self):
-        return f"<IndicatorRating(indicator_id={self.indicator_id}, rating={self.rating})>"
+        return (
+            f"<IndicatorRating(indicator_id={self.indicator_id}, rating={self.rating})>"
+        )

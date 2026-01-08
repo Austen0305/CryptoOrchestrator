@@ -4,14 +4,13 @@ Provides consistent error response format across all endpoints
 """
 
 import logging
-import uuid
-from typing import Optional
-from fastapi import Request, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
-import traceback
 import os
+import traceback
+import uuid
+
+from fastapi import Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +23,8 @@ class StandardizedErrorResponse:
         code: str,
         message: str,
         status_code: int,
-        details: Optional[dict] = None,
-        request_id: Optional[str] = None,
+        details: dict | None = None,
+        request_id: str | None = None,
     ) -> dict:
         """
         Create standardized error response
@@ -53,7 +52,7 @@ class StandardizedErrorResponse:
     @staticmethod
     def from_http_exception(
         exc: Exception,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> dict:
         """Convert HTTPException to standardized format"""
         from fastapi import HTTPException
@@ -76,7 +75,7 @@ class StandardizedErrorResponse:
     @staticmethod
     def from_validation_error(
         exc: RequestValidationError,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> dict:
         """Convert validation error to standardized format"""
         errors = []

@@ -3,19 +3,20 @@ Wallet Nonce Model - Signature nonce tracking
 Prevents replay attacks for wallet signatures
 """
 
-from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
     Boolean,
+    DateTime,
     ForeignKey,
     Index,
+    Integer,
+    String,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -47,7 +48,7 @@ class WalletNonce(Base, TimestampMixin):
     used: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, index=True
     )
-    used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Expiry
     expires_at: Mapped[datetime] = mapped_column(
@@ -58,7 +59,7 @@ class WalletNonce(Base, TimestampMixin):
     message_type: Mapped[str] = mapped_column(
         String(50), nullable=False, default="trade"
     )  # 'trade', 'withdrawal', 'deposit', etc.
-    message_hash: Mapped[Optional[str]] = mapped_column(
+    message_hash: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )  # Hash of the signed message
 

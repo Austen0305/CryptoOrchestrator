@@ -4,26 +4,26 @@ Automation Services Module
 
 from .auto_hedging import (
     AutoHedgingService,
-    HedgingStrategy,
     HedgingConfig,
+    HedgingStrategy,
     auto_hedging_service,
 )
-from .strategy_switching import (
-    StrategySwitchingService,
-    StrategySwitchConfig,
-    strategy_switching_service,
-)
-from .smart_alerts import (
-    SmartAlertsService,
-    AlertRule,
-    AlertPriority,
-    smart_alerts_service,
-)
 from .portfolio_optimizer import (
-    PortfolioOptimizationAdvisor,
     OptimizationGoal,
     OptimizationRecommendation,
+    PortfolioOptimizationAdvisor,
     portfolio_optimizer,
+)
+from .smart_alerts import (
+    AlertPriority,
+    AlertRule,
+    SmartAlertsService,
+    smart_alerts_service,
+)
+from .strategy_switching import (
+    StrategySwitchConfig,
+    StrategySwitchingService,
+    strategy_switching_service,
 )
 
 __all__ = [

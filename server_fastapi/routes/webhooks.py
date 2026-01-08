@@ -4,11 +4,12 @@ Provides endpoints for managing webhook subscriptions
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, HttpUrl
-from ..services.webhook_manager import webhook_manager
+
 from ..middleware.auth import get_current_user
+from ..services.webhook_manager import webhook_manager
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +18,23 @@ router = APIRouter(prefix="/api/webhooks", tags=["Webhooks"])
 
 class WebhookSubscriptionRequest(BaseModel):
     """Webhook subscription request"""
+
     url: HttpUrl
-    events: List[str]
-    secret: Optional[str] = None
+    events: list[str]
+    secret: str | None = None
     max_retries: int = 3
     timeout: int = 10
 
 
 class WebhookSubscriptionResponse(BaseModel):
     """Webhook subscription response"""
+
     id: str
     url: str
-    events: List[str]
+    events: list[str]
     active: bool
     created_at: str
-    last_delivery: Optional[str] = None
+    last_delivery: str | None = None
     failure_count: int = 0
 
 
@@ -57,7 +60,9 @@ async def subscribe_webhook(
             active=subscription.active,
             created_at=subscription.created_at.isoformat(),
             last_delivery=(
-                subscription.last_delivery.isoformat() if subscription.last_delivery else None
+                subscription.last_delivery.isoformat()
+                if subscription.last_delivery
+                else None
             ),
             failure_count=subscription.failure_count,
         )
@@ -86,7 +91,7 @@ async def unsubscribe_webhook(
         )
 
 
-@router.get("/", response_model=List[WebhookSubscriptionResponse])
+@router.get("/", response_model=list[WebhookSubscriptionResponse])
 async def list_webhooks(
     active_only: bool = Query(True, description="Show only active subscriptions"),
     current_user: dict = Depends(get_current_user),
@@ -101,7 +106,9 @@ async def list_webhooks(
                 events=sub.events,
                 active=sub.active,
                 created_at=sub.created_at.isoformat(),
-                last_delivery=sub.last_delivery.isoformat() if sub.last_delivery else None,
+                last_delivery=sub.last_delivery.isoformat()
+                if sub.last_delivery
+                else None,
                 failure_count=sub.failure_count,
             )
             for sub in subscriptions
@@ -131,8 +138,10 @@ async def get_webhook_stats(
 
 @router.get("/deliveries")
 async def get_webhook_deliveries(
-    subscription_id: Optional[str] = Query(None, description="Filter by subscription ID"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of deliveries to return"),
+    subscription_id: str | None = Query(None, description="Filter by subscription ID"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of deliveries to return"
+    ),
     current_user: dict = Depends(get_current_user),
 ):
     """Get webhook delivery history"""

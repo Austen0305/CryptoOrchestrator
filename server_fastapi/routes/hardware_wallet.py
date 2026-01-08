@@ -3,18 +3,17 @@ Hardware Wallet API Routes
 Endpoints for Ledger and Trezor integration
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from ..dependencies.auth import get_current_user
 from ..services.blockchain.hardware_wallet import (
-    hardware_wallet_service,
     HardwareWalletType,
+    hardware_wallet_service,
 )
-from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ class DeriveAddressRequest(BaseModel):
     device_id: str = Field(..., description="Device identifier")
     account_index: int = Field(0, description="Account index (BIP44)")
     address_index: int = Field(0, description="Address index (BIP44)")
-    path: Optional[str] = Field(None, description="Custom derivation path")
+    path: str | None = Field(None, description="Custom derivation path")
 
 
 class SignTransactionRequest(BaseModel):
@@ -47,7 +46,7 @@ async def detect_devices(
     """Detect connected hardware wallets"""
     try:
         devices = hardware_wallet_service.detect_devices()
-        
+
         return [
             {
                 "device_id": d.device_id,
@@ -71,22 +70,24 @@ async def connect_device(
     """Connect to a hardware wallet device"""
     try:
         wallet_type = HardwareWalletType(request.wallet_type.lower())
-        
+
         device = hardware_wallet_service.connect_device(
             device_id=request.device_id,
             wallet_type=wallet_type,
         )
-        
+
         if not device:
             raise HTTPException(status_code=400, detail="Failed to connect to device")
-        
+
         return {
             "device_id": device.device_id,
             "wallet_type": device.wallet_type.value,
             "model": device.model,
             "firmware_version": device.firmware_version,
             "connected": device.connected,
-            "connected_at": device.connected_at.isoformat() if device.connected_at else None,
+            "connected_at": device.connected_at.isoformat()
+            if device.connected_at
+            else None,
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -103,10 +104,10 @@ async def disconnect_device(
     """Disconnect from a hardware wallet"""
     try:
         success = hardware_wallet_service.disconnect_device(device_id)
-        
+
         if not success:
             raise HTTPException(status_code=404, detail="Device not found")
-        
+
         return {"status": "ok", "device_id": device_id}
     except HTTPException:
         raise
@@ -129,10 +130,10 @@ async def derive_address(
             address_index=request.address_index,
             path=request.path,
         )
-        
+
         if not address:
             raise HTTPException(status_code=400, detail="Failed to derive address")
-        
+
         return {
             "device_id": device_id,
             "address": address,
@@ -160,7 +161,7 @@ async def sign_transaction(
             transaction_hash=request.transaction_hash,
             account_index=request.account_index,
         )
-        
+
         return {
             "signature_id": signature.signature_id,
             "transaction_hash": signature.transaction_hash,
@@ -184,10 +185,10 @@ async def get_device(
     """Get device information"""
     try:
         device = hardware_wallet_service.get_device(device_id)
-        
+
         if not device:
             raise HTTPException(status_code=404, detail="Device not found")
-        
+
         return {
             "device_id": device.device_id,
             "wallet_type": device.wallet_type.value,
@@ -195,7 +196,9 @@ async def get_device(
             "firmware_version": device.firmware_version,
             "connected": device.connected,
             "address": device.address,
-            "connected_at": device.connected_at.isoformat() if device.connected_at else None,
+            "connected_at": device.connected_at.isoformat()
+            if device.connected_at
+            else None,
         }
     except HTTPException:
         raise

@@ -4,24 +4,22 @@ Endpoints for replication management, health monitoring, and failover
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Dict, Any, Optional
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..database import get_db_session
-from ..dependencies.auth import get_current_user, require_admin
-from ..models.user import User
-from ..utils.route_helpers import _get_user_id
-from ..services.disaster_recovery_service import DisasterRecoveryService
-from ..services.backup_service import BackupService
 from ..config.settings import settings
+from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..models.user import User
+from ..services.backup_service import BackupService
+from ..services.disaster_recovery_service import DisasterRecoveryService
 
 router = APIRouter(prefix="/api/disaster-recovery", tags=["Disaster Recovery"])
 
 
 # Pydantic Models
 class FailoverRequest(BaseModel):
-    target_replica: Optional[str] = None  # Replica identifier
+    target_replica: str | None = None  # Replica identifier
     force: bool = False  # Force failover even if replica is lagging
 
 
@@ -44,10 +42,10 @@ async def initiate_failover(
 ):
     """Initiate database failover to replica (Admin only, DANGEROUS)"""
     service = DisasterRecoveryService(db)
-    
+
     # Check replication status first
     replication_status = await service.check_replication_status()
-    
+
     if not replication_status.get("replication_enabled"):
         raise HTTPException(
             status_code=400,
@@ -87,13 +85,15 @@ async def get_detailed_health(
 ):
     """Get detailed system health status (Admin only)"""
     service = DisasterRecoveryService(db)
-    
+
     # Initialize backup service
     backup_service = BackupService(
         db_url=settings.database_url,
-        backup_dir=settings.backup_dir if hasattr(settings, "backup_dir") else "./backups",
+        backup_dir=settings.backup_dir
+        if hasattr(settings, "backup_dir")
+        else "./backups",
     )
-    
+
     health = await service.get_system_health_detailed(backup_service)
     return health
 
@@ -116,11 +116,13 @@ async def get_backup_health(
 ):
     """Get backup system health (Admin only)"""
     service = DisasterRecoveryService(db)
-    
+
     backup_service = BackupService(
         db_url=settings.database_url,
-        backup_dir=settings.backup_dir if hasattr(settings, "backup_dir") else "./backups",
+        backup_dir=settings.backup_dir
+        if hasattr(settings, "backup_dir")
+        else "./backups",
     )
-    
+
     health = await service.check_backup_health(backup_service)
     return health

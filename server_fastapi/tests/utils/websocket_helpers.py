@@ -5,7 +5,8 @@ WebSocket testing utilities for integration tests.
 import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional, Callable, List
+from typing import Any
+
 from websockets.client import connect
 from websockets.exceptions import ConnectionClosed
 
@@ -15,11 +16,11 @@ logger = logging.getLogger(__name__)
 class WebSocketTestClient:
     """Test client for WebSocket connections"""
 
-    def __init__(self, url: str, token: Optional[str] = None):
+    def __init__(self, url: str, token: str | None = None):
         self.url = url
         self.token = token
         self.websocket = None
-        self.messages: List[Dict[str, Any]] = []
+        self.messages: list[dict[str, Any]] = []
         self.connected = False
 
     async def connect(self) -> bool:
@@ -47,14 +48,14 @@ class WebSocketTestClient:
             self.connected = False
             return False
 
-    async def send(self, message: Dict[str, Any]) -> None:
+    async def send(self, message: dict[str, Any]) -> None:
         """Send message to WebSocket server"""
         if not self.connected or not self.websocket:
             raise ConnectionError("WebSocket not connected")
 
         await self.websocket.send(json.dumps(message))
 
-    async def receive(self, timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+    async def receive(self, timeout: float = 5.0) -> dict[str, Any] | None:
         """Receive message from WebSocket server"""
         if not self.connected or not self.websocket:
             raise ConnectionError("WebSocket not connected")
@@ -64,7 +65,7 @@ class WebSocketTestClient:
             data = json.loads(message)
             self.messages.append(data)
             return data
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
         except ConnectionClosed:
             self.connected = False
@@ -75,7 +76,7 @@ class WebSocketTestClient:
 
     async def receive_messages(
         self, count: int = 1, timeout: float = 5.0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Receive multiple messages"""
         messages = []
         for _ in range(count):
@@ -88,7 +89,7 @@ class WebSocketTestClient:
 
     async def wait_for_message(
         self, message_type: str, timeout: float = 10.0
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Wait for a specific message type"""
         start_time = asyncio.get_event_loop().time()
 
@@ -116,7 +117,7 @@ class WebSocketTestClient:
 
 
 async def test_websocket_connection(
-    url: str, token: Optional[str] = None, test_message: Optional[Dict[str, Any]] = None
+    url: str, token: str | None = None, test_message: dict[str, Any] | None = None
 ) -> bool:
     """Test WebSocket connection and basic functionality"""
     async with WebSocketTestClient(url, token) as client:
@@ -134,10 +135,10 @@ async def test_websocket_connection(
 async def test_websocket_subscription(
     url: str,
     token: str,
-    subscription: Dict[str, Any],
+    subscription: dict[str, Any],
     expected_message_type: str,
     timeout: float = 10.0,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """Test WebSocket subscription and wait for expected message"""
     async with WebSocketTestClient(url, token) as client:
         if not client.connected:

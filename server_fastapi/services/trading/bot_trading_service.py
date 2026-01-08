@@ -2,20 +2,21 @@
 Bot trading service for trading cycle execution
 """
 
-import logging
 import asyncio
-from typing import Dict, List, Optional, Any
+import logging
 from datetime import datetime
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...services.ml.enhanced_ml_engine import EnhancedMLEngine, MLPrediction
-from ...services.ml.ensemble_engine import EnsembleEngine, EnsemblePrediction
-from ...services.ml.neural_network_engine import NeuralNetworkEngine
-from ...services.ml.adaptive_learning import adaptive_learning_service
 from ...services.advanced_risk_manager import AdvancedRiskManager, RiskProfile
+from ...services.ml.adaptive_learning import adaptive_learning_service
+from ...services.ml.enhanced_ml_engine import EnhancedMLEngine
+from ...services.ml.ensemble_engine import EnsembleEngine
+from ...services.ml.neural_network_engine import NeuralNetworkEngine
 from .bot_control_service import BotControlService
 from .bot_monitoring_service import BotMonitoringService
-from .smart_bot_engine import SmartBotEngine, MarketSignal
+from .smart_bot_engine import MarketSignal, SmartBotEngine
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 class BotTradingService:
     """Service for executing trading cycles and managing bot trading logic"""
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self._session = session
         self.control_service = BotControlService(session=session)
         self.monitoring_service = BotMonitoringService(session=session)
@@ -47,8 +48,8 @@ class BotTradingService:
         self.safety_service = get_trading_safety_service()
 
     async def execute_trading_cycle(
-        self, bot_config: Dict[str, Any], db_session: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        self, bot_config: dict[str, Any], db_session: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """
         Execute one complete trading cycle for a bot
 
@@ -357,8 +358,8 @@ class BotTradingService:
                 )
 
     async def _get_market_data(
-        self, bot_config: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, bot_config: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Get real market data from blockchain/DEX sources"""
         try:
             symbol = bot_config.get("tradingPair") or bot_config.get(
@@ -502,16 +503,16 @@ class BotTradingService:
     async def _get_trading_signal(
         self,
         strategy: str,
-        market_data: List[Dict[str, Any]],
-        bot_config: Dict[str, Any],
-    ) -> Optional[Dict[str, Any]]:
+        market_data: list[dict[str, Any]],
+        bot_config: dict[str, Any],
+    ) -> dict[str, Any] | None:
         """Get trading signal based on strategy"""
         try:
             # Check if using smart adaptive strategy
             if strategy == "smart_adaptive" or bot_config.get("config", {}).get(
                 "use_smart_engine", False
             ):
-                logger.info(f"Using SmartBotEngine for analysis")
+                logger.info("Using SmartBotEngine for analysis")
 
                 # Prepare market data for smart engine
                 smart_data = self._prepare_smart_market_data(market_data, bot_config)
@@ -597,10 +598,9 @@ class BotTradingService:
             return None
 
     def _prepare_smart_market_data(
-        self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, market_data: list[dict[str, Any]], bot_config: dict[str, Any]
+    ) -> dict[str, Any]:
         """Prepare market data for smart bot engine"""
-        import numpy as np
 
         # Extract OHLCV data
         candles = []
@@ -634,8 +634,8 @@ class BotTradingService:
         }
 
     def _simple_ma_signal(
-        self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, market_data: list[dict[str, Any]], bot_config: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Simple Moving Average Crossover strategy.
         Generates buy signal when fast MA (50) crosses above slow MA (200).
@@ -763,8 +763,8 @@ class BotTradingService:
             }
 
     def _rsi_signal(
-        self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, market_data: list[dict[str, Any]], bot_config: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         RSI (Relative Strength Index) trading strategy.
         Generates buy signal when RSI < 30 (oversold).
@@ -887,7 +887,7 @@ class BotTradingService:
                 "reasoning": f"Error in RSI calculation: {str(e)}",
             }
 
-    def _calculate_rsi(self, closes: List[float], period: int = 14) -> Optional[float]:
+    def _calculate_rsi(self, closes: list[float], period: int = 14) -> float | None:
         """
         Calculate RSI (Relative Strength Index) using Wilder's smoothing method.
 
@@ -934,8 +934,8 @@ class BotTradingService:
         return rsi
 
     def _momentum_signal(
-        self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, market_data: list[dict[str, Any]], bot_config: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Momentum-based trading strategy.
         Calculates 12-period Rate of Change (ROC) for price and volume momentum.
@@ -1047,7 +1047,7 @@ class BotTradingService:
             }
 
     async def _calculate_risk_profile(
-        self, market_data: List[Dict[str, Any]], bot_config: Dict[str, Any]
+        self, market_data: list[dict[str, Any]], bot_config: dict[str, Any]
     ) -> RiskProfile:
         """Calculate risk profile for trading"""
         try:
@@ -1071,11 +1071,11 @@ class BotTradingService:
 
     def _prepare_trade_details(
         self,
-        bot_config: Dict[str, Any],
-        signal: Dict[str, Any],
-        market_data: List[Dict[str, Any]],
+        bot_config: dict[str, Any],
+        signal: dict[str, Any],
+        market_data: list[dict[str, Any]],
         risk_profile: RiskProfile,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Prepare trade details for execution"""
         current_price = market_data[-1]["close"] if market_data else 50000.0
 
@@ -1097,8 +1097,8 @@ class BotTradingService:
         }
 
     async def _execute_trade(
-        self, trade_details: Dict[str, Any], db_session: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        self, trade_details: dict[str, Any], db_session: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """
         Execute trade via DEX (blockchain) or paper trading
 
@@ -1143,7 +1143,6 @@ class BotTradingService:
                 }
 
             # Real money trading via DEX
-            from ..trading.dex_trading_service import DEXTradingService
 
             # Get database session - use provided, instance session, or create new one
             if not session:
@@ -1179,16 +1178,16 @@ class BotTradingService:
 
     async def _execute_dex_swap(
         self,
-        trade_details: Dict[str, Any],
+        trade_details: dict[str, Any],
         user_id: Any,
         symbol: str,
         action: str,
         quantity: float,
-        price: Optional[float],
-        bot_id: Optional[str],
+        price: float | None,
+        bot_id: str | None,
         chain_id: int,
         db_session: AsyncSession,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute DEX swap with proper database session"""
         try:
             dex_service = DEXTradingService(db_session=db_session)
@@ -1317,9 +1316,9 @@ class BotTradingService:
         """
         try:
             # Get balance from blockchain
-            from ..blockchain.balance_service import get_balance_service
+
             from ...repositories.wallet_repository import WalletRepository
-            from sqlalchemy.ext.asyncio import AsyncSession
+            from ..blockchain.balance_service import get_balance_service
 
             balance_service = get_balance_service()
 
@@ -1372,7 +1371,7 @@ class BotTradingService:
 
     async def _get_current_positions(
         self, user_id: str, chain_id: int
-    ) -> Dict[str, Dict[str, Any]]:
+    ) -> dict[str, dict[str, Any]]:
         """
         Get current open positions for user on blockchain.
 
@@ -1385,8 +1384,8 @@ class BotTradingService:
         """
         try:
             # Get positions from database (tracks DEX trades)
+
             from ...repositories.trade_repository import TradeRepository
-            from sqlalchemy.ext.asyncio import AsyncSession
 
             logger.info(f"Getting positions for user {user_id} on chain {chain_id}")
 
@@ -1403,7 +1402,7 @@ class BotTradingService:
                 )
 
                 # Group by symbol
-                positions: Dict[str, Dict[str, Any]] = {}
+                positions: dict[str, dict[str, Any]] = {}
                 for trade in open_trades:
                     symbol = trade.symbol or "UNKNOWN"
                     if symbol not in positions:

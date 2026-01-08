@@ -1,11 +1,12 @@
 """Database connection pool management with health checks and retry logic"""
 
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.pool import NullPool, QueuePool, StaticPool
-from contextlib import asynccontextmanager
 import logging
-from typing import AsyncGenerator
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,7 @@ class DatabaseConnectionPool:
             return False
         try:
             from sqlalchemy import text
+
             async with self.get_session() as session:
                 result = await session.execute(text("SELECT 1"))
                 result.scalar()  # Verify we got a result

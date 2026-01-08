@@ -2,32 +2,29 @@
 ML V2 Routes - AutoML, Reinforcement Learning, Sentiment AI, Market Regime Detection
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, List, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated, Any
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from ..dependencies.auth import get_current_user
 from ..services.ml.automl_service import (
-    automl_service,
-    OptimizationConfig,
-    OptimizationResult,
     HyperparameterRange,
+    OptimizationConfig,
     SearchStrategy,
-)
-from ..services.ml.reinforcement_learning import rl_service, RLConfig, Action
-from ..services.ml.sentiment_ai import (
-    sentiment_ai_service,
-    NewsArticle,
-    SocialMediaPost,
-    AggregatedSentiment,
+    automl_service,
 )
 from ..services.ml.market_regime import (
-    market_regime_service,
     MarketRegime,
-    RegimeMetrics,
+    market_regime_service,
 )
-from ..dependencies.auth import get_current_user
+from ..services.ml.reinforcement_learning import rl_service
+from ..services.ml.sentiment_ai import (
+    NewsArticle,
+    SocialMediaPost,
+    sentiment_ai_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +39,10 @@ class HyperparameterRangeRequest(BaseModel):
 
     name: str
     param_type: str
-    min: Optional[float] = None
-    max: Optional[float] = None
-    step: Optional[float] = None
-    values: Optional[List[Any]] = None
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    values: list[Any] | None = None
 
 
 class OptimizationRequest(BaseModel):
@@ -54,16 +51,16 @@ class OptimizationRequest(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     model_type: str
-    hyperparameter_ranges: Dict[str, HyperparameterRangeRequest]
+    hyperparameter_ranges: dict[str, HyperparameterRangeRequest]
     search_strategy: str = "bayesian"
     n_trials: int = 100
     n_jobs: int = 1
-    timeout: Optional[int] = None
+    timeout: int | None = None
     metric: str = "accuracy"
     direction: str = "maximize"
 
 
-@router.post("/automl/optimize", response_model=Dict)
+@router.post("/automl/optimize", response_model=dict)
 async def optimize_hyperparameters(
     request: OptimizationRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -94,7 +91,7 @@ async def optimize_hyperparameters(
         )
 
         # Define objective function (placeholder - should use actual model evaluation)
-        def objective_function(params: Dict[str, Any]) -> float:
+        def objective_function(params: dict[str, Any]) -> float:
             # This should evaluate model with given parameters
             # For now, return mock score
             return 0.75
@@ -122,12 +119,12 @@ class RLTrainingRequest(BaseModel):
 
     agent_type: str = "q_learning"  # 'q_learning' or 'ppo'
     episodes: int = 100
-    market_data: List[Dict[str, Any]]
+    market_data: list[dict[str, Any]]
     initial_balance: float = 10000.0
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
 
-@router.post("/rl/train", response_model=Dict)
+@router.post("/rl/train", response_model=dict)
 async def train_rl_agent(
     request: RLTrainingRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -154,7 +151,7 @@ async def train_rl_agent(
         raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 
-@router.get("/rl/q-learning/stats", response_model=Dict)
+@router.get("/rl/q-learning/stats", response_model=dict)
 async def get_q_learning_stats(
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
@@ -178,7 +175,7 @@ class TextAnalysisRequest(BaseModel):
     method: str = "vader"  # 'vader', 'textblob', 'transformer'
 
 
-@router.post("/sentiment/analyze", response_model=Dict)
+@router.post("/sentiment/analyze", response_model=dict)
 async def analyze_sentiment(
     request: TextAnalysisRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -196,12 +193,12 @@ class AggregateSentimentRequest(BaseModel):
     """Aggregate sentiment request"""
 
     symbol: str
-    news_articles: List[Dict[str, Any]] = []
-    social_posts: List[Dict[str, Any]] = []
+    news_articles: list[dict[str, Any]] = []
+    social_posts: list[dict[str, Any]] = []
     method: str = "vader"
 
 
-@router.post("/sentiment/aggregate", response_model=Dict)
+@router.post("/sentiment/aggregate", response_model=dict)
 async def aggregate_sentiment(
     request: AggregateSentimentRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -231,12 +228,12 @@ async def aggregate_sentiment(
 class RegimeDetectionRequest(BaseModel):
     """Regime detection request"""
 
-    prices: List[float]
-    volumes: Optional[List[float]] = None
+    prices: list[float]
+    volumes: list[float] | None = None
     lookback_period: int = 20
 
 
-@router.post("/regime/detect", response_model=Dict)
+@router.post("/regime/detect", response_model=dict)
 async def detect_market_regime(
     request: RegimeDetectionRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -255,7 +252,7 @@ async def detect_market_regime(
         raise HTTPException(status_code=500, detail=f"Detection failed: {str(e)}")
 
 
-@router.get("/regime/strategy/{regime}", response_model=Dict)
+@router.get("/regime/strategy/{regime}", response_model=dict)
 async def get_regime_strategy(
     regime: str,
     current_user: Annotated[dict, Depends(get_current_user)],

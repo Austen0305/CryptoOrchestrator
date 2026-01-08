@@ -4,12 +4,13 @@ Adds comprehensive security headers for production
 Consolidated from security.py and security_headers.py
 """
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
 import logging
 import os
 import secrets
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 

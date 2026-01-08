@@ -4,12 +4,12 @@ Tracks application metrics and triggers alerts
 """
 
 import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Callable
-from dataclasses import dataclass, field
-from enum import Enum
 import logging
 from collections import deque
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ class Alert:
     component: str
     message: str
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -43,10 +43,10 @@ class SystemPerformanceMonitor:
     This is separate from TradingPerformanceMonitor which tracks trading metrics.
     """
 
-    def __init__(self, alert_callback: Optional[Callable] = None):
-        self.metrics: Dict[str, deque] = {}
-        self.thresholds: Dict[str, MetricThreshold] = {}
-        self.alerts: List[Alert] = []
+    def __init__(self, alert_callback: Callable | None = None):
+        self.metrics: dict[str, deque] = {}
+        self.thresholds: dict[str, MetricThreshold] = {}
+        self.alerts: list[Alert] = []
         self.alert_callback = alert_callback
         self.max_metric_history = 1000
 
@@ -93,7 +93,7 @@ class SystemPerformanceMonitor:
         logger.info(f"Registered threshold for {threshold.metric_name}")
 
     def record_metric(
-        self, metric_name: str, value: float, metadata: Optional[Dict] = None
+        self, metric_name: str, value: float, metadata: dict | None = None
     ):
         """Record a metric value and check thresholds"""
         if metric_name not in self.metrics:
@@ -106,9 +106,7 @@ class SystemPerformanceMonitor:
         # Check thresholds
         self._check_threshold(metric_name, value, metadata)
 
-    def _check_threshold(
-        self, metric_name: str, value: float, metadata: Optional[Dict]
-    ):
+    def _check_threshold(self, metric_name: str, value: float, metadata: dict | None):
         """Check if metric exceeds thresholds"""
         if metric_name not in self.thresholds:
             return
@@ -141,7 +139,7 @@ class SystemPerformanceMonitor:
             if self.alert_callback:
                 asyncio.create_task(self.alert_callback(alert))
 
-    def get_metric_stats(self, metric_name: str, window_minutes: int = 5) -> Dict:
+    def get_metric_stats(self, metric_name: str, window_minutes: int = 5) -> dict:
         """Get statistics for a metric over a time window"""
         if metric_name not in self.metrics:
             return {}
@@ -165,8 +163,8 @@ class SystemPerformanceMonitor:
         }
 
     def get_recent_alerts(
-        self, severity: Optional[AlertSeverity] = None, limit: int = 50
-    ) -> List[Dict]:
+        self, severity: AlertSeverity | None = None, limit: int = 50
+    ) -> list[dict]:
         """Get recent alerts"""
         alerts = self.alerts[-limit:]
 

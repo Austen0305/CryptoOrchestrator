@@ -7,9 +7,10 @@ run green without requiring external infrastructure while preserving
 production behavior when Redis is present.
 """
 
+import os
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-import os
 
 try:  # Attempt Redis usage, fall back gracefully
     from redis import Redis  # type: ignore

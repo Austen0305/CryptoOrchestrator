@@ -3,22 +3,21 @@ Grid Trading Service
 Implements grid trading bot functionality - places buy/sell orders in a grid pattern.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
-from decimal import Decimal
+from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import get_db_context
 from ...models.grid_bot import GridBot
 from ...repositories.grid_bot_repository import GridBotRepository
-from ...services.coingecko_service import CoinGeckoService
-from ...services.trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.blockchain.transaction_service import get_transaction_service
-from ...database import get_db_context
-from contextlib import asynccontextmanager
+from ...services.coingecko_service import CoinGeckoService
+from ...services.trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class GridTradingService:
     Places buy and sell orders in a grid pattern to profit from volatility.
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = GridBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
@@ -56,8 +55,8 @@ class GridTradingService:
         order_amount: float = 100.0,
         trading_mode: str = "paper",
         grid_spacing_type: str = "arithmetic",
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Create a new grid trading bot.
 
@@ -213,7 +212,7 @@ class GridTradingService:
             logger.error(f"Error stopping grid bot {bot_id}: {str(e)}", exc_info=True)
             return False
 
-    async def process_grid_cycle(self, bot_id: str, user_id: int) -> Dict[str, Any]:
+    async def process_grid_cycle(self, bot_id: str, user_id: int) -> dict[str, Any]:
         """
         Process one grid trading cycle:
         1. Check for filled orders
@@ -259,7 +258,7 @@ class GridTradingService:
 
     async def _validate_start_conditions(
         self, bot: GridBot, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate that grid bot can start."""
         # Check if exchange is configured
         # Check if user has sufficient balance
@@ -268,7 +267,7 @@ class GridTradingService:
 
     async def _place_initial_grid_orders(
         self, bot: GridBot, session: AsyncSession
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Place initial grid orders."""
         # Calculate grid prices
         grid_prices = self._calculate_grid_prices(
@@ -330,7 +329,7 @@ class GridTradingService:
 
     def _calculate_grid_prices(
         self, lower_price: float, upper_price: float, grid_count: int, spacing_type: str
-    ) -> List[float]:
+    ) -> list[float]:
         """Calculate grid price levels."""
         if spacing_type == "arithmetic":
             # Arithmetic spacing: equal price intervals
@@ -349,7 +348,7 @@ class GridTradingService:
         price: float,
         amount: float,
         session: AsyncSession,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Place a single grid order."""
         try:
             if bot.trading_mode == "paper":
@@ -427,7 +426,7 @@ class GridTradingService:
 
     async def _parse_symbol_to_tokens(
         self, symbol: str, chain_id: int = 1
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """
         Parse trading symbol (e.g., "ETH/USDC") to token addresses using token registry.
 
@@ -443,8 +442,8 @@ class GridTradingService:
         return base_address, quote_address
 
     async def _check_filled_orders(
-        self, bot: GridBot, grid_state: Dict[str, Any], session: AsyncSession
-    ) -> List[Dict[str, Any]]:
+        self, bot: GridBot, grid_state: dict[str, Any], session: AsyncSession
+    ) -> list[dict[str, Any]]:
         """Check which orders have been filled."""
         filled = []
 
@@ -468,19 +467,20 @@ class GridTradingService:
             # For DEX swaps, check transaction status
             transaction_service = get_transaction_service()
             chain_id = bot.chain_id or 1  # Default to Ethereum mainnet
-            
+
             for order in grid_state.get("orders", []):
                 if order.get("status") == "open":
                     tx_hash = order.get("transaction_hash")
                     if tx_hash:
                         # Check if transaction is confirmed and successful
                         tx_status = await transaction_service.get_transaction_status(
-                            chain_id=chain_id,
-                            tx_hash=tx_hash
+                            chain_id=chain_id, tx_hash=tx_hash
                         )
-                        
+
                         if tx_status:
-                            if tx_status.get("status") == "confirmed" and tx_status.get("success"):
+                            if tx_status.get("status") == "confirmed" and tx_status.get(
+                                "success"
+                            ):
                                 # Transaction confirmed and successful - order is filled
                                 filled.append(order)
                                 logger.info(
@@ -489,11 +489,12 @@ class GridTradingService:
                                         "bot_id": bot.id,
                                         "order_id": order.get("order_id"),
                                         "tx_hash": tx_hash,
-                                        "chain_id": chain_id
-                                    }
+                                        "chain_id": chain_id,
+                                    },
                                 )
                             elif tx_status.get("status") == "failed" or (
-                                tx_status.get("status") == "confirmed" and not tx_status.get("success")
+                                tx_status.get("status") == "confirmed"
+                                and not tx_status.get("success")
                             ):
                                 # Transaction failed - mark order as failed
                                 order["status"] = "failed"
@@ -503,8 +504,8 @@ class GridTradingService:
                                         "bot_id": bot.id,
                                         "order_id": order.get("order_id"),
                                         "tx_hash": tx_hash,
-                                        "chain_id": chain_id
-                                    }
+                                        "chain_id": chain_id,
+                                    },
                                 )
                             # If status is "pending" or "not_found", keep order as open
 
@@ -513,8 +514,8 @@ class GridTradingService:
     async def _rebalance_grid(
         self,
         bot: GridBot,
-        filled_orders: List[Dict[str, Any]],
-        grid_state: Dict[str, Any],
+        filled_orders: list[dict[str, Any]],
+        grid_state: dict[str, Any],
         session: AsyncSession,
     ) -> None:
         """Rebalance grid after orders are filled."""
@@ -581,7 +582,7 @@ class GridTradingService:
         )
 
     async def _update_performance(
-        self, bot: GridBot, filled_orders: List[Dict[str, Any]], session: AsyncSession
+        self, bot: GridBot, filled_orders: list[dict[str, Any]], session: AsyncSession
     ) -> None:
         """Update grid bot performance metrics."""
         # Calculate profit from filled orders
@@ -625,7 +626,7 @@ class GridTradingService:
             session, bot.id, bot.user_id, grid_state
         )
 
-    async def get_grid_bot(self, bot_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+    async def get_grid_bot(self, bot_id: str, user_id: int) -> dict[str, Any] | None:
         """Get grid bot details."""
         try:
             async with self._get_session() as session:
@@ -641,7 +642,7 @@ class GridTradingService:
 
     async def list_user_grid_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List all grid bots for a user with total count."""
         try:
             async with self._get_session() as session:

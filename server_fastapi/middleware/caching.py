@@ -5,14 +5,15 @@ Implements intelligent caching for high-traffic endpoints to improve
 performance and reduce database load.
 """
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.datastructures import MutableHeaders
-from typing import Optional, Dict, Any, Callable
 import hashlib
 import json
 import logging
 import time
+from collections.abc import Callable
+from typing import Any
+
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,9 @@ class CacheMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        redis_client: Optional[Any] = None,
+        redis_client: Any | None = None,
         default_ttl: int = 300,  # 5 minutes default
-        cache_config: Optional[Dict[str, int]] = None,
+        cache_config: dict[str, int] | None = None,
     ):
         """
         Initialize cache middleware.
@@ -51,10 +52,10 @@ class CacheMiddleware(BaseHTTPMiddleware):
         self.cache_config = cache_config or self._get_default_cache_config()
 
         # In-memory cache fallback
-        self.memory_cache: Dict[str, tuple[Any, float]] = {}
+        self.memory_cache: dict[str, tuple[Any, float]] = {}
         self.use_redis = redis_client is not None and REDIS_AVAILABLE
 
-    def _get_default_cache_config(self) -> Dict[str, int]:
+    def _get_default_cache_config(self) -> dict[str, int]:
         """
         Get default cache configuration for common endpoints.
 
@@ -88,7 +89,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
             "/api/exchanges/supported": 3600,
         }
 
-    def _should_cache(self, path: str, method: str) -> Optional[int]:
+    def _should_cache(self, path: str, method: str) -> int | None:
         """
         Determine if a request should be cached and return TTL.
 
@@ -126,7 +127,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         key_string = "|".join(key_parts)
         return f"cache:{hashlib.md5(key_string.encode()).hexdigest()}"
 
-    async def _get_from_cache(self, key: str) -> Optional[tuple[bytes, Dict[str, str]]]:
+    async def _get_from_cache(self, key: str) -> tuple[bytes, dict[str, str]] | None:
         """
         Retrieve value from cache (Redis or memory).
 
@@ -159,7 +160,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         return None
 
     async def _set_in_cache(
-        self, key: str, content: bytes, headers: Dict[str, str], ttl: int
+        self, key: str, content: bytes, headers: dict[str, str], ttl: int
     ):
         """
         Store value in cache (Redis or memory).
@@ -267,7 +268,7 @@ class CacheMiddleware(BaseHTTPMiddleware):
         return response
 
 
-async def cache_invalidate(redis_client: Optional[Any], pattern: str):
+async def cache_invalidate(redis_client: Any | None, pattern: str):
     """
     Invalidate cache entries matching a pattern.
 

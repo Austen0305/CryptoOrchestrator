@@ -3,16 +3,16 @@ SaaS Authentication Service with database backend
 Provides complete authentication system for multi-tenant SaaS.
 """
 
-import bcrypt
 import logging
-from typing import Optional
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+
+import bcrypt
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.user import User
-from .token_service import TokenService
 from .email_service import EmailService
+from .token_service import TokenService
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +29,10 @@ class AuthService:
         db: AsyncSession,
         email: str,
         password: str,
-        username: Optional[str] = None,
-        first_name: Optional[str] = None,
-        last_name: Optional[str] = None,
-    ) -> tuple[Optional[User], Optional[str], Optional[str]]:
+        username: str | None = None,
+        first_name: str | None = None,
+        last_name: str | None = None,
+    ) -> tuple[User | None, str | None, str | None]:
         """
         Register a new user
         Returns: (user, access_token, refresh_token) or (None, None, None) on failure
@@ -67,8 +67,8 @@ class AuthService:
                 last_name=last_name,
                 is_email_verified=False,
                 email_verification_token=verification_token,
-                email_verification_expires=datetime.now(timezone.utc).replace(
-                    hour=datetime.now(timezone.utc).hour + 24
+                email_verification_expires=datetime.now(UTC).replace(
+                    hour=datetime.now(UTC).hour + 24
                 ),
                 is_active=True,
                 role="user",
@@ -109,10 +109,10 @@ class AuthService:
     async def authenticate_user(
         self,
         db: AsyncSession,
-        email: Optional[str] = None,
-        username: Optional[str] = None,
+        email: str | None = None,
+        username: str | None = None,
         password: str = "",
-    ) -> tuple[Optional[User], Optional[str], Optional[str]]:
+    ) -> tuple[User | None, str | None, str | None]:
         """
         Authenticate user and return tokens
         Returns: (user, access_token, refresh_token) or (None, None, None) on failure
@@ -147,7 +147,7 @@ class AuthService:
                 return None, None, None
 
             # Update last login
-            user.last_login_at = datetime.now(timezone.utc)
+            user.last_login_at = datetime.now(UTC)
             user.login_count += 1
             await db.commit()
 
@@ -166,7 +166,7 @@ class AuthService:
             logger.error(f"Authentication failed: {e}", exc_info=True)
             return None, None, None
 
-    async def verify_email(self, db: AsyncSession, token: str) -> Optional[User]:
+    async def verify_email(self, db: AsyncSession, token: str) -> User | None:
         """Verify user email with token"""
         try:
             payload = self.token_service.verify_email_verification_token(token)
@@ -222,8 +222,8 @@ class AuthService:
                 user.id, user.email
             )
             user.password_reset_token = reset_token
-            user.password_reset_expires = datetime.now(timezone.utc).replace(
-                hour=datetime.now(timezone.utc).hour + 1
+            user.password_reset_expires = datetime.now(UTC).replace(
+                hour=datetime.now(UTC).hour + 1
             )
             await db.commit()
 
@@ -241,7 +241,7 @@ class AuthService:
 
     async def reset_password(
         self, db: AsyncSession, token: str, new_password: str
-    ) -> Optional[User]:
+    ) -> User | None:
         """Reset password with token"""
         try:
             payload = self.token_service.verify_password_reset_token(token)
@@ -275,7 +275,7 @@ class AuthService:
 
     async def refresh_access_token(
         self, db: AsyncSession, refresh_token: str
-    ) -> tuple[Optional[str], Optional[str]]:
+    ) -> tuple[str | None, str | None]:
         """Generate new access token from refresh token"""
         try:
             payload = self.token_service.verify_refresh_token(refresh_token)
@@ -305,7 +305,7 @@ class AuthService:
             logger.error(f"Token refresh failed: {e}", exc_info=True)
             return None, None
 
-    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> Optional[User]:
+    async def get_user_by_id(self, db: AsyncSession, user_id: int) -> User | None:
         """Get user by ID"""
         try:
             result = await db.execute(select(User).where(User.id == user_id))
@@ -314,7 +314,7 @@ class AuthService:
             logger.error(f"Failed to get user by ID: {e}", exc_info=True)
             return None
 
-    async def get_user_by_email(self, db: AsyncSession, email: str) -> Optional[User]:
+    async def get_user_by_email(self, db: AsyncSession, email: str) -> User | None:
         """Get user by email"""
         try:
             result = await db.execute(select(User).where(User.email == email))
@@ -325,7 +325,7 @@ class AuthService:
 
     async def get_user_by_username(
         self, db: AsyncSession, username: str
-    ) -> Optional[User]:
+    ) -> User | None:
         """Get user by username"""
         try:
             result = await db.execute(select(User).where(User.username == username))

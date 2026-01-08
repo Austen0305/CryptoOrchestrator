@@ -10,12 +10,11 @@ This service provides automated code review capabilities including:
 """
 
 import ast
-import os
 import re
-from typing import List, Dict, Any, Optional, Set
-from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
 
 class IssueSeverity(Enum):
@@ -36,8 +35,8 @@ class CodeIssue:
     severity: IssueSeverity
     category: str
     message: str
-    suggestion: Optional[str] = None
-    code_snippet: Optional[str] = None
+    suggestion: str | None = None
+    code_snippet: str | None = None
 
 
 class CodeReviewService:
@@ -50,9 +49,9 @@ class CodeReviewService:
             project_root: Root directory of the project to analyze
         """
         self.project_root = Path(project_root)
-        self.issues: List[CodeIssue] = []
+        self.issues: list[CodeIssue] = []
 
-    def analyze_file(self, file_path: str) -> List[CodeIssue]:
+    def analyze_file(self, file_path: str) -> list[CodeIssue]:
         """Analyze a single Python file for code quality issues.
 
         Args:
@@ -64,7 +63,7 @@ class CodeReviewService:
         issues = []
 
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             # Parse AST
@@ -103,7 +102,7 @@ class CodeReviewService:
 
     def _analyze_ast(
         self, file_path: str, tree: ast.AST, content: str
-    ) -> List[CodeIssue]:
+    ) -> list[CodeIssue]:
         """Analyze AST for code quality issues."""
         issues = []
         lines = content.split("\n")
@@ -193,7 +192,7 @@ class CodeReviewService:
 
         return complexity
 
-    def _check_documentation(self, file_path: str, content: str) -> List[CodeIssue]:
+    def _check_documentation(self, file_path: str, content: str) -> list[CodeIssue]:
         """Check for documentation issues."""
         issues = []
         lines = content.split("\n")
@@ -214,7 +213,7 @@ class CodeReviewService:
 
         return issues
 
-    def _check_security(self, file_path: str, content: str) -> List[CodeIssue]:
+    def _check_security(self, file_path: str, content: str) -> list[CodeIssue]:
         """Check for security issues."""
         issues = []
         lines = content.split("\n")
@@ -270,7 +269,7 @@ class CodeReviewService:
 
         return issues
 
-    def _check_best_practices(self, file_path: str, content: str) -> List[CodeIssue]:
+    def _check_best_practices(self, file_path: str, content: str) -> list[CodeIssue]:
         """Check for best practice violations."""
         issues = []
         lines = content.split("\n")
@@ -322,8 +321,8 @@ class CodeReviewService:
         return issues
 
     def analyze_directory(
-        self, directory: str = None, extensions: List[str] = None
-    ) -> Dict[str, Any]:
+        self, directory: str = None, extensions: list[str] = None
+    ) -> dict[str, Any]:
         """Analyze all Python files in a directory.
 
         Args:
@@ -382,7 +381,7 @@ class CodeReviewService:
             "summary": self._generate_summary(all_issues, files_analyzed),
         }
 
-    def _generate_summary(self, issues: List[CodeIssue], files_analyzed: int) -> str:
+    def _generate_summary(self, issues: list[CodeIssue], files_analyzed: int) -> str:
         """Generate a human-readable summary of issues."""
         if not issues:
             return f"[OK] No issues found in {files_analyzed} files analyzed!"

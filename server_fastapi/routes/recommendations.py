@@ -1,15 +1,17 @@
+import logging
+from datetime import datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict, Any, Annotated
-import logging
-from datetime import datetime, timedelta
-import random
+
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..utils.route_helpers import _get_user_id
 from ..services.coingecko_service import CoinGeckoService
-from ..services.ml.enhanced_ml_engine import EnhancedMLEngine, MarketData as MLMarketData
+from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
+from ..services.ml.enhanced_ml_engine import MarketData as MLMarketData
 from ..services.ml.ensemble_engine import EnsembleEngine
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +31,17 @@ class PairAnalysis(BaseModel):
     recommendedStopLoss: float
     recommendedTakeProfit: float
     confidence: float
-    reasoning: List[str]
+    reasoning: list[str]
 
 
 class OptimalRiskSettings(BaseModel):
-    conservative: Dict[str, float]
-    moderate: Dict[str, float]
-    aggressive: Dict[str, float]
+    conservative: dict[str, float]
+    moderate: dict[str, float]
+    aggressive: dict[str, float]
 
 
 class TradingRecommendations(BaseModel):
-    topPairs: List[PairAnalysis]
+    topPairs: list[PairAnalysis]
     optimalRiskSettings: OptimalRiskSettings
     marketSentiment: str
     lastUpdated: int
@@ -83,19 +85,25 @@ async def get_trading_recommendations(
                     continue
 
                 # Get historical prices for ML analysis
-                historical_prices = await coingecko.get_historical_prices(symbol, days=30)
+                historical_prices = await coingecko.get_historical_prices(
+                    symbol, days=30
+                )
                 if not historical_prices or len(historical_prices) < 20:
                     # Fallback: use current price data
                     historical_prices = [{"price": current_price}] * 30
 
                 # Convert to ML MarketData format
                 ml_data = []
-                for i, price_point in enumerate(historical_prices[-30:]):  # Last 30 days
+                for i, price_point in enumerate(
+                    historical_prices[-30:]
+                ):  # Last 30 days
                     price = price_point.get("price", current_price)
                     # Estimate OHLCV from price (simplified - in production use real OHLCV)
                     high = price * 1.02
                     low = price * 0.98
-                    volume = market_data_dict.get("volume_24h", 0.0) / 30.0  # Average daily volume
+                    volume = (
+                        market_data_dict.get("volume_24h", 0.0) / 30.0
+                    )  # Average daily volume
                     ml_data.append(
                         MLMarketData(
                             open=price,
@@ -123,12 +131,20 @@ async def get_trading_recommendations(
                 low_24h = market_data_dict.get("low_24h", current_price)
 
                 # Calculate volatility (24h range as percentage)
-                volatility = abs((high_24h - low_24h) / current_price) if current_price > 0 else 0.0
+                volatility = (
+                    abs((high_24h - low_24h) / current_price)
+                    if current_price > 0
+                    else 0.0
+                )
 
                 # Calculate volume score (0-10, normalized)
                 # Use relative volume compared to BTC as baseline
                 btc_volume = 20000000000  # Approximate BTC daily volume
-                volume_score = min(10.0, (volume_24h / btc_volume) * 10.0) if volume_24h > 0 else 0.0
+                volume_score = (
+                    min(10.0, (volume_24h / btc_volume) * 10.0)
+                    if volume_24h > 0
+                    else 0.0
+                )
 
                 # Calculate momentum score (based on 24h change)
                 momentum_score = change_24h / 10.0  # Normalize to -5 to +5 range
@@ -144,9 +160,9 @@ async def get_trading_recommendations(
 
                 # Profitability score combines ML confidence, momentum, and volume
                 profitability_score = (
-                    (ml_confidence * 5.0) +  # ML confidence component (0-5)
-                    (max(0, momentum_score) * 2.0) +  # Positive momentum (0-10)
-                    (volume_score * 0.3)  # Volume component (0-3)
+                    (ml_confidence * 5.0)  # ML confidence component (0-5)
+                    + (max(0, momentum_score) * 2.0)  # Positive momentum (0-10)
+                    + (volume_score * 0.3)  # Volume component (0-3)
                 )
                 profitability_score = min(10.0, max(0.0, profitability_score))
 
@@ -185,9 +201,13 @@ async def get_trading_recommendations(
                 else:
                     # Fallback reasoning
                     if momentum_score > 1.0:
-                        reasoning.append(f"Strong upward momentum ({change_24h:.2f}% 24h change)")
+                        reasoning.append(
+                            f"Strong upward momentum ({change_24h:.2f}% 24h change)"
+                        )
                     elif momentum_score < -1.0:
-                        reasoning.append(f"Downward momentum ({change_24h:.2f}% 24h change)")
+                        reasoning.append(
+                            f"Downward momentum ({change_24h:.2f}% 24h change)"
+                        )
                     else:
                         reasoning.append("Neutral momentum, consolidation phase")
 
@@ -202,25 +222,31 @@ async def get_trading_recommendations(
                     reasoning.append("High volatility, increased risk and opportunity")
 
                 if profitability_score > 7.0:
-                    reasoning.append("Strong profitability potential based on ML analysis")
+                    reasoning.append(
+                        "Strong profitability potential based on ML analysis"
+                    )
                 elif profitability_score < 4.0:
-                    reasoning.append("Lower profitability score, consider reduced position size")
+                    reasoning.append(
+                        "Lower profitability score, consider reduced position size"
+                    )
 
-                analyzed_pairs.append({
-                    "symbol": symbol,
-                    "baseAsset": pair_info["baseAsset"],
-                    "quoteAsset": pair_info["quoteAsset"],
-                    "currentPrice": round(current_price, 2),
-                    "volatility": round(volatility, 2),
-                    "volumeScore": round(volume_score, 1),
-                    "momentumScore": round(momentum_score, 2),
-                    "profitabilityScore": round(profitability_score, 1),
-                    "recommendedRiskPerTrade": round(recommended_risk, 1),
-                    "recommendedStopLoss": round(recommended_stop_loss, 1),
-                    "recommendedTakeProfit": round(recommended_take_profit, 1),
-                    "confidence": round(confidence, 2),
-                    "reasoning": reasoning[:4],  # Limit to 4 reasons
-                })
+                analyzed_pairs.append(
+                    {
+                        "symbol": symbol,
+                        "baseAsset": pair_info["baseAsset"],
+                        "quoteAsset": pair_info["quoteAsset"],
+                        "currentPrice": round(current_price, 2),
+                        "volatility": round(volatility, 2),
+                        "volumeScore": round(volume_score, 1),
+                        "momentumScore": round(momentum_score, 2),
+                        "profitabilityScore": round(profitability_score, 1),
+                        "recommendedRiskPerTrade": round(recommended_risk, 1),
+                        "recommendedStopLoss": round(recommended_stop_loss, 1),
+                        "recommendedTakeProfit": round(recommended_take_profit, 1),
+                        "confidence": round(confidence, 2),
+                        "reasoning": reasoning[:4],  # Limit to 4 reasons
+                    }
+                )
 
             except Exception as pair_error:
                 logger.warning(f"Error analyzing pair {symbol}: {pair_error}")
@@ -277,7 +303,9 @@ async def get_trading_recommendations(
 
         # If no pairs were successfully analyzed, return empty with fallback sentiment
         if not top_pairs:
-            logger.warning("No trading pairs successfully analyzed, returning empty recommendations")
+            logger.warning(
+                "No trading pairs successfully analyzed, returning empty recommendations"
+            )
             return TradingRecommendations(
                 topPairs=[],
                 optimalRiskSettings=OptimalRiskSettings(**optimal_risk),

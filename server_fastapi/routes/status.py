@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Any, Annotated
 import logging
 import time
 from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
 from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
 
@@ -17,7 +19,7 @@ class SystemStatus(BaseModel):
     timestamp: str
     uptime: float
     version: str
-    services: Dict[str, str]
+    services: dict[str, str]
     runningBots: int = 0  # Count of active trading bots
     blockchainTrading: str = "active"  # Blockchain trading status
 
@@ -29,8 +31,8 @@ async def get_status() -> SystemStatus:
         # Count running bots
         running_bots_count = 0
         try:
-            from ..repositories.bot_repository import BotRepository
             from ..database import get_db_context
+            from ..repositories.bot_repository import BotRepository
 
             async with get_db_context() as db:
                 bot_repo = BotRepository()
@@ -84,8 +86,8 @@ async def get_protected_status(
         try:
             user_id = _get_user_id(current_user)
             if user_id:
-                from ..repositories.bot_repository import BotRepository
                 from ..database import get_db_context
+                from ..repositories.bot_repository import BotRepository
 
                 async with get_db_context() as db:
                     bot_repo = BotRepository()

@@ -3,10 +3,9 @@ Unit tests for BotTradingService
 Tests trading cycle execution and bot trading logic with mocked dependencies
 """
 
-import pytest
-import pytest_asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
+
+import pytest
 
 from server_fastapi.services.trading.bot_trading_service import BotTradingService
 from server_fastapi.tests.utils.test_helpers import create_mock_db_session
@@ -63,14 +62,16 @@ async def test_execute_trading_cycle_validation_failed(bot_trading_service):
     """Test trading cycle when validation fails"""
     bot_config = {"id": "bot-123", "user_id": 1, "strategy": "simple_ma"}
 
-    with patch.object(
-        bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
-    ) as mock_active, patch.object(
-        bot_trading_service.monitoring_service,
-        "validate_bot_start_conditions",
-        new_callable=AsyncMock,
-    ) as mock_validate:
-
+    with (
+        patch.object(
+            bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
+        ) as mock_active,
+        patch.object(
+            bot_trading_service.monitoring_service,
+            "validate_bot_start_conditions",
+            new_callable=AsyncMock,
+        ) as mock_validate,
+    ):
         mock_active.return_value = True
         mock_validate.return_value = {
             "can_start": False,
@@ -88,18 +89,22 @@ async def test_execute_trading_cycle_hold_signal(bot_trading_service):
     """Test trading cycle with hold signal"""
     bot_config = {"id": "bot-123", "user_id": 1, "strategy": "simple_ma"}
 
-    with patch.object(
-        bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
-    ) as mock_active, patch.object(
-        bot_trading_service.monitoring_service,
-        "validate_bot_start_conditions",
-        new_callable=AsyncMock,
-    ) as mock_validate, patch.object(
-        bot_trading_service, "_get_market_data", new_callable=AsyncMock
-    ) as mock_market, patch.object(
-        bot_trading_service, "_get_trading_signal", new_callable=AsyncMock
-    ) as mock_signal:
-
+    with (
+        patch.object(
+            bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
+        ) as mock_active,
+        patch.object(
+            bot_trading_service.monitoring_service,
+            "validate_bot_start_conditions",
+            new_callable=AsyncMock,
+        ) as mock_validate,
+        patch.object(
+            bot_trading_service, "_get_market_data", new_callable=AsyncMock
+        ) as mock_market,
+        patch.object(
+            bot_trading_service, "_get_trading_signal", new_callable=AsyncMock
+        ) as mock_signal,
+    ):
         mock_active.return_value = True
         mock_validate.return_value = {"can_start": True}
         mock_market.return_value = {"price": 50000.0, "volume": 1000.0}
@@ -123,24 +128,31 @@ async def test_execute_trading_cycle_buy_signal(bot_trading_service):
         "symbol": "ETH/USDC",
     }
 
-    with patch.object(
-        bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
-    ) as mock_active, patch.object(
-        bot_trading_service.monitoring_service,
-        "validate_bot_start_conditions",
-        new_callable=AsyncMock,
-    ) as mock_validate, patch.object(
-        bot_trading_service, "_get_market_data", new_callable=AsyncMock
-    ) as mock_market, patch.object(
-        bot_trading_service, "_get_trading_signal", new_callable=AsyncMock
-    ) as mock_signal, patch.object(
-        bot_trading_service, "_calculate_risk_profile", new_callable=AsyncMock
-    ) as mock_risk, patch.object(
-        bot_trading_service, "_prepare_trade_details", new_callable=MagicMock
-    ) as mock_prepare, patch(
-        "server_fastapi.services.trading.bot_trading_service.SafeTradingSystem"
-    ) as mock_safe:
-
+    with (
+        patch.object(
+            bot_trading_service.control_service, "is_bot_active", new_callable=AsyncMock
+        ) as mock_active,
+        patch.object(
+            bot_trading_service.monitoring_service,
+            "validate_bot_start_conditions",
+            new_callable=AsyncMock,
+        ) as mock_validate,
+        patch.object(
+            bot_trading_service, "_get_market_data", new_callable=AsyncMock
+        ) as mock_market,
+        patch.object(
+            bot_trading_service, "_get_trading_signal", new_callable=AsyncMock
+        ) as mock_signal,
+        patch.object(
+            bot_trading_service, "_calculate_risk_profile", new_callable=AsyncMock
+        ) as mock_risk,
+        patch.object(
+            bot_trading_service, "_prepare_trade_details", new_callable=MagicMock
+        ) as mock_prepare,
+        patch(
+            "server_fastapi.services.trading.bot_trading_service.SafeTradingSystem"
+        ) as mock_safe,
+    ):
         mock_active.return_value = True
         mock_validate.return_value = {"can_start": True}
         mock_market.return_value = {"price": 50000.0, "volume": 1000.0}

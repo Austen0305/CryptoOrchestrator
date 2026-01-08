@@ -3,13 +3,14 @@ Audit logging middleware for security and compliance.
 Logs all sensitive operations for audit trails.
 """
 
-import logging
 import json
-from datetime import datetime
-from typing import Optional, Dict, Any
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+import logging
 import os
+from datetime import datetime
+from typing import Any
+
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class AuditLoggerMiddleware(BaseHTTPMiddleware):
                     return True
         return False
 
-    def _mask_sensitive_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _mask_sensitive_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Mask sensitive fields in log data."""
         if not isinstance(data, dict):
             return data
@@ -90,7 +91,7 @@ class AuditLoggerMiddleware(BaseHTTPMiddleware):
 
         return masked
 
-    def _get_user_id(self, request: Request) -> Optional[str]:
+    def _get_user_id(self, request: Request) -> str | None:
         """Extract user ID from request."""
         # Try to get user from JWT token
         auth_header = request.headers.get("authorization")
@@ -201,9 +202,9 @@ class AuditLoggerMiddleware(BaseHTTPMiddleware):
 
 def log_audit_event(
     event_type: str,
-    user_id: Optional[str],
+    user_id: str | None,
     action: str,
-    details: Dict[str, Any],
+    details: dict[str, Any],
     severity: str = "info",
 ):
     """

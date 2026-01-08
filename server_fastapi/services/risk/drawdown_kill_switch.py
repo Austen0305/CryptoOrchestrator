@@ -2,11 +2,13 @@
 Drawdown Kill Switch Service - Automatic shutdown on excessive drawdown
 """
 
-from typing import Dict, Any, Optional, List, Tuple, Callable
-from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
-import logging
 import asyncio
+import logging
+from collections.abc import Callable
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +35,9 @@ class DrawdownState(BaseModel):
     current_value: float
     current_drawdown_percent: float
     max_drawdown_percent: float
-    activated_at: Optional[datetime] = None
-    deactivated_at: Optional[datetime] = None
-    reason: Optional[str] = None
+    activated_at: datetime | None = None
+    deactivated_at: datetime | None = None
+    reason: str | None = None
 
 
 class DrawdownEvent(BaseModel):
@@ -52,14 +54,14 @@ class DrawdownEvent(BaseModel):
 class DrawdownKillSwitch:
     """Drawdown kill switch service for automatic shutdown on excessive drawdown"""
 
-    def __init__(self, config: Optional[DrawdownKillSwitchConfig] = None):
+    def __init__(self, config: DrawdownKillSwitchConfig | None = None):
         self.config = config or DrawdownKillSwitchConfig()
-        self.state: Optional[DrawdownState] = None
+        self.state: DrawdownState | None = None
         self.peak_value: float = 0.0
         self.initial_value: float = 0.0
-        self.events: List[DrawdownEvent] = []
-        self.monitoring_task: Optional[asyncio.Task] = None
-        self.callbacks: List[Callable[[DrawdownEvent], None]] = []
+        self.events: list[DrawdownEvent] = []
+        self.monitoring_task: asyncio.Task | None = None
+        self.callbacks: list[Callable[[DrawdownEvent], None]] = []
 
         logger.info("Drawdown Kill Switch initialized")
 
@@ -70,7 +72,7 @@ class DrawdownKillSwitch:
     async def start_monitoring(
         self,
         get_portfolio_value: Callable[[], float],
-        bot_service: Optional[Any] = None,
+        bot_service: Any | None = None,
     ) -> None:
         """Start monitoring portfolio drawdown"""
         if not self.config.enabled:
@@ -263,7 +265,7 @@ class DrawdownKillSwitch:
         event_type: str,
         drawdown_percent: float,
         current_value: float,
-        message: Optional[str] = None,
+        message: str | None = None,
     ) -> None:
         """Emit drawdown event"""
         event = DrawdownEvent(
@@ -346,7 +348,7 @@ class DrawdownKillSwitch:
             logger.error(f"Error manually deactivating kill switch: {e}")
             return False
 
-    def get_state(self) -> Optional[DrawdownState]:
+    def get_state(self) -> DrawdownState | None:
         """Get current drawdown state"""
         if self.state is None:
             # Return default state if not initialized
@@ -359,7 +361,7 @@ class DrawdownKillSwitch:
             )
         return self.state
 
-    def get_events(self, limit: int = 50) -> List[DrawdownEvent]:
+    def get_events(self, limit: int = 50) -> list[DrawdownEvent]:
         """Get recent drawdown events"""
         return self.events[-limit:] if self.events else []
 

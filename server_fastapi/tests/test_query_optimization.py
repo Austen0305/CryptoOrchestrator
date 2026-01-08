@@ -2,15 +2,17 @@
 Tests for query optimization endpoints
 """
 
-import pytest
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
+
+import pytest
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from fastapi.testclient import TestClient
+
 from server_fastapi.main import app
 
 

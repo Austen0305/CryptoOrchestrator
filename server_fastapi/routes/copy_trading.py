@@ -3,18 +3,17 @@ Copy Trading Routes
 API endpoints for copy trading functionality.
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional, Annotated
-import logging
 
-from ..services.copy_trading_service import CopyTradingService
-from ..dependencies.copy_trading import get_copy_trading_service
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.copy_trading import get_copy_trading_service
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..services.copy_trading_service import CopyTradingService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ router = APIRouter()
 class FollowTraderRequest(BaseModel):
     trader_id: int
     allocation_percentage: float = 100.0
-    max_position_size: Optional[float] = None
+    max_position_size: float | None = None
 
 
 class CopyTradeRequest(BaseModel):

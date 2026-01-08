@@ -1,6 +1,6 @@
 # Services package
-import os
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -43,20 +43,20 @@ def _lazy_load_ml_imports():
 
         from .ml.enhanced_ml_engine import (
             EnhancedMLEngine,
-            enhanced_ml_engine,
-            TechnicalIndicators,
-            MLPrediction,
             MarketData,
+            MLPrediction,
+            TechnicalIndicators,
+            enhanced_ml_engine,
         )
         from .ml.ensemble_engine import (
             EnsembleEngine,
-            ensemble_engine,
             EnsemblePrediction,
+            ensemble_engine,
         )
         from .ml.neural_network_engine import (
+            NeuralNetworkConfig,
             NeuralNetworkEngine,
             neural_network_engine,
-            NeuralNetworkConfig,
         )
 
         _ml_imports = {

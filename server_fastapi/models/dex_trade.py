@@ -4,19 +4,20 @@ Stores trades executed on decentralized exchanges
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
+    JSON,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    DateTime,
-    Boolean,
-    ForeignKey,
     Text,
-    JSON,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -84,29 +85,29 @@ class DEXTrade(Base, TimestampMixin):
     )
 
     # Wallet addresses
-    user_wallet_address: Mapped[Optional[str]] = mapped_column(
+    user_wallet_address: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )  # User's wallet (for non-custodial) or platform wallet (for custodial)
-    recipient_address: Mapped[Optional[str]] = mapped_column(
+    recipient_address: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # Final recipient (for non-custodial)
 
     # Transaction details
-    transaction_hash: Mapped[Optional[str]] = mapped_column(
+    transaction_hash: Mapped[str | None] = mapped_column(
         String(100), nullable=True, unique=True, index=True
     )  # Blockchain transaction hash
     transaction_status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False, index=True
     )  # 'pending', 'confirmed', 'failed'
-    block_number: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    gas_used: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    gas_price: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    block_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gas_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    gas_price: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Swap calldata
-    swap_calldata: Mapped[Optional[str]] = mapped_column(
+    swap_calldata: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # Raw calldata
-    swap_target: Mapped[Optional[str]] = mapped_column(
+    swap_target: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # Contract address
 
@@ -115,19 +116,19 @@ class DEXTrade(Base, TimestampMixin):
         String(20), default="pending", nullable=False, index=True
     )  # 'pending', 'executing', 'completed', 'failed', 'cancelled'
     success: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
-    quote_data: Mapped[Optional[dict]] = mapped_column(
+    quote_data: Mapped[dict | None] = mapped_column(
         JSON, nullable=True
     )  # Original quote
-    execution_metadata: Mapped[Optional[dict]] = mapped_column(
+    execution_metadata: Mapped[dict | None] = mapped_column(
         JSON, nullable=True
     )  # Execution details
 
     # Timestamps
-    executed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User")

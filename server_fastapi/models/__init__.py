@@ -2,22 +2,22 @@
 Database models for the application.
 """
 
-from .base import Base, BaseModel, TimestampMixin, SoftDeleteMixin, User
+from .base import Base, BaseModel, SoftDeleteMixin, TimestampMixin, User
 from .bot import Bot
+from .follow import CopiedTrade, Follow
+from .idempotency import IdempotencyKey
+from .order import Order, OrderStatus, OrderType
+from .portfolio import Portfolio
 from .risk_alert import RiskAlert
 from .risk_limit import RiskLimit
-from .portfolio import Portfolio
 from .trade import Trade
-from .follow import Follow, CopiedTrade
-from .order import Order, OrderType, OrderStatus
 from .wallet import (
+    TransactionStatus,
+    TransactionType,
     Wallet,
     WalletTransaction,
     WalletType,
-    TransactionType,
-    TransactionStatus,
 )
-from .idempotency import IdempotencyKey
 
 # New competitive bot models
 try:
@@ -99,10 +99,10 @@ except Exception:
 
 try:
     from .signal_provider import (
+        CuratorStatus,
+        Payout,
         SignalProvider,
         SignalProviderRating,
-        Payout,
-        CuratorStatus,
     )  # type: ignore
 except Exception:
     SignalProvider = None  # noqa: N816
@@ -113,11 +113,11 @@ except Exception:
 try:
     from .indicator import (
         Indicator,
-        IndicatorVersion,
+        IndicatorLanguage,
         IndicatorPurchase,
         IndicatorRating,
         IndicatorStatus,
-        IndicatorLanguage,
+        IndicatorVersion,
     )  # type: ignore
 except Exception:
     Indicator = None  # noqa: N816
@@ -130,9 +130,9 @@ except Exception:
 try:
     from .analytics_threshold import (
         AnalyticsThreshold,
-        ThresholdType,
         ThresholdMetric,
         ThresholdOperator,
+        ThresholdType,
     )  # type: ignore
 except Exception:
     AnalyticsThreshold = None  # noqa: N816
@@ -143,14 +143,16 @@ except Exception:
 try:
     from .institutional_wallet import (
         InstitutionalWallet,
-        PendingTransaction,
         InstitutionalWalletTransaction,
-        WalletAccessLog,
-        WalletType as InstitutionalWalletType,
         MultisigType,
-        WalletStatus,
+        PendingTransaction,
         SignerRole,
+        WalletAccessLog,
+        WalletStatus,
     )  # type: ignore
+    from .institutional_wallet import (
+        WalletType as InstitutionalWalletType,
+    )
 except Exception:
     InstitutionalWallet = None  # noqa: N816
     PendingTransaction = None  # noqa: N816
@@ -163,11 +165,11 @@ except Exception:
 
 try:
     from .social_recovery import (
-        SocialRecoveryGuardian,
-        RecoveryRequest,
-        RecoveryApproval,
         GuardianStatus,
+        RecoveryApproval,
+        RecoveryRequest,
         RecoveryRequestStatus,
+        SocialRecoveryGuardian,
     )  # type: ignore
 except Exception:
     SocialRecoveryGuardian = None  # noqa: N816
@@ -180,10 +182,12 @@ try:
     from .accounting_connection import (
         AccountingConnection,
         AccountingSyncLog,
-        AccountingSystem as AccountingSystemModel,
         ConnectionStatus,
         SyncFrequency,
     )  # type: ignore
+    from .accounting_connection import (
+        AccountingSystem as AccountingSystemModel,
+    )
 except Exception:
     AccountingConnection = None  # noqa: N816
     AccountingSyncLog = None  # noqa: N816
@@ -194,8 +198,8 @@ except Exception:
 try:
     from .onboarding import (
         OnboardingProgress,
-        UserAchievement,
         OnboardingStep,
+        UserAchievement,
     )  # type: ignore
 except Exception:
     OnboardingProgress = None  # noqa: N816
@@ -205,9 +209,9 @@ except Exception:
 # User Analytics models
 try:
     from .user_analytics import (
-        UserEvent,
-        FeatureUsage,
         ConversionFunnel,
+        FeatureUsage,
+        UserEvent,
         UserJourney,
         UserSatisfaction,
     )  # type: ignore
@@ -221,16 +225,16 @@ except Exception:
 # Social & Community models
 try:
     from .social import (
-        SharedStrategy,
-        StrategyLike,
-        StrategyComment,
-        SocialFeedEvent,
-        UserProfile,
         Achievement,
-        UserAchievement,
-        CommunityChallenge,
         ChallengeParticipant,
+        CommunityChallenge,
+        SharedStrategy,
+        SocialFeedEvent,
+        StrategyComment,
+        StrategyLike,
         StrategyVisibility,
+        UserAchievement,
+        UserProfile,
     )  # type: ignore
 except Exception:
     SharedStrategy = None  # noqa: N816
@@ -247,10 +251,10 @@ except Exception:
 # Feature Flags & A/B Testing models
 try:
     from .feature_flags import (
-        FeatureFlag,
-        FlagEvaluation,
         ABTestExperiment,
         ExperimentAssignment,
+        FeatureFlag,
+        FlagEvaluation,
         FlagStatus,
     )  # type: ignore
 except Exception:
@@ -270,13 +274,13 @@ except Exception:
 
 # Webhooks & API Keys models
 try:
-    from .webhooks import (
-        Webhook,
-        WebhookDelivery,
-    )  # type: ignore
     from .api_keys import (
         APIKey,
         APIKeyUsage,
+    )  # type: ignore
+    from .webhooks import (
+        Webhook,
+        WebhookDelivery,
     )  # type: ignore
 except Exception:
     Webhook = None  # noqa: N816

@@ -1,16 +1,15 @@
-from typing import List, Dict, Any, Optional, Tuple
-from pydantic import BaseModel
 import logging
-import asyncio
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel
 
 from .ml.ensemble_engine import (
-    EnsembleEngine,
-    ensemble_engine,
-    MarketData,
     EnsemblePrediction,
+    MarketData,
+    ensemble_engine,
 )
-from .risk_management_engine import RiskManagementEngine, BotConfig, Trade
+from .risk_management_engine import RiskManagementEngine
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class BacktestPosition(BaseModel):
 
 
 class BacktestResult(BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     botId: str
     totalReturn: float
     sharpeRatio: float
@@ -37,9 +36,9 @@ class BacktestResult(BaseModel):
     winRate: float
     totalTrades: int
     profitFactor: float
-    trades: List[Dict[str, Any]]
-    equityCurve: List[Dict[str, Any]]
-    createdAt: Optional[datetime] = None
+    trades: list[dict[str, Any]]
+    equityCurve: list[dict[str, Any]]
+    createdAt: datetime | None = None
 
 
 class BacktestingEngine:
@@ -48,7 +47,7 @@ class BacktestingEngine:
         self.risk_manager = RiskManagementEngine()
 
     async def run_backtest(
-        self, config: BacktestConfig, historical_data: List[MarketData]
+        self, config: BacktestConfig, historical_data: list[MarketData]
     ) -> BacktestResult:
         if len(historical_data) < 100:
             raise ValueError("Insufficient historical data for backtesting")
@@ -93,15 +92,15 @@ class BacktestingEngine:
 
     async def simulate_trading(
         self,
-        market_data: List[MarketData],
+        market_data: list[MarketData],
         config: BacktestConfig,
         bot_config: Any,  # SimpleBotConfig
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         balance = config.initialBalance
         available_balance = balance
-        positions: List[BacktestPosition] = []
-        trades: List[Dict[str, Any]] = []
-        equity_curve: List[Dict[str, Any]] = []
+        positions: list[BacktestPosition] = []
+        trades: list[dict[str, Any]] = []
+        equity_curve: list[dict[str, Any]] = []
 
         # Sort market data by timestamp
         market_data.sort(key=lambda x: x.timestamp)
@@ -172,8 +171,8 @@ class BacktestingEngine:
         bot_config: Any,  # SimpleBotConfig
         balance: float,
         available_balance: float,
-        positions: List[BacktestPosition],
-        trades: List[Dict[str, Any]],
+        positions: list[BacktestPosition],
+        trades: list[dict[str, Any]],
         commission: float,
     ) -> None:
         current_price = market_data.close
@@ -250,10 +249,10 @@ class BacktestingEngine:
 
     def calculate_performance_metrics(
         self,
-        trades: List[Dict[str, Any]],
-        equity_curve: List[Dict[str, Any]],
+        trades: list[dict[str, Any]],
+        equity_curve: list[dict[str, Any]],
         initial_balance: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not trades:
             return {
                 "totalReturn": 0.0,
@@ -274,7 +273,7 @@ class BacktestingEngine:
             total_return = 0.0
 
         # Calculate daily returns for Sharpe ratio
-        daily_returns: List[float] = []
+        daily_returns: list[float] = []
         for i in range(1, len(equity_curve)):
             daily_return = (
                 equity_curve[i]["balance"] - equity_curve[i - 1]["balance"]
@@ -314,7 +313,9 @@ class BacktestingEngine:
         profit_factor = (
             total_profit / total_loss
             if total_loss > 0
-            else float("inf") if total_profit > 0 else 0.0
+            else float("inf")
+            if total_profit > 0
+            else 0.0
         )
 
         return {

@@ -3,10 +3,9 @@ Environment Variable Validation
 Validates required environment variables on startup
 """
 
+import logging
 import os
 import sys
-import logging
-from typing import List, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +17,8 @@ class EnvValidationError(Exception):
 
 
 def validate_required_vars(
-    required_vars: List[str], exit_on_error: bool = True
-) -> Tuple[bool, List[str]]:
+    required_vars: list[str], exit_on_error: bool = True
+) -> tuple[bool, list[str]]:
     """
     Validate that required environment variables are set.
 

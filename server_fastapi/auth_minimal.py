@@ -1,12 +1,10 @@
-from datetime import datetime, timedelta, timezone
-from typing import Dict, Optional
+import hashlib
+from datetime import UTC, datetime, timedelta
 
+import jwt
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-import hashlib
-import jwt
-
 
 JWT_SECRET = "dev-minimal-secret"
 JWT_ALG = "HS256"
@@ -16,8 +14,8 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     username: str
     password: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
 
 
 class User(BaseModel):
@@ -25,8 +23,8 @@ class User(BaseModel):
     email: EmailStr
     username: str
     password_hash: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
     is_active: bool = True
     is_email_verified: bool = False
     role: str = "user"
@@ -39,9 +37,9 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: Optional[str] = None
+    refresh_token: str | None = None
     user: User
-    message: Optional[str] = None
+    message: str | None = None
 
 
 app = FastAPI(title="Minimal Auth Server", version="0.1.0")
@@ -59,7 +57,7 @@ app.add_middleware(
 )
 
 
-_users_by_email: Dict[str, User] = {}
+_users_by_email: dict[str, User] = {}
 _next_id = 1
 
 
@@ -68,7 +66,7 @@ def _hash_password(password: str) -> str:
 
 
 def _generate_token(user: User) -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = {
         "id": user.id,
         "email": user.email,

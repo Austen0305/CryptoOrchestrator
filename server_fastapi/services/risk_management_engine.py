@@ -1,8 +1,8 @@
-import asyncio
-from typing import Dict, Any, List, Optional, Tuple
-from pydantic import BaseModel
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..repositories.risk_repository import RiskRepository
@@ -26,15 +26,15 @@ class Trade(BaseModel):
     total: float
     total_with_fee: float
     fee: float
-    pnl: Optional[float] = None
+    pnl: float | None = None
 
 
 class Portfolio(BaseModel):
     total_balance: float
     available_balance: float
-    positions: Dict[str, Dict[str, Any]]
-    successful_trades: Optional[int] = 0
-    failed_trades: Optional[int] = 0
+    positions: dict[str, dict[str, Any]]
+    successful_trades: int | None = 0
+    failed_trades: int | None = 0
 
 
 class MarketData(BaseModel):
@@ -72,14 +72,14 @@ class RiskLimits(BaseModel):
 
 
 class RiskManagementEngine:
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         self.db = db
         self.default_limits = RiskLimits()
         self.historical_volatility: float = 0.0
         self.last_volatility_update: int = 0
         self.volatility_update_interval = 1000 * 60 * 15  # 15 minutes in milliseconds
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
-        self._risk_repository: Optional[RiskRepository] = risk_repository
+        self._risk_repository: RiskRepository | None = risk_repository
 
     async def update_historical_volatility(self, exchange_service: Any) -> None:
         """Update historical volatility from exchange data"""
@@ -89,9 +89,7 @@ class RiskManagementEngine:
 
         try:
             # Mock historical data fetch - in real implementation, call exchange service
-            historical_data = (
-                []
-            )  # Would be fetched from exchange_service.get_historical_data()
+            historical_data = []  # Would be fetched from exchange_service.get_historical_data()
 
             if historical_data:
                 self.historical_volatility = self.calculate_volatility_index(
@@ -101,7 +99,7 @@ class RiskManagementEngine:
         except Exception as error:
             logger.error(f"Failed to update historical volatility: {error}")
 
-    def calculate_volatility_index(self, historical_data: List[MarketData]) -> float:
+    def calculate_volatility_index(self, historical_data: list[MarketData]) -> float:
         """Calculate volatility index from historical data"""
         if len(historical_data) < 2:
             return 0.02  # Default volatility
@@ -153,8 +151,8 @@ class RiskManagementEngine:
             raise
 
     async def should_stop_trading(
-        self, user_id: str, portfolio: Portfolio, metrics: Optional[RiskMetrics] = None
-    ) -> Tuple[bool, Optional[str]]:
+        self, user_id: str, portfolio: Portfolio, metrics: RiskMetrics | None = None
+    ) -> tuple[bool, str | None]:
         """Determine if trading should stop based on risk limits"""
         # If persistent mode is enabled, never stop trading automatically
         if self.default_limits.persistent_mode:
@@ -247,8 +245,8 @@ class RiskManagementEngine:
         alert_type: str,
         severity: str,
         message: str,
-        current_value: Optional[float] = None,
-        threshold_value: Optional[float] = None,
+        current_value: float | None = None,
+        threshold_value: float | None = None,
     ):
         """Create a risk alert in the database"""
         if self._risk_repository and self.db:
@@ -353,14 +351,14 @@ class RiskManagementEngine:
         )
 
     def calculate_equity_curve(
-        self, trades: List[Trade], initial_balance: float
-    ) -> List[float]:
+        self, trades: list[Trade], initial_balance: float
+    ) -> list[float]:
         """Calculate equity curve from trade history"""
         balance = initial_balance
         equity = [balance]
 
         # Group trades by day (simplified)
-        daily_trades: Dict[int, List[Trade]] = {}
+        daily_trades: dict[int, list[Trade]] = {}
 
         for trade in trades:
             day = trade.timestamp // (24 * 60 * 60 * 1000)  # Convert to days
@@ -380,7 +378,7 @@ class RiskManagementEngine:
 
         return equity
 
-    def calculate_current_drawdown(self, equity_curve: List[float]) -> float:
+    def calculate_current_drawdown(self, equity_curve: list[float]) -> float:
         """Calculate current drawdown from equity curve"""
         if not equity_curve:
             return 0.0
@@ -390,7 +388,7 @@ class RiskManagementEngine:
 
         return (peak - current) / peak if peak > 0 else 0.0
 
-    def calculate_max_drawdown(self, equity_curve: List[float]) -> float:
+    def calculate_max_drawdown(self, equity_curve: list[float]) -> float:
         """Calculate maximum drawdown from equity curve"""
         if len(equity_curve) < 2:
             return 0.0
@@ -407,9 +405,9 @@ class RiskManagementEngine:
 
         return max_drawdown
 
-    def calculate_daily_pnl(self, trades: List[Trade]) -> List[float]:
+    def calculate_daily_pnl(self, trades: list[Trade]) -> list[float]:
         """Calculate daily profit and loss"""
-        daily_pnl: Dict[int, float] = {}
+        daily_pnl: dict[int, float] = {}
 
         for trade in trades:
             day = trade.timestamp // (24 * 60 * 60 * 1000)
@@ -439,7 +437,7 @@ class RiskManagementEngine:
         return self.calculate_current_position_size(portfolio)
 
     async def update_risk_limits(
-        self, user_id: str, limits: Dict[str, Any], db: Optional[AsyncSession] = None
+        self, user_id: str, limits: dict[str, Any], db: AsyncSession | None = None
     ) -> None:
         """Update risk limits configuration (persists to database if db provided)"""
         # Update in-memory limits
@@ -474,7 +472,7 @@ class RiskManagementEngine:
                     except Exception as e:
                         logger.error(f"Error updating risk limit: {e}", exc_info=True)
 
-    async def get_risk_limits(self, user_id: Optional[str] = None) -> RiskLimits:
+    async def get_risk_limits(self, user_id: str | None = None) -> RiskLimits:
         """Get current risk limits (from database if user_id provided)"""
         if user_id and self._risk_repository and self.db:
             user_limits = await self._risk_repository.get_user_limits(self.db, user_id)

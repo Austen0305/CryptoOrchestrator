@@ -3,11 +3,10 @@ Email Service
 Handles email sending via SendGrid, SES, or SMTP.
 """
 
-import os
 import logging
-from typing import Optional, Dict, List
-from email.mime.text import MIMEText
+import os
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +82,10 @@ class EmailService:
         self,
         to: str,
         subject: str,
-        html_content: Optional[str] = None,
-        text_content: Optional[str] = None,
-        from_email: Optional[str] = None,
-        from_name: Optional[str] = None,
+        html_content: str | None = None,
+        text_content: str | None = None,
+        from_email: str | None = None,
+        from_name: str | None = None,
     ) -> bool:
         """
         Send an email.
@@ -127,14 +126,14 @@ class EmailService:
         self,
         to: str,
         subject: str,
-        html_content: Optional[str],
-        text_content: Optional[str],
+        html_content: str | None,
+        text_content: str | None,
         from_email: str,
         from_name: str,
     ) -> bool:
         """Send email via SendGrid"""
         try:
-            from sendgrid.helpers.mail import Mail, Email, Content
+            from sendgrid.helpers.mail import Content, Email, Mail
 
             message = Mail(
                 from_email=Email(from_email, from_name), to_emails=to, subject=subject
@@ -156,15 +155,13 @@ class EmailService:
         self,
         to: str,
         subject: str,
-        html_content: Optional[str],
-        text_content: Optional[str],
+        html_content: str | None,
+        text_content: str | None,
         from_email: str,
         from_name: str,
     ) -> bool:
         """Send email via AWS SES"""
         try:
-            import boto3
-
             message = {"Subject": {"Data": subject, "Charset": "UTF-8"}, "Body": {}}
 
             if html_content:
@@ -188,14 +185,13 @@ class EmailService:
         self,
         to: str,
         subject: str,
-        html_content: Optional[str],
-        text_content: Optional[str],
+        html_content: str | None,
+        text_content: str | None,
         from_email: str,
         from_name: str,
     ) -> bool:
         """Send email via SMTP"""
         try:
-            import smtplib
             import asyncio
 
             msg = MIMEMultipart("alternative")

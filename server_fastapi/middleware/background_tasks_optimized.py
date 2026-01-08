@@ -6,18 +6,20 @@ Manages background tasks with priority, batching, and monitoring
 import asyncio
 import logging
 import time
-from typing import Callable, Any, Dict, Optional, List
-from enum import IntEnum
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from collections import deque
+from enum import IntEnum
 from functools import wraps
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class TaskPriority(IntEnum):
     """Task priority levels"""
+
     LOW = 1
     NORMAL = 2
     HIGH = 3
@@ -27,6 +29,7 @@ class TaskPriority(IntEnum):
 @dataclass
 class BackgroundTask:
     """Background task metadata"""
+
     func: Callable
     args: tuple = field(default_factory=tuple)
     kwargs: dict = field(default_factory=dict)
@@ -34,7 +37,7 @@ class BackgroundTask:
     created_at: datetime = field(default_factory=datetime.utcnow)
     retries: int = 0
     max_retries: int = 3
-    task_id: Optional[str] = None
+    task_id: str | None = None
 
 
 class OptimizedBackgroundTaskQueue:
@@ -56,11 +59,11 @@ class OptimizedBackgroundTaskQueue:
         self.max_workers = max_workers
         self.batch_size = batch_size
         self.batch_window_ms = batch_window_ms / 1000.0
-        
+
         self.task_queue: deque = deque()
-        self.workers: List[asyncio.Task] = []
+        self.workers: list[asyncio.Task] = []
         self.running = False
-        
+
         self.stats = {
             "total_tasks": 0,
             "completed_tasks": 0,
@@ -74,13 +77,13 @@ class OptimizedBackgroundTaskQueue:
         *args,
         priority: TaskPriority = TaskPriority.NORMAL,
         max_retries: int = 3,
-        task_id: Optional[str] = None,
+        task_id: str | None = None,
         **kwargs,
     ) -> str:
         """Enqueue a background task"""
         if not task_id:
             task_id = f"task_{int(time.time() * 1000)}"
-        
+
         task = BackgroundTask(
             func=func,
             args=args,
@@ -89,7 +92,7 @@ class OptimizedBackgroundTaskQueue:
             max_retries=max_retries,
             task_id=task_id,
         )
-        
+
         # Insert based on priority
         inserted = False
         for i, existing_task in enumerate(self.task_queue):
@@ -97,88 +100,87 @@ class OptimizedBackgroundTaskQueue:
                 self.task_queue.insert(i, task)
                 inserted = True
                 break
-        
+
         if not inserted:
             self.task_queue.append(task)
-        
+
         self.stats["total_tasks"] += 1
-        
+
         # Start workers if not running
         if not self.running:
             await self.start()
-        
+
         return task_id
 
     async def start(self):
         """Start background workers"""
         if self.running:
             return
-        
+
         self.running = True
-        
+
         # Start worker tasks
         for i in range(self.max_workers):
             worker = asyncio.create_task(self._worker(f"worker-{i}"))
             self.workers.append(worker)
-        
+
         logger.info(f"Started {self.max_workers} background task workers")
 
     async def stop(self, timeout: float = 30.0):
         """Stop background workers gracefully"""
         self.running = False
-        
+
         # Wait for workers to finish
         if self.workers:
             await asyncio.wait_for(
-                asyncio.gather(*self.workers, return_exceptions=True),
-                timeout=timeout
+                asyncio.gather(*self.workers, return_exceptions=True), timeout=timeout
             )
-        
+
         logger.info("Background task workers stopped")
 
     async def _worker(self, worker_id: str):
         """Background worker that processes tasks"""
         logger.debug(f"Worker {worker_id} started")
-        
+
         while self.running:
             try:
                 # Get batch of tasks
                 batch = await self._get_batch()
-                
+
                 if not batch:
                     await asyncio.sleep(0.1)
                     continue
-                
+
                 # Process batch
                 await self._process_batch(batch)
-                
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Worker {worker_id} error: {e}", exc_info=True)
                 await asyncio.sleep(1)
-        
+
         logger.debug(f"Worker {worker_id} stopped")
 
-    async def _get_batch(self) -> List[BackgroundTask]:
+    async def _get_batch(self) -> list[BackgroundTask]:
         """Get a batch of tasks to process"""
         if not self.task_queue:
             return []
-        
+
         batch = []
         start_time = time.time()
-        
+
         while len(batch) < self.batch_size and self.task_queue:
             elapsed = time.time() - start_time
             if elapsed >= self.batch_window_ms and batch:
                 break
-            
+
             task = self.task_queue.popleft()
             batch.append(task)
-        
+
         return batch
 
-    async def _process_batch(self, batch: List[BackgroundTask]):
+    async def _process_batch(self, batch: list[BackgroundTask]):
         """Process a batch of tasks"""
         # Process in parallel
         tasks = [self._execute_task(task) for task in batch]
@@ -191,20 +193,20 @@ class OptimizedBackgroundTaskQueue:
                 await task.func(*task.args, **task.kwargs)
             else:
                 task.func(*task.args, **task.kwargs)
-            
+
             self.stats["completed_tasks"] += 1
             logger.debug(f"Task {task.task_id} completed")
-            
+
         except Exception as e:
             logger.error(f"Task {task.task_id} failed: {e}", exc_info=True)
-            
+
             # Retry if possible
             if task.retries < task.max_retries:
                 task.retries += 1
                 self.stats["retried_tasks"] += 1
-                
+
                 # Re-enqueue with exponential backoff
-                await asyncio.sleep(2 ** task.retries)
+                await asyncio.sleep(2**task.retries)
                 await self.enqueue(
                     task.func,
                     *task.args,
@@ -215,9 +217,11 @@ class OptimizedBackgroundTaskQueue:
                 )
             else:
                 self.stats["failed_tasks"] += 1
-                logger.error(f"Task {task.task_id} failed after {task.max_retries} retries")
+                logger.error(
+                    f"Task {task.task_id} failed after {task.max_retries} retries"
+                )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get queue statistics"""
         return {
             **self.stats,
@@ -225,7 +229,8 @@ class OptimizedBackgroundTaskQueue:
             "active_workers": len([w for w in self.workers if not w.done()]),
             "success_rate": (
                 self.stats["completed_tasks"] / self.stats["total_tasks"] * 100
-                if self.stats["total_tasks"] > 0 else 0
+                if self.stats["total_tasks"] > 0
+                else 0
             ),
         }
 
@@ -239,6 +244,7 @@ def background_task(
     max_retries: int = 3,
 ):
     """Decorator to run function as background task"""
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -250,6 +256,7 @@ def background_task(
                 **kwargs,
             )
             return task_id
-        return wrapper
-    return decorator
 
+        return wrapper
+
+    return decorator

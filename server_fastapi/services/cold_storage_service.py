@@ -4,17 +4,17 @@ Simulates cold storage for high-value crypto assets (security best practice)
 """
 
 import logging
-from typing import Dict, Optional, List
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 from enum import Enum
 
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..models.wallet import (
+    TransactionStatus,
+    TransactionType,
     Wallet,
     WalletTransaction,
-    TransactionType,
-    TransactionStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ class ColdStorageService:
 
     async def check_cold_storage_eligibility(
         self, user_id: int, currency: str, amount: float
-    ) -> Dict:
+    ) -> dict:
         """
         Check if transfer should go to cold storage
 
@@ -83,8 +83,8 @@ class ColdStorageService:
         user_id: int,
         currency: str,
         amount: float,
-        description: Optional[str] = None,
-    ) -> Dict:
+        description: str | None = None,
+    ) -> dict:
         """
         Initiate a transfer to cold storage
 
@@ -218,8 +218,8 @@ class ColdStorageService:
             return False
 
     async def get_cold_storage_balance(
-        self, user_id: int, currency: Optional[str] = None
-    ) -> Dict:
+        self, user_id: int, currency: str | None = None
+    ) -> dict:
         """
         Get total balance in cold storage for user
         """
@@ -276,7 +276,7 @@ class ColdStorageService:
         price = price_map.get(currency.upper(), 1.0)
         return amount * price
 
-    async def _estimate_total_usd_value(self, balances: Dict[str, float]) -> float:
+    async def _estimate_total_usd_value(self, balances: dict[str, float]) -> float:
         """Estimate total USD value of multiple currencies"""
         total = 0.0
         for currency, amount in balances.items():

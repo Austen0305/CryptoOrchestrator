@@ -2,11 +2,10 @@
 Tests for Copy Trading Marketplace API Routes
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
 from datetime import datetime, timedelta
 
+import pytest
+from httpx import AsyncClient
 
 pytestmark = pytest.mark.asyncio
 
@@ -64,9 +63,7 @@ class TestMarketplaceRoutes:
             if trader.get("sharpe_ratio") is not None:
                 assert trader["sharpe_ratio"] >= 1.0
 
-    async def test_get_trader_profile(
-        self, client: AsyncClient, test_user_with_auth
-    ):
+    async def test_get_trader_profile(self, client: AsyncClient, test_user_with_auth):
         """Test getting trader profile"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
 
@@ -89,9 +86,7 @@ class TestMarketplaceRoutes:
         assert data["id"] == provider_id
         assert "performance_metrics" in data
 
-    async def test_rate_trader(
-        self, client: AsyncClient, test_user_with_auth
-    ):
+    async def test_rate_trader(self, client: AsyncClient, test_user_with_auth):
         """Test rating a trader"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
 
@@ -116,9 +111,7 @@ class TestMarketplaceRoutes:
         # Should either succeed or return appropriate error
         assert response.status_code in [200, 400, 403]
 
-    async def test_calculate_payout(
-        self, client: AsyncClient, test_user_with_auth
-    ):
+    async def test_calculate_payout(self, client: AsyncClient, test_user_with_auth):
         """Test calculating payout"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
 
@@ -150,9 +143,7 @@ class TestMarketplaceRoutes:
         assert "provider_payout" in data
         assert data["provider_payout"] == 800.0  # 80%
 
-    async def test_create_payout(
-        self, client: AsyncClient, test_user_with_auth
-    ):
+    async def test_create_payout(self, client: AsyncClient, test_user_with_auth):
         """Test creating a payout"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
 

@@ -1,7 +1,9 @@
+import uuid
+
 import pytest
 from fastapi.testclient import TestClient
+
 from server_fastapi.main import app
-import uuid
 
 
 @pytest.fixture
@@ -23,9 +25,9 @@ def auth_headers(client):
         "name": "Test User",
     }
     reg_response = client.post("/api/auth/register", json=register_data)
-    assert (
-        reg_response.status_code == 200
-    ), f"Registration failed: {reg_response.json()}"
+    assert reg_response.status_code == 200, (
+        f"Registration failed: {reg_response.json()}"
+    )
 
     # Login to get token
     login_data = {"email": unique_email, "password": "TestPassword123!"}
@@ -172,8 +174,10 @@ class TestAuthIntegration:
     def test_get_profile_unauthenticated(self, client):
         """Test getting user profile without authentication"""
         response = client.get("/api/auth/profile")
-    
-        assert response.status_code == 401  # Unauthorized (401 is more correct than 403 for missing auth)
+
+        assert (
+            response.status_code == 401
+        )  # Unauthorized (401 is more correct than 403 for missing auth)
 
     def test_update_profile(self, client, auth_headers):
         """Test updating user profile"""

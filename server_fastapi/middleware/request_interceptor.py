@@ -4,7 +4,8 @@ Provides hooks for request/response transformation and inspection
 """
 
 import logging
-from typing import Dict, Any, Optional, Callable, List
+from collections.abc import Callable
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 class RequestInterceptor:
     """
     Request/response interceptor
-    
+
     Features:
     - Request preprocessing hooks
     - Response postprocessing hooks
@@ -25,9 +26,9 @@ class RequestInterceptor:
     """
 
     def __init__(self):
-        self.request_hooks: List[Callable] = []
-        self.response_hooks: List[Callable] = []
-        self.transformers: Dict[str, Callable] = {}
+        self.request_hooks: list[Callable] = []
+        self.response_hooks: list[Callable] = []
+        self.transformers: dict[str, Callable] = {}
 
     def register_request_hook(self, hook: Callable):
         """Register request preprocessing hook"""
@@ -88,7 +89,7 @@ import asyncio
 class RequestInterceptorMiddleware(BaseHTTPMiddleware):
     """Middleware for request/response interception"""
 
-    def __init__(self, app, interceptor: Optional[RequestInterceptor] = None):
+    def __init__(self, app, interceptor: RequestInterceptor | None = None):
         super().__init__(app)
         self.interceptor = interceptor or RequestInterceptor()
 
@@ -108,4 +109,3 @@ class RequestInterceptorMiddleware(BaseHTTPMiddleware):
 
 # Global interceptor instance
 request_interceptor = RequestInterceptor()
-

@@ -2,10 +2,11 @@
 Database configuration and connection management for PostgreSQL using async SQLAlchemy.
 """
 
-from typing import AsyncGenerator
-from contextlib import asynccontextmanager
 import os
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 

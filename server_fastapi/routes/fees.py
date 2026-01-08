@@ -1,14 +1,15 @@
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Annotated
 from sqlalchemy.ext.asyncio import AsyncSession
-import logging
-from ..services.payments.trading_fee_service import TradingFeeService
+
+from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..dependencies.user import get_current_user_db
-from ..database import get_db_session
+from ..services.payments.trading_fee_service import TradingFeeService
 from ..utils.route_helpers import _get_user_id
-from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,8 @@ class FeeCalculationRequest(BaseModel):
     amount: float
     price: float
     side: str  # 'buy' or 'sell'
-    isMaker: Optional[bool] = None
-    volumeUSD: Optional[float] = None
+    isMaker: bool | None = None
+    volumeUSD: float | None = None
 
 
 class FeeResponse(BaseModel):
@@ -35,14 +36,14 @@ class FeeInfo(BaseModel):
     makerFee: float
     takerFee: float
     volumeUSD: float
-    nextTierVolume: Optional[float] = None
+    nextTierVolume: float | None = None
 
 
 @router.get("/", response_model=FeeInfo)
 async def get_fees(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    volumeUSD: Optional[float] = None,
+    volumeUSD: float | None = None,
 ):
     """Get current fee information for DEX trading"""
     try:

@@ -4,23 +4,24 @@ Futures trading with leverage support.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class FuturesPosition(BaseModel):
@@ -35,7 +36,7 @@ class FuturesPosition(BaseModel):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
-    name: Mapped[Optional[str]] = mapped_column(
+    name: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # Optional name for the position
 
@@ -75,9 +76,9 @@ class FuturesPosition(BaseModel):
     )  # Maintenance margin requirement
 
     # Stop loss / Take profit
-    stop_loss_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    take_profit_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    trailing_stop_percent: Mapped[Optional[float]] = mapped_column(
+    stop_loss_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    take_profit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trailing_stop_percent: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Trailing stop (%)
 
@@ -113,13 +114,13 @@ class FuturesPosition(BaseModel):
     opened_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )
-    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
     # Additional configuration (JSON)
-    config: Mapped[Optional[str]] = mapped_column(
+    config: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: advanced settings
 
@@ -129,7 +130,7 @@ class FuturesPosition(BaseModel):
         "Trade", back_populates="futures_position", cascade="all, delete-orphan"
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert futures position instance to dictionary."""
         import json
         from datetime import datetime

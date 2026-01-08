@@ -3,13 +3,14 @@ Two-Factor Authentication Routes
 API endpoints for 2FA setup and verification.
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List, Annotated
-import logging
 
-from ..services.two_factor_service import two_factor_service
 from ..dependencies.auth import get_current_user
+from ..services.two_factor_service import two_factor_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class VerifyTokenRequest(BaseModel):
 class Setup2FAResponse(BaseModel):
     secret: str
     qr_code: str
-    backup_codes: List[str]
+    backup_codes: list[str]
 
 
 @router.post("/setup")

@@ -4,16 +4,16 @@ Ensures no money is lost during deposit operations with comprehensive safety mea
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, List
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from typing import Any
 
-from ..models.wallet import WalletTransaction, TransactionStatus
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..models.base import User
+from ..models.wallet import TransactionStatus, WalletTransaction
 from ..services.transaction_idempotency import transaction_idempotency_service
-from ..services.real_money_transaction_manager import real_money_transaction_manager
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +32,9 @@ class DepositSafetyService:
         user_id: int,
         amount: Decimal,
         currency: str,
-        payment_intent_id: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        payment_intent_id: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """
         Comprehensive validation for deposits
 
@@ -73,11 +73,11 @@ class DepositSafetyService:
         user_id: int,
         amount: Decimal,
         currency: str,
-        payment_intent_id: Optional[str],
+        payment_intent_id: str | None,
         db: AsyncSession,
-        errors: List[str],
-        metadata: Dict[str, Any],
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        errors: list[str],
+        metadata: dict[str, Any],
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """Internal validation logic"""
 
         # 1. Validate user exists and is active
@@ -194,7 +194,7 @@ class DepositSafetyService:
 
     async def verify_payment_received(
         self, payment_intent_id: str, expected_amount: Decimal, currency: str
-    ) -> Tuple[bool, Optional[str], Optional[Dict[str, Any]]]:
+    ) -> tuple[bool, str | None, dict[str, Any] | None]:
         """
         Verify that payment was actually received from payment processor
 
@@ -271,7 +271,7 @@ class DepositSafetyService:
         currency: str,
         payment_intent_id: str,
         db: AsyncSession,
-    ) -> Tuple[bool, Optional[int], Optional[str]]:
+    ) -> tuple[bool, int | None, str | None]:
         """
         Process deposit with complete safety - ensures no money is lost
 
@@ -304,9 +304,11 @@ class DepositSafetyService:
                 return True, result_data.get("transaction_id"), None
 
             # 2. Verify payment was actually received
-            is_verified, error_msg, payment_details = (
-                await self.verify_payment_received(payment_intent_id, amount, currency)
-            )
+            (
+                is_verified,
+                error_msg,
+                payment_details,
+            ) = await self.verify_payment_received(payment_intent_id, amount, currency)
 
             if not is_verified:
                 logger.error(

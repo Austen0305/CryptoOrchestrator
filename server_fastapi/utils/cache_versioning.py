@@ -4,9 +4,8 @@ Implements cache versioning to handle schema changes and invalidate stale data.
 """
 
 import logging
-from typing import Dict, Any, Optional
 from datetime import datetime
-import hashlib
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,9 @@ class CacheVersionManager:
 
     def __init__(self):
         # Version registry: {cache_prefix: version_number}
-        self.versions: Dict[str, int] = {}
+        self.versions: dict[str, int] = {}
         # Version metadata: {cache_prefix: {version, updated_at, reason}}
-        self.version_metadata: Dict[str, Dict[str, Any]] = {}
+        self.version_metadata: dict[str, dict[str, Any]] = {}
 
     def get_version(self, cache_prefix: str) -> int:
         """
@@ -35,7 +34,7 @@ class CacheVersionManager:
         """
         return self.versions.get(cache_prefix, 1)
 
-    def increment_version(self, cache_prefix: str, reason: Optional[str] = None) -> int:
+    def increment_version(self, cache_prefix: str, reason: str | None = None) -> int:
         """
         Increment version for a cache prefix (invalidates all cached data).
 
@@ -69,7 +68,7 @@ class CacheVersionManager:
         return new_version
 
     def set_version(
-        self, cache_prefix: str, version: int, reason: Optional[str] = None
+        self, cache_prefix: str, version: int, reason: str | None = None
     ) -> None:
         """
         Set a specific version for a cache prefix.
@@ -101,7 +100,7 @@ class CacheVersionManager:
         key_string = ":".join([cache_prefix, str(version)] + list(key_parts))
         return key_string
 
-    def get_all_versions(self) -> Dict[str, Dict[str, Any]]:
+    def get_all_versions(self) -> dict[str, dict[str, Any]]:
         """
         Get all cache versions with metadata.
 
@@ -113,7 +112,7 @@ class CacheVersionManager:
             for prefix, version in self.versions.items()
         }
 
-    def invalidate_all_versions(self, reason: Optional[str] = None) -> None:
+    def invalidate_all_versions(self, reason: str | None = None) -> None:
         """
         Increment versions for all cache prefixes (full cache invalidation).
 

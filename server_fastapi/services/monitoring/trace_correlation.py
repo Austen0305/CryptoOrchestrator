@@ -4,41 +4,41 @@ Correlates traces across FastAPI → Celery → Blockchain RPC for end-to-end vi
 """
 
 import logging
-from typing import Optional, Dict, Any
-from contextvars import ContextVar
 import uuid
+from contextvars import ContextVar
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 # Context variables for trace correlation
-trace_id_var: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
-span_id_var: ContextVar[Optional[str]] = ContextVar("span_id", default=None)
-request_id_var: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+trace_id_var: ContextVar[str | None] = ContextVar("trace_id", default=None)
+span_id_var: ContextVar[str | None] = ContextVar("span_id", default=None)
+request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 class TraceCorrelationService:
     """Service for trace correlation across services"""
 
     def __init__(self):
-        self.active_traces: Dict[str, Dict[str, Any]] = {}
+        self.active_traces: dict[str, dict[str, Any]] = {}
 
-    def get_trace_id(self) -> Optional[str]:
+    def get_trace_id(self) -> str | None:
         """Get current trace ID from context"""
         return trace_id_var.get()
 
-    def get_span_id(self) -> Optional[str]:
+    def get_span_id(self) -> str | None:
         """Get current span ID from context"""
         return span_id_var.get()
 
-    def get_request_id(self) -> Optional[str]:
+    def get_request_id(self) -> str | None:
         """Get current request ID from context"""
         return request_id_var.get()
 
     def set_trace_context(
         self,
-        trace_id: Optional[str] = None,
-        span_id: Optional[str] = None,
-        request_id: Optional[str] = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        request_id: str | None = None,
     ) -> None:
         """Set trace context variables"""
         if trace_id:
@@ -54,9 +54,9 @@ class TraceCorrelationService:
 
     def create_trace_context(
         self,
-        parent_trace_id: Optional[str] = None,
-        parent_span_id: Optional[str] = None,
-    ) -> Dict[str, str]:
+        parent_trace_id: str | None = None,
+        parent_span_id: str | None = None,
+    ) -> dict[str, str]:
         """
         Create trace context for distributed tracing.
         Returns trace_id and span_id for correlation.
@@ -74,7 +74,7 @@ class TraceCorrelationService:
             "request_id": self.get_request_id(),
         }
 
-    def propagate_trace_context(self, headers: Dict[str, str]) -> Dict[str, str]:
+    def propagate_trace_context(self, headers: dict[str, str]) -> dict[str, str]:
         """
         Propagate trace context in HTTP headers for distributed tracing.
         Follows W3C Trace Context format.
@@ -94,9 +94,7 @@ class TraceCorrelationService:
 
         return headers
 
-    def extract_trace_context(
-        self, headers: Dict[str, str]
-    ) -> Optional[Dict[str, str]]:
+    def extract_trace_context(self, headers: dict[str, str]) -> dict[str, str] | None:
         """
         Extract trace context from HTTP headers.
         Supports W3C Trace Context and custom headers.
@@ -132,7 +130,7 @@ class TraceCorrelationService:
 
         return None
 
-    def get_correlation_context(self) -> Dict[str, Optional[str]]:
+    def get_correlation_context(self) -> dict[str, str | None]:
         """Get current correlation context for logging"""
         return {
             "trace_id": self.get_trace_id(),
@@ -142,7 +140,7 @@ class TraceCorrelationService:
 
 
 # Singleton instance
-_trace_correlation_service: Optional[TraceCorrelationService] = None
+_trace_correlation_service: TraceCorrelationService | None = None
 
 
 def get_trace_correlation_service() -> TraceCorrelationService:

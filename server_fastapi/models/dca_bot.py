@@ -4,23 +4,24 @@ DCA bots buy at regular intervals to average out the purchase price.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class DCABot(BaseModel):
@@ -71,10 +72,10 @@ class DCABot(BaseModel):
     )  # Maximum multiplier
 
     # Take profit / Stop loss
-    take_profit_percent: Mapped[Optional[float]] = mapped_column(
+    take_profit_percent: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Take profit at this % gain
-    stop_loss_percent: Mapped[Optional[float]] = mapped_column(
+    stop_loss_percent: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Stop loss at this % loss
 
@@ -93,16 +94,16 @@ class DCABot(BaseModel):
     profit_percent: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
 
     # Next order tracking
-    next_order_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_order_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    next_order_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_order_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Timestamps
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Additional configuration (JSON)
-    config: Mapped[Optional[str]] = mapped_column(
+    config: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: advanced settings
 
@@ -112,7 +113,7 @@ class DCABot(BaseModel):
         "Trade", back_populates="dca_bot", cascade="all, delete-orphan"
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert DCA bot instance to dictionary."""
         import json
         from datetime import datetime

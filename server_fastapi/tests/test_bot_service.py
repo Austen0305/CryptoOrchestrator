@@ -3,10 +3,9 @@ Unit tests for BotService
 Tests individual service methods in isolation with mocked dependencies
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
-import pytest_asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
 
 from server_fastapi.services.trading.bot_service import BotService
 from server_fastapi.tests.utils.test_helpers import create_mock_db_session
@@ -61,7 +60,11 @@ async def test_update_bot_success(bot_service):
     with patch.object(
         bot_service.creation, "update_bot", new_callable=AsyncMock
     ) as mock_update:
-        mock_update.return_value = {"id": bot_id, "name": "Updated Bot", "user_id": user_id}
+        mock_update.return_value = {
+            "id": bot_id,
+            "name": "Updated Bot",
+            "user_id": user_id,
+        }
 
         result = await bot_service.update_bot(bot_id, user_id, updates)
 

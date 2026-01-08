@@ -2,14 +2,14 @@
 Crash recovery system
 """
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel
 import json
-import sqlite3
+import logging
 import os
+import sqlite3
 import time
 import uuid
-import logging
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class RecoveryCheckpoint(BaseModel):
 
     id: str
     timestamp: int
-    state_data: Dict[str, any]
+    state_data: dict[str, any]
     description: str
 
 
@@ -49,7 +49,7 @@ class CrashRecoverySystem:
             logger.info(f"Crash recovery database initialized at {self.db_path}")
 
     async def create_checkpoint(
-        self, state_data: Dict[str, any], description: str
+        self, state_data: dict[str, any], description: str
     ) -> RecoveryCheckpoint:
         """Create a recovery checkpoint"""
         checkpoint_id = str(uuid.uuid4())
@@ -79,7 +79,7 @@ class CrashRecoverySystem:
 
     async def recover_from_checkpoint(
         self, checkpoint_id: str
-    ) -> Optional[Dict[str, any]]:
+    ) -> dict[str, any] | None:
         """Recover system state from checkpoint"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -102,7 +102,7 @@ class CrashRecoverySystem:
             logger.error(f"Failed to recover from checkpoint {checkpoint_id}: {e}")
             return None
 
-    async def get_latest_checkpoint(self) -> Optional[RecoveryCheckpoint]:
+    async def get_latest_checkpoint(self) -> RecoveryCheckpoint | None:
         """Get the most recent checkpoint"""
         try:
             with sqlite3.connect(self.db_path) as conn:
@@ -128,7 +128,7 @@ class CrashRecoverySystem:
             logger.error(f"Failed to get latest checkpoint: {e}")
             return None
 
-    async def list_checkpoints(self) -> List[RecoveryCheckpoint]:
+    async def list_checkpoints(self) -> list[RecoveryCheckpoint]:
         """List all available checkpoints"""
         try:
             with sqlite3.connect(self.db_path) as conn:

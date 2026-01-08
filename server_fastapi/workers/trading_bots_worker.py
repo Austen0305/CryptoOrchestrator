@@ -3,20 +3,19 @@ Celery Worker Tasks for Competitive Trading Bots
 Handles scheduled execution for DCA, Grid, Infinity Grid, Trailing, and Futures bots
 """
 
-import os
-import logging
 import asyncio
-from datetime import datetime
-from typing import Dict, Any
+import logging
+import os
+
 from celery import Celery
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from ..database import DATABASE_URL
 from ..services.trading.dca_trading_service import DCATradingService
+from ..services.trading.futures_trading_service import FuturesTradingService
 from ..services.trading.grid_trading_service import GridTradingService
 from ..services.trading.infinity_grid_service import InfinityGridService
 from ..services.trading.trailing_bot_service import TrailingBotService
-from ..services.trading.futures_trading_service import FuturesTradingService
 
 logger = logging.getLogger(__name__)
 
@@ -316,8 +315,8 @@ def process_copy_trades():
     async def run():
         try:
             async with async_session() as session:
-                from ..services.copy_trading_service import CopyTradingService
                 from ..repositories.follow_repository import FollowRepository
+                from ..services.copy_trading_service import CopyTradingService
 
                 service = CopyTradingService(session)
                 repository = FollowRepository()

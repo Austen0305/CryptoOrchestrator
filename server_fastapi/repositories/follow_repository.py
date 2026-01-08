@@ -2,13 +2,14 @@
 Follow repository for database operations.
 """
 
-from typing import List, Optional
+import logging
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.follow import Follow
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
 
     async def get_by_follower_and_trader(
         self, session: AsyncSession, follower_id: int, trader_id: int
-    ) -> Optional[Follow]:
+    ) -> Follow | None:
         """Get follow relationship by follower and trader IDs."""
         query = select(Follow).where(
             Follow.follower_id == follower_id,
@@ -32,8 +33,8 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
         return result.scalar_one_or_none()
 
     async def get_active_auto_copy_follows(
-        self, session: AsyncSession, follower_id: Optional[int] = None
-    ) -> List[Follow]:
+        self, session: AsyncSession, follower_id: int | None = None
+    ) -> list[Follow]:
         """Get all active follow relationships with auto-copy enabled."""
         query = select(Follow).where(
             Follow.is_active == True,
@@ -49,7 +50,7 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
 
     async def get_follower_follows(
         self, session: AsyncSession, follower_id: int
-    ) -> List[Follow]:
+    ) -> list[Follow]:
         """Get all follow relationships for a follower with eager loading."""
         query = select(Follow).where(
             Follow.follower_id == follower_id, ~Follow.is_deleted
@@ -66,7 +67,7 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
 
     async def get_active_follows_by_follower(
         self, session: AsyncSession, follower_id: int
-    ) -> List[Follow]:
+    ) -> list[Follow]:
         """Get active follow relationships for a follower with eager loading."""
         query = select(Follow).where(
             and_(

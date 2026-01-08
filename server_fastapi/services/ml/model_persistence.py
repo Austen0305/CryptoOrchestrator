@@ -2,13 +2,14 @@
 Model Persistence Service - Unified save/load for all ML models
 """
 
-from typing import Dict, Any, Optional, Literal, List
-from pydantic import BaseModel
+import json
 import logging
 import os
-import json
-from datetime import datetime
 import pickle
+from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,11 @@ class ModelMetadata(BaseModel):
     model_version: str
     created_at: str
     updated_at: str
-    config: Dict[str, Any]
-    performance_metrics: Optional[Dict[str, Any]] = None
-    training_history: Optional[Dict[str, Any]] = None
-    feature_count: Optional[int] = None
-    sequence_length: Optional[int] = None
+    config: dict[str, Any]
+    performance_metrics: dict[str, Any] | None = None
+    training_history: dict[str, Any] | None = None
+    feature_count: int | None = None
+    sequence_length: int | None = None
 
 
 class ModelPersistence:
@@ -41,7 +42,7 @@ class ModelPersistence:
         model: Any,
         model_type: str,
         model_name: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         version: str = "1.0.0",
     ) -> bool:
         """Save model with metadata"""
@@ -65,7 +66,7 @@ class ModelPersistence:
                 if hasattr(model, "save_model"):
                     model.save_model(model_path)
                 else:
-                    logger.error(f"XGBoost model does not have save_model method")
+                    logger.error("XGBoost model does not have save_model method")
                     return False
 
             else:
@@ -116,8 +117,8 @@ class ModelPersistence:
             return False
 
     def load_model(
-        self, model_type: str, model_name: str, version: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, model_type: str, model_name: str, version: str | None = None
+    ) -> dict[str, Any] | None:
         """Load model with metadata"""
         try:
             model_dir = os.path.join(self.base_dir, model_type, model_name)
@@ -126,7 +127,7 @@ class ModelPersistence:
             if version is None:
                 latest_path = os.path.join(model_dir, "latest.json")
                 if os.path.exists(latest_path):
-                    with open(latest_path, "r") as f:
+                    with open(latest_path) as f:
                         latest_info = json.load(f)
                     version = latest_info["version"]
                     model_path = latest_info["model_path"]
@@ -144,7 +145,7 @@ class ModelPersistence:
 
             # Load metadata
             if os.path.exists(metadata_path):
-                with open(metadata_path, "r") as f:
+                with open(metadata_path) as f:
                     metadata = json.load(f)
             else:
                 metadata = {}
@@ -190,7 +191,7 @@ class ModelPersistence:
             logger.error(f"Failed to load model: {error}")
             return None
 
-    def list_models(self, model_type: Optional[str] = None) -> Dict[str, Any]:
+    def list_models(self, model_type: str | None = None) -> dict[str, Any]:
         """List all saved models"""
         models = {}
 
@@ -206,7 +207,7 @@ class ModelPersistence:
 
         return models
 
-    def _list_models_in_dir(self, dir_path: str) -> List[Dict[str, Any]]:
+    def _list_models_in_dir(self, dir_path: str) -> list[dict[str, Any]]:
         """List models in a directory"""
         models = []
 
@@ -215,13 +216,13 @@ class ModelPersistence:
             if os.path.isdir(model_dir):
                 latest_path = os.path.join(model_dir, "latest.json")
                 if os.path.exists(latest_path):
-                    with open(latest_path, "r") as f:
+                    with open(latest_path) as f:
                         latest_info = json.load(f)
 
                     metadata_path = latest_info.get("metadata_path")
                     metadata = {}
                     if metadata_path and os.path.exists(metadata_path):
-                        with open(metadata_path, "r") as f:
+                        with open(metadata_path) as f:
                             metadata = json.load(f)
 
                     models.append(

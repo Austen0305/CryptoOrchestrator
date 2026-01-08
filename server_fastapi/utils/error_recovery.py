@@ -3,14 +3,14 @@ Error Recovery Mechanisms
 Provides automatic error recovery, retry logic, and circuit breakers
 """
 
-import logging
 import asyncio
-import time
-from typing import Dict, Any, Optional, Callable, TypeVar, List
-from enum import Enum
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
+from enum import Enum
 from functools import wraps
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ T = TypeVar("T")
 
 class RecoveryStrategy(str, Enum):
     """Error recovery strategies"""
+
     RETRY = "retry"
     FALLBACK = "fallback"
     CIRCUIT_BREAKER = "circuit_breaker"
@@ -28,6 +29,7 @@ class RecoveryStrategy(str, Enum):
 @dataclass
 class RetryConfig:
     """Retry configuration"""
+
     max_attempts: int = 3
     initial_delay: float = 1.0
     max_delay: float = 60.0
@@ -38,7 +40,7 @@ class RetryConfig:
 class CircuitBreaker:
     """
     Circuit breaker pattern implementation
-    
+
     Features:
     - Automatic failure detection
     - State management (closed, open, half-open)
@@ -57,7 +59,7 @@ class CircuitBreaker:
         self.expected_exception = expected_exception
 
         self.failure_count = 0
-        self.last_failure_time: Optional[datetime] = None
+        self.last_failure_time: datetime | None = None
         self.state = "closed"  # closed, open, half-open
         self.success_count = 0
         self.half_open_threshold = 2
@@ -79,7 +81,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self._on_failure()
             raise
 
@@ -99,7 +101,7 @@ class CircuitBreaker:
             result = await func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self._on_failure()
             raise
 
@@ -126,7 +128,7 @@ class CircuitBreaker:
             self.state = "open"
             logger.warning(f"Circuit breaker OPEN - {self.failure_count} failures")
 
-    def get_state(self) -> Dict[str, Any]:
+    def get_state(self) -> dict[str, Any]:
         """Get circuit breaker state"""
         return {
             "state": self.state,
@@ -148,7 +150,7 @@ class CircuitBreaker:
 class ErrorRecovery:
     """
     Error recovery manager
-    
+
     Features:
     - Automatic retries
     - Exponential backoff
@@ -158,8 +160,8 @@ class ErrorRecovery:
     """
 
     def __init__(self):
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
-        self.retry_configs: Dict[str, RetryConfig] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
+        self.retry_configs: dict[str, RetryConfig] = {}
 
     def register_circuit_breaker(
         self,
@@ -180,7 +182,7 @@ class ErrorRecovery:
     async def retry_with_backoff(
         self,
         func: Callable,
-        config: Optional[RetryConfig] = None,
+        config: RetryConfig | None = None,
         exceptions: tuple = (Exception,),
         *args,
         **kwargs,
@@ -200,14 +202,15 @@ class ErrorRecovery:
                 if attempt < config.max_attempts - 1:
                     # Calculate delay
                     delay = min(
-                        config.initial_delay * (config.exponential_base ** attempt),
+                        config.initial_delay * (config.exponential_base**attempt),
                         config.max_delay,
                     )
 
                     # Add jitter
                     if config.jitter:
                         import random
-                        delay *= (0.5 + random.random() * 0.5)
+
+                        delay *= 0.5 + random.random() * 0.5
 
                     logger.warning(
                         f"Retry attempt {attempt + 1}/{config.max_attempts} after {delay:.2f}s: {e}"
@@ -244,7 +247,7 @@ class ErrorRecovery:
                 logger.error(f"Fallback function also failed: {fallback_error}")
                 raise
 
-    def get_circuit_breaker(self, name: str) -> Optional[CircuitBreaker]:
+    def get_circuit_breaker(self, name: str) -> CircuitBreaker | None:
         """Get circuit breaker by name"""
         return self.circuit_breakers.get(name)
 
@@ -253,9 +256,15 @@ class ErrorRecovery:
 error_recovery = ErrorRecovery()
 
 # Register default circuit breakers
-error_recovery.register_circuit_breaker("database", failure_threshold=5, recovery_timeout=60.0)
-error_recovery.register_circuit_breaker("redis", failure_threshold=3, recovery_timeout=30.0)
-error_recovery.register_circuit_breaker("external_api", failure_threshold=5, recovery_timeout=120.0)
+error_recovery.register_circuit_breaker(
+    "database", failure_threshold=5, recovery_timeout=60.0
+)
+error_recovery.register_circuit_breaker(
+    "redis", failure_threshold=3, recovery_timeout=30.0
+)
+error_recovery.register_circuit_breaker(
+    "external_api", failure_threshold=5, recovery_timeout=120.0
+)
 
 
 # Decorator for automatic retry
@@ -265,6 +274,7 @@ def retry_on_error(
     exceptions: tuple = (Exception,),
 ):
     """Decorator for automatic retry on error"""
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -272,13 +282,16 @@ def retry_on_error(
             return await error_recovery.retry_with_backoff(
                 func, config=config, exceptions=exceptions, *args, **kwargs
             )
+
         return wrapper
+
     return decorator
 
 
 # Decorator for circuit breaker
 def circuit_breaker(name: str):
     """Decorator for circuit breaker"""
+
     def decorator(func: Callable):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -287,6 +300,7 @@ def circuit_breaker(name: str):
                 return await cb.call_async(func, *args, **kwargs)
             else:
                 return await func(*args, **kwargs)
-        return wrapper
-    return decorator
 
+        return wrapper
+
+    return decorator

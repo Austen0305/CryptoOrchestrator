@@ -4,23 +4,24 @@ Trailing bots follow price movements with dynamic stop-loss/take-profit.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class TrailingBot(BaseModel):
@@ -68,10 +69,10 @@ class TrailingBot(BaseModel):
     # For trailing sell: sell when price rises by trailing_percent
 
     # Additional parameters
-    max_price: Mapped[Optional[float]] = mapped_column(
+    max_price: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Maximum price to buy at (trailing buy)
-    min_price: Mapped[Optional[float]] = mapped_column(
+    min_price: Mapped[float | None] = mapped_column(
         Float, nullable=True
     )  # Minimum price to sell at (trailing sell)
 
@@ -92,15 +93,15 @@ class TrailingBot(BaseModel):
     )  # Lowest price seen (for trailing buy)
 
     # Timestamps
-    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_price_update_at: Mapped[Optional[datetime]] = mapped_column(
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_price_update_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
-    last_order_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_order_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Additional configuration (JSON)
-    config: Mapped[Optional[str]] = mapped_column(
+    config: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: advanced settings
 
@@ -110,7 +111,7 @@ class TrailingBot(BaseModel):
         "Trade", back_populates="trailing_bot", cascade="all, delete-orphan"
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert trailing bot instance to dictionary."""
         import json
         from datetime import datetime

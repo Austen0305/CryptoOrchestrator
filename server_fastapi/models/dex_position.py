@@ -4,24 +4,24 @@ Tracks open positions from DEX swaps for better P&L calculation.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
     Boolean,
     DateTime,
-    Text,
+    Float,
     ForeignKey,
-    JSON,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
-    from .user import User
     from .dex_trade import DEXTrade
+    from .user import User
 
 
 class DEXPosition(BaseModel):
@@ -52,7 +52,7 @@ class DEXPosition(BaseModel):
     entry_price: Mapped[float] = mapped_column(
         Float, nullable=False
     )  # Entry price in USD
-    entry_trade_id: Mapped[Optional[int]] = mapped_column(
+    entry_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dex_trades.id"), nullable=True
     )
 
@@ -74,16 +74,16 @@ class DEXPosition(BaseModel):
     is_open: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False, index=True
     )
-    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    exit_trade_id: Mapped[Optional[int]] = mapped_column(
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    exit_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dex_trades.id"), nullable=True
     )
-    exit_price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    realized_pnl: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    realized_pnl_percent: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    exit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realized_pnl: Mapped[float | None] = mapped_column(Float, nullable=True)
+    realized_pnl_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Additional metadata
-    position_metadata: Mapped[Optional[str]] = mapped_column(
+    position_metadata: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON: additional position data
 
@@ -104,7 +104,7 @@ class DEXPosition(BaseModel):
         "DEXTrade", foreign_keys=[exit_trade_id], backref="positions_closed"
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert position instance to dictionary"""
         import json
 

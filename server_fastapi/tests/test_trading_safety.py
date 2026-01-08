@@ -2,8 +2,10 @@
 Tests for Trading Safety Service
 """
 
-import pytest
 from datetime import datetime, timedelta
+
+import pytest
+
 from server_fastapi.services.trading.trading_safety_service import (
     TradingSafetyService,
     get_trading_safety_service,
@@ -172,7 +174,9 @@ class TestSlippageProtection:
     def test_acceptable_slippage_buy(self, safety_service):
         """Test acceptable slippage on buy order."""
         result = safety_service.check_slippage(
-            expected_price=50000.0, actual_price=50100.0, side="buy"  # 0.2% slippage
+            expected_price=50000.0,
+            actual_price=50100.0,
+            side="buy",  # 0.2% slippage
         )
 
         assert result["acceptable"] is True
@@ -181,7 +185,9 @@ class TestSlippageProtection:
     def test_acceptable_slippage_sell(self, safety_service):
         """Test acceptable slippage on sell order."""
         result = safety_service.check_slippage(
-            expected_price=50000.0, actual_price=49900.0, side="sell"  # 0.2% slippage
+            expected_price=50000.0,
+            actual_price=49900.0,
+            side="sell",  # 0.2% slippage
         )
 
         assert result["acceptable"] is True

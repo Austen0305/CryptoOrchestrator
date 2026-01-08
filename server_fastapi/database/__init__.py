@@ -6,14 +6,16 @@ that imports using either `server_fastapi.database` forms resolve consistently.
 It ensures shared in-memory SQLite across duplicated imports during pytest.
 """
 
-from typing import AsyncIterator, Any, AsyncGenerator
-from contextlib import asynccontextmanager
+import logging
 import os
 import sys
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from collections.abc import AsyncGenerator, AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import StaticPool
-import logging
 
 logger = logging.getLogger(__name__)
 

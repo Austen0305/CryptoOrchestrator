@@ -2,38 +2,33 @@
 Automation Routes - Auto-hedging, strategy switching, smart alerts, portfolio optimization
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, Optional, List, Annotated
 import logging
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Annotated, Any
 
-from ..services.automation.auto_hedging import (
-    auto_hedging_service,
-    HedgingStrategy,
-    HedgingConfig,
-    HedgePosition,
-)
-from ..services.automation.strategy_switching import (
-    strategy_switching_service,
-    StrategySwitchConfig,
-    StrategySwitch,
-    MarketRegime,
-)
-from ..services.automation.smart_alerts import (
-    smart_alerts_service,
-    AlertRule,
-    AlertType,
-    AlertPriority,
-    SmartAlert,
-)
-from ..services.automation.portfolio_optimizer import (
-    portfolio_optimizer,
-    OptimizationGoal,
-    OptimizationRecommendation,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.automation.auto_hedging import (
+    HedgingConfig,
+    HedgingStrategy,
+    auto_hedging_service,
+)
+from ..services.automation.portfolio_optimizer import (
+    OptimizationGoal,
+    portfolio_optimizer,
+)
+from ..services.automation.smart_alerts import (
+    AlertPriority,
+    AlertRule,
+    AlertType,
+    smart_alerts_service,
+)
+from ..services.automation.strategy_switching import (
+    StrategySwitchConfig,
+    strategy_switching_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +49,7 @@ class HedgingConfigRequest(BaseModel):
     max_hedge_size: float = Field(0.5, ge=0, le=1)
 
 
-@router.post("/hedging/start", response_model=Dict)
+@router.post("/hedging/start", response_model=dict)
 async def start_hedging(
     portfolio_id: str,
     config: HedgingConfigRequest,
@@ -77,7 +72,7 @@ async def start_hedging(
         )
 
 
-@router.post("/hedging/stop", response_model=Dict)
+@router.post("/hedging/stop", response_model=dict)
 async def stop_hedging(
     portfolio_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -95,12 +90,12 @@ async def stop_hedging(
         raise HTTPException(status_code=500, detail=f"Failed to stop hedging: {str(e)}")
 
 
-@router.get("/hedging/positions", response_model=Dict)
+@router.get("/hedging/positions", response_model=dict)
 async def get_hedge_positions(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    portfolio_id: Optional[str] = None,
+    portfolio_id: str | None = None,
 ):
     """Get active hedge positions with pagination"""
     try:
@@ -137,7 +132,7 @@ class StrategySwitchConfigRequest(BaseModel):
     min_performance_period_hours: int = Field(24, ge=1, le=720)
 
 
-@router.post("/strategy-switching/start", response_model=Dict)
+@router.post("/strategy-switching/start", response_model=dict)
 async def start_strategy_switching(
     bot_id: str,
     config: StrategySwitchConfigRequest,
@@ -166,7 +161,7 @@ async def start_strategy_switching(
         )
 
 
-@router.post("/strategy-switching/stop", response_model=Dict)
+@router.post("/strategy-switching/stop", response_model=dict)
 async def stop_strategy_switching(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -190,12 +185,12 @@ async def stop_strategy_switching(
         )
 
 
-@router.get("/strategy-switching/history", response_model=Dict)
+@router.get("/strategy-switching/history", response_model=dict)
 async def get_switch_history(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    bot_id: Optional[str] = Query(None),
+    bot_id: str | None = Query(None),
 ):
     """Get strategy switch history with pagination"""
     try:
@@ -231,12 +226,12 @@ class AlertRuleRequest(BaseModel):
     type: AlertType
     priority: AlertPriority
     enabled: bool = True
-    conditions: Dict[str, Any]
-    actions: List[str]
+    conditions: dict[str, Any]
+    actions: list[str]
     cooldown_seconds: int = Field(3600, ge=60, le=86400)
 
 
-@router.post("/alerts/rules", response_model=Dict)
+@router.post("/alerts/rules", response_model=dict)
 async def create_alert_rule(
     rule: AlertRuleRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -259,10 +254,10 @@ async def create_alert_rule(
         )
 
 
-@router.put("/alerts/rules/{rule_id}", response_model=Dict)
+@router.put("/alerts/rules/{rule_id}", response_model=dict)
 async def update_alert_rule(
     rule_id: str,
-    updates: Dict[str, Any],
+    updates: dict[str, Any],
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
     """Update an alert rule"""
@@ -282,7 +277,7 @@ async def update_alert_rule(
         )
 
 
-@router.delete("/alerts/rules/{rule_id}", response_model=Dict)
+@router.delete("/alerts/rules/{rule_id}", response_model=dict)
 async def delete_alert_rule(
     rule_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -304,13 +299,13 @@ async def delete_alert_rule(
         )
 
 
-@router.get("/alerts/active", response_model=Dict)
+@router.get("/alerts/active", response_model=dict)
 @cached(ttl=60, prefix="automation_alerts")  # 60s TTL for automation alerts
 async def get_active_alerts(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    priority: Optional[AlertPriority] = Query(None),
+    priority: AlertPriority | None = Query(None),
 ):
     """Get active alerts with pagination"""
     try:
@@ -330,7 +325,7 @@ async def get_active_alerts(
         )
 
 
-@router.post("/alerts/{alert_id}/acknowledge", response_model=Dict)
+@router.post("/alerts/{alert_id}/acknowledge", response_model=dict)
 async def acknowledge_alert(
     alert_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -352,7 +347,7 @@ async def acknowledge_alert(
         )
 
 
-@router.get("/alerts/history", response_model=Dict)
+@router.get("/alerts/history", response_model=dict)
 @cached(
     ttl=120, prefix="automation_alert_history"
 )  # 120s TTL for automation alert history
@@ -360,7 +355,7 @@ async def get_alert_history(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    rule_id: Optional[str] = Query(None),
+    rule_id: str | None = Query(None),
 ):
     """Get alert history with pagination"""
     try:
@@ -391,12 +386,12 @@ async def get_alert_history(
 class PortfolioOptimizationRequest(BaseModel):
     """Portfolio optimization request"""
 
-    portfolio: Dict[str, Any]
-    goals: List[OptimizationGoal]
-    preferences: Optional[Dict[str, Any]] = None
+    portfolio: dict[str, Any]
+    goals: list[OptimizationGoal]
+    preferences: dict[str, Any] | None = None
 
 
-@router.post("/portfolio/optimize", response_model=Dict)
+@router.post("/portfolio/optimize", response_model=dict)
 async def optimize_portfolio(
     request: PortfolioOptimizationRequest,
     current_user: Annotated[dict, Depends(get_current_user)],

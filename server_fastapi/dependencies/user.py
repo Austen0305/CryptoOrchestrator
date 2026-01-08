@@ -2,16 +2,17 @@
 User dependencies for multi-tenant data isolation
 """
 
-from typing import Optional, Annotated
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 import logging
+from typing import Annotated
 
-from .auth import get_current_user
+from fastapi import Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..database import get_db_session
 from ..models.user import User
 from ..utils.route_helpers import _get_user_id
+from .auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ async def get_current_user_db(
         )
 
 
-def require_subscription(plan: Optional[str] = None):
+def require_subscription(plan: str | None = None):
     """
     Dependency factory for requiring active subscription.
 

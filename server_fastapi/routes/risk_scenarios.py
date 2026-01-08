@@ -1,13 +1,13 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, Annotated
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
-from ..services.risk_scenarios import risk_scenario_service
-from ..services.notification_service import NotificationService, NotificationCategory
-from ..dependencies.notifications import get_notification_service
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, ConfigDict, Field
+
 from ..dependencies.auth import get_optional_user
+from ..dependencies.notifications import get_notification_service
+from ..services.notification_service import NotificationCategory, NotificationService
+from ..services.risk_scenarios import risk_scenario_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ async def simulate_scenario(
     notification_service: Annotated[
         NotificationService, Depends(get_notification_service)
     ],
-    current_user: Annotated[Optional[dict], Depends(get_optional_user)] = None,
+    current_user: Annotated[dict | None, Depends(get_optional_user)] = None,
 ):
     try:
 

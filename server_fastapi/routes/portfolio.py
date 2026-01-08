@@ -1,15 +1,17 @@
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict, List, Optional, Annotated
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
-from ..services.coingecko_service import CoinGeckoService
-from ..services.analytics_engine import analytics_engine
-from ..services.pnl_service import PnLService
+
+from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..dependencies.pnl import get_pnl_service
-from ..database import get_db_session
 from ..middleware.cache_manager import cached
+from ..services.analytics_engine import analytics_engine
+from ..services.coingecko_service import CoinGeckoService
+from ..services.pnl_service import PnLService
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -30,15 +32,15 @@ class Position(BaseModel):
 class Portfolio(BaseModel):
     totalBalance: float
     availableBalance: float
-    positions: Dict[str, Position]
+    positions: dict[str, Position]
     profitLoss24h: float
     profitLossTotal: float
-    successfulTrades: Optional[int] = None
-    failedTrades: Optional[int] = None
-    totalTrades: Optional[int] = None
-    winRate: Optional[float] = None
-    averageWin: Optional[float] = None
-    averageLoss: Optional[float] = None
+    successfulTrades: int | None = None
+    failedTrades: int | None = None
+    totalTrades: int | None = None
+    winRate: float | None = None
+    averageWin: float | None = None
+    averageLoss: float | None = None
 
 
 @router.get("/{mode}")
@@ -67,9 +69,6 @@ async def get_portfolio(
             try:
                 from ..repositories.wallet_repository import WalletRepository
                 from ..services.blockchain.balance_service import get_balance_service
-                from ..services.blockchain.token_registry import (
-                    TokenRegistryService,
-                )  # Will be created later
 
                 balance_service = get_balance_service()
                 wallet_repo = WalletRepository(db)

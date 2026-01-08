@@ -3,14 +3,14 @@ Copy Trading Repository
 Data access layer for CopiedTrade model operations.
 """
 
-from typing import List, Optional
-from sqlalchemy import select, and_
+import logging
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload
 
 from ..models.follow import CopiedTrade
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,8 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
         super().__init__(CopiedTrade)
 
     async def get_by_id(
-        self, session: AsyncSession, id: int, load_options: Optional[List] = None
-    ) -> Optional[CopiedTrade]:
+        self, session: AsyncSession, id: int, load_options: list | None = None
+    ) -> CopiedTrade | None:
         """Get copied trade by ID with eager loading."""
         if load_options is None:
             load_options = [
@@ -36,7 +36,7 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
 
     async def get_by_follower(
         self, session: AsyncSession, follower_id: int, skip: int = 0, limit: int = 100
-    ) -> List[CopiedTrade]:
+    ) -> list[CopiedTrade]:
         """Get all copied trades for a follower with eager loading."""
         query = (
             select(CopiedTrade)
@@ -59,7 +59,7 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
 
     async def get_by_trader(
         self, session: AsyncSession, trader_id: int, skip: int = 0, limit: int = 100
-    ) -> List[CopiedTrade]:
+    ) -> list[CopiedTrade]:
         """Get all copied trades for a trader with eager loading."""
         query = (
             select(CopiedTrade)
@@ -82,7 +82,7 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
 
     async def get_by_follower_and_trader(
         self, session: AsyncSession, follower_id: int, trader_id: int
-    ) -> List[CopiedTrade]:
+    ) -> list[CopiedTrade]:
         """Get copied trades for a specific follower-trader relationship."""
         query = (
             select(CopiedTrade)
@@ -111,10 +111,10 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
         self,
         session: AsyncSession,
         status: str,
-        follower_id: Optional[int] = None,
+        follower_id: int | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[CopiedTrade]:
+    ) -> list[CopiedTrade]:
         """Get copied trades by status with eager loading."""
         conditions = [CopiedTrade.status == status, ~CopiedTrade.is_deleted]
 
@@ -145,8 +145,8 @@ class CopyTradingRepository(SQLAlchemyRepository[CopiedTrade]):
         session: AsyncSession,
         copied_trade_id: int,
         status: str,
-        error_message: Optional[str] = None,
-    ) -> Optional[CopiedTrade]:
+        error_message: str | None = None,
+    ) -> CopiedTrade | None:
         """Update copied trade status."""
         from sqlalchemy import update
 

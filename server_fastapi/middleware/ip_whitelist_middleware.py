@@ -4,12 +4,13 @@ Enforces IP whitelisting for authenticated users
 """
 
 import logging
-from fastapi import Request, HTTPException, status
-from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Callable
+from collections.abc import Callable
 
-from ..services.security.ip_whitelist_service import ip_whitelist_service
+from fastapi import HTTPException, Request, status
+from starlette.middleware.base import BaseHTTPMiddleware
+
 from ..database import get_db_context
+from ..services.security.ip_whitelist_service import ip_whitelist_service
 
 logger = logging.getLogger(__name__)
 

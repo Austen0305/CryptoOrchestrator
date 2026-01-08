@@ -4,14 +4,14 @@ Data access layer for Wallet model operations (internal trading/staking wallets)
 Note: This is different from WalletRepository which handles UserWallet (blockchain wallets).
 """
 
-from typing import List, Optional
-from sqlalchemy import select, and_, update
+import logging
+
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from ..models.wallet import Wallet
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class WalletBalanceRepository(SQLAlchemyRepository[Wallet]):
         super().__init__(Wallet)
 
     async def get_by_id(
-        self, session: AsyncSession, id: int, load_options: Optional[List] = None
-    ) -> Optional[Wallet]:
+        self, session: AsyncSession, id: int, load_options: list | None = None
+    ) -> Wallet | None:
         """Get wallet by ID with eager loading."""
         if load_options is None:
             load_options = [
@@ -41,7 +41,7 @@ class WalletBalanceRepository(SQLAlchemyRepository[Wallet]):
 
     async def get_by_user_and_currency_and_type(
         self, session: AsyncSession, user_id: int, currency: str, wallet_type: str
-    ) -> Optional[Wallet]:
+    ) -> Wallet | None:
         """Get wallet by user, currency, and type with eager loading."""
         query = select(Wallet).where(
             and_(
@@ -64,9 +64,9 @@ class WalletBalanceRepository(SQLAlchemyRepository[Wallet]):
         self,
         session: AsyncSession,
         user_id: int,
-        wallet_type: Optional[str] = None,
-        currency: Optional[str] = None,
-    ) -> List[Wallet]:
+        wallet_type: str | None = None,
+        currency: str | None = None,
+    ) -> list[Wallet]:
         """Get all wallets for a user with eager loading."""
         conditions = [
             Wallet.user_id == user_id,
@@ -89,8 +89,8 @@ class WalletBalanceRepository(SQLAlchemyRepository[Wallet]):
         return list(result.scalars().all())
 
     async def get_by_type(
-        self, session: AsyncSession, wallet_type: str, currency: Optional[str] = None
-    ) -> List[Wallet]:
+        self, session: AsyncSession, wallet_type: str, currency: str | None = None
+    ) -> list[Wallet]:
         """Get all wallets by type with eager loading."""
         conditions = [
             Wallet.wallet_type == wallet_type,
@@ -141,13 +141,13 @@ class WalletBalanceRepository(SQLAlchemyRepository[Wallet]):
         self,
         session: AsyncSession,
         wallet_id: int,
-        balance: Optional[float] = None,
-        available_balance: Optional[float] = None,
-        locked_balance: Optional[float] = None,
-        total_deposited: Optional[float] = None,
-        total_withdrawn: Optional[float] = None,
-        total_traded: Optional[float] = None,
-    ) -> Optional[Wallet]:
+        balance: float | None = None,
+        available_balance: float | None = None,
+        locked_balance: float | None = None,
+        total_deposited: float | None = None,
+        total_withdrawn: float | None = None,
+        total_traded: float | None = None,
+    ) -> Wallet | None:
         """Update wallet balance and statistics."""
         update_data = {}
         if balance is not None:

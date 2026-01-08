@@ -4,8 +4,8 @@ Provides SMS notifications via Twilio
 """
 
 import logging
-from typing import Dict, Optional, Any
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class SMSService:
 
     async def send_sms(
         self, to_number: str, message: str, priority: str = "normal"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send SMS notification
 
@@ -97,14 +97,14 @@ class SMSService:
             logger.error(f"Failed to send SMS: {e}", exc_info=True)
             return {"success": False, "error": str(e), "message_id": None}
 
-    async def send_verification_code(self, to_number: str, code: str) -> Dict[str, Any]:
+    async def send_verification_code(self, to_number: str, code: str) -> dict[str, Any]:
         """Send SMS verification code"""
         message = f"Your CryptoOrchestrator verification code is: {code}. Valid for 10 minutes."
         return await self.send_sms(to_number, message, priority="high")
 
     async def send_trade_notification(
-        self, to_number: str, trade_details: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, to_number: str, trade_details: dict[str, Any]
+    ) -> dict[str, Any]:
         """Send trade execution notification via SMS"""
         symbol = trade_details.get("symbol", "Unknown")
         side = trade_details.get("side", "Unknown")
@@ -119,8 +119,8 @@ class SMSService:
         return await self.send_sms(to_number, message, priority="high")
 
     async def send_security_alert(
-        self, to_number: str, alert_type: str, details: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, to_number: str, alert_type: str, details: str | None = None
+    ) -> dict[str, Any]:
         """Send security alert via SMS"""
         messages = {
             "login": "New login detected on your CryptoOrchestrator account.",

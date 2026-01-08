@@ -3,24 +3,20 @@ WebSocket Portfolio Updates Route
 Real-time portfolio updates via WebSocket
 """
 
+import asyncio
+import logging
+import os
+from datetime import datetime
+from typing import Any
+
+import jwt
 from fastapi import (
     APIRouter,
+    Query,
     WebSocket,
     WebSocketDisconnect,
-    Depends,
-    HTTPException,
-    Query,
 )
 from fastapi.security import HTTPBearer
-import logging
-import jwt
-import os
-import asyncio
-import json
-from typing import Dict, Any, Optional
-from datetime import datetime
-
-from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +26,14 @@ security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 
 # Store active WebSocket connections
-active_connections: Dict[str, Dict[str, Any]] = {}
+active_connections: dict[str, dict[str, Any]] = {}
 
 
 class PortfolioWebSocketManager:
     """Manager for portfolio WebSocket connections"""
 
     def __init__(self):
-        self.connections: Dict[str, WebSocket] = {}
+        self.connections: dict[str, WebSocket] = {}
 
     async def connect(self, websocket: WebSocket, user_id: str, client_id: str):
         """Connect a WebSocket client - connection should already be accepted by route handler"""
@@ -59,7 +55,7 @@ class PortfolioWebSocketManager:
             del self.connections[client_id]
             logger.info(f"Portfolio WebSocket disconnected: client={client_id}")
 
-    async def send_portfolio_update(self, user_id: str, portfolio_data: Dict[str, Any]):
+    async def send_portfolio_update(self, user_id: str, portfolio_data: dict[str, Any]):
         """Send portfolio update to all connections for a user"""
         disconnected = []
         for client_id, conn in self.connections.items():
@@ -80,7 +76,7 @@ class PortfolioWebSocketManager:
         for client_id in disconnected:
             self.disconnect(client_id)
 
-    async def broadcast_market_update(self, market_data: Dict[str, Any]):
+    async def broadcast_market_update(self, market_data: dict[str, Any]):
         """Broadcast market data update to all connected clients"""
         disconnected = []
         for client_id, conn in self.connections.items():
@@ -105,7 +101,7 @@ class PortfolioWebSocketManager:
 portfolio_ws_manager = PortfolioWebSocketManager()
 
 
-def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
+def get_user_from_token(token: str) -> dict[str, Any] | None:
     """Get user from JWT token"""
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
@@ -124,8 +120,8 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
 @router.websocket("/portfolio")
 async def websocket_portfolio(
     websocket: WebSocket,
-    token: Optional[str] = Query(None),
-    client_id: Optional[str] = Query(None),
+    token: str | None = Query(None),
+    client_id: str | None = Query(None),
 ):
     """WebSocket endpoint for real-time portfolio updates"""
     user_id = None
@@ -202,7 +198,7 @@ async def websocket_portfolio(
                     logger.debug(
                         f"Received non-auth message before authentication: {auth_message.get('type')}"
                     )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "WebSocket authentication timeout - no auth message received"
                 )
@@ -221,7 +217,7 @@ async def websocket_portfolio(
 
         if not user_id:
             logger.warning(
-                f"WebSocket connection rejected - no user_id found from token"
+                "WebSocket connection rejected - no user_id found from token"
             )
             try:
                 await websocket.send_json(
@@ -238,13 +234,11 @@ async def websocket_portfolio(
         # Send initial portfolio data
         try:
             # Import portfolio route function
-            from ..routes.portfolio import router as portfolio_router
 
             # Get portfolio data (paper mode by default)
             # We need to call the portfolio endpoint logic directly
+
             from ..routes.portfolio import get_portfolio
-            from fastapi import Request
-            from fastapi.security import HTTPAuthorizationCredentials
 
             # Create a mock request/dependency for get_portfolio
             # Since get_portfolio uses Depends(get_current_user), we need to pass user context
@@ -258,12 +252,8 @@ async def websocket_portfolio(
 
             # Get portfolio data directly
             try:
-                from ..services.analytics_engine import analytics_engine
-                from ..routes.portfolio import Portfolio, Position
-
                 # Get real portfolio data from portfolio route
                 from ..routes.portfolio import get_portfolio
-                from ..dependencies.auth import get_current_user
 
                 # Create user context for portfolio route
                 mock_user = MockUser(user_id)
@@ -389,8 +379,8 @@ async def websocket_portfolio(
 
                     # Fetch real portfolio data
                     try:
-                        from ..routes.portfolio import get_portfolio
                         from ..database import get_db_context
+                        from ..routes.portfolio import get_portfolio
 
                         async with get_db_context() as db:
                             portfolio = await get_portfolio(
@@ -486,8 +476,8 @@ async def websocket_portfolio(
                     mode = message.get("mode", "paper")
                     # Fetch real portfolio data
                     try:
-                        from ..routes.portfolio import get_portfolio
                         from ..database import get_db_context
+                        from ..routes.portfolio import get_portfolio
 
                         async with get_db_context() as db:
                             portfolio = await get_portfolio(
@@ -579,6 +569,6 @@ async def websocket_portfolio(
 
 
 # Function to notify portfolio updates (can be called from other services)
-async def notify_portfolio_update(user_id: str, portfolio_data: Dict[str, Any]):
+async def notify_portfolio_update(user_id: str, portfolio_data: dict[str, Any]):
     """Notify all WebSocket clients of portfolio update"""
     await portfolio_ws_manager.send_portfolio_update(user_id, portfolio_data)

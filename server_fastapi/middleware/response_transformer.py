@@ -5,7 +5,7 @@ Transforms responses based on API version, format preferences, and client capabi
 
 import json
 import logging
-from typing import Dict, Any, Optional, Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -30,23 +30,23 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
         # Get client preferences
         accept_header = request.headers.get("Accept", "application/json")
         api_version = getattr(request.state, "api_version", "v1")
-        
+
         # Process request
         response = await call_next(request)
-        
+
         if not self.enable_transformation:
             return response
-        
+
         # Transform based on version
         if api_version == "v2":
             response = await self._transform_to_v2(request, response)
         elif api_version == "v1":
             response = await self._ensure_v1_format(request, response)
-        
+
         # Add format headers
         response.headers["X-Response-Format"] = "json"
         response.headers["X-API-Version"] = api_version
-        
+
         return response
 
     async def _transform_to_v2(self, request: Request, response: Response) -> Response:
@@ -54,15 +54,15 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
         content_type = response.headers.get("content-type", "")
         if "application/json" not in content_type:
             return response
-        
+
         # Read body
         body = b""
         async for chunk in response.body_iterator:
             body += chunk
-        
+
         try:
             data = json.loads(body.decode())
-            
+
             # Ensure v2 format
             if isinstance(data, dict):
                 if "data" not in data:
@@ -83,7 +83,7 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
                         "version": "2.0",
                         "request_id": getattr(request.state, "request_id", None),
                     }
-            
+
             return Response(
                 content=json.dumps(data),
                 status_code=response.status_code,
@@ -106,5 +106,5 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO format"""
         from datetime import datetime
-        return datetime.utcnow().isoformat() + "Z"
 
+        return datetime.utcnow().isoformat() + "Z"

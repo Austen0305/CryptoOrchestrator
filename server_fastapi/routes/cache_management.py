@@ -3,15 +3,15 @@ Cache Management API Routes
 Provides endpoints for managing cache, viewing analytics, and controlling versioning.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, Any, Optional, List, Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies.auth import get_current_user
-from ..utils.cache_versioning import get_cache_version_manager
 from ..services.cache.cache_analytics import get_cache_analytics
 from ..services.cache.predictive_preloader import get_predictive_preloader
-from ..utils.cache_utils import MultiLevelCache, get_cache_instance
+from ..utils.cache_versioning import get_cache_version_manager
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +21,10 @@ router = APIRouter(prefix="/api/cache", tags=["Cache Management"])
 @router.get("/analytics")
 async def get_cache_analytics_endpoint(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-    time_window_minutes: Optional[int] = Query(
+    time_window_minutes: int | None = Query(
         None, description="Time window for statistics"
     ),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get cache analytics and performance metrics (admin only)
     """
@@ -47,7 +47,7 @@ async def get_cache_analytics_endpoint(
 async def get_pattern_analytics(
     pattern: str,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get analytics for a specific cache pattern (admin only)
     """
@@ -69,7 +69,7 @@ async def get_pattern_analytics(
 @router.get("/versions")
 async def get_cache_versions(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get all cache versions (admin only)
     """
@@ -92,8 +92,8 @@ async def get_cache_versions(
 async def increment_cache_version(
     prefix: str,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-    reason: Optional[str] = Query(None, description="Reason for version increment"),
-) -> Dict[str, Any]:
+    reason: str | None = Query(None, description="Reason for version increment"),
+) -> dict[str, Any]:
     """
     Increment cache version for a prefix (invalidates all cached data) (admin only)
     """
@@ -120,8 +120,8 @@ async def increment_cache_version(
 @router.post("/versions/invalidate-all")
 async def invalidate_all_cache_versions(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-    reason: Optional[str] = Query(None, description="Reason for invalidation"),
-) -> Dict[str, Any]:
+    reason: str | None = Query(None, description="Reason for invalidation"),
+) -> dict[str, Any]:
     """
     Invalidate all cache versions (full cache clear) (admin only)
     """
@@ -143,7 +143,7 @@ async def invalidate_all_cache_versions(
 @router.get("/preloader/stats")
 async def get_preloader_stats(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get predictive preloader statistics (admin only)
     """
@@ -167,7 +167,7 @@ async def trigger_preload_frequent(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     min_access_count: int = Query(10, ge=1, description="Minimum access count"),
     time_window_minutes: int = Query(60, ge=1, description="Time window in minutes"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Manually trigger preloading of frequently accessed keys (admin only)
     """
@@ -191,7 +191,7 @@ async def trigger_preload_frequent(
 @router.get("/metrics")
 async def get_cache_metrics(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get cache metrics from MultiLevelCache (admin only)
     """
@@ -215,7 +215,7 @@ async def get_cache_metrics(
 @router.post("/analytics/reset")
 async def reset_cache_analytics(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Reset cache analytics statistics (admin only)
     """

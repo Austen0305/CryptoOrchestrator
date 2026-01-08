@@ -3,17 +3,18 @@ Database Performance Monitoring Routes
 Provides endpoints for monitoring database performance, connection pools, and query metrics.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, Any, Optional, Annotated, List
 import logging
+from typing import Annotated, Any
 
-from ..dependencies.auth import get_current_user
-from ..database.pool_monitoring import get_pool_monitor
-from ..database.connection_pool import db_pool
-from ..database.read_replica import read_replica_manager
-from ..utils.query_optimizer import IndexOptimizer
-from ..database import get_db_session
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..database import get_db_session
+from ..database.connection_pool import db_pool
+from ..database.pool_monitoring import get_pool_monitor
+from ..database.read_replica import read_replica_manager
+from ..dependencies.auth import get_current_user
+from ..utils.query_optimizer import IndexOptimizer
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/api/database", tags=["Database Performance"])
 @router.get("/pool/metrics")
 async def get_pool_metrics(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get connection pool metrics (admin only)
 
@@ -47,7 +48,7 @@ async def get_pool_metrics(
 @router.get("/pool/health")
 async def get_pool_health(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get connection pool health status (admin only)
 
@@ -72,7 +73,7 @@ async def get_pool_health(
 async def get_pool_history(
     current_user: Annotated[dict, Depends(get_current_user)],
     limit: int = Query(100, ge=1, le=1000, description="Number of historical entries"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get connection pool metrics history (admin only)
     """
@@ -96,7 +97,7 @@ async def get_pool_history(
 @router.get("/read-replicas/health")
 async def get_read_replica_health(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get read replica health status (admin only)
     """
@@ -123,7 +124,7 @@ async def get_index_usage(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
     table_name: str = Query(..., description="Table name to analyze"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze index usage for a table (admin only, PostgreSQL only)
     """
@@ -149,7 +150,7 @@ async def get_unused_indexes(
     min_scans: int = Query(
         10, ge=0, description="Minimum scans to consider index as used"
     ),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Find unused or rarely used indexes (admin only, PostgreSQL only)
     """
@@ -172,7 +173,7 @@ async def get_unused_indexes(
 async def get_missing_indexes(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Find potential missing indexes (admin only, PostgreSQL only)
     """

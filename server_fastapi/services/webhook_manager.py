@@ -3,15 +3,16 @@ Webhook Management System
 Manages webhook subscriptions, delivery, and retries
 """
 
-import logging
 import asyncio
 import hashlib
 import hmac
 import json
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+import logging
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from dataclasses import dataclass, asdict
+from typing import Any
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 class WebhookStatus(str, Enum):
     """Webhook delivery status"""
+
     PENDING = "pending"
     SUCCESS = "success"
     FAILED = "failed"
@@ -28,13 +30,14 @@ class WebhookStatus(str, Enum):
 @dataclass
 class WebhookSubscription:
     """Webhook subscription"""
+
     id: str
     url: str
-    events: List[str]
-    secret: Optional[str] = None
+    events: list[str]
+    secret: str | None = None
     active: bool = True
     created_at: datetime = None
-    last_delivery: Optional[datetime] = None
+    last_delivery: datetime | None = None
     failure_count: int = 0
     max_retries: int = 3
     timeout: int = 10
@@ -47,15 +50,16 @@ class WebhookSubscription:
 @dataclass
 class WebhookDelivery:
     """Webhook delivery attempt"""
+
     id: str
     subscription_id: str
     event_type: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     status: WebhookStatus
     attempts: int = 0
     created_at: datetime = None
-    delivered_at: Optional[datetime] = None
-    error: Optional[str] = None
+    delivered_at: datetime | None = None
+    error: str | None = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -65,7 +69,7 @@ class WebhookDelivery:
 class WebhookManager:
     """
     Webhook management system
-    
+
     Features:
     - Subscription management
     - Event filtering
@@ -75,22 +79,24 @@ class WebhookManager:
     """
 
     def __init__(self):
-        self.subscriptions: Dict[str, WebhookSubscription] = {}
-        self.deliveries: List[WebhookDelivery] = []
-        self._delivery_task: Optional[asyncio.Task] = None
+        self.subscriptions: dict[str, WebhookSubscription] = {}
+        self.deliveries: list[WebhookDelivery] = []
+        self._delivery_task: asyncio.Task | None = None
         self._running = False
 
     def subscribe(
         self,
         url: str,
-        events: List[str],
-        secret: Optional[str] = None,
+        events: list[str],
+        secret: str | None = None,
         max_retries: int = 3,
         timeout: int = 10,
     ) -> WebhookSubscription:
         """Subscribe to webhook events"""
-        subscription_id = hashlib.sha256(f"{url}:{datetime.utcnow().isoformat()}".encode()).hexdigest()[:16]
-        
+        subscription_id = hashlib.sha256(
+            f"{url}:{datetime.utcnow().isoformat()}".encode()
+        ).hexdigest()[:16]
+
         subscription = WebhookSubscription(
             id=subscription_id,
             url=url,
@@ -99,10 +105,10 @@ class WebhookManager:
             max_retries=max_retries,
             timeout=timeout,
         )
-        
+
         self.subscriptions[subscription_id] = subscription
         logger.info(f"Webhook subscribed: {subscription_id} for events: {events}")
-        
+
         return subscription
 
     def unsubscribe(self, subscription_id: str):
@@ -111,10 +117,11 @@ class WebhookManager:
             self.subscriptions[subscription_id].active = False
             logger.info(f"Webhook unsubscribed: {subscription_id}")
 
-    async def deliver(self, event_type: str, payload: Dict[str, Any]):
+    async def deliver(self, event_type: str, payload: dict[str, Any]):
         """Deliver webhook event to all matching subscriptions"""
         matching_subscriptions = [
-            sub for sub in self.subscriptions.values()
+            sub
+            for sub in self.subscriptions.values()
             if sub.active and event_type in sub.events
         ]
 
@@ -142,7 +149,11 @@ class WebhookManager:
         """Deliver webhook with retries"""
         while delivery.attempts < subscription.max_retries:
             delivery.attempts += 1
-            delivery.status = WebhookStatus.RETRYING if delivery.attempts > 1 else WebhookStatus.PENDING
+            delivery.status = (
+                WebhookStatus.RETRYING
+                if delivery.attempts > 1
+                else WebhookStatus.PENDING
+            )
 
             try:
                 # Prepare payload
@@ -194,13 +205,17 @@ class WebhookManager:
 
             # Wait before retry
             if delivery.attempts < subscription.max_retries:
-                wait_time = min(2 ** delivery.attempts, 60)  # Exponential backoff, max 60s
+                wait_time = min(
+                    2**delivery.attempts, 60
+                )  # Exponential backoff, max 60s
                 await asyncio.sleep(wait_time)
 
         # All retries failed
         delivery.status = WebhookStatus.FAILED
         subscription.failure_count += 1
-        logger.error(f"Webhook delivery failed after {delivery.attempts} attempts: {delivery.id}")
+        logger.error(
+            f"Webhook delivery failed after {delivery.attempts} attempts: {delivery.id}"
+        )
 
     def _generate_signature(self, payload: str, secret: str) -> str:
         """Generate HMAC signature for webhook"""
@@ -215,7 +230,7 @@ class WebhookManager:
         expected = self._generate_signature(payload, secret)
         return hmac.compare_digest(expected, signature)
 
-    def get_subscriptions(self, active_only: bool = True) -> List[WebhookSubscription]:
+    def get_subscriptions(self, active_only: bool = True) -> list[WebhookSubscription]:
         """Get all subscriptions"""
         subscriptions = list(self.subscriptions.values())
         if active_only:
@@ -224,10 +239,10 @@ class WebhookManager:
 
     def get_deliveries(
         self,
-        subscription_id: Optional[str] = None,
-        status: Optional[WebhookStatus] = None,
+        subscription_id: str | None = None,
+        status: WebhookStatus | None = None,
         limit: int = 100,
-    ) -> List[WebhookDelivery]:
+    ) -> list[WebhookDelivery]:
         """Get delivery history"""
         deliveries = self.deliveries
         if subscription_id:
@@ -236,22 +251,27 @@ class WebhookManager:
             deliveries = [d for d in deliveries if d.status == status]
         return deliveries[-limit:]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get webhook statistics"""
         total_deliveries = len(self.deliveries)
-        successful = len([d for d in self.deliveries if d.status == WebhookStatus.SUCCESS])
+        successful = len(
+            [d for d in self.deliveries if d.status == WebhookStatus.SUCCESS]
+        )
         failed = len([d for d in self.deliveries if d.status == WebhookStatus.FAILED])
 
         return {
             "total_subscriptions": len(self.subscriptions),
-            "active_subscriptions": len([s for s in self.subscriptions.values() if s.active]),
+            "active_subscriptions": len(
+                [s for s in self.subscriptions.values() if s.active]
+            ),
             "total_deliveries": total_deliveries,
             "successful_deliveries": successful,
             "failed_deliveries": failed,
-            "success_rate": (successful / total_deliveries * 100) if total_deliveries > 0 else 0,
+            "success_rate": (successful / total_deliveries * 100)
+            if total_deliveries > 0
+            else 0,
         }
 
 
 # Global webhook manager instance
 webhook_manager = WebhookManager()
-

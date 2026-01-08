@@ -3,13 +3,15 @@ Query Batching Utilities
 Implements efficient batch query execution to reduce database round trips.
 """
 
-import logging
-from typing import List, Type, Any, Optional, Dict, Callable, TypeVar, Awaitable
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from sqlalchemy.exc import SQLAlchemyError
-from collections import defaultdict
 import asyncio
+import logging
+from collections import defaultdict
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
+
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +25,8 @@ class QueryBatcher:
 
     @staticmethod
     async def batch_get_by_ids(
-        session: AsyncSession, model: Type[T], ids: List[Any], batch_size: int = 100
-    ) -> Dict[Any, T]:
+        session: AsyncSession, model: type[T], ids: list[Any], batch_size: int = 100
+    ) -> dict[Any, T]:
         """
         Batch fetch multiple records by IDs efficiently.
 
@@ -66,11 +68,11 @@ class QueryBatcher:
     @staticmethod
     async def batch_get_by_field(
         session: AsyncSession,
-        model: Type[T],
+        model: type[T],
         field_name: str,
-        values: List[Any],
+        values: list[Any],
         batch_size: int = 100,
-    ) -> Dict[Any, List[T]]:
+    ) -> dict[Any, list[T]]:
         """
         Batch fetch records by a specific field value.
 
@@ -123,10 +125,10 @@ class QueryBatcher:
     @staticmethod
     async def batch_create(
         session: AsyncSession,
-        model: Type[T],
-        records: List[Dict[str, Any]],
+        model: type[T],
+        records: list[dict[str, Any]],
         batch_size: int = 100,
-    ) -> List[T]:
+    ) -> list[T]:
         """
         Batch create multiple records efficiently.
 
@@ -174,8 +176,8 @@ class QueryBatcher:
     @staticmethod
     async def batch_update(
         session: AsyncSession,
-        model: Type[T],
-        updates: List[Dict[str, Any]],
+        model: type[T],
+        updates: list[dict[str, Any]],
         id_field: str = "id",
         batch_size: int = 100,
     ) -> int:
@@ -244,7 +246,7 @@ class QueryBatcher:
 
     @staticmethod
     async def batch_delete(
-        session: AsyncSession, model: Type[T], ids: List[Any], batch_size: int = 100
+        session: AsyncSession, model: type[T], ids: list[Any], batch_size: int = 100
     ) -> int:
         """
         Batch delete multiple records efficiently.
@@ -300,10 +302,10 @@ class ParallelQueryExecutor:
 
     @staticmethod
     async def execute_parallel(
-        queries: List[Callable[[AsyncSession], Awaitable[Any]]],
+        queries: list[Callable[[AsyncSession], Awaitable[Any]]],
         session: AsyncSession,
         max_concurrent: int = 5,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Execute multiple queries in parallel with concurrency limit.
 

@@ -4,10 +4,10 @@ Provides detailed analytics and insights into cache performance.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
-from datetime import datetime, timedelta
-from collections import defaultdict, deque
 import statistics
+from collections import defaultdict, deque
+from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +25,17 @@ class CacheAnalytics:
         self.cache_operations: deque = deque(maxlen=max_history)
 
         # Hit/miss tracking by key pattern
-        self.hits_by_pattern: Dict[str, int] = defaultdict(int)
-        self.misses_by_pattern: Dict[str, int] = defaultdict(int)
+        self.hits_by_pattern: dict[str, int] = defaultdict(int)
+        self.misses_by_pattern: dict[str, int] = defaultdict(int)
 
         # Size tracking
-        self.size_by_pattern: Dict[str, int] = defaultdict(int)
+        self.size_by_pattern: dict[str, int] = defaultdict(int)
 
         # Error tracking
-        self.errors_by_type: Dict[str, int] = defaultdict(int)
+        self.errors_by_type: dict[str, int] = defaultdict(int)
 
         # Time-based metrics
-        self.hourly_metrics: Dict[int, Dict[str, Any]] = defaultdict(
+        self.hourly_metrics: dict[int, dict[str, Any]] = defaultdict(
             lambda: {"hits": 0, "misses": 0, "errors": 0}
         )
 
@@ -44,9 +44,9 @@ class CacheAnalytics:
         operation: str,  # 'get', 'set', 'delete'
         key: str,
         hit: bool = False,
-        response_time_ms: Optional[float] = None,
-        size_bytes: Optional[int] = None,
-        error: Optional[str] = None,
+        response_time_ms: float | None = None,
+        size_bytes: int | None = None,
+        error: str | None = None,
     ) -> None:
         """
         Record a cache operation.
@@ -123,9 +123,7 @@ class CacheAnalytics:
             return ":".join(pattern_parts)
         return key
 
-    def get_statistics(
-        self, time_window_minutes: Optional[int] = None
-    ) -> Dict[str, Any]:
+    def get_statistics(self, time_window_minutes: int | None = None) -> dict[str, Any]:
         """
         Get comprehensive cache statistics.
 
@@ -213,7 +211,7 @@ class CacheAnalytics:
             "hourly_metrics": dict(self.hourly_metrics),
         }
 
-    def get_pattern_analysis(self, pattern: str) -> Dict[str, Any]:
+    def get_pattern_analysis(self, pattern: str) -> dict[str, Any]:
         """
         Get detailed analysis for a specific cache pattern.
 

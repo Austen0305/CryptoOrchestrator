@@ -4,8 +4,8 @@ Sends email notifications for marketplace events.
 """
 
 import logging
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Any
 
 from ..services.email_service import EmailService
 
@@ -23,7 +23,7 @@ class MarketplaceEmailService:
     ) -> bool:
         """Send email when signal provider is approved"""
         subject = "🎉 Your Signal Provider Application Has Been Approved!"
-        
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -53,7 +53,7 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         Congratulations!
         
@@ -69,15 +69,17 @@ class MarketplaceEmailService:
         
         View your profile: {self._get_frontend_url()}/marketplace
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     async def send_provider_rejection_email(
-        self, to_email: str, provider_name: str, reason: Optional[str] = None
+        self, to_email: str, provider_name: str, reason: str | None = None
     ) -> bool:
         """Send email when signal provider application is rejected"""
         subject = "Signal Provider Application Update"
-        
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -85,7 +87,7 @@ class MarketplaceEmailService:
                 <h1 style="color: #f44336;">Application Status Update</h1>
                 <p>Thank you for your interest in becoming a signal provider on CryptoOrchestrator.</p>
                 <p>Unfortunately, your application has not been approved at this time.</p>
-                {f'<p><strong>Reason:</strong> {reason}</p>' if reason else ''}
+                {f"<p><strong>Reason:</strong> {reason}</p>" if reason else ""}
                 <p>You can reapply in the future once you meet the requirements.</p>
                 <p style="margin-top: 30px;">
                     <a href="{self._get_frontend_url()}/marketplace" 
@@ -97,32 +99,36 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         Application Status Update
         
         Thank you for your interest in becoming a signal provider on CryptoOrchestrator.
         
         Unfortunately, your application has not been approved at this time.
-        {f'Reason: {reason}' if reason else ''}
+        {f"Reason: {reason}" if reason else ""}
         
         You can reapply in the future once you meet the requirements.
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     async def send_underperforming_alert_email(
         self,
         to_email: str,
         provider_name: str,
         reasons: list,
-        metrics: Dict[str, Any],
+        metrics: dict[str, Any],
     ) -> bool:
         """Send email alert when signal provider is underperforming"""
         subject = "⚠️ Performance Alert: Your Signal Provider Profile"
-        
-        reasons_html = "<ul>" + "".join([f"<li>{reason}</li>" for reason in reasons]) + "</ul>"
-        
+
+        reasons_html = (
+            "<ul>" + "".join([f"<li>{reason}</li>" for reason in reasons]) + "</ul>"
+        )
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -136,10 +142,10 @@ class MarketplaceEmailService:
                 <div style="background-color: #f4f4f4; padding: 15px; border-radius: 5px; margin: 20px 0;">
                     <h3>Current Metrics:</h3>
                     <ul>
-                        <li>Win Rate: {metrics.get('win_rate', 0):.1%}</li>
-                        <li>Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.2f}</li>
-                        <li>Max Drawdown: {metrics.get('max_drawdown', 0):.1f}%</li>
-                        <li>Total Trades: {metrics.get('total_trades', 0)}</li>
+                        <li>Win Rate: {metrics.get("win_rate", 0):.1%}</li>
+                        <li>Sharpe Ratio: {metrics.get("sharpe_ratio", 0):.2f}</li>
+                        <li>Max Drawdown: {metrics.get("max_drawdown", 0):.1f}%</li>
+                        <li>Total Trades: {metrics.get("total_trades", 0)}</li>
                     </ul>
                 </div>
                 <p><strong>What you can do:</strong></p>
@@ -159,25 +165,27 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         Performance Alert
         
         We've detected that your signal provider profile may be underperforming.
         
         Issues Detected:
-        {chr(10).join(['- ' + r for r in reasons])}
+        {chr(10).join(["- " + r for r in reasons])}
         
         Current Metrics:
-        - Win Rate: {metrics.get('win_rate', 0):.1%}
-        - Sharpe Ratio: {metrics.get('sharpe_ratio', 0):.2f}
-        - Max Drawdown: {metrics.get('max_drawdown', 0):.1f}%
-        - Total Trades: {metrics.get('total_trades', 0)}
+        - Win Rate: {metrics.get("win_rate", 0):.1%}
+        - Sharpe Ratio: {metrics.get("sharpe_ratio", 0):.2f}
+        - Max Drawdown: {metrics.get("max_drawdown", 0):.1f}%
+        - Total Trades: {metrics.get("total_trades", 0)}
         
         View your profile: {self._get_frontend_url()}/marketplace
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     async def send_verification_failure_email(
         self,
@@ -187,12 +195,18 @@ class MarketplaceEmailService:
     ) -> bool:
         """Send email when performance verification fails"""
         subject = "⚠️ Performance Verification Alert"
-        
-        discrepancies_html = "<ul>" + "".join([
-            f"<li><strong>{d['metric']}</strong>: Stored {d['stored']}, Verified {d['verified']} (Difference: {d['difference_percent']:.1f}%)</li>"
-            for d in discrepancies
-        ]) + "</ul>"
-        
+
+        discrepancies_html = (
+            "<ul>"
+            + "".join(
+                [
+                    f"<li><strong>{d['metric']}</strong>: Stored {d['stored']}, Verified {d['verified']} (Difference: {d['difference_percent']:.1f}%)</li>"
+                    for d in discrepancies
+                ]
+            )
+            + "</ul>"
+        )
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -221,7 +235,7 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         Verification Alert
         
@@ -232,8 +246,10 @@ class MarketplaceEmailService:
         
         View your profile: {self._get_frontend_url()}/marketplace
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     async def send_payout_notification_email(
         self,
@@ -245,7 +261,7 @@ class MarketplaceEmailService:
     ) -> bool:
         """Send email when payout is created"""
         subject = "💰 Payout Processed - CryptoOrchestrator"
-        
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -255,7 +271,7 @@ class MarketplaceEmailService:
                 <div style="background-color: #e8f5e9; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center;">
                     <h2 style="color: #4CAF50; margin: 0;">${payout_amount:,.2f}</h2>
                     <p style="margin: 5px 0; color: #666;">
-                        Period: {period_start.strftime('%B %d, %Y')} - {period_end.strftime('%B %d, %Y')}
+                        Period: {period_start.strftime("%B %d, %Y")} - {period_end.strftime("%B %d, %Y")}
                     </p>
                 </div>
                 <p>The payout has been added to your account balance and is available for withdrawal.</p>
@@ -269,28 +285,30 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         Payout Processed
         
         Great news! Your payout has been processed.
         
         Amount: ${payout_amount:,.2f}
-        Period: {period_start.strftime('%B %d, %Y')} - {period_end.strftime('%B %d, %Y')}
+        Period: {period_start.strftime("%B %d, %Y")} - {period_end.strftime("%B %d, %Y")}
         
         The payout has been added to your account balance and is available for withdrawal.
         
         View payout details: {self._get_frontend_url()}/payouts
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     async def send_new_follower_email(
         self, to_email: str, provider_name: str, follower_name: str
     ) -> bool:
         """Send email when someone starts following a signal provider"""
         subject = "🎉 New Follower - CryptoOrchestrator"
-        
+
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -308,7 +326,7 @@ class MarketplaceEmailService:
         </body>
         </html>
         """
-        
+
         text_body = f"""
         New Follower!
         
@@ -318,10 +336,13 @@ class MarketplaceEmailService:
         
         View your profile: {self._get_frontend_url()}/marketplace
         """
-        
-        return await self.email_service.send_email(to_email, subject, html_body, text_body)
+
+        return await self.email_service.send_email(
+            to_email, subject, html_body, text_body
+        )
 
     def _get_frontend_url(self) -> str:
         """Get frontend URL from environment"""
         import os
+
         return os.getenv("FRONTEND_URL", "http://localhost:5173")

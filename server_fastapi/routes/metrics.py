@@ -3,18 +3,18 @@ Prometheus Metrics Endpoint
 Provides comprehensive metrics for monitoring and observability
 """
 
-from fastapi import APIRouter
-from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
-    generate_latest,
-    CONTENT_TYPE_LATEST,
-)
-from fastapi.responses import Response
+from typing import Any
+
 import psutil
-import os
-from typing import Dict, Any
+from fastapi import APIRouter
+from fastapi.responses import Response
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
@@ -134,7 +134,7 @@ async def get_metrics():
 
 
 @router.get("/summary")
-async def get_metrics_summary() -> Dict[str, Any]:
+async def get_metrics_summary() -> dict[str, Any]:
     """
     Human-readable metrics summary
     Returns key metrics in JSON format

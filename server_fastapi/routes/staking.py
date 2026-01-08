@@ -3,18 +3,18 @@ Staking Routes
 API endpoints for staking rewards.
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Annotated
-import logging
 
-from ..services.staking_service import StakingService
-from ..dependencies.staking import get_staking_service
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.staking import get_staking_service
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
+from ..services.staking_service import StakingService
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 

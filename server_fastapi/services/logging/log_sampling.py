@@ -5,11 +5,10 @@ while preserving important events (errors, security events, etc.).
 """
 
 import logging
+import os
 import random
-from typing import Dict, Optional, Set
 from collections import defaultdict
 from datetime import datetime, timedelta
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +23,8 @@ class LogSamplingFilter(logging.Filter):
     def __init__(
         self,
         sampling_rate: float = 1.0,
-        always_log_levels: Optional[Set[str]] = None,
-        endpoint_sampling_rates: Optional[Dict[str, float]] = None,
+        always_log_levels: set[str] | None = None,
+        endpoint_sampling_rates: dict[str, float] | None = None,
     ):
         """
         Initialize log sampling filter
@@ -77,7 +76,7 @@ class LogSamplingFilter(logging.Filter):
         self.sampled_count += 1
         return False
 
-    def get_sampling_stats(self) -> Dict[str, any]:
+    def get_sampling_stats(self) -> dict[str, any]:
         """Get sampling statistics"""
         if self.total_count == 0:
             return {"sampled": 0, "total": 0, "rate": 0.0}
@@ -106,11 +105,11 @@ class AdaptiveLogSampler:
         self.low_sampling_rate = low_sampling_rate
 
         # Track log volume per endpoint
-        self.endpoint_counts: Dict[str, list] = defaultdict(list)
-        self.current_sampling_rates: Dict[str, float] = {}
+        self.endpoint_counts: dict[str, list] = defaultdict(list)
+        self.current_sampling_rates: dict[str, float] = {}
 
     def should_sample(
-        self, endpoint: Optional[str] = None, log_level: str = "INFO"
+        self, endpoint: str | None = None, log_level: str = "INFO"
     ) -> bool:
         """
         Determine if log should be sampled based on adaptive rules
@@ -159,12 +158,12 @@ class AdaptiveLogSampler:
         # Sample based on rate
         return random.random() < sampling_rate
 
-    def get_sampling_rates(self) -> Dict[str, float]:
+    def get_sampling_rates(self) -> dict[str, float]:
         """Get current sampling rates for all endpoints"""
         return self.current_sampling_rates.copy()
 
 
-def get_sampling_config() -> Dict[str, any]:
+def get_sampling_config() -> dict[str, any]:
     """
     Get log sampling configuration from environment variables
 

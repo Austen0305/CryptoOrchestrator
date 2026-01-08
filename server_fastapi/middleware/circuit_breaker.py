@@ -3,11 +3,11 @@ Advanced Circuit Breaker Pattern Implementation
 Protects external services from cascading failures
 """
 
-import asyncio
-from datetime import datetime, timedelta
-from typing import Callable, Any, Optional, List
-from enum import Enum
 import logging
+from collections.abc import Callable
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +44,9 @@ class CircuitBreaker:
         self.failure_count = 0
         self.success_count = 0
         self.half_open_calls = 0
-        self.last_failure_time: Optional[datetime] = None
+        self.last_failure_time: datetime | None = None
         self.state = CircuitState.CLOSED
-        self.success_rate_history: List[bool] = []
+        self.success_rate_history: list[bool] = []
         self.health_score: float = 100.0
 
         logger.info(f"Circuit breaker '{name}' initialized")

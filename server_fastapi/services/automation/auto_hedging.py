@@ -2,12 +2,12 @@
 Auto-Hedging Service - Automatic hedging strategies
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+import asyncio
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
-import asyncio
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,8 @@ class AutoHedgingService:
     """Auto-hedging service for automatic hedging"""
 
     def __init__(self):
-        self.active_hedges: Dict[str, HedgePosition] = {}
-        self.monitoring_tasks: Dict[str, asyncio.Task] = {}
+        self.active_hedges: dict[str, HedgePosition] = {}
+        self.monitoring_tasks: dict[str, asyncio.Task] = {}
         logger.info("Auto-Hedging Service initialized")
 
     async def start_hedging(self, portfolio_id: str, config: HedgingConfig) -> bool:
@@ -155,7 +155,7 @@ class AutoHedgingService:
 
     async def _delta_neutral_hedge(
         self, portfolio_id: str, exposure: float, config: HedgingConfig
-    ) -> Optional[HedgePosition]:
+    ) -> HedgePosition | None:
         """Delta-neutral hedging"""
         # Mock implementation
         hedge_amount = abs(exposure) * config.hedge_ratio
@@ -164,24 +164,24 @@ class AutoHedgingService:
             symbol="BTC",
             side="sell" if exposure > 0 else "buy",
             amount=hedge_amount,
-            reason=f"Delta-neutral hedge to offset {exposure*100:.2f}% exposure",
+            reason=f"Delta-neutral hedge to offset {exposure * 100:.2f}% exposure",
         )
 
     async def _pairs_trading_hedge(
         self, portfolio_id: str, exposure: float, config: HedgingConfig
-    ) -> Optional[HedgePosition]:
+    ) -> HedgePosition | None:
         """Pairs trading hedge"""
         # Mock implementation
         return HedgePosition(
             symbol="ETH",  # Hedge with correlated asset
             side="sell" if exposure > 0 else "buy",
             amount=abs(exposure) * config.hedge_ratio,
-            reason=f"Pairs trading hedge with ETH",
+            reason="Pairs trading hedge with ETH",
         )
 
     async def _correlation_hedge(
         self, portfolio_id: str, exposure: float, config: HedgingConfig
-    ) -> Optional[HedgePosition]:
+    ) -> HedgePosition | None:
         """Correlation-based hedge"""
         # Mock implementation
         return HedgePosition(
@@ -190,36 +190,34 @@ class AutoHedgingService:
             amount=abs(exposure)
             * config.hedge_ratio
             * 0.8,  # Partial hedge based on correlation
-            reason=f"Correlation hedge to reduce exposure",
+            reason="Correlation hedge to reduce exposure",
         )
 
     async def _volatility_hedge(
         self, portfolio_id: str, exposure: float, config: HedgingConfig
-    ) -> Optional[HedgePosition]:
+    ) -> HedgePosition | None:
         """Volatility-based hedge"""
         # Mock implementation
         return HedgePosition(
             symbol="BTC",
             side="sell" if exposure > 0 else "buy",
             amount=abs(exposure) * config.hedge_ratio,
-            reason=f"Volatility hedge to protect against price swings",
+            reason="Volatility hedge to protect against price swings",
         )
 
     async def _portfolio_hedge(
         self, portfolio_id: str, exposure: float, config: HedgingConfig
-    ) -> Optional[HedgePosition]:
+    ) -> HedgePosition | None:
         """Portfolio-wide hedge"""
         # Mock implementation
         return HedgePosition(
             symbol="BTC",
             side="sell" if exposure > 0 else "buy",
             amount=abs(exposure) * config.hedge_ratio,
-            reason=f"Portfolio hedge to maintain target allocation",
+            reason="Portfolio hedge to maintain target allocation",
         )
 
-    def get_active_hedges(
-        self, portfolio_id: Optional[str] = None
-    ) -> List[HedgePosition]:
+    def get_active_hedges(self, portfolio_id: str | None = None) -> list[HedgePosition]:
         """Get active hedge positions"""
         if portfolio_id:
             hedge = self.active_hedges.get(portfolio_id)

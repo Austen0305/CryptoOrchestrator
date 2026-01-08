@@ -2,15 +2,15 @@
 DCA Bot repository for database operations.
 """
 
+import logging
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.dca_bot import DCABot
 from .base import SQLAlchemyRepository
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, bot_id: str, user_id: int
-    ) -> Optional[DCABot]:
+    ) -> DCABot | None:
         """Get a DCA bot by ID and user ID with eager loading."""
         query = (
             select(DCABot)
@@ -37,7 +37,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
 
     async def get_user_dca_bots(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[DCABot]:
+    ) -> list[DCABot]:
         """Get all DCA bots for a user with pagination and eager loading."""
         query = (
             select(DCABot)
@@ -68,7 +68,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         user_id: int,
         active: bool,
         status: str,
-    ) -> Optional[DCABot]:
+    ) -> DCABot | None:
         """Update DCA bot active status and status field."""
         from datetime import datetime
 
@@ -101,7 +101,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
 
     async def update_next_order_time(
         self, session: AsyncSession, bot_id: str, user_id: int, next_order_at: datetime
-    ) -> Optional[DCABot]:
+    ) -> DCABot | None:
         """Update next order execution time."""
         from datetime import datetime
 
@@ -131,7 +131,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         current_value: float,
         total_profit: float,
         profit_percent: float,
-    ) -> Optional[DCABot]:
+    ) -> DCABot | None:
         """Update DCA bot performance metrics."""
         stmt = (
             update(DCABot)
@@ -156,8 +156,8 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         return updated_bot
 
     async def get_active_dca_bots(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[DCABot]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[DCABot]:
         """Get all active DCA bots with eager loading, optionally filtered by user."""
         query = (
             select(DCABot)
@@ -171,7 +171,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def get_bots_ready_for_order(self, session: AsyncSession) -> List[DCABot]:
+    async def get_bots_ready_for_order(self, session: AsyncSession) -> list[DCABot]:
         """Get DCA bots that are ready to execute their next order with eager loading."""
         from datetime import datetime
 

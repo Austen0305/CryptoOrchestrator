@@ -2,12 +2,11 @@
 Enhanced tests for DEX trading with error scenarios and aggregator fallback.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from typing import Dict, Any
 import logging
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 
@@ -138,14 +137,17 @@ class TestDEXTradingEnhanced:
         }
 
         # Mock all aggregators failing
-        with patch(
-            "server_fastapi.services.integrations.zeroex_service.ZeroExService.get_quote"
-        ) as mock_zeroex, patch(
-            "server_fastapi.services.integrations.okx_dex_service.OKXDexService.get_quote"
-        ) as mock_okx, patch(
-            "server_fastapi.services.integrations.rubic_service.RubicService.get_quote"
-        ) as mock_rubic:
-
+        with (
+            patch(
+                "server_fastapi.services.integrations.zeroex_service.ZeroExService.get_quote"
+            ) as mock_zeroex,
+            patch(
+                "server_fastapi.services.integrations.okx_dex_service.OKXDexService.get_quote"
+            ) as mock_okx,
+            patch(
+                "server_fastapi.services.integrations.rubic_service.RubicService.get_quote"
+            ) as mock_rubic,
+        ):
             mock_zeroex.side_effect = Exception("0x unavailable")
             mock_okx.side_effect = Exception("OKX unavailable")
             mock_rubic.side_effect = Exception("Rubic unavailable")

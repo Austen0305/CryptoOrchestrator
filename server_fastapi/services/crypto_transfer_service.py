@@ -4,17 +4,18 @@ Handles crypto transfers from external platforms and wallets
 """
 
 import logging
-from typing import Dict, Optional, List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..repositories.wallet_balance_repository import WalletBalanceRepository
     from ..repositories.transaction_repository import TransactionRepository
+    from ..repositories.wallet_balance_repository import WalletBalanceRepository
 from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models.wallet import TransactionType, TransactionStatus
-from ..repositories.wallet_balance_repository import WalletBalanceRepository
+from ..models.wallet import TransactionStatus, TransactionType
 from ..repositories.transaction_repository import TransactionRepository
+from ..repositories.wallet_balance_repository import WalletBalanceRepository
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,8 @@ class CryptoTransferService:
     def __init__(
         self,
         db: AsyncSession,
-        wallet_repository: Optional[WalletBalanceRepository] = None,
-        transaction_repository: Optional[TransactionRepository] = None,
+        wallet_repository: WalletBalanceRepository | None = None,
+        transaction_repository: TransactionRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.wallet_repository = wallet_repository or WalletBalanceRepository()
@@ -45,11 +46,11 @@ class CryptoTransferService:
         currency: str,
         amount: float,
         source_platform: str,  # 'binance', 'coinbase', 'kraken', 'external_wallet', etc.
-        source_address: Optional[str] = None,  # For external wallets
-        destination_address: Optional[str] = None,  # Our platform address
-        network: Optional[str] = None,  # 'ERC20', 'TRC20', 'BEP20', etc.
-        memo: Optional[str] = None,
-    ) -> Dict:
+        source_address: str | None = None,  # For external wallets
+        destination_address: str | None = None,  # Our platform address
+        network: str | None = None,  # 'ERC20', 'TRC20', 'BEP20', etc.
+        memo: str | None = None,
+    ) -> dict:
         """
         Initiate a crypto transfer from an external platform
 
@@ -263,9 +264,9 @@ class CryptoTransferService:
         currency: str,
         amount: float,
         destination_address: str,
-        network: Optional[str] = None,
-        memo: Optional[str] = None,
-    ) -> Dict:
+        network: str | None = None,
+        memo: str | None = None,
+    ) -> dict:
         """
         Withdraw crypto to an external address
 
@@ -289,7 +290,7 @@ class CryptoTransferService:
             total_deduction = amount + fee
 
             if wallet.available_balance < total_deduction:
-                raise ValueError(f"Insufficient balance for withdrawal and fees")
+                raise ValueError("Insufficient balance for withdrawal and fees")
 
             # Validate destination address
             is_valid = await self._validate_crypto_address(
@@ -366,7 +367,7 @@ class CryptoTransferService:
             raise
 
     async def _generate_deposit_address(
-        self, currency: str, network: Optional[str] = None
+        self, currency: str, network: str | None = None
     ) -> str:
         """Generate a deposit address for the currency"""
         # In production, this would generate addresses from your wallet infrastructure
@@ -379,9 +380,9 @@ class CryptoTransferService:
         source_platform: str,
         currency: str,
         destination_address: str,
-        network: Optional[str],
-        memo: Optional[str],
-    ) -> Dict:
+        network: str | None,
+        memo: str | None,
+    ) -> dict:
         """Get transfer instructions for a specific platform"""
         instructions = {
             "general": f"Send {currency} to the address below",
@@ -446,8 +447,8 @@ class CryptoTransferService:
         self,
         tx_hash: str,
         currency: str,
-        network: Optional[str],
-        destination_address: Optional[str],
+        network: str | None,
+        destination_address: str | None,
         expected_amount: float,
     ) -> bool:
         """Verify a blockchain transaction"""
@@ -456,7 +457,7 @@ class CryptoTransferService:
         logger.info(f"Verifying transaction {tx_hash} for {currency}")
         return True  # Placeholder
 
-    def _get_required_confirmations(self, currency: str, network: Optional[str]) -> int:
+    def _get_required_confirmations(self, currency: str, network: str | None) -> int:
         """Get required confirmations for a currency/network"""
         confirmation_map = {
             "BTC": 6,
@@ -470,7 +471,7 @@ class CryptoTransferService:
         return confirmation_map.get(currency.upper(), 6)
 
     def _get_estimated_confirmation_time(
-        self, currency: str, network: Optional[str]
+        self, currency: str, network: str | None
     ) -> str:
         """Get estimated confirmation time"""
         time_map = {
@@ -485,7 +486,7 @@ class CryptoTransferService:
         return time_map.get(currency.upper(), "5-30 minutes")
 
     async def _calculate_withdrawal_fee(
-        self, currency: str, network: Optional[str]
+        self, currency: str, network: str | None
     ) -> float:
         """Calculate withdrawal fee"""
         # In production, this would fetch from exchange APIs
@@ -501,7 +502,7 @@ class CryptoTransferService:
         return fee_map.get(currency.upper(), 0.01)
 
     async def _validate_crypto_address(
-        self, address: str, currency: str, network: Optional[str]
+        self, address: str, currency: str, network: str | None
     ) -> bool:
         """Validate a crypto address format"""
         # In production, this would use proper address validation libraries

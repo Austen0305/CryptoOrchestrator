@@ -3,9 +3,10 @@ Performance Profiling Middleware
 Records endpoint execution times and identifies slow endpoints.
 """
 
-import time
 import logging
-from typing import Callable
+import time
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -44,7 +45,7 @@ class PerformanceProfilingMiddleware(BaseHTTPMiddleware):
 
             return response
 
-        except Exception as e:
+        except Exception:
             # Still record timing even on error
             duration_ms = (time.time() - start_time) * 1000
             self.profiler.record_endpoint(

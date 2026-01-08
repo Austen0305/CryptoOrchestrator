@@ -5,19 +5,20 @@ Exposes metrics for Prometheus and business intelligence dashboards.
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_
+from typing import Any
+
 from prometheus_client import Counter, Gauge, Histogram
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 # OpenTelemetry integration
 try:
     from ..observability.opentelemetry_setup import (
-        record_metric,
+        get_tracer,
         record_gauge,
         record_histogram,
-        get_tracer,
+        record_metric,
     )
 
     OTEL_AVAILABLE = True
@@ -92,11 +93,11 @@ transaction_confirmation_time = Histogram(
 class BusinessMetricsService:
     """Service for tracking and exposing business metrics"""
 
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         self.db = db
 
     async def record_trade(
-        self, mode: str, chain_id: Optional[int] = None, amount: Optional[float] = None
+        self, mode: str, chain_id: int | None = None, amount: float | None = None
     ) -> None:
         """Record a trade for business metrics"""
         trades_per_day.labels(mode=mode, chain_id=chain_id or 0).inc()
@@ -130,7 +131,7 @@ class BusinessMetricsService:
                 attributes={"revenue_type": revenue_type},
             )
 
-    async def update_user_metrics(self, db: AsyncSession) -> Dict[str, Any]:
+    async def update_user_metrics(self, db: AsyncSession) -> dict[str, Any]:
         """Update user growth and activity metrics"""
         try:
             from ..models.user import User
@@ -162,7 +163,7 @@ class BusinessMetricsService:
 
     async def get_trades_per_day(
         self, db: AsyncSession, days: int = 30
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get trades per day for the last N days"""
         try:
             from ..models.trade import Trade
@@ -202,9 +203,9 @@ class BusinessMetricsService:
     async def get_revenue_metrics(
         self,
         db: AsyncSession,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Get revenue metrics"""
         try:
             from ..services.payments.stripe_service import StripeService
@@ -255,7 +256,7 @@ class BusinessMetricsService:
         self,
         operation_type: str,
         chain_id: int,
-        duration_seconds: Optional[float] = None,
+        duration_seconds: float | None = None,
     ) -> None:
         """Record wallet operation for metrics"""
         wallet_operations_total.labels(
@@ -288,7 +289,7 @@ class BusinessMetricsService:
         """Record bot activity"""
         bot_activity_total.labels(bot_status=bot_status, strategy=strategy).inc()
 
-    async def get_all_business_metrics(self, db: AsyncSession) -> Dict[str, Any]:
+    async def get_all_business_metrics(self, db: AsyncSession) -> dict[str, Any]:
         """Get all business metrics"""
         user_metrics = await self.update_user_metrics(db)
         trades_per_day_data = await self.get_trades_per_day(db, days=30)
@@ -303,11 +304,11 @@ class BusinessMetricsService:
 
 
 # Singleton instance
-_business_metrics_service: Optional[BusinessMetricsService] = None
+_business_metrics_service: BusinessMetricsService | None = None
 
 
 def get_business_metrics_service(
-    db: Optional[AsyncSession] = None,
+    db: AsyncSession | None = None,
 ) -> BusinessMetricsService:
     """Get business metrics service instance"""
     global _business_metrics_service

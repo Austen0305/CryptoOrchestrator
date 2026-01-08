@@ -2,13 +2,13 @@
 Enhanced Backtesting Engine with Monte Carlo Simulation and Walk-Forward Analysis
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import List, Dict, Optional, Tuple
-from datetime import datetime, timedelta
-import numpy as np
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+
+import numpy as np
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +19,11 @@ class BacktestStrategy(BaseModel):
     """Strategy configuration for backtesting"""
 
     strategy_id: str
-    parameters: Dict[str, float] = Field(..., description="Strategy parameters")
+    parameters: dict[str, float] = Field(..., description="Strategy parameters")
     initial_capital: float = Field(10000.0, ge=100)
     position_size_pct: float = Field(0.1, ge=0.01, le=1.0)
-    stop_loss_pct: Optional[float] = Field(None, ge=0.001, le=0.5)
-    take_profit_pct: Optional[float] = Field(None, ge=0.001)
+    stop_loss_pct: float | None = Field(None, ge=0.001, le=0.5)
+    take_profit_pct: float | None = Field(None, ge=0.001)
 
 
 class BacktestConfig(BaseModel):
@@ -108,10 +108,10 @@ class BacktestResult(BaseModel):
     strategy_id: str
     initial_capital: float
     final_capital: float
-    metrics: Dict
-    equity_curve: List[Dict[str, float]]
-    trades: List[Dict]
-    drawdown_periods: List[Dict]
+    metrics: dict
+    equity_curve: list[dict[str, float]]
+    trades: list[dict]
+    drawdown_periods: list[dict]
 
 
 class MonteCarloResult(BaseModel):
@@ -120,14 +120,14 @@ class MonteCarloResult(BaseModel):
     simulation_id: str
     num_simulations: int
     confidence_level: float
-    base_metrics: Dict
-    simulated_returns: List[float]
-    confidence_interval: Dict[str, float]
+    base_metrics: dict
+    simulated_returns: list[float]
+    confidence_interval: dict[str, float]
     risk_of_ruin: float
     expected_return: float
-    worst_case: Dict
-    best_case: Dict
-    percentile_metrics: Dict[int, Dict]
+    worst_case: dict
+    best_case: dict
+    percentile_metrics: dict[int, dict]
 
 
 class WalkForwardResult(BaseModel):
@@ -135,19 +135,19 @@ class WalkForwardResult(BaseModel):
 
     analysis_id: str
     num_periods: int
-    in_sample_metrics: List[Dict]
-    out_sample_metrics: List[Dict]
-    overall_metrics: Dict
+    in_sample_metrics: list[dict]
+    out_sample_metrics: list[dict]
+    overall_metrics: dict
     degradation_factor: float
     consistency_score: float
-    optimal_parameters: List[Dict]
+    optimal_parameters: list[dict]
 
 
 class BacktestEngine:
     """Enhanced backtesting engine"""
 
     def __init__(self):
-        self.results_cache: Dict[str, BacktestResult] = {}
+        self.results_cache: dict[str, BacktestResult] = {}
 
     async def run_backtest(self, config: BacktestConfig) -> BacktestResult:
         """Execute standard backtest"""
@@ -360,7 +360,7 @@ class BacktestEngine:
 
     async def _fetch_market_data(
         self, symbol: str, start: str, end: str, timeframe: str
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """Fetch historical market data"""
         # Mock implementation - integrate with actual data source
         import random
@@ -392,8 +392,8 @@ class BacktestEngine:
         return candles
 
     async def _generate_signals(
-        self, candles: List[Dict], strategy: BacktestStrategy
-    ) -> List[Dict]:
+        self, candles: list[dict], strategy: BacktestStrategy
+    ) -> list[dict]:
         """Generate trading signals from strategy"""
         # Mock implementation - use actual strategy
         signals = []
@@ -418,8 +418,8 @@ class BacktestEngine:
         return signals
 
     async def _simulate_trades(
-        self, candles: List[Dict], signals: List[Dict], config: BacktestConfig
-    ) -> List[Trade]:
+        self, candles: list[dict], signals: list[dict], config: BacktestConfig
+    ) -> list[Trade]:
         """Simulate trade execution"""
         trades = []
         position = None
@@ -465,7 +465,7 @@ class BacktestEngine:
         return trades
 
     def _calculate_metrics(
-        self, trades: List[Trade], initial_capital: float
+        self, trades: list[Trade], initial_capital: float
     ) -> PerformanceMetrics:
         """Calculate comprehensive performance metrics"""
         if not trades:
@@ -550,8 +550,8 @@ class BacktestEngine:
         )
 
     def _build_equity_curve(
-        self, trades: List[Trade], initial_capital: float
-    ) -> List[Dict]:
+        self, trades: list[Trade], initial_capital: float
+    ) -> list[dict]:
         """Build equity curve from trades"""
         equity = initial_capital
         curve = [{"timestamp": datetime.now(), "equity": equity}]
@@ -562,7 +562,7 @@ class BacktestEngine:
 
         return curve
 
-    def _calculate_max_drawdown(self, equity_curve: List[Dict]) -> float:
+    def _calculate_max_drawdown(self, equity_curve: list[dict]) -> float:
         """Calculate maximum drawdown percentage"""
         peak = equity_curve[0]["equity"]
         max_dd = 0.0
@@ -576,12 +576,12 @@ class BacktestEngine:
 
         return max_dd
 
-    def _identify_drawdown_periods(self, equity_curve: List[Dict]) -> List[Dict]:
+    def _identify_drawdown_periods(self, equity_curve: list[dict]) -> list[dict]:
         """Identify significant drawdown periods"""
         # Implementation omitted for brevity
         return []
 
-    def _randomize_trade_order(self, trades: List[Trade]) -> List[Trade]:
+    def _randomize_trade_order(self, trades: list[Trade]) -> list[Trade]:
         """Randomize trade order for Monte Carlo"""
         import random
 
@@ -589,7 +589,7 @@ class BacktestEngine:
         random.shuffle(randomized)
         return randomized
 
-    def _add_price_noise(self, trades: List[Trade]) -> List[Trade]:
+    def _add_price_noise(self, trades: list[Trade]) -> list[Trade]:
         """Add random noise to trade prices"""
         import random
 
@@ -613,26 +613,26 @@ class BacktestEngine:
 
     def _calculate_confidence_interval(
         self, returns: np.ndarray, confidence_level: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Calculate confidence interval"""
         alpha = 1 - confidence_level
         lower = np.percentile(returns, alpha / 2 * 100)
         upper = np.percentile(returns, (1 - alpha / 2) * 100)
         return (lower, upper)
 
-    def _calculate_risk_of_ruin(self, metrics_list: List[PerformanceMetrics]) -> float:
+    def _calculate_risk_of_ruin(self, metrics_list: list[PerformanceMetrics]) -> float:
         """Calculate risk of ruin (probability of losing all capital)"""
         ruined = sum(1 for m in metrics_list if m.total_return_pct <= -90)
         return ruined / len(metrics_list)
 
     async def _optimize_parameters(
         self, config: BacktestConfig, start: str, end: str, metric: str
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Optimize strategy parameters"""
         # Mock implementation - use actual optimization
         return config.strategy.parameters
 
-    def _aggregate_walk_forward_metrics(self, results: List[Dict]) -> Dict:
+    def _aggregate_walk_forward_metrics(self, results: list[dict]) -> dict:
         """Aggregate walk-forward results"""
         if not results:
             return {}
@@ -644,7 +644,7 @@ class BacktestEngine:
         }
 
     def _calculate_degradation_factor(
-        self, in_sample: List[Dict], out_sample: List[Dict]
+        self, in_sample: list[dict], out_sample: list[dict]
     ) -> float:
         """Calculate performance degradation from in-sample to out-sample"""
         if not in_sample or not out_sample:
@@ -655,7 +655,7 @@ class BacktestEngine:
 
         return (in_avg - out_avg) / in_avg if in_avg != 0 else 0.0
 
-    def _calculate_consistency_score(self, results: List[Dict]) -> float:
+    def _calculate_consistency_score(self, results: list[dict]) -> float:
         """Calculate consistency score (inverse of std dev)"""
         returns = [r.get("total_return_pct", 0) for r in results]
         return 1.0 / (1.0 + np.std(returns))
@@ -683,7 +683,7 @@ class BacktestEngine:
             expectancy=0,
         )
 
-    def _metrics_to_dict(self, metrics: PerformanceMetrics) -> Dict:
+    def _metrics_to_dict(self, metrics: PerformanceMetrics) -> dict:
         """Convert metrics to dictionary"""
         return {
             "total_return": metrics.total_return,
@@ -700,7 +700,7 @@ class BacktestEngine:
             "num_trades": metrics.num_trades,
         }
 
-    def _trade_to_dict(self, trade: Trade) -> Dict:
+    def _trade_to_dict(self, trade: Trade) -> dict:
         """Convert trade to dictionary"""
         return {
             "entry_time": trade.entry_time.isoformat(),
@@ -712,7 +712,7 @@ class BacktestEngine:
             "pnl_pct": trade.pnl_pct,
         }
 
-    def _dict_to_trade(self, data: Dict) -> Trade:
+    def _dict_to_trade(self, data: dict) -> Trade:
         """Convert dictionary to trade"""
         return Trade(
             entry_time=datetime.fromisoformat(data["entry_time"]),

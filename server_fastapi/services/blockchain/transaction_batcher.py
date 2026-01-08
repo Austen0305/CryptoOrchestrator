@@ -5,10 +5,9 @@ Target: 30-60% gas reduction for multiple bot trades.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
 from dataclasses import dataclass
-from decimal import Decimal
+from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class TransactionBatcher:
     """
 
     def __init__(self):
-        self._pending_swaps: Dict[int, List[PendingSwap]] = {}  # chain_id -> swaps
+        self._pending_swaps: dict[int, list[PendingSwap]] = {}  # chain_id -> swaps
         self._batch_window_seconds = 30  # Collect swaps for 30 seconds
         self._max_batch_size = 10  # Maximum swaps per batch
         self._min_batch_size = (
@@ -55,7 +54,7 @@ class TransactionBatcher:
         slippage_percentage: float,
         swap_id: str,
         force_immediate: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Add swap to batch or execute immediately.
 
@@ -130,7 +129,7 @@ class TransactionBatcher:
             + timedelta(seconds=self._batch_window_seconds),
         }
 
-    async def _execute_batch(self, chain_id: int) -> Dict[str, Any]:
+    async def _execute_batch(self, chain_id: int) -> dict[str, Any]:
         """
         Execute all pending swaps in a batch.
 
@@ -178,7 +177,7 @@ class TransactionBatcher:
         try:
             # Group swaps by user (for now, execute per user)
             # In future, could batch across users if using smart contract
-            user_batches: Dict[int, List[PendingSwap]] = {}
+            user_batches: dict[int, list[PendingSwap]] = {}
             for swap in batch:
                 if swap.user_id not in user_batches:
                     user_batches[swap.user_id] = []
@@ -214,8 +213,8 @@ class TransactionBatcher:
             return await self._execute_batch_fallback(batch)
 
     async def _execute_user_batch(
-        self, user_id: int, swaps: List[PendingSwap], chain_id: int
-    ) -> List[Dict[str, Any]]:
+        self, user_id: int, swaps: list[PendingSwap], chain_id: int
+    ) -> list[dict[str, Any]]:
         """
         Execute batch of swaps for a single user.
 
@@ -229,8 +228,8 @@ class TransactionBatcher:
         """
         # For now, execute swaps sequentially but optimize gas
         # Future: Use multicall or batch contract for true batching
-        from ..trading.dex_trading_service import DEXTradingService
         from ...database import get_db_context
+        from ..trading.dex_trading_service import DEXTradingService
 
         results = []
 
@@ -277,10 +276,10 @@ class TransactionBatcher:
         chain_id: int,
         slippage_percentage: float,
         swap_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute swap immediately (bypass batching)"""
-        from ..trading.dex_trading_service import DEXTradingService
         from ...database import get_db_context
+        from ..trading.dex_trading_service import DEXTradingService
 
         async with get_db_context() as db:
             dex_service = DEXTradingService(db_session=db)
@@ -304,7 +303,7 @@ class TransactionBatcher:
                 "gas_used": result.get("gas_used"),
             }
 
-    async def _execute_batch_fallback(self, batch: List[PendingSwap]) -> Dict[str, Any]:
+    async def _execute_batch_fallback(self, batch: list[PendingSwap]) -> dict[str, Any]:
         """Fallback: execute swaps individually if batch fails"""
         logger.warning(
             f"Batch execution failed, executing {len(batch)} swaps individually"
@@ -359,7 +358,7 @@ class TransactionBatcher:
         savings = 0.30 + (batch_size - 2) * (0.30 / 8)  # 0.30 to 0.60
         return min(savings, 0.60)  # Cap at 60%
 
-    async def flush_pending(self, chain_id: Optional[int] = None) -> Dict[str, Any]:
+    async def flush_pending(self, chain_id: int | None = None) -> dict[str, Any]:
         """
         Flush all pending swaps (execute immediately).
 
@@ -378,7 +377,7 @@ class TransactionBatcher:
 
         return {"status": "flushed", "chains": results}
 
-    def get_pending_count(self, chain_id: Optional[int] = None) -> int:
+    def get_pending_count(self, chain_id: int | None = None) -> int:
         """Get count of pending swaps"""
         if chain_id:
             return len(self._pending_swaps.get(chain_id, []))
@@ -386,7 +385,7 @@ class TransactionBatcher:
 
 
 # Singleton instance
-_transaction_batcher: Optional[TransactionBatcher] = None
+_transaction_batcher: TransactionBatcher | None = None
 
 
 def get_transaction_batcher() -> TransactionBatcher:

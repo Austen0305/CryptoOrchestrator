@@ -4,11 +4,9 @@ Implements account lockout with progressive delays to prevent brute force attack
 """
 
 import logging
-from typing import Dict, Optional
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +17,21 @@ LOCKOUT_MULTIPLIER = 2  # Double duration for each lockout
 MAX_LOCKOUT_DURATION = 3600  # 1 hour maximum
 
 # In-memory storage for failed attempts (in production, use Redis or database)
-_failed_attempts: Dict[str, Dict[str, any]] = {}
+_failed_attempts: dict[str, dict[str, any]] = {}
 
 
 class AccountLockoutService:
     """Service for managing account lockouts"""
 
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         self.db = db
         self.failed_attempts = _failed_attempts
 
     async def record_failed_attempt(
-        self, identifier: str, ip_address: Optional[str] = None  # email or username
-    ) -> Dict[str, any]:
+        self,
+        identifier: str,
+        ip_address: str | None = None,  # email or username
+    ) -> dict[str, any]:
         """
         Record a failed login attempt and return lockout status.
 
@@ -43,7 +43,7 @@ class AccountLockoutService:
                 "lockout_duration": Optional[int]
             }
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Get or create attempt record
         if identifier not in self.failed_attempts:
@@ -123,12 +123,10 @@ class AccountLockoutService:
         """Reset failed attempt count after successful login"""
         if identifier in self.failed_attempts:
             self.failed_attempts[identifier]["count"] = 0
-            self.failed_attempts[identifier]["first_attempt"] = datetime.now(
-                timezone.utc
-            )
+            self.failed_attempts[identifier]["first_attempt"] = datetime.now(UTC)
             logger.info(f"Reset failed attempts for {identifier}")
 
-    async def get_lockout_status(self, identifier: str) -> Dict[str, any]:
+    async def get_lockout_status(self, identifier: str) -> dict[str, any]:
         """Get current lockout status for an identifier"""
         if identifier not in self.failed_attempts:
             return {
@@ -139,7 +137,7 @@ class AccountLockoutService:
             }
 
         record = self.failed_attempts[identifier]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Check if currently locked
         if record["lockout_until"] and record["lockout_until"] > now:
@@ -171,11 +169,11 @@ class AccountLockoutService:
 
 
 # Singleton instance
-_account_lockout_service: Optional[AccountLockoutService] = None
+_account_lockout_service: AccountLockoutService | None = None
 
 
 def get_account_lockout_service(
-    db: Optional[AsyncSession] = None,
+    db: AsyncSession | None = None,
 ) -> AccountLockoutService:
     """Get account lockout service instance"""
     global _account_lockout_service

@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from server_fastapi.repositories.user_repository import UserRepository
-from server_fastapi.models.base import User
 
 
 @pytest.mark.asyncio

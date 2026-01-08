@@ -1,22 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Annotated
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from sqlalchemy.orm import selectinload
 import logging
 from datetime import datetime
+from typing import Annotated, Any
 
-import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
 # Rate limiting imports
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
-    from slowapi.util import get_remote_address
     from slowapi.errors import RateLimitExceeded
-    from ..rate_limit_config import limiter, get_rate_limit
+    from slowapi.util import get_remote_address
+
+    from ..rate_limit_config import get_rate_limit, limiter
 
     LIMITER_AVAILABLE = True
 except ImportError:
@@ -27,23 +27,23 @@ except ImportError:
     get_rate_limit = lambda x: x  # No-op fallback
     logger.warning("SlowAPI not available, rate limiting disabled")
 
-from ..services.trading.safe_trading_system import SafeTradingSystem
-from ..services.trading.dex_trading_service import DEXTradingService
-from ..services.pnl_service import PnLService
-from ..services.two_factor_service import two_factor_service
-from ..services.kyc_service import kyc_service
-from ..dependencies.auth import get_current_user
-from ..dependencies.trading import (
-    get_safe_trading_system,
-    get_dex_trading_service,
-)
-from ..dependencies.pnl import get_pnl_service
 from ..database import get_db_session
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.trading_utils import normalize_trading_mode
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
+from ..dependencies.pnl import get_pnl_service
+from ..dependencies.trading import (
+    get_dex_trading_service,
+    get_safe_trading_system,
+)
 from ..middleware.cache_manager import cached
 from ..models.trade import Trade
+from ..services.kyc_service import kyc_service
+from ..services.pnl_service import PnLService
+from ..services.trading.dex_trading_service import DEXTradingService
+from ..services.trading.safe_trading_system import SafeTradingSystem
+from ..services.two_factor_service import two_factor_service
+from ..utils.query_optimizer import QueryOptimizer
+from ..utils.route_helpers import _get_user_id
+from ..utils.trading_utils import normalize_trading_mode
 
 router = APIRouter()
 
@@ -64,46 +64,46 @@ if not LIMITER_AVAILABLE or limiter is None:
 
 # Pydantic models
 class TradeCreate(BaseModel):
-    botId: Optional[str] = None
+    botId: str | None = None
     pair: str
     side: str  # 'buy' or 'sell'
-    type: Optional[str] = (
+    type: str | None = (
         "market"  # 'market', 'limit', 'stop', 'stop-limit', 'take-profit', 'trailing-stop'
     )
     amount: float
-    price: Optional[float] = None  # Required for limit orders
-    stop: Optional[float] = None  # Stop price for stop orders
-    take_profit: Optional[float] = None  # Take profit price
-    trailing_stop_percent: Optional[float] = None  # Trailing stop percentage
-    time_in_force: Optional[str] = "GTC"  # 'GTC', 'IOC', 'FOK'
+    price: float | None = None  # Required for limit orders
+    stop: float | None = None  # Stop price for stop orders
+    take_profit: float | None = None  # Take profit price
+    trailing_stop_percent: float | None = None  # Trailing stop percentage
+    time_in_force: str | None = "GTC"  # 'GTC', 'IOC', 'FOK'
     mode: str = "paper"  # 'paper' or 'real'
-    chain_id: Optional[int] = Field(
+    chain_id: int | None = Field(
         1, description="Blockchain chain ID (1=Ethereum, 8453=Base, etc.)"
     )
-    mfa_token: Optional[str] = None  # 2FA token for real money trades
+    mfa_token: str | None = None  # 2FA token for real money trades
 
 
 class TradeResponse(BaseModel):
     id: str
-    botId: Optional[str] = None
+    botId: str | None = None
     pair: str
     side: str
-    type: Optional[str] = None  # 'market', 'limit', 'stop'
+    type: str | None = None  # 'market', 'limit', 'stop'
     amount: float
     price: float
-    total: Optional[float] = None  # amount * price
+    total: float | None = None  # amount * price
     timestamp: str
     status: str  # 'completed', 'pending', 'failed'
-    pnl: Optional[float] = None
-    mode: Optional[str] = None  # 'paper' or 'real'
-    chain_id: Optional[int] = None  # Blockchain chain ID
-    transaction_hash: Optional[str] = None  # Blockchain transaction hash
-    order_id: Optional[str] = None
+    pnl: float | None = None
+    mode: str | None = None  # 'paper' or 'real'
+    chain_id: int | None = None  # Blockchain chain ID
+    transaction_hash: str | None = None  # Blockchain transaction hash
+    order_id: str | None = None
 
 
 class PaginatedTradeResponse(BaseModel):
-    data: List[TradeResponse]
-    pagination: Dict[str, Any]
+    data: list[TradeResponse]
+    pagination: dict[str, Any]
 
 
 # Note: All trades are now stored in database (Trade model)
@@ -111,13 +111,13 @@ class PaginatedTradeResponse(BaseModel):
 # Services are now provided via dependency injection
 
 
-@router.get("/", response_model=List[TradeResponse])
+@router.get("/", response_model=list[TradeResponse])
 @cached(ttl=60, prefix="trades")  # 60s TTL for trade lists
 async def get_trades(
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    botId: Optional[str] = Query(None),
-    mode: Optional[str] = Query(None, pattern="^(paper|real|live)$"),
+    botId: str | None = Query(None),
+    mode: str | None = Query(None, pattern="^(paper|real|live)$"),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
@@ -455,7 +455,6 @@ async def create_trade(
 
                     # ✅ Use injected service - Calculate P&L for sell trades using FIFO accounting
                     if trade.side == "sell" and db_trade.status == "completed":
-
                         # Get execution price from order result or use requested price
                         execution_price = (
                             order_result.get("price") or trade.price or db_trade.price
@@ -576,7 +575,6 @@ async def create_trade(
 
                 # ✅ Use injected service - Calculate P&L for paper trades using FIFO accounting
                 if trade.side == "sell":
-
                     execution_price = trade.price or db_trade.price
 
                     # Calculate position P&L for tracking (not used in response but logged)

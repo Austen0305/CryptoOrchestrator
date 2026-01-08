@@ -5,11 +5,12 @@ Implements tier-based fee structure
 """
 
 import logging
-from typing import Dict, Optional, Any
+from datetime import datetime
 from decimal import Decimal
-from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ class TradingFeeService:
         trade_amount: Decimal,
         user_tier: str = "free",
         is_custodial: bool = True,
-        monthly_volume: Optional[Decimal] = None,
+        monthly_volume: Decimal | None = None,
     ) -> Decimal:
         """
         Calculate trading fee for a trade
@@ -116,7 +117,7 @@ class TradingFeeService:
         return 0
 
     async def get_user_monthly_volume(
-        self, user_id: str, db: AsyncSession, month: Optional[datetime] = None
+        self, user_id: str, db: AsyncSession, month: datetime | None = None
     ) -> Decimal:
         """
         Get user's monthly trading volume in USD
@@ -142,8 +143,8 @@ class TradingFeeService:
 
         try:
             # Query both CEX trades and DEX trades for monthly volume
-            from ...models.trade import Trade
             from ...models.dex_trade import DEXTrade
+            from ...models.trade import Trade
 
             # Get CEX trade volume
             cex_stmt = (
@@ -187,7 +188,7 @@ class TradingFeeService:
             logger.error(f"Error getting monthly volume: {e}", exc_info=True)
             return Decimal(0)
 
-    def get_fee_structure(self) -> Dict[str, Any]:
+    def get_fee_structure(self) -> dict[str, Any]:
         """
         Get current fee structure for display
 

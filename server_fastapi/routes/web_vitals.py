@@ -3,11 +3,10 @@ Web Vitals Analytics Endpoint
 Tracks Core Web Vitals metrics from frontend
 """
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
 import logging
+
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +19,8 @@ class WebVitalsMetric(BaseModel):
     id: str
     delta: float
     rating: str  # 'good', 'needs-improvement', 'poor'
-    navigationType: Optional[str] = None
-    timestamp: Optional[int] = None
+    navigationType: str | None = None
+    timestamp: int | None = None
 
 
 @router.post("/web-vitals")

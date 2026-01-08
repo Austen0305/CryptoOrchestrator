@@ -3,14 +3,14 @@ CSRF Protection Middleware
 Implements CSRF token validation for state-changing operations (POST, PUT, DELETE, PATCH)
 """
 
-from fastapi import Request, HTTPException, status
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.types import ASGIApp
+import hashlib
+import hmac
 import logging
 import secrets
-import hmac
-import hashlib
-from typing import Optional
+
+from fastapi import HTTPException, Request, status
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class CSRFProtectionMiddleware(BaseHTTPMiddleware):
         return f"{token}.{signature}"
 
     def _validate_csrf_token(
-        self, provided_token: str, expected_token: Optional[str]
+        self, provided_token: str, expected_token: str | None
     ) -> bool:
         """Validate CSRF token"""
         if not provided_token or not expected_token:

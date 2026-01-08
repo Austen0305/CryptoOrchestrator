@@ -2,11 +2,11 @@
 User repository implementation for authentication and user management.
 """
 
-from typing import Optional, List, Dict, Any
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from .base import SQLAlchemyRepository
+
 from ..models.base import User
+from .base import SQLAlchemyRepository
 
 
 class UserRepository(SQLAlchemyRepository[User]):
@@ -19,7 +19,7 @@ class UserRepository(SQLAlchemyRepository[User]):
 
     async def get_by_username(
         self, session: AsyncSession, username: str
-    ) -> Optional[User]:
+    ) -> User | None:
         """
         Get user by username.
         """
@@ -27,7 +27,7 @@ class UserRepository(SQLAlchemyRepository[User]):
         result = await session.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_by_email(self, session: AsyncSession, email: str) -> Optional[User]:
+    async def get_by_email(self, session: AsyncSession, email: str) -> User | None:
         """
         Get user by email.
         """
@@ -37,7 +37,7 @@ class UserRepository(SQLAlchemyRepository[User]):
 
     async def update_last_login(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[User]:
+    ) -> User | None:
         """
         Update the last login timestamp and increment login count.
         """
@@ -60,7 +60,7 @@ class UserRepository(SQLAlchemyRepository[User]):
 
     async def get_active_users(
         self, session: AsyncSession, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """
         Get all active (non-deleted) users.
         """
@@ -76,11 +76,11 @@ class UserRepository(SQLAlchemyRepository[User]):
 
     async def search_users(
         self, session: AsyncSession, search_term: str, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """
         Search users by username or email.
         """
-        from sqlalchemy import or_, func
+        from sqlalchemy import func, or_
 
         search_filter = f"%{search_term}%"
         query = (
@@ -102,7 +102,7 @@ class UserRepository(SQLAlchemyRepository[User]):
 
     async def get_users_by_role(
         self, session: AsyncSession, role: str, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """
         Get users by role.
         """
@@ -116,7 +116,7 @@ class UserRepository(SQLAlchemyRepository[User]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def verify_user(self, session: AsyncSession, user_id: int) -> Optional[User]:
+    async def verify_user(self, session: AsyncSession, user_id: int) -> User | None:
         """
         Mark user as verified.
         """
@@ -135,9 +135,7 @@ class UserRepository(SQLAlchemyRepository[User]):
             await session.refresh(verified_user)
         return verified_user
 
-    async def deactivate_user(
-        self, session: AsyncSession, user_id: int
-    ) -> Optional[User]:
+    async def deactivate_user(self, session: AsyncSession, user_id: int) -> User | None:
         """
         Deactivate a user account.
         """

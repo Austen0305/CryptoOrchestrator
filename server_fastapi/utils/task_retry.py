@@ -4,11 +4,12 @@ Implements intelligent retry logic with exponential backoff and circuit breakers
 """
 
 import logging
-from typing import Callable, Optional, Any
+import random
+import time
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-import time
-import random
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +57,10 @@ class CircuitBreaker:
         self.state = CircuitBreakerState.CLOSED
         self.failure_count = 0
         self.success_count = 0
-        self.last_failure_time: Optional[datetime] = None
+        self.last_failure_time: datetime | None = None
         self.last_state_change: datetime = datetime.utcnow()
 
-    def call(
-        self, func: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> Any:  # noqa: C901
+    def call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:  # noqa: C901
         """
         Execute function with circuit breaker protection.
 
@@ -111,7 +110,7 @@ class CircuitBreaker:
 
             return result
 
-        except Exception as e:
+        except Exception:
             # Record failure
             self.failure_count += 1
             self.last_failure_time = datetime.utcnow()

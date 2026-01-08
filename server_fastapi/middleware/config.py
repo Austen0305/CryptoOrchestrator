@@ -3,11 +3,11 @@ Middleware Configuration Manager
 Centralized configuration for all middleware components
 """
 
-import os
 import logging
-from typing import Dict, List, Optional, Any
+import os
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +31,15 @@ class MiddlewareConfig:
     priority: MiddlewarePriority = MiddlewarePriority.MEDIUM
     module_path: str = ""
     class_name: str = ""
-    kwargs: Dict[str, Any] = field(default_factory=dict)
-    condition: Optional[str] = None  # Environment variable to check
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    condition: str | None = None  # Environment variable to check
 
 
 class MiddlewareManager:
     """Manages middleware configuration and registration"""
 
     def __init__(self):
-        self.middlewares: List[MiddlewareConfig] = []
+        self.middlewares: list[MiddlewareConfig] = []
         self._load_config()
 
     def _load_config(self):
@@ -318,7 +318,7 @@ class MiddlewareManager:
                 ]
             )
 
-    def get_enabled_middlewares(self) -> List[MiddlewareConfig]:
+    def get_enabled_middlewares(self) -> list[MiddlewareConfig]:
         """Get list of enabled middlewares sorted by priority"""
         enabled = [
             m for m in self.middlewares if m.enabled and self._check_condition(m)
@@ -333,7 +333,7 @@ class MiddlewareManager:
             return True
         return os.getenv(config.condition, "false").lower() == "true"
 
-    def get_middleware_config(self, name: str) -> Optional[MiddlewareConfig]:
+    def get_middleware_config(self, name: str) -> MiddlewareConfig | None:
         """Get configuration for a specific middleware"""
         for mw in self.middlewares:
             if mw.name == name:

@@ -2,13 +2,14 @@
 Futures Position repository for database operations.
 """
 
-from typing import List, Optional
+import logging
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.futures_position import FuturesPosition
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, position_id: str, user_id: int
-    ) -> Optional[FuturesPosition]:
+    ) -> FuturesPosition | None:
         """Get a futures position by ID and user ID with eager loading."""
         query = (
             select(FuturesPosition)
@@ -37,7 +38,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
 
     async def get_user_futures_positions(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[FuturesPosition]:
+    ) -> list[FuturesPosition]:
         """Get all futures positions for a user with pagination and eager loading."""
         query = (
             select(FuturesPosition)
@@ -52,8 +53,8 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         return list(result.scalars().all())
 
     async def get_open_positions(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[FuturesPosition]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[FuturesPosition]:
         """Get all open futures positions with eager loading, optionally filtered by user."""
         query = (
             select(FuturesPosition)
@@ -67,7 +68,9 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def count_user_futures_positions(self, session: AsyncSession, user_id: int) -> int:
+    async def count_user_futures_positions(
+        self, session: AsyncSession, user_id: int
+    ) -> int:
         """Get total count of futures positions for a user."""
         from sqlalchemy import func
 
@@ -89,7 +92,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         pnl_percent: float,
         liquidation_risk: float,
         margin_ratio: float,
-    ) -> Optional[FuturesPosition]:
+    ) -> FuturesPosition | None:
         """Update futures position P&L and risk metrics."""
         from datetime import datetime
 
@@ -128,7 +131,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         user_id: int,
         realized_pnl: float,
         total_pnl: float,
-    ) -> Optional[FuturesPosition]:
+    ) -> FuturesPosition | None:
         """Close a futures position."""
         from datetime import datetime
 

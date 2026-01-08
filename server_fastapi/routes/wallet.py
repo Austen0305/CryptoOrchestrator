@@ -3,20 +3,19 @@ Wallet Routes
 API endpoints for wallet management, deposits, and withdrawals.
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional, Annotated
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.wallet_service import WalletService
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..services.wallet_broadcast import broadcast_wallet_update
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..services.wallet_broadcast import broadcast_wallet_update
+from ..services.wallet_service import WalletService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +25,16 @@ router = APIRouter()
 class DepositRequest(BaseModel):
     amount: float
     currency: str = "USD"
-    payment_method_id: Optional[str] = None
+    payment_method_id: str | None = None
     payment_method_type: str = "card"  # 'card', 'ach', 'bank_transfer'
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class WithdrawRequest(BaseModel):
     amount: float
     currency: str = "USD"
-    destination: Optional[str] = None
-    description: Optional[str] = None
+    destination: str | None = None
+    description: str | None = None
 
 
 @router.get("/balance")
@@ -157,8 +156,8 @@ async def get_transactions(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    currency: Optional[str] = Query(None, description="Filter by currency"),
-    transaction_type: Optional[str] = Query(None, description="Filter by type"),
+    currency: str | None = Query(None, description="Filter by currency"),
+    transaction_type: str | None = Query(None, description="Filter by type"),
 ):
     """Get wallet transactions with pagination"""
     try:

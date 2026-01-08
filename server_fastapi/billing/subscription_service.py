@@ -4,16 +4,16 @@ Manages user subscriptions using free subscription service (no payment processin
 """
 
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import UTC, datetime
+from typing import Any
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ..models.user import User
 from ..models.subscription import Subscription
+from ..models.user import User
 from ..services.payments.free_subscription_service import (
-    FreeSubscriptionService,
     SubscriptionTier,
     free_subscription_service,
 )
@@ -33,7 +33,7 @@ class SubscriptionService:
 
     async def get_user_subscription(
         self, db: AsyncSession, user_id: int
-    ) -> Optional[Subscription]:
+    ) -> Subscription | None:
         """Get user's subscription"""
         try:
             result = await db.execute(
@@ -69,24 +69,24 @@ class SubscriptionService:
         self,
         db: AsyncSession,
         user_id: int,
-        stripe_subscription_id: Optional[str] = None,
-        stripe_customer_id: Optional[str] = None,
-    ) -> Optional[Subscription]:
+        stripe_subscription_id: str | None = None,
+        stripe_customer_id: str | None = None,
+    ) -> Subscription | None:
         """Update subscription (deprecated - kept for backward compatibility)"""
         # Free subscriptions don't use Stripe, so this just updates the database record
         try:
             subscription = await self.get_or_create_subscription(db, user_id)
-            
+
             if stripe_customer_id:
                 subscription.stripe_customer_id = stripe_customer_id
             if stripe_subscription_id:
                 subscription.stripe_subscription_id = stripe_subscription_id
-            
+
             subscription.status = "active"
-            
+
             await db.commit()
             await db.refresh(subscription)
-            
+
             logger.info(
                 f"Updated subscription for user {user_id}: {subscription.plan} - {subscription.status}"
             )
@@ -136,7 +136,7 @@ class SubscriptionService:
         # Check if period ended
         if (
             subscription.current_period_end
-            and subscription.current_period_end < datetime.now(timezone.utc)
+            and subscription.current_period_end < datetime.now(UTC)
         ):
             return False
 
@@ -144,7 +144,7 @@ class SubscriptionService:
 
     async def get_subscription_limits(
         self, db: AsyncSession, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get subscription limits for user"""
         subscription = await self.get_user_subscription(db, user_id)
 
@@ -161,14 +161,14 @@ class SubscriptionService:
 
         return {}  # No limits for free subscriptions
 
-    def _map_price_id_to_plan(self, price_id: str) -> Optional[str]:
+    def _map_price_id_to_plan(self, price_id: str) -> str | None:
         """Map price ID to plan name (deprecated - kept for backward compatibility)"""
         # Free subscriptions don't use price IDs
         return None
 
     async def create_checkout_session(
         self, db: AsyncSession, user_id: int, price_id: str, plan: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create subscription (free - no payment required)"""
         try:
             user = await db.get(User, user_id)
@@ -210,7 +210,7 @@ class SubscriptionService:
             else:
                 subscription.plan = plan
                 subscription.status = "active"
-            
+
             await db.commit()
             await db.refresh(subscription)
 
@@ -226,7 +226,7 @@ class SubscriptionService:
 
     async def create_portal_session(
         self, db: AsyncSession, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get billing portal URL (redirects to billing page)"""
         try:
             subscription = await self.get_user_subscription(db, user_id)

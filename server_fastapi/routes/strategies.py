@@ -2,22 +2,21 @@
 Strategy Routes - API endpoints for strategy management
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
-from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
 import uuid
+from datetime import datetime
+from typing import Annotated, Any
 
-from ..services.strategy.template_service import (
-    StrategyTemplateService,
-    StrategyType,
-    StrategyCategory,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, ConfigDict, Field
+
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..utils.route_helpers import _get_user_id
+from ..services.strategy.template_service import (
+    StrategyTemplateService,
+)
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,26 +26,26 @@ router = APIRouter(prefix="/api/strategies", tags=["Strategies"])
 # Pydantic models
 class StrategyBase(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     strategy_type: str
     category: str
-    config: Dict[str, Any] = Field(default_factory=dict)
-    logic: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    logic: dict[str, Any] | None = None
 
 
 class StrategyCreate(StrategyBase):
     """Create strategy request"""
 
-    template_id: Optional[str] = None  # If creating from template
+    template_id: str | None = None  # If creating from template
 
 
 class StrategyUpdate(BaseModel):
     """Update strategy request"""
 
-    name: Optional[str] = None
-    description: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
-    logic: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    description: str | None = None
+    config: dict[str, Any] | None = None
+    logic: dict[str, Any] | None = None
 
 
 class StrategyResponse(StrategyBase):
@@ -55,20 +54,20 @@ class StrategyResponse(StrategyBase):
     id: str
     user_id: int
     version: str
-    parent_strategy_id: Optional[str] = None
+    parent_strategy_id: str | None = None
     is_template: bool = False
     is_public: bool = False
     is_published: bool = False
-    backtest_sharpe_ratio: Optional[float] = None
-    backtest_win_rate: Optional[float] = None
-    backtest_total_return: Optional[float] = None
-    backtest_max_drawdown: Optional[float] = None
+    backtest_sharpe_ratio: float | None = None
+    backtest_win_rate: float | None = None
+    backtest_total_return: float | None = None
+    backtest_max_drawdown: float | None = None
     usage_count: int = 0
     rating: float = 0.0
     rating_count: int = 0
     created_at: datetime
     updated_at: datetime
-    published_at: Optional[datetime] = None
+    published_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -80,9 +79,9 @@ class StrategyVersionResponse(BaseModel):
     strategy_id: str
     version: str
     name: str
-    config: Dict[str, Any]
-    logic: Optional[Dict[str, Any]] = None
-    change_description: Optional[str] = None
+    config: dict[str, Any]
+    logic: dict[str, Any] | None = None
+    change_description: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -112,15 +111,15 @@ class BacktestResponse(BaseModel):
 
 
 # In-memory storage (replace with database in production)
-strategies_db: Dict[str, StrategyResponse] = {}
-strategy_versions_db: Dict[str, List[StrategyVersionResponse]] = {}
+strategies_db: dict[str, StrategyResponse] = {}
+strategy_versions_db: dict[str, list[StrategyVersionResponse]] = {}
 
 
-@router.get("/templates", response_model=List[Dict])
+@router.get("/templates", response_model=list[dict])
 @cached(ttl=300, prefix="strategies_templates")  # 5min TTL for templates
 async def get_templates(
     current_user: Annotated[dict, Depends(get_current_user)],
-    category: Optional[str] = None,
+    category: str | None = None,
 ):
     """Get all strategy templates"""
     try:
@@ -137,7 +136,7 @@ async def get_templates(
         raise HTTPException(status_code=500, detail="Failed to fetch templates")
 
 
-@router.get("/templates/{template_id}", response_model=Dict)
+@router.get("/templates/{template_id}", response_model=dict)
 @cached(ttl=300, prefix="strategies_template")
 async def get_template(
     template_id: str,
@@ -216,7 +215,7 @@ async def create_strategy(
         raise HTTPException(status_code=500, detail="Failed to create strategy")
 
 
-@router.get("", response_model=List[StrategyResponse])
+@router.get("", response_model=list[StrategyResponse])
 @cached(ttl=120, prefix="strategies_list")
 async def list_strategies(
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -375,7 +374,7 @@ async def delete_strategy(
         raise HTTPException(status_code=500, detail="Failed to delete strategy")
 
 
-@router.get("/{strategy_id}/versions", response_model=List[StrategyVersionResponse])
+@router.get("/{strategy_id}/versions", response_model=list[StrategyVersionResponse])
 @cached(ttl=120, prefix="strategies_versions")
 async def get_strategy_versions(
     strategy_id: str,
@@ -424,8 +423,7 @@ async def backtest_strategy(
 
         # Integrate with backtesting engine
         try:
-            from ..services.backtesting_engine import BacktestingEngine, BacktestConfig
-            from datetime import datetime, timedelta
+            from ..services.backtesting_engine import BacktestConfig, BacktestingEngine
 
             engine = BacktestingEngine()
 

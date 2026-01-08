@@ -1,15 +1,15 @@
 # Backtesting services package
 from .paper_trading_service import (
-    PaperTradingService,
-    PaperTrade,
-    PaperPosition,
     PaperPortfolio,
+    PaperPosition,
+    PaperTrade,
+    PaperTradingService,
 )
 from .strategy_optimizer import (
-    StrategyOptimizer,
+    OptimizationConfig,
     OptimizationResult,
     ParameterRange,
-    OptimizationConfig,
+    StrategyOptimizer,
 )
 
 __all__ = [

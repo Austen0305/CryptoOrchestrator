@@ -16,11 +16,9 @@ Rate limits are configured per aggregator to prevent API bans and ensure reliabl
 """
 
 import asyncio
-import time
-from typing import Dict, Optional
-from collections import defaultdict
-from datetime import datetime, timedelta
 import logging
+import time
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,7 @@ class ExchangeRateLimiter:
     def __init__(self):
         # Rate limit tracking per aggregator
         # Format: {aggregator: {"calls": count, "window_start": timestamp}}
-        self._rate_limits: Dict[str, Dict] = defaultdict(
+        self._rate_limits: dict[str, dict] = defaultdict(
             lambda: {
                 "calls": 0,
                 "window_start": time.time(),
@@ -127,7 +125,7 @@ class ExchangeRateLimiter:
 
             return True
 
-    async def get_rate_limit_status(self, aggregator: str) -> Dict[str, any]:
+    async def get_rate_limit_status(self, aggregator: str) -> dict[str, any]:
         """
         Get current rate limit status for a DEX aggregator
 

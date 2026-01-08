@@ -11,12 +11,11 @@ Provides professional-grade risk management capabilities including:
 - Maximum drawdown monitoring
 """
 
-import numpy as np
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from enum import Enum
 import logging
+from dataclasses import dataclass
+from enum import Enum
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +58,8 @@ class PositionRisk:
     position_size: float
     entry_price: float
     current_price: float
-    stop_loss: Optional[float]
-    take_profit: Optional[float]
+    stop_loss: float | None
+    take_profit: float | None
     unrealized_pnl: float
     risk_amount: float
     reward_amount: float
@@ -82,21 +81,21 @@ class PortfolioRisk:
     sortino_ratio: float
     max_drawdown: float
     current_drawdown: float
-    correlation_matrix: Optional[np.ndarray]
-    position_risks: List[PositionRisk]
+    correlation_matrix: np.ndarray | None
+    position_risks: list[PositionRisk]
 
 
 class AdvancedRiskManager:
     """Advanced risk management service for trading operations."""
 
-    def __init__(self, risk_limits: Optional[RiskLimits] = None):
+    def __init__(self, risk_limits: RiskLimits | None = None):
         """Initialize risk manager.
 
         Args:
             risk_limits: Custom risk limits (uses defaults if not provided)
         """
         self.risk_limits = risk_limits or RiskLimits()
-        self.position_history: List[Dict] = []
+        self.position_history: list[dict] = []
         self.peak_value: float = 0.0
 
     def calculate_position_size(
@@ -106,10 +105,10 @@ class AdvancedRiskManager:
         risk_per_trade: float,
         entry_price: float,
         stop_loss: float,
-        win_rate: Optional[float] = None,
-        avg_win: Optional[float] = None,
-        avg_loss: Optional[float] = None,
-        volatility: Optional[float] = None,
+        win_rate: float | None = None,
+        avg_win: float | None = None,
+        avg_loss: float | None = None,
+        volatility: float | None = None,
     ) -> float:
         """Calculate optimal position size.
 
@@ -238,7 +237,7 @@ class AdvancedRiskManager:
         confidence_level: float = 0.95,
         method: VaRMethod = VaRMethod.HISTORICAL,
         portfolio_value: float = 100000.0,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Calculate Value at Risk.
 
         Args:
@@ -264,7 +263,7 @@ class AdvancedRiskManager:
 
     def _historical_var(
         self, returns: np.ndarray, confidence_level: float, portfolio_value: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Historical simulation VaR."""
         percentile = (1 - confidence_level) * 100
         var_return = np.percentile(returns, percentile)
@@ -280,7 +279,7 @@ class AdvancedRiskManager:
 
     def _parametric_var(
         self, returns: np.ndarray, confidence_level: float, portfolio_value: float
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Parametric VaR assuming normal distribution."""
         mean = np.mean(returns)
         std = np.std(returns)
@@ -307,7 +306,7 @@ class AdvancedRiskManager:
         confidence_level: float,
         portfolio_value: float,
         num_simulations: int = 10000,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Monte Carlo simulation VaR."""
         mean = np.mean(returns)
         std = np.std(returns)
@@ -320,8 +319,8 @@ class AdvancedRiskManager:
         )
 
     def check_risk_limits(
-        self, positions: List[Dict], account_balance: float
-    ) -> Dict[str, any]:
+        self, positions: list[dict], account_balance: float
+    ) -> dict[str, any]:
         """Check if current positions violate risk limits.
 
         Args:
@@ -432,9 +431,9 @@ class AdvancedRiskManager:
 
     def analyze_portfolio_risk(
         self,
-        positions: List[Dict],
+        positions: list[dict],
         account_balance: float,
-        returns_history: Optional[np.ndarray] = None,
+        returns_history: np.ndarray | None = None,
     ) -> PortfolioRisk:
         """Comprehensive portfolio risk analysis.
 

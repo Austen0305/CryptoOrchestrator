@@ -1,9 +1,9 @@
-from typing import List
-import numpy as np
-import pandas as pd
 from datetime import datetime
+
+import numpy as np
 from pydantic import BaseModel
-from .ml_service import MLModel, MarketData
+
+from .ml_service import MarketData, MLModel
 
 
 class BacktestConfig(BaseModel):
@@ -22,8 +22,8 @@ class BacktestResult(BaseModel):
     win_rate: float
     total_trades: int
     profit_factor: float
-    trades: List[dict]
-    equity_curve: List[float]
+    trades: list[dict]
+    equity_curve: list[float]
 
 
 class BacktestingEngine:
@@ -31,7 +31,7 @@ class BacktestingEngine:
         self.ml_model = MLModel()
 
     async def run_backtest(
-        self, config: BacktestConfig, historical_data: List[MarketData]
+        self, config: BacktestConfig, historical_data: list[MarketData]
     ) -> BacktestResult:
         if len(historical_data) < 100:
             raise ValueError("Insufficient historical data for backtesting")
@@ -116,6 +116,6 @@ class BacktestingEngine:
             equity_curve=equity_curve,
         )
 
-    def calculate_sharpe_ratio(self, equity_curve: List[float]) -> float:
+    def calculate_sharpe_ratio(self, equity_curve: list[float]) -> float:
         returns = np.diff(equity_curve) / equity_curve[:-1]
         return np.mean(returns) / np.std(returns) * np.sqrt(252)

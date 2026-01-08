@@ -2,12 +2,13 @@
 Authentication service for FastAPI backend
 """
 
-import os
-import jwt
-import bcrypt
 import logging
-from typing import Optional, Dict, Any
-from datetime import datetime, timedelta, timezone
+import os
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import bcrypt
+import jwt
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,8 +32,8 @@ class AuthService:
         pass
 
     async def authenticate_user(
-        self, username: str, password: str, session: Optional[AsyncSession] = None
-    ) -> Optional[str]:
+        self, username: str, password: str, session: AsyncSession | None = None
+    ) -> str | None:
         """Authenticate user and return JWT token"""
         try:
             logger.info(f"Attempting authentication for user: {username}")
@@ -82,15 +83,15 @@ class AuthService:
 
     async def _authenticate_user_fallback(
         self, username: str, password: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fallback authentication using mock storage (for backward compatibility)"""
         # This is a temporary fallback - should be removed once all routes use database sessions
         logger.warning("Using fallback authentication - migrate to database sessions")
         return None
 
     async def validate_token(
-        self, token: str, session: Optional[AsyncSession] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, token: str, session: AsyncSession | None = None
+    ) -> dict[str, Any] | None:
         """Validate JWT token and return user data"""
         try:
             logger.debug("Validating JWT token")
@@ -100,9 +101,7 @@ class AuthService:
 
             # Check expiration
             exp = payload.get("exp")
-            if exp and datetime.fromtimestamp(exp, tz=timezone.utc) < datetime.now(
-                timezone.utc
-            ):
+            if exp and datetime.fromtimestamp(exp, tz=UTC) < datetime.now(UTC):
                 logger.warning("Token expired")
                 return None
 
@@ -152,9 +151,9 @@ class AuthService:
             logger.error(f"Token validation error: {str(e)}")
             return None
 
-    def _generate_token(self, user: Dict[str, Any]) -> str:
+    def _generate_token(self, user: dict[str, Any]) -> str:
         """Generate JWT token for user"""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "user_id": user["id"],
             "username": user["username"],
@@ -166,8 +165,8 @@ class AuthService:
         return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
     async def get_user_by_username(
-        self, username: str, session: Optional[AsyncSession] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, username: str, session: AsyncSession | None = None
+    ) -> dict[str, Any] | None:
         """Get user by username (helper method)"""
         if session is None:
             logger.warning("No database session provided for get_user_by_username")
@@ -187,8 +186,8 @@ class AuthService:
         return None
 
     async def get_user_by_id(
-        self, user_id: int, session: Optional[AsyncSession] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, user_id: int, session: AsyncSession | None = None
+    ) -> dict[str, Any] | None:
         """Get user by ID (helper method)"""
         if session is None:
             logger.warning("No database session provided for get_user_by_id")
@@ -211,8 +210,8 @@ class AuthService:
     # Registration & email verification helpers (parity with route usage)
     # ------------------------------------------------------------------
     async def register(
-        self, data: Dict[str, Any], session: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        self, data: dict[str, Any], session: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """Register a new user.
 
         Expected input keys: email, password, name (or first_name/last_name), username (optional).
@@ -225,7 +224,7 @@ class AuthService:
         first_name = data.get("first_name")
         last_name = data.get("last_name")
         provided_username = data.get("username")
-        
+
         if not email or not password:
             raise ValueError("Email and password are required")
 
@@ -235,7 +234,6 @@ class AuthService:
             raise ValueError("Database session required for registration")
 
         from ...repositories.user_repository import UserRepository
-        from ...models.base import User
 
         user_repo = UserRepository()
 
@@ -252,7 +250,7 @@ class AuthService:
             username = provided_username
         else:
             username = email.split("@")[0]
-        
+
         # Ensure username is unique
         counter = 1
         original_username = username
@@ -274,7 +272,7 @@ class AuthService:
             # Fallback to email prefix
             final_first_name = email.split("@")[0]
             final_last_name = None
-        
+
         user_data = {
             "username": username,
             "email": email,
@@ -289,23 +287,24 @@ class AuthService:
         await session.commit()
 
         # Combine first_name and last_name for name field
-        full_name = " ".join(
-            filter(None, [created_user.first_name, created_user.last_name])
-        ) or created_user.email.split("@")[0]
+        full_name = (
+            " ".join(filter(None, [created_user.first_name, created_user.last_name]))
+            or created_user.email.split("@")[0]
+        )
 
         return {
-                "message": "User registered successfully",
-                "user": {
-                    "id": created_user.id,
-                    "email": created_user.email,
-                    "name": full_name,
-                    "emailVerified": created_user.is_email_verified,
-                },
-            }
+            "message": "User registered successfully",
+            "user": {
+                "id": created_user.id,
+                "email": created_user.email,
+                "name": full_name,
+                "emailVerified": created_user.is_email_verified,
+            },
+        }
 
     async def verifyEmail(
-        self, token: str, session: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:  # noqa: N802 (match existing route usage)
+        self, token: str, session: AsyncSession | None = None
+    ) -> dict[str, Any]:  # noqa: N802 (match existing route usage)
         """Verify email using a JWT token produced by the route.
 
         Token payload must contain: id, type='email_verification'.
@@ -319,8 +318,9 @@ class AuthService:
                 logger.warning("No database session provided for verifyEmail")
                 return {"success": False, "message": "Database session required"}
 
-            from ...repositories.user_repository import UserRepository
             from sqlalchemy import update
+
+            from ...repositories.user_repository import UserRepository
 
             user_repo = UserRepository()
             user = await user_repo.get_by_id(session, payload.get("id"))
@@ -330,7 +330,6 @@ class AuthService:
                 return {"success": False, "message": "Email already verified"}
 
             # Update email verified status
-            from sqlalchemy import update
             stmt = (
                 update(user.__class__)
                 .where(user.__class__.id == user.id)
@@ -353,8 +352,8 @@ class AuthService:
             return {"success": False, "message": "Verification failed"}
 
     async def resendVerificationEmail(
-        self, email: str, session: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:  # noqa: N802
+        self, email: str, session: AsyncSession | None = None
+    ) -> dict[str, Any]:  # noqa: N802
         if session is None:
             logger.warning("No database session provided for resendVerificationEmail")
             return {"success": False, "message": "Database session required"}

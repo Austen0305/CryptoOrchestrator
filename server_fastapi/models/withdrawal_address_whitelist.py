@@ -4,19 +4,20 @@ Stores whitelisted withdrawal addresses with 24-hour cooldown period
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
     Integer,
     String,
-    DateTime,
-    Boolean,
-    ForeignKey,
     Text,
-    Index,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -50,7 +51,7 @@ class WithdrawalAddressWhitelist(Base, TimestampMixin):
     )  # When address was added to whitelist
 
     # Cooldown period (24 hours from added_at)
-    cooldown_until: Mapped[Optional[datetime]] = mapped_column(
+    cooldown_until: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )  # When cooldown expires (added_at + 24 hours)
 
@@ -58,15 +59,15 @@ class WithdrawalAddressWhitelist(Base, TimestampMixin):
     is_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )  # Whether address has been verified
-    verification_method: Mapped[Optional[str]] = mapped_column(
+    verification_method: Mapped[str | None] = mapped_column(
         String(50), nullable=True
     )  # 'email', '2fa', 'signature', etc.
 
     # Metadata
-    label: Mapped[Optional[str]] = mapped_column(
+    label: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # User-friendly label
-    notes: Mapped[Optional[str]] = mapped_column(
+    notes: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # User notes about this address
 

@@ -2,18 +2,19 @@
 Infinity Grid API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..services.trading.infinity_grid_service import InfinityGridService
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.trading.infinity_grid_service import InfinityGridService
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class CreateInfinityGridRequest(BaseModel):
     trading_mode: str = Field(default="paper", pattern="^(paper|real)$")
     upper_adjustment_percent: float = Field(default=5.0, gt=0)
     lower_adjustment_percent: float = Field(default=5.0, gt=0)
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -67,8 +68,8 @@ class InfinityGridResponse(BaseModel):
     total_profit: float
     total_trades: int
     grid_adjustments: int
-    grid_state: Dict[str, Any]
-    config: Dict[str, Any]
+    grid_state: dict[str, Any]
+    config: dict[str, Any]
     created_at: str
     updated_at: str
 
@@ -77,7 +78,7 @@ class InfinityGridResponse(BaseModel):
 
 @router.post(
     "/infinity-grids",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     status_code=status.HTTP_201_CREATED,
     tags=["Infinity Grid"],
 )
@@ -123,7 +124,7 @@ async def create_infinity_grid(
 
 
 @router.get(
-    "/infinity-grids", response_model=List[InfinityGridResponse], tags=["Infinity Grid"]
+    "/infinity-grids", response_model=list[InfinityGridResponse], tags=["Infinity Grid"]
 )
 @cached(ttl=120, prefix="infinity_grids")  # 120s TTL for infinity grids list
 async def list_infinity_grids(
@@ -182,7 +183,7 @@ async def get_infinity_grid(
 
 @router.post(
     "/infinity-grids/{bot_id}/start",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     tags=["Infinity Grid"],
 )
 async def start_infinity_grid(
@@ -213,7 +214,7 @@ async def start_infinity_grid(
 
 @router.post(
     "/infinity-grids/{bot_id}/stop",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     tags=["Infinity Grid"],
 )
 async def stop_infinity_grid(
@@ -243,7 +244,7 @@ async def stop_infinity_grid(
 
 
 @router.delete(
-    "/infinity-grids/{bot_id}", response_model=Dict[str, str], tags=["Infinity Grid"]
+    "/infinity-grids/{bot_id}", response_model=dict[str, str], tags=["Infinity Grid"]
 )
 async def delete_infinity_grid(
     bot_id: str,

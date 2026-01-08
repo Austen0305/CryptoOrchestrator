@@ -5,19 +5,18 @@ Competitive rates and good documentation
 Alternative to 0x for redundancy
 """
 
-import httpx
-import os
-import logging
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
-from datetime import datetime
 import asyncio
-import hmac
-import hashlib
 import base64
-import time
+import hashlib
+import hmac
+import logging
+import os
+from datetime import datetime
+from typing import Any
 
-from ..monitoring.circuit_breaker import CircuitBreaker, CircuitState
+import httpx
+
+from ..monitoring.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class OKXDEXService:
         self.max_retries = 3
         self.retry_delay_base = 1.0
         # Shared HTTP client with connection pooling (reuse connections)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _rate_limit(self):
         """Enforce rate limiting"""
@@ -51,7 +50,7 @@ class OKXDEXService:
 
     def _sign_request(
         self, method: str, path: str, body: str = "", timestamp: str = ""
-    ) -> Dict[str, str]:
+    ) -> dict[str, str]:
         """
         Generate OKX API signature
 
@@ -96,8 +95,8 @@ class OKXDEXService:
         amount: str,
         chain_id: int = 1,  # 1 = Ethereum mainnet
         slippage_tolerance: float = 0.5,
-        user_wallet_address: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        user_wallet_address: str | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get a quote for a token swap
 
@@ -181,7 +180,7 @@ class OKXDEXService:
         to_token: str,
         amount: str,
         chain_id: int = 1,
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Get the price (output amount) for a given input amount
 
@@ -220,7 +219,7 @@ class OKXDEXService:
         user_wallet_address: str,
         chain_id: int = 1,
         slippage_tolerance: float = 0.5,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get swap calldata for execution (for non-custodial trades)
 
@@ -261,7 +260,7 @@ class OKXDEXService:
 
         return swap_data
 
-    async def get_supported_chains(self) -> List[Dict[str, Any]]:
+    async def get_supported_chains(self) -> list[dict[str, Any]]:
         """
         Get list of supported blockchain networks
 

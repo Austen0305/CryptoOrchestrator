@@ -5,10 +5,10 @@ and automated incident response workflows.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
-from enum import Enum
 import uuid
+from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +39,9 @@ class IncidentManagementService:
     """
 
     def __init__(self):
-        self.incidents: Dict[str, Dict[str, Any]] = {}
-        self.integrations: Dict[str, Any] = {}
-        self.response_playbooks: Dict[str, Dict[str, Any]] = {}
+        self.incidents: dict[str, dict[str, Any]] = {}
+        self.integrations: dict[str, Any] = {}
+        self.response_playbooks: dict[str, dict[str, Any]] = {}
 
     def create_incident(
         self,
@@ -49,8 +49,8 @@ class IncidentManagementService:
         description: str,
         severity: str,
         source: str = "alerting",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Create a new incident
 
@@ -110,7 +110,7 @@ class IncidentManagementService:
         return priority_map.get(severity.lower(), IncidentPriority.P4.value)
 
     def _execute_playbook(
-        self, incident: Dict[str, Any], playbook: Dict[str, Any]
+        self, incident: dict[str, Any], playbook: dict[str, Any]
     ) -> None:
         """Execute incident response playbook"""
         steps = playbook.get("steps", [])
@@ -133,7 +133,7 @@ class IncidentManagementService:
                     extra={"incident_id": incident["id"], "step": step},
                 )
 
-    def _notify_team(self, incident: Dict[str, Any], team: str) -> None:
+    def _notify_team(self, incident: dict[str, Any], team: str) -> None:
         """Notify on-call team about incident"""
         logger.info(
             f"Notifying {team} team about incident {incident['id']}",
@@ -141,7 +141,7 @@ class IncidentManagementService:
         )
         # Integration with notification service would go here
 
-    def _create_ticket(self, incident: Dict[str, Any], system: str) -> None:
+    def _create_ticket(self, incident: dict[str, Any], system: str) -> None:
         """Create ticket in external system (Jira, ServiceNow, etc.)"""
         logger.info(
             f"Creating ticket in {system} for incident {incident['id']}",
@@ -149,7 +149,7 @@ class IncidentManagementService:
         )
         # Integration with ticketing system would go here
 
-    def _escalate_incident(self, incident: Dict[str, Any], level: int) -> None:
+    def _escalate_incident(self, incident: dict[str, Any], level: int) -> None:
         """Escalate incident to higher level"""
         logger.warning(
             f"Escalating incident {incident['id']} to level {level}",
@@ -158,7 +158,7 @@ class IncidentManagementService:
         incident["metadata"]["escalation_level"] = level
 
     def _run_automation_script(
-        self, incident: Dict[str, Any], script: Optional[str]
+        self, incident: dict[str, Any], script: str | None
     ) -> None:
         """Run automation script for incident response"""
         if not script:
@@ -171,7 +171,7 @@ class IncidentManagementService:
         # Automation script execution would go here
 
     def update_incident_status(
-        self, incident_id: str, status: IncidentStatus, updated_by: Optional[str] = None
+        self, incident_id: str, status: IncidentStatus, updated_by: str | None = None
     ) -> bool:
         """Update incident status"""
         if incident_id not in self.incidents:
@@ -215,7 +215,7 @@ class IncidentManagementService:
         return True
 
     def add_response_step(
-        self, incident_id: str, step: str, executed_by: Optional[str] = None
+        self, incident_id: str, step: str, executed_by: str | None = None
     ) -> bool:
         """Add a response step to incident"""
         if incident_id not in self.incidents:
@@ -232,13 +232,11 @@ class IncidentManagementService:
 
         return True
 
-    def get_incident(self, incident_id: str) -> Optional[Dict[str, Any]]:
+    def get_incident(self, incident_id: str) -> dict[str, Any] | None:
         """Get incident by ID"""
         return self.incidents.get(incident_id)
 
-    def get_active_incidents(
-        self, severity: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def get_active_incidents(self, severity: str | None = None) -> list[dict[str, Any]]:
         """Get active incidents"""
         incidents = [
             i
@@ -252,7 +250,7 @@ class IncidentManagementService:
 
         return sorted(incidents, key=lambda i: i["created_at"], reverse=True)
 
-    def register_playbook(self, severity: str, playbook: Dict[str, Any]) -> None:
+    def register_playbook(self, severity: str, playbook: dict[str, Any]) -> None:
         """Register a response playbook for a severity level"""
         self.response_playbooks[severity] = playbook
         logger.info(f"Registered response playbook for severity: {severity}")

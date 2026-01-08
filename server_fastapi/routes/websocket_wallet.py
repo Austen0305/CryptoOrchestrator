@@ -2,26 +2,24 @@
 WebSocket Route for Real-Time Wallet Updates
 """
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from typing import Dict, List
 import json
 import logging
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from ..services.wallet_broadcast import broadcast_wallet_update, set_active_connections
 from ..services.wallet_service import WalletService
-from ..database import get_db_session
-from ..services.wallet_broadcast import set_active_connections, broadcast_wallet_update
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Store active WebSocket connections
-active_connections: Dict[int, List[WebSocket]] = {}
+active_connections: dict[int, list[WebSocket]] = {}
 
 
-async def broadcast_wallet_update(user_id: int, wallet_data: Dict):
+async def broadcast_wallet_update(user_id: int, wallet_data: dict):
     """Broadcast wallet update to all connected clients for a user"""
     if user_id in active_connections:
         message = {

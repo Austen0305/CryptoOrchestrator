@@ -3,25 +3,25 @@ Wallet Model - User wallet for storing funds
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
+
 from sqlalchemy import (
-    Column,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Enum as SQLEnum,
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from enum import Enum
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .user import User
     from .trade import Trade
+    from .user import User
 
 
 class WalletType(str, Enum):
@@ -129,24 +129,24 @@ class WalletTransaction(Base, TimestampMixin):
     net_amount: Mapped[float] = mapped_column(Float, nullable=False)  # amount - fee
 
     # References
-    reference_id: Mapped[Optional[str]] = mapped_column(
+    reference_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )  # External transaction ID
-    trade_id: Mapped[Optional[int]] = mapped_column(
+    trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("trades.id"), nullable=True, index=True
     )
-    payment_intent_id: Mapped[Optional[str]] = mapped_column(
+    payment_intent_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True, index=True
     )  # Stripe payment intent
 
     # Metadata
-    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    transaction_metadata: Mapped[Optional[dict]] = mapped_column(
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transaction_metadata: Mapped[dict | None] = mapped_column(
         Text, nullable=True
     )  # JSON metadata
 
     # Timestamps
-    processed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     wallet: Mapped["Wallet"] = relationship("Wallet", back_populates="transactions")

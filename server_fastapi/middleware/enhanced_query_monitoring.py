@@ -5,12 +5,12 @@ Comprehensive database query monitoring with structured logging and metrics
 
 import logging
 import time
-from typing import Callable, Dict, Any, Optional
-from datetime import datetime
+from collections.abc import Callable
+
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..services.monitoring.performance_profiler import get_performance_profiler
 
@@ -25,7 +25,7 @@ N_PLUS_ONE_THRESHOLD = 10  # Alert if more than 10 queries in a single request
 class EnhancedQueryMonitoringMiddleware(BaseHTTPMiddleware):
     """
     Enhanced query monitoring middleware (2026)
-    
+
     Features:
     - Tracks all database queries per request
     - Detects N+1 query problems
@@ -38,7 +38,7 @@ class EnhancedQueryMonitoringMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.profiler = get_performance_profiler()
         self.slow_query_threshold_ms = slow_query_threshold_ms
-        self.request_query_counts: Dict[str, int] = {}
+        self.request_query_counts: dict[str, int] = {}
         self._setup_query_listeners()
 
     def _setup_query_listeners(self):
@@ -90,10 +90,10 @@ class EnhancedQueryMonitoringMiddleware(BaseHTTPMiddleware):
 
         try:
             response = await call_next(request)
-            
+
             # Analyze query patterns after request completes
             total_request_time_ms = (time.time() - start_time) * 1000
-            
+
             # Detect N+1 queries
             if query_count > N_PLUS_ONE_THRESHOLD:
                 logger.warning(
@@ -104,7 +104,9 @@ class EnhancedQueryMonitoringMiddleware(BaseHTTPMiddleware):
                         "method": request.method,
                         "query_count": query_count,
                         "total_time_ms": total_request_time_ms,
-                        "avg_query_time_ms": sum(query_times) / len(query_times) if query_times else 0,
+                        "avg_query_time_ms": sum(query_times) / len(query_times)
+                        if query_times
+                        else 0,
                     },
                 )
 
@@ -162,7 +164,7 @@ def setup_enhanced_query_monitoring(engine: Engine) -> None:
     elif hasattr(engine, "_sync_engine"):
         sync_engine = engine._sync_engine
 
-    query_start_times: Dict[int, float] = {}  # Track query start times
+    query_start_times: dict[int, float] = {}  # Track query start times
 
     @event.listens_for(sync_engine, "before_cursor_execute")
     def before_cursor_execute(
@@ -177,7 +179,7 @@ def setup_enhanced_query_monitoring(engine: Engine) -> None:
         """Record query execution time and log slow queries"""
         query_id = id(cursor)
         start_time = query_start_times.pop(query_id, None)
-        
+
         if start_time is None:
             return
 

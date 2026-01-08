@@ -4,8 +4,6 @@ Provides comprehensive validation for trading inputs
 """
 
 import re
-from typing import Optional, List
-from pydantic import field_validator, ValidationError
 from decimal import Decimal, InvalidOperation
 
 
@@ -70,7 +68,7 @@ class TradingValidators:
         return symbol
 
     @staticmethod
-    def _suggest_symbol(invalid_symbol: str) -> Optional[str]:
+    def _suggest_symbol(invalid_symbol: str) -> str | None:
         """Suggest a similar valid symbol"""
         invalid_upper = invalid_symbol.upper().replace("/", "")
 
@@ -86,7 +84,7 @@ class TradingValidators:
     def validate_amount(
         amount: float,
         min_amount: float = 0.0,
-        max_amount: Optional[float] = None,
+        max_amount: float | None = None,
         field_name: str = "Amount",
     ) -> float:
         """
@@ -299,7 +297,7 @@ class TradingValidators:
 
 # Convenience functions for common validations
 def validate_trade_params(
-    symbol: str, amount: float, price: Optional[float] = None
+    symbol: str, amount: float, price: float | None = None
 ) -> tuple:
     """
     Validate common trading parameters.

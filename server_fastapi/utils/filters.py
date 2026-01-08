@@ -4,8 +4,8 @@ Provides pre-defined filters for common queries
 """
 
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
 from enum import Enum
+from typing import Any
 
 
 class BotFilter(str, Enum):
@@ -32,7 +32,7 @@ class TradeFilter(str, Enum):
     LARGE_TRADES = "large_trades"
 
 
-def get_bot_filter_query(filter_type: BotFilter) -> Dict[str, Any]:
+def get_bot_filter_query(filter_type: BotFilter) -> dict[str, Any]:
     """
     Get SQLAlchemy filter conditions for bot queries.
 
@@ -68,7 +68,7 @@ def get_bot_filter_query(filter_type: BotFilter) -> Dict[str, Any]:
     return filters.get(filter_type, {})
 
 
-def get_trade_filter_query(filter_type: TradeFilter) -> Dict[str, Any]:
+def get_trade_filter_query(filter_type: TradeFilter) -> dict[str, Any]:
     """
     Get SQLAlchemy filter conditions for trade queries.
 
@@ -161,7 +161,7 @@ def get_filter_description(filter_type: str) -> str:
     return descriptions.get(filter_type, "")
 
 
-def get_available_bot_filters() -> List[Dict[str, str]]:
+def get_available_bot_filters() -> list[dict[str, str]]:
     """Get list of all available bot filters with metadata."""
     return [
         {
@@ -173,7 +173,7 @@ def get_available_bot_filters() -> List[Dict[str, str]]:
     ]
 
 
-def get_available_trade_filters() -> List[Dict[str, str]]:
+def get_available_trade_filters() -> list[dict[str, str]]:
     """Get list of all available trade filters with metadata."""
     return [
         {

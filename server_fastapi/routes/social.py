@@ -3,17 +3,18 @@ Social & Community API Routes
 Endpoints for strategy sharing, social feed, profiles, achievements, and challenges
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, Dict, Any
 from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user, get_optional_user
-from ..utils.route_helpers import _get_user_id
-from ..services.social_service import SocialService
 from ..models.social import StrategyVisibility
+from ..services.social_service import SocialService
+from ..utils.route_helpers import _get_user_id
 
 router = APIRouter(prefix="/api/social", tags=["Social & Community"])
 
@@ -21,37 +22,37 @@ router = APIRouter(prefix="/api/social", tags=["Social & Community"])
 # Pydantic Models
 class ShareStrategyRequest(BaseModel):
     name: str
-    strategy_config: Dict[str, Any]
-    description: Optional[str] = None
+    strategy_config: dict[str, Any]
+    description: str | None = None
     visibility: str = "public"  # public, private, unlisted
-    tags: Optional[List[str]] = None
-    category: Optional[str] = None
+    tags: list[str] | None = None
+    category: str | None = None
 
 
 class CommentRequest(BaseModel):
     content: str
-    parent_comment_id: Optional[int] = None
+    parent_comment_id: int | None = None
 
 
 class UpdateProfileRequest(BaseModel):
-    display_name: Optional[str] = None
-    bio: Optional[str] = None
-    avatar_url: Optional[str] = None
-    website_url: Optional[str] = None
-    twitter_handle: Optional[str] = None
-    telegram_handle: Optional[str] = None
-    is_public: Optional[bool] = None
-    show_trading_stats: Optional[bool] = None
+    display_name: str | None = None
+    bio: str | None = None
+    avatar_url: str | None = None
+    website_url: str | None = None
+    twitter_handle: str | None = None
+    telegram_handle: str | None = None
+    is_public: bool | None = None
+    show_trading_stats: bool | None = None
 
 
 class CreateChallengeRequest(BaseModel):
     name: str
     description: str
     challenge_type: str
-    rules: Dict[str, Any]
+    rules: dict[str, Any]
     start_date: str  # ISO format
     end_date: str  # ISO format
-    prizes: Optional[Dict[str, Any]] = None
+    prizes: dict[str, Any] | None = None
 
 
 # Strategy Sharing Routes
@@ -63,9 +64,9 @@ async def share_strategy(
 ):
     """Share a trading strategy"""
     service = SocialService(db)
-    
+
     visibility = StrategyVisibility[request.visibility.upper()]
-    
+
     strategy = await service.share_strategy(
         user_id=_get_user_id(current_user),
         name=request.name,
@@ -75,7 +76,7 @@ async def share_strategy(
         tags=request.tags,
         category=request.category,
     )
-    
+
     return {
         "id": strategy.id,
         "name": strategy.name,
@@ -86,18 +87,18 @@ async def share_strategy(
 
 @router.get("/strategies")
 async def get_strategies(
-    category: Optional[str] = Query(None),
+    category: str | None = Query(None),
     featured_only: bool = Query(False),
     limit: int = Query(20, le=100),
     offset: int = Query(0, ge=0),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get shared strategies"""
     service = SocialService(db)
-    
+
     user_id = _get_user_id(current_user) if current_user else None
-    
+
     strategies = await service.get_strategies(
         user_id=user_id,
         category=category,
@@ -105,7 +106,7 @@ async def get_strategies(
         limit=limit,
         offset=offset,
     )
-    
+
     return {"strategies": strategies, "count": len(strategies)}
 
 
@@ -117,12 +118,12 @@ async def like_strategy(
 ):
     """Like/unlike a strategy"""
     service = SocialService(db)
-    
+
     is_liked = await service.like_strategy(
         user_id=_get_user_id(current_user),
         strategy_id=strategy_id,
     )
-    
+
     return {"liked": is_liked}
 
 
@@ -135,14 +136,14 @@ async def comment_on_strategy(
 ):
     """Comment on a strategy"""
     service = SocialService(db)
-    
+
     comment = await service.comment_on_strategy(
         user_id=_get_user_id(current_user),
         strategy_id=strategy_id,
         content=request.content,
         parent_comment_id=request.parent_comment_id,
     )
-    
+
     return {"id": comment.id, "content": comment.content}
 
 
@@ -152,21 +153,21 @@ async def get_feed(
     following_only: bool = Query(False),
     limit: int = Query(50, le=100),
     offset: int = Query(0, ge=0),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get social feed"""
     service = SocialService(db)
-    
+
     user_id = _get_user_id(current_user) if current_user else None
-    
+
     feed = await service.get_feed(
         user_id=user_id,
         following_only=following_only,
         limit=limit,
         offset=offset,
     )
-    
+
     return {"events": feed, "count": len(feed)}
 
 
@@ -178,7 +179,7 @@ async def get_my_profile(
 ):
     """Get current user's profile"""
     service = SocialService(db)
-    
+
     profile = await service.get_or_create_profile(_get_user_id(current_user))
     return profile
 
@@ -190,12 +191,12 @@ async def get_user_profile(
 ):
     """Get user profile (public)"""
     service = SocialService(db)
-    
+
     profile = await service.get_or_create_profile(user_id)
-    
+
     if not profile.is_public:
         raise HTTPException(status_code=404, detail="Profile not found")
-    
+
     return profile
 
 
@@ -207,7 +208,7 @@ async def update_profile(
 ):
     """Update user profile"""
     service = SocialService(db)
-    
+
     profile = await service.update_profile(
         user_id=_get_user_id(current_user),
         display_name=request.display_name,
@@ -219,7 +220,7 @@ async def update_profile(
         is_public=request.is_public,
         show_trading_stats=request.show_trading_stats,
     )
-    
+
     return profile
 
 
@@ -230,7 +231,7 @@ async def refresh_profile_stats(
 ):
     """Refresh cached profile statistics"""
     service = SocialService(db)
-    
+
     profile = await service.update_profile_stats(_get_user_id(current_user))
     return profile
 
@@ -244,12 +245,12 @@ async def get_achievements(
 ):
     """Get user achievements"""
     service = SocialService(db)
-    
+
     achievements = await service.get_user_achievements(
         user_id=_get_user_id(current_user),
         completed_only=completed_only,
     )
-    
+
     return {"achievements": achievements}
 
 
@@ -260,9 +261,11 @@ async def check_achievements(
 ):
     """Check and award achievements"""
     service = SocialService(db)
-    
-    newly_awarded = await service.check_and_award_achievements(_get_user_id(current_user))
-    
+
+    newly_awarded = await service.check_and_award_achievements(
+        _get_user_id(current_user)
+    )
+
     return {
         "newly_awarded": newly_awarded,
         "count": len(newly_awarded),
@@ -278,7 +281,7 @@ async def create_challenge(
 ):
     """Create a community challenge"""
     service = SocialService(db)
-    
+
     challenge = await service.create_challenge(
         name=request.name,
         description=request.description,
@@ -289,7 +292,7 @@ async def create_challenge(
         created_by_user_id=_get_user_id(current_user),
         prizes=request.prizes,
     )
-    
+
     return {"id": challenge.id, "name": challenge.name}
 
 
@@ -302,11 +305,12 @@ async def get_challenges(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get community challenges"""
+    from sqlalchemy import and_, select
+
     from ..models.social import CommunityChallenge
-    from sqlalchemy import select, and_
-    
+
     stmt = select(CommunityChallenge)
-    
+
     if active_only:
         now = datetime.utcnow()
         stmt = stmt.where(
@@ -316,16 +320,16 @@ async def get_challenges(
                 CommunityChallenge.end_date >= now,
             )
         )
-    
+
     if featured_only:
         stmt = stmt.where(CommunityChallenge.is_featured == True)
-    
+
     stmt = stmt.order_by(CommunityChallenge.start_date.desc())
     stmt = stmt.limit(limit).offset(offset)
-    
+
     result = await db.execute(stmt)
     challenges = result.scalars().all()
-    
+
     return {"challenges": challenges, "count": len(challenges)}
 
 
@@ -337,12 +341,12 @@ async def join_challenge(
 ):
     """Join a community challenge"""
     service = SocialService(db)
-    
+
     participant = await service.join_challenge(
         user_id=_get_user_id(current_user),
         challenge_id=challenge_id,
     )
-    
+
     return {"id": participant.id, "challenge_id": challenge_id}
 
 
@@ -354,10 +358,10 @@ async def get_challenge_leaderboard(
 ):
     """Get challenge leaderboard"""
     service = SocialService(db)
-    
+
     leaderboard = await service.get_challenge_leaderboard(
         challenge_id=challenge_id,
         limit=limit,
     )
-    
+
     return {"leaderboard": leaderboard, "count": len(leaderboard)}

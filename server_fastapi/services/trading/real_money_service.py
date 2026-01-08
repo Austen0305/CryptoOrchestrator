@@ -4,16 +4,15 @@ Handles real money trades with proper security and validation
 """
 
 import logging
-import asyncio
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from decimal import Decimal
+from typing import Any
 
-from ..trading.dex_trading_service import DEXTradingService
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...services.trading.safe_trading_system import SafeTradingSystem
 from ...services.real_money_safety import real_money_safety_service
 from ...services.real_money_transaction_manager import real_money_transaction_manager
-from decimal import Decimal
+from ...services.trading.safe_trading_system import SafeTradingSystem
+from ..trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +34,15 @@ class RealMoneyTradingService:
         side: str,
         order_type: str,
         amount: float,
-        price: Optional[float] = None,
-        bot_id: Optional[str] = None,
-        mfa_token: Optional[str] = None,
-        stop: Optional[float] = None,
-        take_profit: Optional[float] = None,
-        trailing_stop_percent: Optional[float] = None,
-        time_in_force: Optional[str] = "GTC",
-        db: Optional[Any] = None,  # Database session
-    ) -> Dict[str, Any]:
+        price: float | None = None,
+        bot_id: str | None = None,
+        mfa_token: str | None = None,
+        stop: float | None = None,
+        take_profit: float | None = None,
+        trailing_stop_percent: float | None = None,
+        time_in_force: str | None = "GTC",
+        db: Any | None = None,  # Database session
+    ) -> dict[str, Any]:
         """Execute a real money trade with proper validation and security"""
         user_id_int = (
             int(user_id) if isinstance(user_id, str) and user_id.isdigit() else user_id
@@ -74,18 +73,19 @@ class RealMoneyTradingService:
 
         # Compliance checks
         from ..compliance.compliance_service import (
-            compliance_service,
             ComplianceCheckResult,
+            compliance_service,
         )
 
-        compliance_result, compliance_reasons = (
-            await compliance_service.check_trade_compliance(
-                user_id=user_id_int,
-                amount_usd=trade_value_usd,
-                chain_id=chain_id,  # Changed from exchange
-                symbol=pair,
-                side=side,
-            )
+        (
+            compliance_result,
+            compliance_reasons,
+        ) = await compliance_service.check_trade_compliance(
+            user_id=user_id_int,
+            amount_usd=trade_value_usd,
+            chain_id=chain_id,  # Changed from exchange
+            symbol=pair,
+            side=side,
         )
 
         if compliance_result == ComplianceCheckResult.BLOCKED:
@@ -105,15 +105,17 @@ class RealMoneyTradingService:
             # Continue with trade but log for review
 
         # Comprehensive safety validation
-        is_valid, errors, metadata = (
-            await real_money_safety_service.validate_real_money_trade(
-                user_id=user_id_int,
-                chain_id=chain_id,
-                symbol=pair,
-                side=side,
-                amount=amount_decimal,
-                price=price_decimal,
-            )
+        (
+            is_valid,
+            errors,
+            metadata,
+        ) = await real_money_safety_service.validate_real_money_trade(
+            user_id=user_id_int,
+            chain_id=chain_id,
+            symbol=pair,
+            side=side,
+            amount=amount_decimal,
+            price=price_decimal,
         )
 
         if not is_valid:
@@ -198,15 +200,15 @@ class RealMoneyTradingService:
         side: str,
         order_type: str,
         amount: float,
-        price: Optional[float],
-        bot_id: Optional[str],
-        mfa_token: Optional[str],
+        price: float | None,
+        bot_id: str | None,
+        mfa_token: str | None,
         db,
-        stop: Optional[float] = None,
-        take_profit: Optional[float] = None,
-        trailing_stop_percent: Optional[float] = None,
-        time_in_force: Optional[str] = "GTC",
-    ) -> Dict[str, Any]:
+        stop: float | None = None,
+        take_profit: float | None = None,
+        trailing_stop_percent: float | None = None,
+        time_in_force: str | None = "GTC",
+    ) -> dict[str, Any]:
         """Internal trade execution logic via DEX (called within transaction)"""
         try:
             # Convert user_id to int
@@ -219,10 +221,11 @@ class RealMoneyTradingService:
                 user_id_int = int(user_id) if user_id else 1
 
             # 0. MANDATORY 2FA requirement for real money trading
+            import speakeasy
+            from sqlalchemy import select
+
             from ...database import get_db_context
             from ...models.base import User
-            from sqlalchemy import select
-            import speakeasy
 
             async with get_db_context() as session:
                 result = await session.execute(
@@ -355,6 +358,7 @@ class RealMoneyTradingService:
 
             # Convert amount to proper decimal format using token registry
             from decimal import Decimal
+
             from ..blockchain.token_registry import get_token_registry
 
             token_registry = get_token_registry()

@@ -3,9 +3,10 @@ DEX Trading Routes Tests
 Integration tests for DEX trading API endpoints
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import patch, AsyncMock, MagicMock
 
 
 @pytest.mark.asyncio

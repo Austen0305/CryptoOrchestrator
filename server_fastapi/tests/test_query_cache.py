@@ -2,9 +2,10 @@
 Tests for query result caching decorator
 """
 
-import pytest
-import asyncio
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from server_fastapi.middleware.query_cache import cache_query_result
 
 

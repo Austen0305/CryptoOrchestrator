@@ -1,21 +1,22 @@
-from typing import List, Dict, Any, Literal
-from pydantic import BaseModel
 import logging
 import math
+from typing import Any, Literal
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
 class VolatilityAnalysisResult(BaseModel):
     volatility: float
-    details: Dict[str, Any]
+    details: dict[str, Any]
 
 
 class VolatilityAnalyzer:
     def __init__(self):
         pass
 
-    def calculateATR(self, data: List[Dict[str, Any]], period: int = 14) -> float:
+    def calculateATR(self, data: list[dict[str, Any]], period: int = 14) -> float:
         if len(data) < period:
             return 0.0
 
@@ -39,7 +40,7 @@ class VolatilityAnalyzer:
         return atr
 
     def calculateVolatilityIndex(
-        self, data: List[Dict[str, Any]], period: int = 20
+        self, data: list[dict[str, Any]], period: int = 20
     ) -> float:
         if len(data) < period:
             return 0.0
@@ -72,7 +73,7 @@ class VolatilityAnalyzer:
         return baseSize * adjustmentFactor
 
     def analyzeMarketRegime(
-        self, data: List[Dict[str, Any]]
+        self, data: list[dict[str, Any]]
     ) -> Literal["low_volatility", "normal", "high_volatility"]:
         volatility = self.calculateVolatilityIndex(data)
 
@@ -83,7 +84,7 @@ class VolatilityAnalyzer:
         else:
             return "normal"
 
-    def calculateRiskScore(self, data: List[Dict[str, Any]]) -> float:
+    def calculateRiskScore(self, data: list[dict[str, Any]]) -> float:
         volatility = self.calculateVolatilityIndex(data)
         atr = self.calculateATR(data)
         regime = self.analyzeMarketRegime(data)
@@ -95,12 +96,14 @@ class VolatilityAnalyzer:
         regimeMultiplier = (
             1.2
             if regime == "high_volatility"
-            else 0.8 if regime == "low_volatility" else 1.0
+            else 0.8
+            if regime == "low_volatility"
+            else 1.0
         )
 
         return min(100, volatilityScore * regimeMultiplier)
 
-    def analyze(self, data: List[Dict[str, Any]]) -> VolatilityAnalysisResult:
+    def analyze(self, data: list[dict[str, Any]]) -> VolatilityAnalysisResult:
         try:
             volatility = self.calculateVolatilityIndex(data)
             atr = self.calculateATR(data)

@@ -4,11 +4,10 @@ Handles stop-loss, take-profit, trailing stops, and OCO orders
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models.order import Order, OrderType, OrderStatus
+from ...models.order import Order, OrderStatus, OrderType
 from ...repositories.order_repository import OrderRepository
 
 # Exchange services removed - using blockchain/DEX only
@@ -23,7 +22,7 @@ class AdvancedOrdersService:
     def __init__(
         self,
         db: AsyncSession,
-        order_repository: Optional[OrderRepository] = None,
+        order_repository: OrderRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.order_repository = order_repository or OrderRepository()
@@ -36,7 +35,7 @@ class AdvancedOrdersService:
         side: str,
         amount: float,
         stop_price: float,
-        limit_price: Optional[float] = None,
+        limit_price: float | None = None,
         chain_id: int = 1,  # Default to Ethereum
         mode: str = "paper",
     ) -> Order:
@@ -97,7 +96,7 @@ class AdvancedOrdersService:
         side: str,
         amount: float,
         take_profit_price: float,
-        limit_price: Optional[float] = None,
+        limit_price: float | None = None,
         chain_id: int = 1,  # Default to Ethereum
         mode: str = "paper",
     ) -> Order:
@@ -159,8 +158,8 @@ class AdvancedOrdersService:
         symbol: str,
         side: str,
         amount: float,
-        trailing_stop_percent: Optional[float] = None,
-        trailing_stop_amount: Optional[float] = None,
+        trailing_stop_percent: float | None = None,
+        trailing_stop_amount: float | None = None,
         chain_id: int = 1,  # Default to Ethereum
         mode: str = "paper",
     ) -> Order:
@@ -222,7 +221,7 @@ class AdvancedOrdersService:
         take_profit_price: float,
         chain_id: int = 1,  # Default to Ethereum
         mode: str = "paper",
-    ) -> List[Order]:
+    ) -> list[Order]:
         """
         Create an OCO (One-Cancels-Other) order
         Combines stop-loss and take-profit orders
@@ -281,7 +280,7 @@ class AdvancedOrdersService:
         self,
         order_id: int,
         current_price: float,
-    ) -> Optional[Order]:
+    ) -> Order | None:
         """
         Update trailing stop order based on current price
 
@@ -374,7 +373,7 @@ class AdvancedOrdersService:
         symbol: str,
         current_price: float,
         chain_id: int = 1,  # Blockchain chain ID
-    ) -> List[Order]:
+    ) -> list[Order]:
         """
         Check all pending advanced orders and execute if conditions are met
 
@@ -416,9 +415,7 @@ class AdvancedOrdersService:
                     order.side == "sell"
                     and order.stop_price
                     and current_price <= order.stop_price
-                ):
-                    should_execute = True
-                elif (
+                ) or (
                     order.side == "buy"
                     and order.stop_price
                     and current_price >= order.stop_price
@@ -434,9 +431,7 @@ class AdvancedOrdersService:
                     order.side == "sell"
                     and order.take_profit_price
                     and current_price >= order.take_profit_price
-                ):
-                    should_execute = True
-                elif (
+                ) or (
                     order.side == "buy"
                     and order.take_profit_price
                     and current_price <= order.take_profit_price

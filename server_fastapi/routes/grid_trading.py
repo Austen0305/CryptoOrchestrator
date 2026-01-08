@@ -2,18 +2,19 @@
 Grid Trading API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
-from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any, Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..services.trading.grid_trading_service import GridTradingService
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.trading.grid_trading_service import GridTradingService
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ class CreateGridBotRequest(BaseModel):
         pattern="^(arithmetic|geometric)$",
         description="Grid spacing type",
     )
-    config: Optional[Dict[str, Any]] = Field(
+    config: dict[str, Any] | None = Field(
         default=None, description="Additional configuration"
     )
 
@@ -83,8 +84,8 @@ class GridBotResponse(BaseModel):
     total_profit: float
     total_trades: int
     win_rate: float
-    grid_state: Dict[str, Any]
-    config: Dict[str, Any]
+    grid_state: dict[str, Any]
+    config: dict[str, Any]
     created_at: str
     updated_at: str
 
@@ -92,17 +93,17 @@ class GridBotResponse(BaseModel):
 
 
 class UpdateGridBotRequest(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    upper_price: Optional[float] = Field(None, gt=0)
-    lower_price: Optional[float] = Field(None, gt=0)
-    grid_count: Optional[int] = Field(None, ge=2, le=100)
-    order_amount: Optional[float] = Field(None, gt=0)
-    config: Optional[Dict[str, Any]] = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    upper_price: float | None = Field(None, gt=0)
+    lower_price: float | None = Field(None, gt=0)
+    grid_count: int | None = Field(None, ge=2, le=100)
+    order_amount: float | None = Field(None, gt=0)
+    config: dict[str, Any] | None = None
 
 
 @router.post(
     "/grid-bots",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     status_code=status.HTTP_201_CREATED,
     tags=["Grid Trading"],
 )
@@ -156,7 +157,7 @@ async def create_grid_bot(
         )
 
 
-@router.get("/grid-bots", response_model=List[GridBotResponse], tags=["Grid Trading"])
+@router.get("/grid-bots", response_model=list[GridBotResponse], tags=["Grid Trading"])
 @cached(ttl=120, prefix="grid_bots")  # 120s TTL for grid bots list
 async def list_grid_bots(
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -216,7 +217,7 @@ async def get_grid_bot(
 
 
 @router.post(
-    "/grid-bots/{bot_id}/start", response_model=Dict[str, str], tags=["Grid Trading"]
+    "/grid-bots/{bot_id}/start", response_model=dict[str, str], tags=["Grid Trading"]
 )
 async def start_grid_bot(
     bot_id: str,
@@ -249,7 +250,7 @@ async def start_grid_bot(
 
 
 @router.post(
-    "/grid-bots/{bot_id}/stop", response_model=Dict[str, str], tags=["Grid Trading"]
+    "/grid-bots/{bot_id}/stop", response_model=dict[str, str], tags=["Grid Trading"]
 )
 async def stop_grid_bot(
     bot_id: str,
@@ -281,7 +282,7 @@ async def stop_grid_bot(
 
 
 @router.delete(
-    "/grid-bots/{bot_id}", response_model=Dict[str, str], tags=["Grid Trading"]
+    "/grid-bots/{bot_id}", response_model=dict[str, str], tags=["Grid Trading"]
 )
 async def delete_grid_bot(
     bot_id: str,

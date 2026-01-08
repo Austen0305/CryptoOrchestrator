@@ -5,16 +5,14 @@ Free public API (no API key required for basic usage)
 Competitive rates and good documentation
 """
 
-import httpx
-import os
-import logging
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
-from datetime import datetime
 import asyncio
-from typing import Optional as Opt
+import logging
+import os
+from typing import Any
 
-from ..monitoring.circuit_breaker import CircuitBreaker, CircuitState
+import httpx
+
+from ..monitoring.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +25,16 @@ class OneInchService:
     TIMEOUT = 30
 
     def __init__(self):
-        self.api_key = os.getenv("ONEINCH_API_KEY", "")  # Optional - works without API key
+        self.api_key = os.getenv(
+            "ONEINCH_API_KEY", ""
+        )  # Optional - works without API key
         self.last_request_time = 0
         # Circuit breaker: 5 failures opens circuit, 60s recovery timeout
         self.circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=60)
         self.max_retries = 3
         self.retry_delay_base = 1.0  # Base delay in seconds for exponential backoff
         # Shared HTTP client with connection pooling (reuse connections)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _rate_limit(self):
         """Enforce rate limiting"""
@@ -44,7 +44,7 @@ class OneInchService:
             await asyncio.sleep(self.RATE_LIMIT_DELAY - time_since_last)
         self.last_request_time = asyncio.get_event_loop().time()
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers with API key if available"""
         headers = {
             "Content-Type": "application/json",
@@ -54,7 +54,7 @@ class OneInchService:
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    async def _make_request_with_retry(self, func, *args, **kwargs) -> Optional[Any]:
+    async def _make_request_with_retry(self, func, *args, **kwargs) -> Any | None:
         """
         Make API request with retry logic and circuit breaker
 
@@ -111,7 +111,7 @@ class OneInchService:
         amount: str,
         chain_id: int = 1,
         slippage: float = 0.5,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Internal method to get quote (called by circuit breaker)"""
         await self._rate_limit()
 
@@ -157,8 +157,8 @@ class OneInchService:
         amount: str,
         chain_id: int = 1,  # 1 = Ethereum mainnet
         slippage_tolerance: float = 0.5,
-        user_wallet_address: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        user_wallet_address: str | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get a quote for a token swap
 
@@ -202,7 +202,7 @@ class OneInchService:
 
         return normalized_quote
 
-    def _calculate_price(self, quote: Dict[str, Any]) -> Optional[float]:
+    def _calculate_price(self, quote: dict[str, Any]) -> float | None:
         """Calculate price from quote"""
         try:
             from_amount = float(quote.get("fromTokenAmount", 0))
@@ -213,7 +213,7 @@ class OneInchService:
             pass
         return None
 
-    def _calculate_price_impact(self, quote: Dict[str, Any]) -> Optional[float]:
+    def _calculate_price_impact(self, quote: dict[str, Any]) -> float | None:
         """Calculate price impact percentage"""
         try:
             # 1inch may provide price impact in the quote
@@ -231,7 +231,7 @@ class OneInchService:
         to_token: str,
         amount: str,
         chain_id: int = 1,
-    ) -> Optional[float]:
+    ) -> float | None:
         """
         Get the price (to amount) for a given from amount
 
@@ -256,7 +256,9 @@ class OneInchService:
                 to_amount = int(quote["toTokenAmount"])
                 return float(to_amount)
             except (ValueError, KeyError) as e:
-                logger.error(f"Error parsing toTokenAmount from quote: {e}", exc_info=True)
+                logger.error(
+                    f"Error parsing toTokenAmount from quote: {e}", exc_info=True
+                )
                 return None
 
         return None
@@ -269,7 +271,7 @@ class OneInchService:
         user_wallet_address: str,
         chain_id: int = 1,
         slippage_tolerance: float = 0.5,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get swap calldata for execution
 
@@ -335,7 +337,7 @@ class OneInchService:
             logger.error(f"Error getting 1inch swap calldata: {e}", exc_info=True)
             return None
 
-    async def get_supported_tokens(self, chain_id: int = 1) -> List[Dict[str, Any]]:
+    async def get_supported_tokens(self, chain_id: int = 1) -> list[dict[str, Any]]:
         """
         Get list of supported tokens for a chain
 
@@ -361,9 +363,7 @@ class OneInchService:
                     http2=False,
                 )
 
-            response = await self._http_client.get(
-                url, headers=self._get_headers()
-            )
+            response = await self._http_client.get(url, headers=self._get_headers())
             response.raise_for_status()
             data = response.json()
 
@@ -386,7 +386,7 @@ class OneInchService:
             logger.error(f"Error getting supported tokens: {e}", exc_info=True)
             return []
 
-    async def get_supported_chains(self) -> List[Dict[str, Any]]:
+    async def get_supported_chains(self) -> list[dict[str, Any]]:
         """
         Get list of supported blockchain networks
 
@@ -404,7 +404,3 @@ class OneInchService:
         ]
 
         return chains
-
-
-
-

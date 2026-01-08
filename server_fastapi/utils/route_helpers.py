@@ -3,10 +3,12 @@ Route helper utilities for FastAPI routes.
 Centralizes common route operations to reduce code duplication.
 """
 
-from fastapi import HTTPException
-from typing import Optional, Callable, Any, TypeVar
 import logging
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
+
+from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +49,10 @@ def _get_user_id(current_user: dict) -> str:
 
 def handle_route_errors(
     operation_name: str,
-    user_id: Optional[str] = None,
-    error_message: Optional[str] = None,
+    user_id: str | None = None,
+    error_message: str | None = None,
     status_code: int = 500,
-    extra_context: Optional[dict] = None,
+    extra_context: dict | None = None,
 ) -> Callable:
     """
     Decorator for standardized error handling in routes.
@@ -112,10 +114,10 @@ def handle_route_errors(
 
 def standard_error_handler(
     operation_name: str,
-    user_id: Optional[str] = None,
-    error_message: Optional[str] = None,
+    user_id: str | None = None,
+    error_message: str | None = None,
     status_code: int = 500,
-    extra_context: Optional[dict] = None,
+    extra_context: dict | None = None,
 ):
     """
     Context manager for standardized error handling in routes.
@@ -175,10 +177,10 @@ def standard_error_handler(
 def handle_route_error(
     error: Exception,
     operation_name: str,
-    user_id: Optional[str] = None,
-    error_message: Optional[str] = None,
+    user_id: str | None = None,
+    error_message: str | None = None,
     status_code: int = 500,
-    extra_context: Optional[dict] = None,
+    extra_context: dict | None = None,
 ) -> HTTPException:
     """
     Standardized error handler for route exceptions.

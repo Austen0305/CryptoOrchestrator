@@ -4,10 +4,11 @@ Provides endpoints for managing and checking feature flags
 """
 
 import logging
-from typing import List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from ..config.feature_flags import feature_flags, FeatureFlagStatus
+
+from ..config.feature_flags import feature_flags
 from ..middleware.auth import get_current_user
 
 logger = logging.getLogger(__name__)
@@ -17,14 +18,15 @@ router = APIRouter(prefix="/api/feature-flags", tags=["Feature Flags"])
 
 class FeatureFlagResponse(BaseModel):
     """Feature flag response"""
+
     name: str
     status: str
     description: str
     enabled: bool
-    enabled_for: List[str]
+    enabled_for: list[str]
 
 
-@router.get("/", response_model=List[FeatureFlagResponse])
+@router.get("/", response_model=list[FeatureFlagResponse])
 async def list_feature_flags(
     current_user: dict = Depends(get_current_user),
 ):
@@ -93,8 +95,7 @@ async def enable_feature_flag(
     # Admin check
     if current_user.get("role") != "admin" and not current_user.get("is_admin"):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     try:
         feature_flags.enable(flag_name)
@@ -116,8 +117,7 @@ async def disable_feature_flag(
     # Admin check
     if current_user.get("role") != "admin" and not current_user.get("is_admin"):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     try:
         feature_flags.disable(flag_name)

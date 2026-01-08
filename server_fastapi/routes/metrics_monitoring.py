@@ -3,20 +3,19 @@ System Metrics and Performance Monitoring
 Comprehensive observability for the trading platform
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Dict, List, Optional, Any, Annotated
-from datetime import datetime, timedelta
-from collections import defaultdict
-from sqlalchemy.ext.asyncio import AsyncSession
-import psutil
 import logging
-import asyncio
+from datetime import datetime, timedelta
+from typing import Annotated, Any
 
-from ..services.monitoring.dex_metrics import get_dex_metrics_service
-from ..services.monitoring.business_metrics import get_business_metrics_service
+import psutil
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..database import get_db_session
 from ..middleware.cache_manager import cached
+from ..services.monitoring.business_metrics import get_business_metrics_service
+from ..services.monitoring.dex_metrics import get_dex_metrics_service
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +51,8 @@ class PerformanceMetrics(BaseModel):
 
     system: SystemMetrics
     application: ApplicationMetrics
-    circuit_breakers: Dict[str, dict]
-    database: Dict[str, Any]
+    circuit_breakers: dict[str, dict]
+    database: dict[str, Any]
     timestamp: str
 
 
@@ -85,11 +84,11 @@ class MetricsCollector:
     def __init__(self):
         self.start_time = datetime.now()
         self.request_count = 0
-        self.response_times: List[float] = []
-        self.alerts: List[MetricsAlert] = []
+        self.response_times: list[float] = []
+        self.alerts: list[MetricsAlert] = []
 
         # Alert thresholds
-        self.thresholds: List[AlertThreshold] = [
+        self.thresholds: list[AlertThreshold] = [
             AlertThreshold(
                 metric="cpu_percent", threshold=80.0, operator="gt", severity="high"
             ),
@@ -213,11 +212,14 @@ class MetricsCollector:
                 continue
 
             triggered = False
-            if threshold.operator == "gt" and metric_value > threshold.threshold:
-                triggered = True
-            elif threshold.operator == "lt" and metric_value < threshold.threshold:
-                triggered = True
-            elif threshold.operator == "eq" and metric_value == threshold.threshold:
+            if (
+                threshold.operator == "gt"
+                and metric_value > threshold.threshold
+                or threshold.operator == "lt"
+                and metric_value < threshold.threshold
+                or threshold.operator == "eq"
+                and metric_value == threshold.threshold
+            ):
                 triggered = True
 
             if triggered:
@@ -271,8 +273,8 @@ async def get_current_metrics():
         cb_stats = {}
         try:
             from ..middleware.circuit_breaker import (
-                exchange_breaker,
                 database_breaker,
+                exchange_breaker,
                 ml_service_breaker,
             )
 
@@ -314,14 +316,14 @@ async def get_current_metrics():
         raise HTTPException(status_code=500, detail="Failed to collect metrics")
 
 
-@router.get("/alerts", response_model=List[MetricsAlert])
+@router.get("/alerts", response_model=list[MetricsAlert])
 @cached(ttl=60, prefix="metrics_alerts")  # 60s TTL for metrics alerts
 async def get_active_alerts():
     """Get list of active metric alerts"""
     return metrics_collector.alerts
 
 
-@router.get("/alerts/thresholds", response_model=List[AlertThreshold])
+@router.get("/alerts/thresholds", response_model=list[AlertThreshold])
 async def get_alert_thresholds():
     """Get configured alert thresholds"""
     return metrics_collector.thresholds
@@ -390,7 +392,9 @@ async def get_health_score():
             "status": (
                 "healthy"
                 if overall_score >= 80
-                else "degraded" if overall_score >= 50 else "unhealthy"
+                else "degraded"
+                if overall_score >= 50
+                else "unhealthy"
             ),
             "timestamp": datetime.now().isoformat(),
         }
@@ -405,10 +409,10 @@ async def get_health_score():
 @cached(ttl=120, prefix="dex_volume")  # 120s TTL for DEX volume metrics
 async def get_dex_volume(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    chain_id: Optional[int] = None,
-    aggregator: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    chain_id: int | None = None,
+    aggregator: str | None = None,
 ):
     """
     Get DEX trade volume metrics
@@ -434,8 +438,8 @@ async def get_dex_volume(
 @router.get("/dex/fees")
 async def get_dex_fees(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """Get platform fee collection metrics"""
     try:
@@ -454,8 +458,8 @@ async def get_dex_fees(
 @cached(ttl=120, prefix="dex_aggregators")  # 120s TTL for aggregator performance
 async def get_aggregator_performance(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """Get performance metrics for each aggregator"""
     try:
@@ -475,8 +479,8 @@ async def get_aggregator_performance(
 @router.get("/dex/errors")
 async def get_dex_error_rates(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """Get error rate metrics for DEX trades"""
     try:
@@ -495,8 +499,8 @@ async def get_dex_error_rates(
 @cached(ttl=120, prefix="dex_chains")  # 120s TTL for chain volume metrics
 async def get_chain_volume(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """Get volume metrics by blockchain chain"""
     try:
@@ -516,8 +520,8 @@ async def get_chain_volume(
 @router.get("/dex/all")
 async def get_all_dex_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     """
     Get all DEX trading metrics in one call
@@ -545,19 +549,21 @@ async def get_all_dex_metrics(
 @cached(ttl=120, prefix="wallet_metrics")  # 120s TTL for wallet metrics
 async def get_wallet_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    chain_id: Optional[int] = None,
-) -> Dict[str, Any]:
+    start_date: str | None = None,
+    end_date: str | None = None,
+    chain_id: int | None = None,
+) -> dict[str, Any]:
     """
     Get wallet operation metrics
 
     Returns wallet creations, deposits, withdrawals per day, total balances, etc.
     """
     try:
-        from sqlalchemy import select, func
-        from ..models.user_wallet import UserWallet
         from collections import defaultdict
+
+        from sqlalchemy import select
+
+        from ..models.user_wallet import UserWallet
 
         # Parse dates
         if start_date:
@@ -588,13 +594,13 @@ async def get_wallet_metrics(
         external_count = len([w for w in wallets if w.wallet_type == "external"])
 
         # Per-day breakdown
-        daily_creations: Dict[str, int] = defaultdict(int)
+        daily_creations: dict[str, int] = defaultdict(int)
         for wallet in wallets:
             day = wallet.created_at.date().isoformat()
             daily_creations[day] += 1
 
         # Chain breakdown
-        chain_breakdown: Dict[int, int] = defaultdict(int)
+        chain_breakdown: dict[int, int] = defaultdict(int)
         for wallet in wallets:
             chain_breakdown[wallet.chain_id] += 1
 
@@ -617,10 +623,10 @@ async def get_wallet_metrics(
 
 @router.get("/blockchain", tags=["Metrics & Monitoring"])
 async def get_blockchain_metrics(
-    chain_id: Optional[int] = None,
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> Dict[str, Any]:
+    chain_id: int | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     """
     Get blockchain metrics
 
@@ -678,19 +684,21 @@ async def get_blockchain_metrics(
 @cached(ttl=120, prefix="user_activity_metrics")  # 120s TTL for user activity metrics
 async def get_user_activity_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> Dict[str, Any]:
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     """
     Get user activity metrics
 
     Returns active users, trading volume, login counts, etc.
     """
     try:
-        from sqlalchemy import select, func
-        from ..models.user import User
-        from ..models.dex_trade import DEXTrade
         from collections import defaultdict
+
+        from sqlalchemy import func, select
+
+        from ..models.dex_trade import DEXTrade
+        from ..models.user import User
 
         # Parse dates
         if start_date:
@@ -726,7 +734,7 @@ async def get_user_activity_metrics(
         total_volume = float(result.scalar() or 0)
 
         # Daily active users
-        daily_active: Dict[str, int] = defaultdict(int)
+        daily_active: dict[str, int] = defaultdict(int)
         daily_trades_query = (
             select(
                 func.date(DEXTrade.created_at).label("date"),
@@ -762,15 +770,15 @@ async def get_user_activity_metrics(
 
 
 @router.get("/performance", tags=["Metrics & Monitoring"])
-async def get_performance_metrics() -> Dict[str, Any]:
+async def get_performance_metrics() -> dict[str, Any]:
     """
     Get performance metrics
 
     Returns API response times, database query times, cache hit rates.
     """
     try:
-        from ..services.monitoring.transaction_monitor import transaction_monitor
         from ..services.monitoring.performance_profiler import get_performance_profiler
+        from ..services.monitoring.transaction_monitor import transaction_monitor
 
         # Get transaction latency metrics
         stats = await transaction_monitor.get_transaction_stats()
@@ -804,7 +812,7 @@ async def get_performance_metrics() -> Dict[str, Any]:
 @cached(ttl=120, prefix="business_metrics")  # 120s TTL for business metrics
 async def get_business_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get business metrics (trades/day, revenue, user growth)
 
@@ -826,7 +834,7 @@ async def get_business_metrics(
 async def get_trades_per_day(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     days: int = 30,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get trades per day for the last N days"""
     try:
         service = get_business_metrics_service(db)
@@ -844,9 +852,9 @@ async def get_trades_per_day(
 @router.get("/business/revenue", tags=["Metrics & Monitoring"])
 async def get_revenue_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-) -> Dict[str, Any]:
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
     """Get revenue metrics (subscription + trading fees)"""
     try:
         start = datetime.fromisoformat(start_date) if start_date else None
@@ -863,7 +871,7 @@ async def get_revenue_metrics(
 @router.get("/business/users", tags=["Metrics & Monitoring"])
 async def get_user_metrics(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get user growth metrics (total users, active users 24h)"""
     try:
         service = get_business_metrics_service(db)

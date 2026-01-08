@@ -2,7 +2,6 @@
 Strategy Template Service - Built-in strategy templates
 """
 
-from typing import Dict, List, Optional
 from enum import Enum
 
 
@@ -34,8 +33,8 @@ class StrategyTemplate:
         description: str,
         strategy_type: StrategyType,
         category: StrategyCategory,
-        config: Dict,
-        logic: Optional[Dict] = None,
+        config: dict,
+        logic: dict | None = None,
     ):
         self.name = name
         self.description = description
@@ -44,7 +43,7 @@ class StrategyTemplate:
         self.config = config
         self.logic = logic or {}
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert template to dictionary"""
         return {
             "name": self.name,
@@ -60,7 +59,7 @@ class StrategyTemplateService:
     """Service for managing strategy templates"""
 
     # Built-in templates
-    TEMPLATES: Dict[str, StrategyTemplate] = {}
+    TEMPLATES: dict[str, StrategyTemplate] = {}
 
     @classmethod
     def initialize_templates(cls):
@@ -215,21 +214,21 @@ class StrategyTemplateService:
         )
 
     @classmethod
-    def get_template(cls, strategy_type: str) -> Optional[StrategyTemplate]:
+    def get_template(cls, strategy_type: str) -> StrategyTemplate | None:
         """Get a template by type"""
         if not cls.TEMPLATES:
             cls.initialize_templates()
         return cls.TEMPLATES.get(strategy_type)
 
     @classmethod
-    def get_all_templates(cls) -> List[Dict]:
+    def get_all_templates(cls) -> list[dict]:
         """Get all templates"""
         if not cls.TEMPLATES:
             cls.initialize_templates()
         return [template.to_dict() for template in cls.TEMPLATES.values()]
 
     @classmethod
-    def get_templates_by_category(cls, category: str) -> List[Dict]:
+    def get_templates_by_category(cls, category: str) -> list[dict]:
         """Get templates by category"""
         if not cls.TEMPLATES:
             cls.initialize_templates()

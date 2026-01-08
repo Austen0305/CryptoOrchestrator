@@ -4,16 +4,17 @@ Execute blockchain transactions with signing and monitoring
 """
 
 import logging
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Any
 
 # Defensive imports to prevent route loading failures if web3 is not installed
 try:
-    from web3 import AsyncWeb3
-    from web3.exceptions import Web3Exception, TransactionNotFound
     from eth_account import Account
     from eth_account.signers.local import LocalAccount
     from hexbytes import HexBytes
+    from web3 import AsyncWeb3
+    from web3.exceptions import TransactionNotFound, Web3Exception
+
     WEB3_AVAILABLE = True
 except ImportError as e:
     WEB3_AVAILABLE = False
@@ -26,10 +27,10 @@ except ImportError as e:
     logger = logging.getLogger(__name__)
     logger.warning(f"Web3 not available: {e}. Transaction service will be limited.")
 
-from .web3_service import get_web3_service
 from ...config.settings import get_settings
+from .web3_service import get_web3_service
 
-if 'logger' not in locals():
+if "logger" not in locals():
     logger = logging.getLogger(__name__)
 
 
@@ -39,7 +40,9 @@ class TransactionService:
     def __init__(self):
         self.settings = get_settings()
         if not WEB3_AVAILABLE:
-            logger.warning("Web3 not available - TransactionService will have limited functionality")
+            logger.warning(
+                "Web3 not available - TransactionService will have limited functionality"
+            )
         try:
             self.web3_service = get_web3_service()
         except Exception as e:
@@ -49,8 +52,8 @@ class TransactionService:
     async def estimate_gas(
         self,
         chain_id: int,
-        transaction: Dict[str, Any],
-    ) -> Optional[int]:
+        transaction: dict[str, Any],
+    ) -> int | None:
         """
         Estimate gas for a transaction
 
@@ -78,7 +81,7 @@ class TransactionService:
 
     async def get_gas_price(
         self, chain_id: int, priority: str = "standard"
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get current gas price with EIP-1559 support and priority levels
 
@@ -164,7 +167,7 @@ class TransactionService:
             logger.error(f"Unexpected error getting gas price: {e}", exc_info=True)
             return None
 
-    async def get_transaction_count(self, chain_id: int, address: str) -> Optional[int]:
+    async def get_transaction_count(self, chain_id: int, address: str) -> int | None:
         """
         Get transaction count (nonce) for an address
 
@@ -200,10 +203,10 @@ class TransactionService:
         self,
         chain_id: int,
         private_key: str,
-        transaction: Dict[str, Any],
+        transaction: dict[str, Any],
         use_mev_protection: bool = False,
-        trade_amount_usd: Optional[float] = None,
-    ) -> Optional[str]:
+        trade_amount_usd: float | None = None,
+    ) -> str | None:
         """
         Sign and send a transaction with optional MEV protection
 
@@ -232,12 +235,13 @@ class TransactionService:
 
             # Get Web3 connection (with MEV protection if enabled)
             if use_mev_protection:
-                from .mev_protection import (
-                    get_mev_protection_service,
-                    MEVProtectionProvider,
-                )
                 from web3 import AsyncWeb3
                 from web3.providers.async_rpc import AsyncHTTPProvider
+
+                from .mev_protection import (
+                    MEVProtectionProvider,
+                    get_mev_protection_service,
+                )
 
                 mev_service = get_mev_protection_service()
                 protected_rpc = await mev_service.get_protected_rpc_url(
@@ -332,7 +336,7 @@ class TransactionService:
 
     async def get_transaction_receipt(
         self, chain_id: int, tx_hash: str, timeout: int = 300
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get transaction receipt, waiting for confirmation
 
@@ -406,7 +410,7 @@ class TransactionService:
         tx_hash: str,
         timeout: int = 300,
         poll_interval: int = 2,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Monitor transaction until confirmed or timeout with exponential backoff
 
@@ -420,7 +424,6 @@ class TransactionService:
             Transaction receipt dictionary or None if error/timeout
         """
         import asyncio
-        from datetime import datetime
 
         start_time = datetime.now()
         current_interval = poll_interval
@@ -464,7 +467,7 @@ class TransactionService:
 
     async def get_transaction_status(
         self, chain_id: int, tx_hash: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get transaction status without waiting
 
@@ -526,7 +529,7 @@ class TransactionService:
 
 
 # Singleton instance
-_transaction_service: Optional[TransactionService] = None
+_transaction_service: TransactionService | None = None
 
 
 def get_transaction_service() -> TransactionService:

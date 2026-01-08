@@ -1,12 +1,12 @@
-from typing import Dict, Any, List, Optional, Union
 import asyncio
-import logging
 import json
+import logging
 import subprocess
-import os
-from pathlib import Path
-from pydantic import BaseModel, Field
 import uuid
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -26,16 +26,16 @@ except ImportError:
 class IntegrationConfig(BaseModel):
     name: str
     enabled: bool = True
-    config: Dict[str, Any] = Field(default_factory=dict)
-    version: Optional[str] = None
+    config: dict[str, Any] = Field(default_factory=dict)
+    version: str | None = None
     status: str = "stopped"
 
 
 class FreqtradeConfig(IntegrationConfig):
     name: str = "freqtrade"
     exchange_name: str = "binanceus"
-    api_key: Optional[str] = None
-    api_secret: Optional[str] = None
+    api_key: str | None = None
+    api_secret: str | None = None
     stake_currency: str = "USDT"
     dry_run: bool = True
     strategy: str = "SimpleStrategy"
@@ -44,20 +44,20 @@ class FreqtradeConfig(IntegrationConfig):
 class JesseConfig(IntegrationConfig):
     name: str = "jesse"
     exchange_name: str = "binanceus"
-    api_key: Optional[str] = None
-    api_secret: Optional[str] = None
+    api_key: str | None = None
+    api_secret: str | None = None
     stake_currency: str = "USDT"
     strategy: str = "SimpleStrategy"
 
 
 class IntegrationService:
     def __init__(self):
-        self.integrations: Dict[str, IntegrationConfig] = {}
-        self.processes: Dict[str, subprocess.Popen] = {}
+        self.integrations: dict[str, IntegrationConfig] = {}
+        self.processes: dict[str, subprocess.Popen] = {}
         self.base_path = Path(__file__).parent.parent.parent / "server" / "integrations"
 
         # Initialize circuit breakers for each integration
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
         if circuit_breaker_available:
             self.circuit_breakers = {
                 "freqtrade": CircuitBreaker(
@@ -80,7 +80,7 @@ class IntegrationService:
         jesse_config = JesseConfig()
         self.integrations["jesse"] = jesse_config
 
-    async def list_integrations(self) -> List[Dict[str, Any]]:
+    async def list_integrations(self) -> list[dict[str, Any]]:
         """List all available integrations with their status"""
         result = []
         for name, config in self.integrations.items():
@@ -96,7 +96,7 @@ class IntegrationService:
             )
         return result
 
-    async def get_integration_status(self, name: str) -> Dict[str, Any]:
+    async def get_integration_status(self, name: str) -> dict[str, Any]:
         """Get status of a specific integration"""
         if name not in self.integrations:
             return {"status": "not_found", "error": f"Integration {name} not found"}
@@ -117,8 +117,8 @@ class IntegrationService:
         return {"status": config.status}
 
     async def configure_integration(
-        self, name: str, config: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, name: str, config: dict[str, Any]
+    ) -> dict[str, Any]:
         """Configure an integration"""
         if name not in self.integrations:
             raise ValueError(f"Integration {name} not found")
@@ -135,7 +135,7 @@ class IntegrationService:
 
         return {"message": f"Integration {name} configured successfully"}
 
-    async def start_integration(self, name: str) -> Dict[str, Any]:
+    async def start_integration(self, name: str) -> dict[str, Any]:
         """Start an integration adapter"""
         if name not in self.integrations:
             raise ValueError(f"Integration {name} not found")
@@ -176,7 +176,7 @@ class IntegrationService:
             logger.error(f"Failed to start integration {name}: {e}")
             raise
 
-    async def stop_integration(self, name: str) -> Dict[str, Any]:
+    async def stop_integration(self, name: str) -> dict[str, Any]:
         """Stop an integration adapter"""
         if name not in self.integrations:
             raise ValueError(f"Integration {name} not found")
@@ -205,8 +205,8 @@ class IntegrationService:
             raise
 
     async def run_integration_test(
-        self, name: str, test_config: Dict[str, Any] = None
-    ) -> Dict[str, Any]:
+        self, name: str, test_config: dict[str, Any] = None
+    ) -> dict[str, Any]:
         """Run tests for an integration"""
         if name not in self.integrations:
             raise ValueError(f"Integration {name} not found")
@@ -229,14 +229,14 @@ class IntegrationService:
             }
 
     async def call_integration_method(
-        self, name: str, method: str, payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, name: str, method: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Call a method on an integration adapter"""
         return await self._call_adapter_method(name, method, payload)
 
     async def _call_adapter_method(
-        self, name: str, method: str, payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, name: str, method: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Internal method to communicate with adapter via stdin/stdout with circuit breaker
         and retry policy protection for exchange outages.
@@ -277,8 +277,8 @@ class IntegrationService:
                 return await _execute()
 
     async def _execute_adapter_call(
-        self, name: str, method: str, payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, name: str, method: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Execute the actual adapter call"""
 
         process = self.processes[name]
@@ -318,7 +318,7 @@ class IntegrationService:
             logger.error(f"Error calling {method} on {name}: {e}")
             raise
 
-    async def restart_integration(self, name: str) -> Dict[str, Any]:
+    async def restart_integration(self, name: str) -> dict[str, Any]:
         """Restart an integration"""
         await self.stop_integration(name)
         await asyncio.sleep(1)  # Brief pause
@@ -332,7 +332,7 @@ class IntegrationService:
             except Exception as e:
                 logger.warning(f"Error stopping {name} during cleanup: {e}")
 
-    def get_circuit_breaker_stats(self) -> Dict[str, Any]:
+    def get_circuit_breaker_stats(self) -> dict[str, Any]:
         """Get statistics for all circuit breakers"""
         if not circuit_breaker_available:
             return {"status": "unavailable", "message": "Circuit breakers not enabled"}
@@ -343,7 +343,7 @@ class IntegrationService:
 
         return stats
 
-    def reset_circuit_breaker(self, name: str) -> Dict[str, Any]:
+    def reset_circuit_breaker(self, name: str) -> dict[str, Any]:
         """Manually reset a circuit breaker"""
         if not circuit_breaker_available or name not in self.circuit_breakers:
             return {"status": "error", "message": f"Circuit breaker {name} not found"}

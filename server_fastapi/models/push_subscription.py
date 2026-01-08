@@ -3,10 +3,11 @@ Push Subscription Model
 Stores push notification subscriptions for mobile devices (Expo, FCM, etc.)
 """
 
-from typing import Optional
-from sqlalchemy import String, Integer, Text, ForeignKey, Boolean, DateTime, Index
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 
@@ -20,21 +21,21 @@ class PushSubscription(BaseModel):
     )
 
     # Expo push token (e.g., "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]")
-    expo_push_token: Mapped[Optional[str]] = mapped_column(
+    expo_push_token: Mapped[str | None] = mapped_column(
         String(255), nullable=True, index=True
     )
 
     # Web Push subscription (for web apps, optional)
-    endpoint: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    p256dh_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    auth_key: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    endpoint: Mapped[str | None] = mapped_column(Text, nullable=True)
+    p256dh_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    auth_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Device/platform information
     platform: Mapped[str] = mapped_column(
         String(20), nullable=False, default="unknown"
     )  # 'ios', 'android', 'web'
-    device_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    app_version: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    device_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    app_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Subscription status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -57,12 +58,12 @@ class PushSubscription(BaseModel):
     )
 
     # Last notification sent timestamp
-    last_notification_sent_at: Mapped[Optional[datetime]] = mapped_column(
+    last_notification_sent_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
 
     # Last error (for debugging failed notifications)
-    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     # Relationship

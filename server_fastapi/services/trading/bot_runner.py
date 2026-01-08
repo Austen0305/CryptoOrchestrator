@@ -3,10 +3,11 @@ Bot runner service for FastAPI backend using async SQLAlchemy
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime
+from typing import Any
+
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...database import get_db_context
 from ...repositories.bot_repository import BotRepository
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class BotConfiguration(BaseModel):
     id: str
     strategy: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     active: bool
 
 
@@ -88,9 +89,7 @@ class BotRunner:
             logger.error(f"Error stopping bot {bot_id}: {str(e)}")
             return False
 
-    async def get_bot_status(
-        self, bot_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    async def get_bot_status(self, bot_id: str, user_id: int) -> dict[str, Any] | None:
         """Get bot status"""
         try:
             async with get_db_context() as session:
@@ -104,7 +103,7 @@ class BotRunner:
             logger.error(f"Error getting bot status for {bot_id}: {str(e)}")
             return None
 
-    async def list_bots(self, user_id: int) -> List[BotConfiguration]:
+    async def list_bots(self, user_id: int) -> list[BotConfiguration]:
         """List all bots for a user"""
         try:
             async with get_db_context() as session:
@@ -133,8 +132,8 @@ class BotRunner:
         name: str,
         symbol: str,
         strategy: str,
-        parameters: Dict[str, Any],
-    ) -> Optional[str]:
+        parameters: dict[str, Any],
+    ) -> str | None:
         """Create a new bot"""
         try:
             bot_id = f"bot-{user_id}-{hash(f'{user_id}-{name}-{datetime.now().isoformat()}') % 1000000}"
@@ -155,7 +154,7 @@ class BotRunner:
             return None
 
     async def update_bot_performance(
-        self, bot_id: str, user_id: int, performance_data: Dict[str, Any]
+        self, bot_id: str, user_id: int, performance_data: dict[str, Any]
     ) -> bool:
         """Update bot performance data"""
         try:

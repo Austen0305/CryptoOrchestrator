@@ -2,17 +2,17 @@
 Payments Routes - Free subscription management (no payment processing required)
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Request, Header
-from pydantic import BaseModel, EmailStr
-from typing import Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated, Any
 
-from ..services.payments.free_subscription_service import (
-    free_subscription_service,
-    SubscriptionTier,
-)
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel, EmailStr
+
 from ..dependencies.auth import get_current_user
+from ..services.payments.free_subscription_service import (
+    SubscriptionTier,
+    free_subscription_service,
+)
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class CreateSubscriptionRequest(BaseModel):
     """Create subscription request"""
 
     tier: str
-    payment_method_id: Optional[str] = None
+    payment_method_id: str | None = None
     email: EmailStr
 
 
@@ -41,14 +41,14 @@ class PaymentIntentRequest(BaseModel):
     amount: int
     currency: str = "usd"
     payment_method_type: str = "card"  # 'card', 'ach', 'bank_transfer'
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
-@router.post("/customers", response_model=Dict)
+@router.post("/customers", response_model=dict)
 async def create_customer(
     email: EmailStr,
     current_user: Annotated[dict, Depends(get_current_user)],
-    name: Optional[str] = None,
+    name: str | None = None,
 ):
     """Create a customer (free - no external service needed)"""
     try:
@@ -66,7 +66,7 @@ async def create_customer(
         raise HTTPException(status_code=500, detail="Failed to create customer")
 
 
-@router.post("/subscriptions", response_model=Dict)
+@router.post("/subscriptions", response_model=dict)
 async def create_subscription(
     request: CreateSubscriptionRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -109,7 +109,7 @@ async def create_subscription(
         raise HTTPException(status_code=500, detail="Failed to create subscription")
 
 
-@router.get("/subscriptions/{subscription_id}", response_model=Dict)
+@router.get("/subscriptions/{subscription_id}", response_model=dict)
 async def get_subscription(
     subscription_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -129,7 +129,7 @@ async def get_subscription(
         raise HTTPException(status_code=500, detail="Failed to get subscription")
 
 
-@router.patch("/subscriptions/{subscription_id}", response_model=Dict)
+@router.patch("/subscriptions/{subscription_id}", response_model=dict)
 async def update_subscription(
     subscription_id: str,
     request: UpdateSubscriptionRequest,
@@ -145,7 +145,7 @@ async def update_subscription(
             "enterprise": SubscriptionTier.ENTERPRISE,
         }
         tier = tier_map.get(request.new_tier.lower(), SubscriptionTier.FREE)
-        
+
         subscription = free_subscription_service.update_subscription(
             subscription_id=subscription_id, tier=tier
         )
@@ -161,7 +161,7 @@ async def update_subscription(
         raise HTTPException(status_code=500, detail="Failed to update subscription")
 
 
-@router.delete("/subscriptions/{subscription_id}", response_model=Dict)
+@router.delete("/subscriptions/{subscription_id}", response_model=dict)
 async def cancel_subscription(
     subscription_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -184,7 +184,7 @@ async def cancel_subscription(
         raise HTTPException(status_code=500, detail="Failed to cancel subscription")
 
 
-@router.post("/payment-intents", response_model=Dict)
+@router.post("/payment-intents", response_model=dict)
 async def create_payment_intent(
     request: PaymentIntentRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -193,14 +193,14 @@ async def create_payment_intent(
     # Free subscriptions don't need payment intents
     raise HTTPException(
         status_code=400,
-        detail="Payment intents not needed - all subscriptions are free"
+        detail="Payment intents not needed - all subscriptions are free",
     )
 
 
 @router.post("/webhooks")
 async def handle_stripe_webhook(
     request: Request,
-    stripe_signature: Optional[str] = Header(None, alias="Stripe-Signature"),
+    stripe_signature: str | None = Header(None, alias="Stripe-Signature"),
 ):
     """Handle Stripe webhook events"""
     try:
@@ -212,10 +212,11 @@ async def handle_stripe_webhook(
         # Note: Webhook handling for wallet deposits may still be needed
         # For free subscriptions, webhooks aren't needed, but we keep this for wallet deposits
         # If you need wallet deposits, you'll need to implement a different payment processor
-        
+
         # Try to parse webhook data if it exists (for wallet deposits)
         try:
             import json
+
             event_data_raw = json.loads(payload.decode()) if payload else {}
             event_type = event_data_raw.get("type") or event_data_raw.get("event")
             event_data = event_data_raw.get("data", {})
@@ -231,11 +232,13 @@ async def handle_stripe_webhook(
             payment_intent_id = event_data.get("id") or event_data.get("payment_intent")
             if payment_intent_id:
                 try:
-                    from ..services.deposit_safety import deposit_safety_service
-                    from sqlalchemy import select
-                    from ..models.wallet import WalletTransaction
-                    from ..database import get_db_context
                     from decimal import Decimal
+
+                    from sqlalchemy import select
+
+                    from ..database import get_db_context
+                    from ..models.wallet import WalletTransaction
+                    from ..services.deposit_safety import deposit_safety_service
 
                     async with get_db_context() as db:
                         # Find transaction by payment intent ID
@@ -250,14 +253,16 @@ async def handle_stripe_webhook(
                             # This verifies payment, prevents duplicates, and ensures atomic operations
                             amount_decimal = Decimal(str(transaction.amount))
 
-                            success, processed_txn_id, error_msg = (
-                                await deposit_safety_service.process_deposit_safely(
-                                    user_id=transaction.user_id,
-                                    amount=amount_decimal,
-                                    currency=transaction.currency,
-                                    payment_intent_id=payment_intent_id,
-                                    db=db,
-                                )
+                            (
+                                success,
+                                processed_txn_id,
+                                error_msg,
+                            ) = await deposit_safety_service.process_deposit_safely(
+                                user_id=transaction.user_id,
+                                amount=amount_decimal,
+                                currency=transaction.currency,
+                                payment_intent_id=payment_intent_id,
+                                db=db,
                             )
 
                             if success:
@@ -292,7 +297,7 @@ async def handle_stripe_webhook(
         raise HTTPException(status_code=500, detail="Failed to handle webhook")
 
 
-@router.get("/pricing", response_model=Dict)
+@router.get("/pricing", response_model=dict)
 async def get_pricing():
     """Get pricing information for all tiers (all free)"""
     try:

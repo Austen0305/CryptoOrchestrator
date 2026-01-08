@@ -4,10 +4,11 @@ Provides sophisticated market analysis, risk management, and adaptive strategies
 """
 
 import logging
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime, timedelta
-import numpy as np
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +20,7 @@ class MarketSignal:
     action: str  # 'buy', 'sell', 'hold'
     confidence: float  # 0.0 to 1.0
     strength: float  # Signal strength
-    reasoning: List[str]  # Human-readable reasons
+    reasoning: list[str]  # Human-readable reasons
     risk_score: float  # 0.0 (low) to 1.0 (high)
     timestamp: datetime
 
@@ -42,8 +43,8 @@ class PatternRecognition:
 
     pattern_type: str  # 'head_shoulders', 'double_top', 'triangle', etc.
     confidence: float
-    target_price: Optional[float]
-    invalidation_price: Optional[float]
+    target_price: float | None
+    invalidation_price: float | None
     timeframe: str
 
 
@@ -69,7 +70,7 @@ class SmartBotEngine:
         self.pattern_lookback = 50  # Candles to analyze for patterns
         self.pattern_confidence_boost = 0.15  # Boost confidence when pattern detected
 
-    async def analyze_market(self, market_data: Dict[str, Any]) -> MarketSignal:
+    async def analyze_market(self, market_data: dict[str, Any]) -> MarketSignal:
         """
         Comprehensive market analysis combining multiple signals with advanced intelligence
 
@@ -164,7 +165,7 @@ class SmartBotEngine:
                 timestamp=datetime.now(),
             )
 
-    def _analyze_trend(self, closes: np.ndarray) -> Dict[str, Any]:
+    def _analyze_trend(self, closes: np.ndarray) -> dict[str, Any]:
         """Multi-timeframe trend analysis with EMA crossovers"""
         ema_short = self._ema(closes, 9)
         ema_medium = self._ema(closes, 21)
@@ -203,7 +204,7 @@ class SmartBotEngine:
 
     def _analyze_momentum(
         self, closes: np.ndarray, volumes: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """RSI, MACD, and Stochastic momentum indicators"""
         # RSI
         rsi = self._rsi(closes, period=14)
@@ -247,7 +248,7 @@ class SmartBotEngine:
 
     def _analyze_volatility(
         self, closes: np.ndarray, highs: np.ndarray, lows: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Bollinger Bands, ATR, and volatility metrics"""
         # Bollinger Bands
         sma = np.mean(closes[-20:])
@@ -277,7 +278,7 @@ class SmartBotEngine:
             "volatility_state": volatility_state,
         }
 
-    def _analyze_volume(self, volumes: np.ndarray) -> Dict[str, Any]:
+    def _analyze_volume(self, volumes: np.ndarray) -> dict[str, Any]:
         """Volume analysis with OBV and volume trend"""
         # On-Balance Volume (OBV)
         obv = np.cumsum(volumes)
@@ -300,7 +301,7 @@ class SmartBotEngine:
 
     def _find_support_resistance(
         self, closes: np.ndarray, highs: np.ndarray, lows: np.ndarray
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Identify key support and resistance levels"""
         # Find local maxima and minima
         window = 5
@@ -337,13 +338,15 @@ class SmartBotEngine:
             "position": (
                 "near_resistance"
                 if resistance_distance < 0.02
-                else "near_support" if support_distance < 0.02 else "mid_range"
+                else "near_support"
+                if support_distance < 0.02
+                else "mid_range"
             ),
         }
 
     def _synthesize_signals(
-        self, signals: Dict[str, Any], current_price: float
-    ) -> Tuple[str, float, float, List[str]]:
+        self, signals: dict[str, Any], current_price: float
+    ) -> tuple[str, float, float, list[str]]:
         """Combine all signals into final trading decision"""
         reasoning = []
         buy_score = 0.0
@@ -353,10 +356,10 @@ class SmartBotEngine:
         trend = signals["trend"]
         if trend["score"] > 0.5:
             buy_score += trend["score"] * 0.3
-            reasoning.append(f"Bullish trend detected (EMA alignment)")
+            reasoning.append("Bullish trend detected (EMA alignment)")
         elif trend["score"] < -0.5:
             sell_score += abs(trend["score"]) * 0.3
-            reasoning.append(f"Bearish trend detected (EMA divergence)")
+            reasoning.append("Bearish trend detected (EMA divergence)")
 
         # Momentum
         momentum = signals["momentum"]
@@ -423,8 +426,8 @@ class SmartBotEngine:
         return action, confidence, strength, reasoning
 
     def _evaluate_patterns(
-        self, patterns: List[PatternRecognition], current_price: float
-    ) -> Dict[str, Any]:
+        self, patterns: list[PatternRecognition], current_price: float
+    ) -> dict[str, Any]:
         """Evaluate detected chart patterns and return signal"""
         if not patterns:
             return {
@@ -461,8 +464,8 @@ class SmartBotEngine:
         }
 
     def _synthesize_signals_enhanced(
-        self, signals: Dict[str, Any], current_price: float
-    ) -> Tuple[str, float, float, List[str]]:
+        self, signals: dict[str, Any], current_price: float
+    ) -> tuple[str, float, float, list[str]]:
         """
         Enhanced signal synthesis incorporating advanced features
         """
@@ -589,8 +592,8 @@ class SmartBotEngine:
         self,
         closes: np.ndarray,
         volumes: np.ndarray,
-        volatility_signal: Dict[str, Any],
-        order_flow: Dict[str, Any],
+        volatility_signal: dict[str, Any],
+        order_flow: dict[str, Any],
     ) -> float:
         """Enhanced risk score incorporating market microstructure"""
         # Base volatility risk
@@ -671,7 +674,7 @@ class SmartBotEngine:
         rsi = 100 - (100 / (1 + rs))
         return rsi
 
-    def _macd(self, closes: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _macd(self, closes: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """MACD indicator"""
         ema_12 = self._ema(closes, 12)
         ema_26 = self._ema(closes, 26)
@@ -680,7 +683,7 @@ class SmartBotEngine:
         histogram = macd_line - signal_line
         return macd_line, signal_line, histogram
 
-    def _stochastic(self, closes: np.ndarray, period: int = 14) -> Tuple[float, float]:
+    def _stochastic(self, closes: np.ndarray, period: int = 14) -> tuple[float, float]:
         """Stochastic Oscillator"""
         recent = closes[-period:]
         low = np.min(recent)
@@ -724,7 +727,7 @@ class SmartBotEngine:
         risk_per_trade: float,
         entry_price: float,
         stop_loss_price: float,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculate optimal position size based on risk management"""
         risk_amount = account_balance * risk_per_trade
         price_risk = abs(entry_price - stop_loss_price)
@@ -751,7 +754,7 @@ class SmartBotEngine:
             * 100,
         }
 
-    async def get_adaptive_parameters(self, market_condition: str) -> Dict[str, Any]:
+    async def get_adaptive_parameters(self, market_condition: str) -> dict[str, Any]:
         """Adjust bot parameters based on market regime"""
         if market_condition == "bull":
             return {
@@ -785,8 +788,8 @@ class SmartBotEngine:
     # ============= ADVANCED INTELLIGENCE FEATURES =============
 
     def _detect_chart_patterns(
-        self, candles: List[Dict[str, Any]]
-    ) -> List[PatternRecognition]:
+        self, candles: list[dict[str, Any]]
+    ) -> list[PatternRecognition]:
         """
         Detect chart patterns using advanced pattern recognition
         Returns list of detected patterns with confidence scores
@@ -824,7 +827,7 @@ class SmartBotEngine:
 
     def _detect_head_and_shoulders(
         self, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray
-    ) -> Optional[PatternRecognition]:
+    ) -> PatternRecognition | None:
         """Detect Head and Shoulders pattern (bearish reversal)"""
         try:
             # Find peaks using local maxima
@@ -881,7 +884,7 @@ class SmartBotEngine:
 
     def _detect_double_top_bottom(
         self, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray
-    ) -> Optional[PatternRecognition]:
+    ) -> PatternRecognition | None:
         """Detect Double Top (bearish) or Double Bottom (bullish) patterns"""
         try:
             # Double Top detection
@@ -933,7 +936,7 @@ class SmartBotEngine:
 
     def _detect_triangle(
         self, highs: np.ndarray, lows: np.ndarray
-    ) -> Optional[PatternRecognition]:
+    ) -> PatternRecognition | None:
         """Detect triangle patterns (ascending, descending, symmetrical)"""
         try:
             if len(highs) < 20:
@@ -984,7 +987,7 @@ class SmartBotEngine:
 
     def _detect_flag_pennant(
         self, highs: np.ndarray, lows: np.ndarray, closes: np.ndarray
-    ) -> Optional[PatternRecognition]:
+    ) -> PatternRecognition | None:
         """Detect Flag and Pennant continuation patterns"""
         try:
             if len(closes) < 30:
@@ -1028,8 +1031,8 @@ class SmartBotEngine:
         return None
 
     def _analyze_order_flow(
-        self, candles: List[Dict[str, Any]], orderbook: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, candles: list[dict[str, Any]], orderbook: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Analyze order flow and market microstructure
         Returns buying/selling pressure and liquidity metrics
@@ -1094,8 +1097,8 @@ class SmartBotEngine:
             }
 
     def _calculate_volume_profile(
-        self, candles: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        self, candles: list[dict[str, Any]]
+    ) -> dict[str, Any]:
         """
         Calculate volume profile to identify high-volume price levels
         Returns point of control (POC) and value area
@@ -1171,7 +1174,7 @@ class SmartBotEngine:
             logger.error(f"Volume profile calculation error: {e}")
             return {"poc": None, "value_area_high": None, "value_area_low": None}
 
-    def _predict_next_move_ml(self, candles: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _predict_next_move_ml(self, candles: list[dict[str, Any]]) -> dict[str, Any]:
         """
         Simple ML-based price prediction using recent patterns
         Uses basic time series features and pattern matching

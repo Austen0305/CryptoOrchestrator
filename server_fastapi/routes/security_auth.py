@@ -3,8 +3,9 @@ Security Authentication Routes
 Hardware keys, passkeys, and advanced authentication
 """
 
-from fastapi import APIRouter, HTTPException, Query
-from typing import Optional, Dict, Any
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from ..services.security.hardware_key_auth import hardware_key_auth_service
@@ -18,12 +19,12 @@ class RegistrationRequest(BaseModel):
     user_id: str
     username: str
     display_name: str
-    device_name: Optional[str] = None
+    device_name: str | None = None
 
 
 class AuthenticationRequest(BaseModel):
-    user_id: Optional[str] = None
-    response: Dict[str, Any]
+    user_id: str | None = None
+    response: dict[str, Any]
 
 
 # Hardware Key Endpoints
@@ -44,7 +45,7 @@ async def generate_hardware_key_registration_options(request: RegistrationReques
 @router.post("/hardware-key/register/verify")
 async def verify_hardware_key_registration(
     user_id: str,
-    response: Dict[str, Any],
+    response: dict[str, Any],
     challenge: str,
 ):
     """Verify hardware key registration"""
@@ -53,10 +54,10 @@ async def verify_hardware_key_registration(
         registration_response=response,
         challenge=challenge,
     )
-    
+
     if not credential:
         raise HTTPException(status_code=400, detail="Registration verification failed")
-    
+
     return {
         "status": "success",
         "credential_id": credential.credential_id,
@@ -77,7 +78,7 @@ async def generate_hardware_key_authentication_options(user_id: str):
 @router.post("/hardware-key/authenticate/verify")
 async def verify_hardware_key_authentication(
     user_id: str,
-    response: Dict[str, Any],
+    response: dict[str, Any],
     challenge: str,
 ):
     """Verify hardware key authentication"""
@@ -86,10 +87,10 @@ async def verify_hardware_key_authentication(
         authentication_response=response,
         challenge=challenge,
     )
-    
+
     if not success:
         raise HTTPException(status_code=401, detail="Authentication failed")
-    
+
     return {"status": "success", "authenticated": True}
 
 
@@ -103,7 +104,9 @@ async def get_hardware_key_credentials(user_id: str):
                 "credential_id": cred.credential_id,
                 "device_name": cred.device_name,
                 "created_at": cred.created_at.isoformat() if cred.created_at else None,
-                "last_used_at": cred.last_used_at.isoformat() if cred.last_used_at else None,
+                "last_used_at": cred.last_used_at.isoformat()
+                if cred.last_used_at
+                else None,
                 "counter": cred.counter,
             }
             for cred in credentials
@@ -138,17 +141,17 @@ async def generate_passkey_registration_options(request: RegistrationRequest):
 @router.post("/passkey/register/verify")
 async def verify_passkey_registration(
     user_id: str,
-    response: Dict[str, Any],
+    response: dict[str, Any],
 ):
     """Verify passkey registration"""
     credential = passkey_auth_service.verify_registration(
         user_id=user_id,
         registration_response=response,
     )
-    
+
     if not credential:
         raise HTTPException(status_code=400, detail="Registration verification failed")
-    
+
     return {
         "status": "success",
         "credential_id": credential.credential_id,
@@ -159,7 +162,7 @@ async def verify_passkey_registration(
 
 
 @router.post("/passkey/authenticate/options")
-async def generate_passkey_authentication_options(user_id: Optional[str] = None):
+async def generate_passkey_authentication_options(user_id: str | None = None):
     """Generate passkey authentication options"""
     try:
         options = passkey_auth_service.generate_authentication_options(user_id)
@@ -170,18 +173,18 @@ async def generate_passkey_authentication_options(user_id: Optional[str] = None)
 
 @router.post("/passkey/authenticate/verify")
 async def verify_passkey_authentication(
-    user_id: Optional[str] = None,
-    response: Dict[str, Any] = None,
+    user_id: str | None = None,
+    response: dict[str, Any] = None,
 ):
     """Verify passkey authentication"""
     authenticated_user_id = passkey_auth_service.verify_authentication(
         user_id=user_id,
         authentication_response=response or {},
     )
-    
+
     if not authenticated_user_id:
         raise HTTPException(status_code=401, detail="Authentication failed")
-    
+
     return {
         "status": "success",
         "authenticated": True,
@@ -199,7 +202,9 @@ async def get_passkey_credentials(user_id: str):
                 "credential_id": pk.credential_id,
                 "device_name": pk.device_name,
                 "created_at": pk.created_at.isoformat() if pk.created_at else None,
-                "last_used_at": pk.last_used_at.isoformat() if pk.last_used_at else None,
+                "last_used_at": pk.last_used_at.isoformat()
+                if pk.last_used_at
+                else None,
                 "counter": pk.counter,
                 "is_backup_eligible": pk.is_backup_eligible,
                 "is_backed_up": pk.is_backed_up,

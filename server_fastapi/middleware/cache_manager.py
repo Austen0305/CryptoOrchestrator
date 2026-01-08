@@ -3,12 +3,12 @@ Intelligent Request Caching with Redis Backend
 Reduces load and improves response times
 """
 
-import json
-import hashlib
-from typing import Optional, Any, Callable
-from functools import wraps
 import asyncio
+import hashlib
+import json
 import logging
+from collections.abc import Callable
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def cache_key(*args, **kwargs) -> str:
     return hashlib.md5(key_data.encode()).hexdigest()
 
 
-def cached(ttl: int = 300, prefix: str = "", key_builder: Optional[Callable] = None):
+def cached(ttl: int = 300, prefix: str = "", key_builder: Callable | None = None):
     """
     Decorator for caching function results
 
@@ -299,7 +299,7 @@ def cached_with_warming(
     ttl: int = 300,
     prefix: str = "",
     warm: bool = False,
-    warm_name: Optional[str] = None,
+    warm_name: str | None = None,
 ):
     """
     Enhanced caching decorator with optional cache warming

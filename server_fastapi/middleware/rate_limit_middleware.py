@@ -3,10 +3,11 @@ Rate Limiting Middleware using Distributed Rate Limiter
 Applies per-user and per-IP rate limits to all API requests
 """
 
-from fastapi import Request, HTTPException, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Callable
 import logging
+from collections.abc import Callable
+
+from fastapi import HTTPException, Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 

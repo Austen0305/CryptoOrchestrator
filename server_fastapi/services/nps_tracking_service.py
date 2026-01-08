@@ -4,10 +4,11 @@ Tracks and analyzes Net Promoter Score (NPS) and other satisfaction metrics
 """
 
 import logging
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, case
 
 from ..models.user_analytics import UserSatisfaction
 
@@ -22,11 +23,11 @@ class NPSTrackingService:
 
     async def record_nps(
         self,
-        user_id: Optional[int],
+        user_id: int | None,
         score: int,
-        response: Optional[str] = None,
-        context: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
+        response: str | None = None,
+        context: str | None = None,
+        properties: dict[str, Any] | None = None,
     ) -> UserSatisfaction:
         """Record an NPS score"""
         if score < 0 or score > 10:
@@ -49,9 +50,9 @@ class NPSTrackingService:
 
     async def calculate_nps(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """Calculate NPS score and breakdown"""
         try:
             stmt = select(UserSatisfaction).where(UserSatisfaction.survey_type == "nps")
@@ -95,7 +96,9 @@ class NPSTrackingService:
                 "passives": passives,
                 "detractors": detractors,
                 "promoter_percentage": round(promoter_percentage, 2),
-                "passive_percentage": round((passives / total * 100) if total > 0 else 0, 2),
+                "passive_percentage": round(
+                    (passives / total * 100) if total > 0 else 0, 2
+                ),
                 "detractor_percentage": round(detractor_percentage, 2),
                 "start_date": start_date.isoformat() if start_date else None,
                 "end_date": end_date.isoformat() if end_date else None,
@@ -111,7 +114,7 @@ class NPSTrackingService:
 
     async def get_nps_trend(
         self, days: int = 30, period: str = "daily"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get NPS trend over time"""
         try:
             start_date = datetime.utcnow() - timedelta(days=days)
@@ -130,9 +133,18 @@ class NPSTrackingService:
                     func.sum(case((UserSatisfaction.score >= 9, 1), else_=0)).label(
                         "promoters"
                     ),
-                    func.sum(case((and_(UserSatisfaction.score >= 7, UserSatisfaction.score <= 8), 1), else_=0)).label(
-                        "passives"
-                    ),
+                    func.sum(
+                        case(
+                            (
+                                and_(
+                                    UserSatisfaction.score >= 7,
+                                    UserSatisfaction.score <= 8,
+                                ),
+                                1,
+                            ),
+                            else_=0,
+                        )
+                    ).label("passives"),
                     func.sum(case((UserSatisfaction.score <= 6, 1), else_=0)).label(
                         "detractors"
                     ),
@@ -178,8 +190,8 @@ class NPSTrackingService:
             return []
 
     async def get_nps_breakdown(
-        self, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+        self, start_date: datetime | None = None, end_date: datetime | None = None
+    ) -> dict[str, Any]:
         """Get detailed NPS breakdown with feedback"""
         try:
             nps_data = await self.calculate_nps(start_date, end_date)

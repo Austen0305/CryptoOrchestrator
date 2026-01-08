@@ -4,18 +4,18 @@ Verifies EIP-712 signatures for trade authorization
 Prevents replay attacks
 """
 
-import logging
-from typing import Dict, Optional, Any
-from datetime import datetime, timedelta
 import hashlib
-import json
-from sqlalchemy.ext.asyncio import AsyncSession
+import logging
+from datetime import datetime, timedelta
+from typing import Any
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
     from eth_account import Account
     from eth_account.messages import encode_defunct, encode_structured_data
-    from eth_utils import to_checksum_address, is_address
+    from eth_utils import is_address, to_checksum_address
 
     ETH_ACCOUNT_AVAILABLE = True
 except ImportError:
@@ -43,8 +43,8 @@ class WalletSignatureService:
     def verify_eip712_signature(
         self,
         signature: str,
-        message: Dict[str, Any],
-        domain: Dict[str, Any],
+        message: dict[str, Any],
+        domain: dict[str, Any],
         signer_address: str,
     ) -> bool:
         """
@@ -183,7 +183,7 @@ class WalletSignatureService:
         chain_id: int,
         nonce: int,
         expiry_seconds: int = 3600,  # 1 hour default
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Create an EIP-712 trade message for signing
 
@@ -257,7 +257,7 @@ class WalletSignatureService:
         wallet_address: str,
         chain_id: int = 1,
         message_type: str = "trade",
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> int:
         """
         Generate and store a unique nonce for a trade request
@@ -343,8 +343,8 @@ class WalletSignatureService:
         wallet_address: str,
         nonce: int,
         chain_id: int = 1,
-        message_hash: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
+        message_hash: str | None = None,
+        db: AsyncSession | None = None,
     ) -> bool:
         """
         Verify nonce is valid and mark it as used

@@ -3,19 +3,19 @@ Favorites/Watchlist API Routes
 Allows users to favorite trading pairs for quick access
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query, Body
-from pydantic import BaseModel, Field
-from typing import List, Optional, Annotated
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
 from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ router = APIRouter()
 class AddFavoriteRequest(BaseModel):
     symbol: str = Field(..., description="Trading symbol (e.g., BTC/USDT)")
     exchange: str = Field(default="binance", description="Exchange name")
-    notes: Optional[str] = Field(None, max_length=500, description="Optional notes")
+    notes: str | None = Field(None, max_length=500, description="Optional notes")
 
     model_config = {
         "json_schema_extra": {
@@ -44,28 +44,28 @@ class FavoriteResponse(BaseModel):
     user_id: int
     symbol: str
     exchange: str
-    notes: Optional[str]
-    current_price: Optional[float]
-    price_change_24h: Optional[float]
+    notes: str | None
+    current_price: float | None
+    price_change_24h: float | None
     created_at: datetime
-    last_viewed_at: Optional[datetime]
+    last_viewed_at: datetime | None
 
     model_config = {"from_attributes": True}
 
 
 class WatchlistSummary(BaseModel):
     total_favorites: int
-    exchanges: List[str]
-    top_gainers: List[dict]
-    top_losers: List[dict]
+    exchanges: list[str]
+    top_gainers: list[dict]
+    top_losers: list[dict]
 
 
-@router.get("/favorites", response_model=List[FavoriteResponse], tags=["Favorites"])
+@router.get("/favorites", response_model=list[FavoriteResponse], tags=["Favorites"])
 @cached(ttl=120, prefix="favorites")  # 120s TTL for favorites list
 async def get_favorites(
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    exchange: Optional[str] = None,
+    exchange: str | None = None,
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
 ):
@@ -76,7 +76,8 @@ async def get_favorites(
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, and_, func
+        from sqlalchemy import func, select
+
         from ..models.favorite import Favorite
 
         # Build query
@@ -108,8 +109,8 @@ async def get_favorites(
         # Enrich with current market data
         enriched_favorites = []
         # Fetch market data for favorites
-        from ..services.market_data import MarketDataService
         from ..services.coingecko_service import get_coingecko_service
+        from ..services.market_data import MarketDataService
 
         market_data_service = MarketDataService()
         coingecko = get_coingecko_service()
@@ -179,6 +180,7 @@ async def add_favorite(
     try:
         user_id = _get_user_id(current_user)
         from sqlalchemy import select
+
         from ..models.favorite import Favorite
 
         # Check if already favorited
@@ -249,7 +251,8 @@ async def remove_favorite(
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, and_, delete
+        from sqlalchemy import and_, select
+
         from ..models.favorite import Favorite
 
         # Verify ownership and existence
@@ -297,7 +300,8 @@ async def update_favorite_notes(
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, and_
+        from sqlalchemy import and_, select
+
         from ..models.favorite import Favorite
 
         # Get favorite
@@ -351,7 +355,8 @@ async def get_watchlist_summary(
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         from ..models.favorite import Favorite
 
         # Count total favorites

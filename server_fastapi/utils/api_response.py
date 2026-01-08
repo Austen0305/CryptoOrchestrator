@@ -3,18 +3,18 @@ API Response Utilities
 Standardized response format helpers
 """
 
-from typing import Any, Dict, Optional
-from fastapi import Request
+from typing import Any
+
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
-from fastapi import status
 
 
 def success_response(
     data: Any,
     status_code: int = status.HTTP_200_OK,
-    message: Optional[str] = None,
-    request: Optional[Request] = None,
-) -> Dict[str, Any]:
+    message: str | None = None,
+    request: Request | None = None,
+) -> dict[str, Any]:
     """
     Create a standardized success response
 
@@ -44,10 +44,10 @@ def error_response(
     message: str,
     code: str = "ERROR",
     status_code: int = status.HTTP_400_BAD_REQUEST,
-    details: Optional[Dict[str, Any]] = None,
-    suggestion: Optional[str] = None,
-    request: Optional[Request] = None,
-) -> Dict[str, Any]:
+    details: dict[str, Any] | None = None,
+    suggestion: str | None = None,
+    request: Request | None = None,
+) -> dict[str, Any]:
     """
     Create a standardized error response
 
@@ -83,8 +83,8 @@ def error_response(
 def create_success_json_response(
     data: Any,
     status_code: int = status.HTTP_200_OK,
-    message: Optional[str] = None,
-    request: Optional[Request] = None,
+    message: str | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     """Create a JSONResponse with standardized success format"""
     return JSONResponse(
@@ -97,9 +97,9 @@ def create_error_json_response(
     message: str,
     code: str = "ERROR",
     status_code: int = status.HTTP_400_BAD_REQUEST,
-    details: Optional[Dict[str, Any]] = None,
-    suggestion: Optional[str] = None,
-    request: Optional[Request] = None,
+    details: dict[str, Any] | None = None,
+    suggestion: str | None = None,
+    request: Request | None = None,
 ) -> JSONResponse:
     """Create a JSONResponse with standardized error format"""
     return JSONResponse(

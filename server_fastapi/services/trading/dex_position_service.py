@@ -4,11 +4,12 @@ Manages open positions from DEX swaps for better P&L tracking.
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ...repositories.dex_position_repository import DEXPositionRepository, Any
+    from ...repositories.dex_position_repository import DEXPositionRepository
 from datetime import datetime
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.dex_position import DEXPosition
@@ -25,7 +26,7 @@ class DEXPositionService:
     def __init__(
         self,
         db_session: AsyncSession,
-        position_repository: Optional[DEXPositionRepository] = None,
+        position_repository: DEXPositionRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.position_repository = position_repository or DEXPositionRepository()
@@ -43,7 +44,7 @@ class DEXPositionService:
         amount: float,
         entry_price: float,
         amount_usd: float,
-    ) -> Optional[DEXPosition]:
+    ) -> DEXPosition | None:
         """
         Open a new position from a DEX trade.
 
@@ -101,8 +102,8 @@ class DEXPositionService:
     async def update_position_pnl(
         self,
         position_id: int,
-        current_price: Optional[float] = None,
-    ) -> Optional[DEXPosition]:
+        current_price: float | None = None,
+    ) -> DEXPosition | None:
         """
         Update position P&L with current price.
 
@@ -163,7 +164,7 @@ class DEXPositionService:
         position_id: int,
         exit_trade_id: int,
         exit_price: float,
-    ) -> Optional[DEXPosition]:
+    ) -> DEXPosition | None:
         """
         Close a position.
 
@@ -231,9 +232,9 @@ class DEXPositionService:
     async def get_user_positions(
         self,
         user_id: int,
-        chain_id: Optional[int] = None,
-        is_open: Optional[bool] = None,
-    ) -> List[DEXPosition]:
+        chain_id: int | None = None,
+        is_open: bool | None = None,
+    ) -> list[DEXPosition]:
         """
         Get user's positions.
 
@@ -254,7 +255,7 @@ class DEXPositionService:
             logger.error(f"Error getting user positions: {e}", exc_info=True)
             return []
 
-    async def update_all_positions_pnl(self, user_id: Optional[int] = None) -> int:
+    async def update_all_positions_pnl(self, user_id: int | None = None) -> int:
         """
         Update P&L for all open positions (or user's positions).
 

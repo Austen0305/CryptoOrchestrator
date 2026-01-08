@@ -2,23 +2,24 @@
 Model Evaluation Service - Metrics and validation system
 """
 
-from typing import Dict, Any, Optional, List, Tuple
-from pydantic import BaseModel
 import logging
-import numpy as np
 from datetime import datetime
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel
 
 try:
     from sklearn.metrics import (
         accuracy_score,
-        precision_score,
-        recall_score,
-        f1_score,
-        confusion_matrix,
         classification_report,
-        mean_squared_error,
+        confusion_matrix,
+        f1_score,
         mean_absolute_error,
+        mean_squared_error,
+        precision_score,
         r2_score,
+        recall_score,
     )
 
     SKLEARN_AVAILABLE = True
@@ -33,10 +34,10 @@ class ClassificationMetrics(BaseModel):
     """Classification metrics"""
 
     accuracy: float
-    precision: Dict[str, float]  # Per class
-    recall: Dict[str, float]  # Per class
-    f1_score: Dict[str, float]  # Per class
-    confusion_matrix: List[List[int]]
+    precision: dict[str, float]  # Per class
+    recall: dict[str, float]  # Per class
+    f1_score: dict[str, float]  # Per class
+    confusion_matrix: list[list[int]]
     classification_report: str
     macro_avg_precision: float
     macro_avg_recall: float
@@ -53,7 +54,7 @@ class RegressionMetrics(BaseModel):
     rmse: float  # Root Mean Squared Error
     mae: float  # Mean Absolute Error
     r2_score: float  # R-squared
-    mape: Optional[float] = None  # Mean Absolute Percentage Error
+    mape: float | None = None  # Mean Absolute Percentage Error
 
 
 class ModelEvaluation:
@@ -64,7 +65,7 @@ class ModelEvaluation:
         self.reverse_label_map = {"hold": 0, "buy": 1, "sell": 2}
 
     def evaluate_classification(
-        self, y_true: np.ndarray, y_pred: np.ndarray, labels: Optional[List[str]] = None
+        self, y_true: np.ndarray, y_pred: np.ndarray, labels: list[str] | None = None
     ) -> ClassificationMetrics:
         """Evaluate classification model performance"""
         if not SKLEARN_AVAILABLE:
@@ -156,7 +157,7 @@ class ModelEvaluation:
         X_test: np.ndarray,
         y_test: np.ndarray,
         model_type: str = "classification",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Comprehensive model evaluation"""
         try:
             # Get predictions

@@ -3,17 +3,18 @@ Push Notification Routes
 Handles push notification subscription and unsubscription.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Dict, Any, Annotated, Optional
-from pydantic import BaseModel, Field
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..repositories.push_subscription_repository import PushSubscriptionRepository
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +24,16 @@ router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 class PushSubscriptionRequest(BaseModel):
     """Push subscription request model"""
 
-    endpoint: Optional[str] = None
-    keys: Optional[Dict[str, str]] = None
-    expo_push_token: Optional[str] = Field(
+    endpoint: str | None = None
+    keys: dict[str, str] | None = None
+    expo_push_token: str | None = Field(
         None, description="Expo push token (e.g., ExponentPushToken[xxxxx])"
     )
-    platform: Optional[str] = Field(
+    platform: str | None = Field(
         "unknown", description="Platform: 'ios', 'android', 'web'"
     )
-    device_id: Optional[str] = None
-    app_version: Optional[str] = None
+    device_id: str | None = None
+    app_version: str | None = None
 
 
 @router.post("/subscribe")
@@ -40,7 +41,7 @@ async def subscribe_push_notifications(
     subscription: PushSubscriptionRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Subscribe user to push notifications.
 
@@ -131,10 +132,10 @@ async def subscribe_push_notifications(
 
 @router.post("/unsubscribe")
 async def unsubscribe_push_notifications(
-    subscription: Dict[str, Any],
+    subscription: dict[str, Any],
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Unsubscribe user from push notifications.
 
@@ -213,7 +214,7 @@ async def get_user_subscriptions(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Get all push notification subscriptions for the current user with pagination.
     """

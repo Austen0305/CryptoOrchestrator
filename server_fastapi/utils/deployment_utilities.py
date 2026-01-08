@@ -3,13 +3,13 @@ Deployment Utilities
 Provides utilities for deployment, health checks, and rollback
 """
 
+import json
 import logging
 import os
-import subprocess
-import json
-from typing import Dict, Any, List, Optional
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
+from typing import Any
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class DeploymentManager:
     """
     Deployment management utility
-    
+
     Features:
     - Health check validation
     - Deployment verification
@@ -29,9 +29,9 @@ class DeploymentManager:
 
     def __init__(self, base_url: str = "http://localhost:8000"):
         self.base_url = base_url
-        self.deployment_history: List[Dict[str, Any]] = []
+        self.deployment_history: list[dict[str, Any]] = []
 
-    async def health_check(self, timeout: int = 10) -> Dict[str, Any]:
+    async def health_check(self, timeout: int = 10) -> dict[str, Any]:
         """Perform health check"""
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
@@ -49,7 +49,7 @@ class DeploymentManager:
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-    async def verify_deployment(self) -> Dict[str, Any]:
+    async def verify_deployment(self) -> dict[str, Any]:
         """Verify deployment is working correctly"""
         checks = {
             "health": await self.health_check(),
@@ -58,9 +58,7 @@ class DeploymentManager:
             "redis": await self._check_redis(),
         }
 
-        all_healthy = all(
-            check.get("status") == "healthy" for check in checks.values()
-        )
+        all_healthy = all(check.get("status") == "healthy" for check in checks.values())
 
         return {
             "status": "success" if all_healthy else "failed",
@@ -68,7 +66,7 @@ class DeploymentManager:
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-    async def _check_api(self) -> Dict[str, Any]:
+    async def _check_api(self) -> dict[str, Any]:
         """Check API endpoints"""
         try:
             async with httpx.AsyncClient() as client:
@@ -77,11 +75,14 @@ class DeploymentManager:
                 if response.status_code == 200:
                     return {"status": "healthy", "message": "API accessible"}
                 else:
-                    return {"status": "unhealthy", "message": f"API returned {response.status_code}"}
+                    return {
+                        "status": "unhealthy",
+                        "message": f"API returned {response.status_code}",
+                    }
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
 
-    async def _check_database(self) -> Dict[str, Any]:
+    async def _check_database(self) -> dict[str, Any]:
         """Check database connectivity"""
         try:
             async with httpx.AsyncClient() as client:
@@ -93,7 +94,7 @@ class DeploymentManager:
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
 
-    async def _check_redis(self) -> Dict[str, Any]:
+    async def _check_redis(self) -> dict[str, Any]:
         """Check Redis connectivity"""
         try:
             async with httpx.AsyncClient() as client:
@@ -101,7 +102,10 @@ class DeploymentManager:
                 if response.status_code == 200:
                     return {"status": "healthy", "message": "Redis accessible"}
                 else:
-                    return {"status": "degraded", "message": "Redis not available (optional)"}
+                    return {
+                        "status": "degraded",
+                        "message": "Redis not available (optional)",
+                    }
         except Exception:
             return {"status": "degraded", "message": "Redis not available (optional)"}
 
@@ -110,7 +114,7 @@ class DeploymentManager:
         version: str,
         environment: str,
         status: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """Record deployment"""
         deployment = {
@@ -129,7 +133,7 @@ class DeploymentManager:
 
         logger.info(f"Deployment recorded: {version} to {environment} - {status}")
 
-    def get_deployment_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_deployment_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get deployment history"""
         return self.deployment_history[-limit:]
 
@@ -138,7 +142,7 @@ class EnvironmentValidator:
     """Validates deployment environment"""
 
     @staticmethod
-    def validate_production() -> Dict[str, Any]:
+    def validate_production() -> dict[str, Any]:
         """Validate production environment"""
         errors = []
         warnings = []
@@ -193,6 +197,7 @@ def create_deployment_package(output_dir: str = "deploy"):
             if src.is_dir():
                 # Copy directory
                 import shutil
+
                 dst = output_path / src.name
                 if dst.exists():
                     shutil.rmtree(dst)
@@ -200,6 +205,7 @@ def create_deployment_package(output_dir: str = "deploy"):
             else:
                 # Copy file
                 import shutil
+
                 shutil.copy2(src, output_path / src.name)
 
     logger.info(f"Deployment package created: {output_dir}")
@@ -208,4 +214,3 @@ def create_deployment_package(output_dir: str = "deploy"):
 # Global instances
 deployment_manager = DeploymentManager()
 environment_validator = EnvironmentValidator()
-

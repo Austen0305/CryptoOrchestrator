@@ -4,13 +4,12 @@ Logs all sensitive operations, especially real-money trades
 Includes hash chaining for tamper prevention
 """
 
-import logging
-import json
-import os
 import hashlib
+import json
+import logging
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +48,7 @@ class AuditLogger:
         """Load previous hash from hash chain file"""
         if AUDIT_HASH_FILE.exists():
             try:
-                with open(AUDIT_HASH_FILE, "r") as f:
+                with open(AUDIT_HASH_FILE) as f:
                     return f.read().strip()
             except Exception as e:
                 logger.warning(f"Failed to load previous hash: {e}")
@@ -76,7 +75,7 @@ class AuditLogger:
             return True  # No hash chain yet
 
         try:
-            with open(AUDIT_HASH_FILE, "r") as f:
+            with open(AUDIT_HASH_FILE) as f:
                 hashes = [line.strip() for line in f.readlines() if line.strip()]
 
             # Recalculate hashes from audit log
@@ -85,7 +84,7 @@ class AuditLogger:
 
             calculated_hash = ""
             log_entries = []
-            with open(AUDIT_LOG_FILE, "r") as f:
+            with open(AUDIT_LOG_FILE) as f:
                 for line in f:
                     if line.strip():
                         # Parse log line to extract JSON message
@@ -131,7 +130,7 @@ class AuditLogger:
             logger.error(f"Hash chain verification error: {e}")
             return False
 
-    async def verify_integrity(self) -> Dict[str, Any]:
+    async def verify_integrity(self) -> dict[str, Any]:
         """
         Verify audit log integrity and return detailed results
 
@@ -144,7 +143,7 @@ class AuditLogger:
         log_size = AUDIT_LOG_FILE.stat().st_size if AUDIT_LOG_FILE.exists() else 0
         hash_count = 0
         if AUDIT_HASH_FILE.exists():
-            with open(AUDIT_HASH_FILE, "r") as f:
+            with open(AUDIT_HASH_FILE) as f:
                 hash_count = len([line for line in f if line.strip()])
 
         return {
@@ -165,13 +164,13 @@ class AuditLogger:
         amount: float,
         price: float,
         mode: str,
-        order_id: Optional[str] = None,
-        transaction_hash: Optional[str] = None,  # Blockchain transaction hash
-        bot_id: Optional[str] = None,
+        order_id: str | None = None,
+        transaction_hash: str | None = None,  # Blockchain transaction hash
+        bot_id: str | None = None,
         mfa_used: bool = False,
         risk_checks_passed: bool = True,
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
         **kwargs,
     ):
         """Log a trade execution for audit purposes"""
@@ -235,7 +234,7 @@ class AuditLogger:
         operation: str,  # 'create', 'update', 'delete', 'validate'
         exchange: str,
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
         **kwargs,
     ):
         """Log API key operations for audit"""
@@ -316,7 +315,7 @@ class AuditLogger:
         self,
         user_id: int,
         event_type: str,  # 'limit_exceeded', 'emergency_stop', 'risk_check_failed'
-        details: Dict[str, Any],
+        details: dict[str, Any],
         **kwargs,
     ):
         """Log risk management events"""
@@ -338,7 +337,7 @@ class AuditLogger:
         self,
         user_id: int,
         event_type: str,  # 'failed_login', 'unauthorized_access', 'suspicious_activity'
-        details: Dict[str, Any],
+        details: dict[str, Any],
         **kwargs,
     ):
         """Log security-related events"""
@@ -360,14 +359,14 @@ class AuditLogger:
         self,
         user_id: int,
         operation: str,  # 'create', 'deposit', 'withdraw', 'balance_refresh', 'register_external'
-        wallet_id: Optional[int] = None,
-        wallet_type: Optional[str] = None,
-        chain_id: Optional[int] = None,
-        amount: Optional[float] = None,
-        token_address: Optional[str] = None,
-        transaction_hash: Optional[str] = None,
+        wallet_id: int | None = None,
+        wallet_type: str | None = None,
+        chain_id: int | None = None,
+        amount: float | None = None,
+        token_address: str | None = None,
+        transaction_hash: str | None = None,
         success: bool = True,
-        error: Optional[str] = None,
+        error: str | None = None,
         **kwargs,
     ):
         """Log wallet operations for audit"""
@@ -418,12 +417,12 @@ class AuditLogger:
 
     def get_audit_logs(
         self,
-        user_id: Optional[int] = None,
-        event_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        user_id: int | None = None,
+        event_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Retrieve audit logs with filtering"""
         logs = []
 
@@ -431,7 +430,7 @@ class AuditLogger:
             if not AUDIT_LOG_FILE.exists():
                 return logs
 
-            with open(AUDIT_LOG_FILE, "r") as f:
+            with open(AUDIT_LOG_FILE) as f:
                 for line in f:
                     try:
                         # Parse log line (format: timestamp - logger - level - message)
@@ -467,7 +466,7 @@ class AuditLogger:
 
                         if len(logs) >= limit:
                             break
-                    except (json.JSONDecodeError, ValueError) as e:
+                    except (json.JSONDecodeError, ValueError):
                         # Skip invalid log lines
                         continue
 
@@ -481,10 +480,10 @@ class AuditLogger:
 
     def export_audit_logs(
         self,
-        user_id: Optional[int] = None,
-        event_type: Optional[str] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
+        user_id: int | None = None,
+        event_type: str | None = None,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
         format: str = "json",  # 'json' or 'csv'
     ) -> str:
         """
@@ -549,7 +548,7 @@ class AuditLogger:
             cutoff_timestamp = cutoff_date.isoformat()
 
             # Read all logs
-            with open(AUDIT_LOG_FILE, "r") as f:
+            with open(AUDIT_LOG_FILE) as f:
                 lines = f.readlines()
 
             # Filter logs to keep

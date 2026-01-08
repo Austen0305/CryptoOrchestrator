@@ -2,9 +2,10 @@
 Tests for Performance Routes
 """
 
+from datetime import datetime
+
 import pytest
 from httpx import AsyncClient
-from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server_fastapi.models.trade import Trade

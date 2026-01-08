@@ -5,10 +5,8 @@ Integrates with Flashbots Protect and MEV Blocker.
 """
 
 import logging
-from typing import Dict, Optional, Any, List
 from enum import Enum
-import httpx
-from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +49,8 @@ class MEVProtectionService:
         self._enabled_chains = [1, 8453, 42161, 137, 10]  # Supported chains
 
     async def get_protected_rpc_url(
-        self, chain_id: int, provider: Optional[MEVProtectionProvider] = None
-    ) -> Optional[str]:
+        self, chain_id: int, provider: MEVProtectionProvider | None = None
+    ) -> str | None:
         """
         Get MEV-protected RPC URL for a chain.
 
@@ -93,7 +91,7 @@ class MEVProtectionService:
         self,
         trade_amount_usd: float,
         chain_id: int,
-        user_preference: Optional[bool] = None,
+        user_preference: bool | None = None,
     ) -> bool:
         """
         Determine if MEV protection should be used for a trade.
@@ -129,10 +127,10 @@ class MEVProtectionService:
 
     async def send_protected_transaction(
         self,
-        transaction_data: Dict[str, Any],
+        transaction_data: dict[str, Any],
         chain_id: int,
-        provider: Optional[MEVProtectionProvider] = None,
-    ) -> Optional[str]:
+        provider: MEVProtectionProvider | None = None,
+    ) -> str | None:
         """
         Send transaction through MEV-protected RPC.
 
@@ -191,7 +189,7 @@ class MEVProtectionService:
             )
             return None
 
-    def get_protection_status(self, chain_id: int) -> Dict[str, Any]:
+    def get_protection_status(self, chain_id: int) -> dict[str, Any]:
         """
         Get MEV protection status for a chain.
 
@@ -230,7 +228,7 @@ class MEVProtectionService:
 
 
 # Singleton instance
-_mev_protection: Optional[MEVProtectionService] = None
+_mev_protection: MEVProtectionService | None = None
 
 
 def get_mev_protection_service() -> MEVProtectionService:

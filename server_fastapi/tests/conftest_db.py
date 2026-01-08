@@ -3,19 +3,15 @@ Database test isolation fixtures for pytest.
 Provides isolated test databases using PostgreSQL or SQLite.
 """
 
-import pytest
 import asyncio
 import os
-from typing import AsyncGenerator
-from pathlib import Path
-import tempfile
-import shutil
+from collections.abc import AsyncGenerator
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool, NullPool
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
 
-from server_fastapi.database import Base, get_db_session
-
+from server_fastapi.database import Base
 
 # Database configuration
 TEST_DB_URL = os.getenv(
@@ -40,8 +36,7 @@ async def test_db_engine():
     """Create isolated test database engine."""
     if USE_POSTGRES:
         # PostgreSQL: Create a temporary database
-        from sqlalchemy import create_engine
-        from sqlalchemy import text
+        from sqlalchemy import create_engine, text
 
         # Extract base connection URL (without database name)
         base_url = TEST_DB_URL.rsplit("/", 1)[0] + "/postgres"
@@ -61,7 +56,9 @@ async def test_db_engine():
         # Create async engine for test database
         test_url = f"{TEST_DB_URL.rsplit('/', 1)[0]}/{test_db_name}"
         engine = create_async_engine(
-            test_url, poolclass=NullPool, echo=False  # No pooling for tests
+            test_url,
+            poolclass=NullPool,
+            echo=False,  # No pooling for tests
         )
     else:
         # SQLite: Use in-memory database

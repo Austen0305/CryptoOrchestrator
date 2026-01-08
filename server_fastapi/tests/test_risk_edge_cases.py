@@ -3,12 +3,10 @@ Risk Management Edge Cases Tests
 Tests edge cases, boundary conditions, and error scenarios for risk management
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
 import logging
-from datetime import datetime, timedelta
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +126,7 @@ class TestRiskEdgeCases:
     ):
         """Test concurrent risk limit checks (race conditions)"""
         import asyncio
+
         from server_fastapi.services.risk_service import RiskService
 
         risk_service = RiskService(db_session=db_session)

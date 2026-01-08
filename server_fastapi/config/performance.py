@@ -1,8 +1,9 @@
 """Performance and optimization settings"""
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from functools import lru_cache
 import os
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class PerformanceSettings(BaseSettings):
@@ -47,6 +48,6 @@ class PerformanceSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PERF_")
 
 
-@lru_cache()
+@lru_cache
 def get_performance_settings() -> PerformanceSettings:
     return PerformanceSettings()

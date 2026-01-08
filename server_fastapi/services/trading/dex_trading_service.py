@@ -5,26 +5,26 @@ Handles custodial and non-custodial trades
 Calculates and charges platform trading fees
 """
 
-import logging
 import hashlib
 import json
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
+import logging
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from decimal import Decimal
+from typing import Any
 
-from .aggregator_router import AggregatorRouter
-from ..wallet_signature_service import WalletSignatureService
-from ..wallet_service import WalletService
-from ..blockchain.web3_service import get_web3_service
-from ..blockchain.balance_service import get_balance_service
-from ..blockchain.transaction_service import get_transaction_service
-from ..blockchain.key_management import get_key_management_service
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...models.dex_trade import DEXTrade
 from ...models.trading_fee import TradingFee
 from ...models.user_wallet import UserWallet
+from ..blockchain.balance_service import get_balance_service
+from ..blockchain.key_management import get_key_management_service
+from ..blockchain.transaction_service import get_transaction_service
+from ..blockchain.web3_service import get_web3_service
 from ..payments.trading_fee_service import TradingFeeService
+from ..wallet_service import WalletService
+from ..wallet_signature_service import WalletSignatureService
+from .aggregator_router import AggregatorRouter
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class DEXTradingService:
     """Service for executing DEX trades (custodial and non-custodial)"""
 
-    def __init__(self, db_session: Optional[AsyncSession] = None):
+    def __init__(self, db_session: AsyncSession | None = None):
         self.db_session = db_session
         self.router = AggregatorRouter()
         self.signature_service = WalletSignatureService()
@@ -45,14 +45,16 @@ class DEXTradingService:
             self.transaction_service = get_transaction_service()
             self.key_management = get_key_management_service()
         except Exception as e:
-            logger.warning(f"Web3 services not available: {e}. DEX trading will be limited.")
+            logger.warning(
+                f"Web3 services not available: {e}. DEX trading will be limited."
+            )
             self.web3_service = None
             self.balance_service = None
             self.transaction_service = None
             self.key_management = None
         # Quote cache (10s TTL - very short due to volatility)
-        self._quote_cache: Dict[str, Dict[str, Any]] = {}
-        self._quote_cache_timestamps: Dict[str, float] = {}
+        self._quote_cache: dict[str, dict[str, Any]] = {}
+        self._quote_cache_timestamps: dict[str, float] = {}
         self._quote_cache_ttl = 10  # 10 seconds
 
         # Try to get Redis cache service for distributed caching
@@ -67,8 +69,8 @@ class DEXTradingService:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         chain_id: int,
         slippage_percentage: float,
     ) -> str:
@@ -86,7 +88,7 @@ class DEXTradingService:
         key_str = json.dumps(key_data, sort_keys=True)
         return f"dex_quote:{hashlib.md5(key_str.encode()).hexdigest()}"
 
-    async def _get_cached_quote(self, cache_key: str) -> Optional[Dict[str, Any]]:
+    async def _get_cached_quote(self, cache_key: str) -> dict[str, Any] | None:
         """Get quote from cache if not expired"""
         import time
 
@@ -111,7 +113,7 @@ class DEXTradingService:
 
         return None
 
-    async def _set_cached_quote(self, cache_key: str, quote: Dict[str, Any]):
+    async def _set_cached_quote(self, cache_key: str, quote: dict[str, Any]):
         """Cache quote (both Redis and in-memory)"""
         import time
 
@@ -130,14 +132,14 @@ class DEXTradingService:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-        user_wallet_address: Optional[str] = None,
+        user_wallet_address: str | None = None,
         cross_chain: bool = False,
-        to_chain_id: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        to_chain_id: int | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get best quote from DEX aggregators (with 10s caching)
 
@@ -211,7 +213,7 @@ class DEXTradingService:
 
     async def _get_user_wallet(
         self, user_id: int, chain_id: int, db: AsyncSession
-    ) -> Optional[UserWallet]:
+    ) -> UserWallet | None:
         """
         Get user's custodial wallet for a specific chain
 
@@ -260,14 +262,14 @@ class DEXTradingService:
         platform_fee_bps: int,
         platform_fee_amount: float,
         aggregator_fee_amount: float,
-        user_wallet_address: Optional[str],
-        quote_data: Optional[Dict[str, Any]],
-        swap_calldata: Optional[str] = None,
-        swap_target: Optional[str] = None,
-        transaction_hash: Optional[str] = None,
+        user_wallet_address: str | None,
+        quote_data: dict[str, Any] | None,
+        swap_calldata: str | None = None,
+        swap_target: str | None = None,
+        transaction_hash: str | None = None,
         status: str = "pending",
         db: AsyncSession = None,
-    ) -> Optional[DEXTrade]:
+    ) -> DEXTrade | None:
         """
         Save DEX trade to database
 
@@ -323,7 +325,7 @@ class DEXTradingService:
         monthly_volume: float,
         is_custodial: bool,
         db: AsyncSession,
-    ) -> Optional[TradingFee]:
+    ) -> TradingFee | None:
         """
         Save trading fee record to database
 
@@ -368,7 +370,7 @@ class DEXTradingService:
         user_tier: str = "free",
         enable_batching: bool = True,
         force_immediate: bool = False,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Execute a custodial swap (platform holds funds)
 
@@ -390,8 +392,9 @@ class DEXTradingService:
         # Use transaction batching if enabled (for bot trades)
         if enable_batching and not force_immediate:
             try:
-                from ..blockchain.transaction_batcher import get_transaction_batcher
                 import uuid
+
+                from ..blockchain.transaction_batcher import get_transaction_batcher
 
                 batcher = get_transaction_batcher()
                 swap_id = str(uuid.uuid4())
@@ -858,11 +861,11 @@ class DEXTradingService:
         user_wallet_address: str,  # Required parameter moved before defaults
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-        transaction_hash: Optional[str] = None,
-        signature: Optional[str] = None,
+        transaction_hash: str | None = None,
+        signature: str | None = None,
         db: AsyncSession = None,
         user_tier: str = "free",
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Execute or track a non-custodial swap (user executes from their wallet)
 
@@ -1076,10 +1079,10 @@ class DEXTradingService:
         user_wallet_address: str,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-        signature: Optional[str] = None,
+        signature: str | None = None,
         trading_fee_bps: int = 15,  # 0.15% for non-custodial
-        db: Optional[AsyncSession] = None,
-    ) -> Optional[Dict[str, Any]]:
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any] | None:
         """
         Prepare swap calldata for non-custodial execution (user's wallet)
 
@@ -1193,9 +1196,9 @@ class DEXTradingService:
         self,
         chain_id: int,
         wallet_address: str,
-        swap_calldata: Dict[str, Any] | str,
-        swap_target: Optional[str] = None,
-    ) -> Optional[str]:
+        swap_calldata: dict[str, Any] | str,
+        swap_target: str | None = None,
+    ) -> str | None:
         """
         Execute swap transaction on blockchain
 
@@ -1348,7 +1351,7 @@ class DEXTradingService:
         chain_id: int,
         transaction_hash: str,
         db: AsyncSession,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get swap transaction status and update trade record
 
@@ -1375,7 +1378,7 @@ class DEXTradingService:
                 }
 
             # Update trade record if status changed
-            from sqlalchemy import update, select
+            from sqlalchemy import select, update
 
             stmt = select(DEXTrade).where(DEXTrade.id == trade_id)
             result = await db.execute(stmt)
@@ -1447,7 +1450,7 @@ class DEXTradingService:
             logger.error(f"Error getting swap status: {e}", exc_info=True)
             return None
 
-    async def get_supported_chains(self) -> List[Dict[str, Any]]:
+    async def get_supported_chains(self) -> list[dict[str, Any]]:
         """
         Get list of supported blockchain networks
 

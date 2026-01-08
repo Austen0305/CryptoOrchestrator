@@ -4,12 +4,11 @@ Handles regulatory compliance, KYC checks, transaction monitoring, and reporting
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
-from ..kyc_service import kyc_service, KYCStatus
+from ..kyc_service import kyc_service
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +34,14 @@ class ComplianceService:
 
     def __init__(self):
         # Transaction history for monitoring (in production, use database)
-        self.transaction_history: Dict[int, List[Dict]] = {}
-        self.daily_volumes: Dict[int, Dict[str, float]] = (
-            {}
-        )  # user_id -> {date: volume}
+        self.transaction_history: dict[int, list[dict]] = {}
+        self.daily_volumes: dict[
+            int, dict[str, float]
+        ] = {}  # user_id -> {date: volume}
 
     async def check_trade_compliance(
         self, user_id: int, amount_usd: float, chain_id: int, symbol: str, side: str
-    ) -> Tuple[ComplianceCheckResult, List[str]]:
+    ) -> tuple[ComplianceCheckResult, list[str]]:
         """
         Check if a trade complies with regulatory requirements.
 
@@ -105,7 +104,7 @@ class ComplianceService:
 
     async def _check_daily_limits(
         self, user_id: int, amount_usd: float
-    ) -> Tuple[bool, List[str]]:
+    ) -> tuple[bool, list[str]]:
         """Check daily trading limits"""
         reasons = []
         today = datetime.now().date().isoformat()
@@ -139,7 +138,7 @@ class ComplianceService:
 
     async def _check_suspicious_activity(
         self, user_id: int, amount_usd: float, chain_id: int, symbol: str
-    ) -> Tuple[bool, List[str]]:
+    ) -> tuple[bool, list[str]]:
         """Check for suspicious activity patterns"""
         reasons = []
         is_suspicious = False
@@ -179,7 +178,7 @@ class ComplianceService:
 
     async def check_withdrawal_fraud(
         self, user_id: int, amount: float, to_address: str, chain_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check for fraudulent withdrawal patterns
 
@@ -249,7 +248,7 @@ class ComplianceService:
         chain_id: int,  # Changed from exchange
         symbol: str,
         side: str,
-        order_id: Optional[str] = None,
+        order_id: str | None = None,
     ):
         """Record transaction for compliance monitoring"""
         try:
@@ -317,7 +316,7 @@ class ComplianceService:
         except Exception as e:
             logger.error(f"Error recording withdrawal: {e}", exc_info=True)
 
-    async def get_user_compliance_status(self, user_id: int) -> Dict[str, Any]:
+    async def get_user_compliance_status(self, user_id: int) -> dict[str, Any]:
         """Get comprehensive compliance status for a user"""
         try:
             is_kyc_verified = await kyc_service.is_verified(user_id)
@@ -362,8 +361,8 @@ class ComplianceService:
             return {"user_id": user_id, "error": str(e)}
 
     async def generate_compliance_report(
-        self, start_date: datetime, end_date: datetime, user_id: Optional[int] = None
-    ) -> Dict[str, Any]:
+        self, start_date: datetime, end_date: datetime, user_id: int | None = None
+    ) -> dict[str, Any]:
         """Generate compliance report for a date range"""
         try:
             # Filter transactions by date and user

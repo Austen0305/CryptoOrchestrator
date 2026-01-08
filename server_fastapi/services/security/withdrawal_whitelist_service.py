@@ -4,13 +4,14 @@ Manages withdrawal address whitelists for enhanced security
 """
 
 import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from typing import Any
 
-from ...models.base import User
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...database import get_db_context
+from ...models.base import User
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ class WithdrawalWhitelistService:
         user_id: int,
         address: str,
         currency: str,
-        label: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        label: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Add withdrawal address to user's whitelist
 
@@ -65,9 +66,9 @@ class WithdrawalWhitelistService:
         user_id: int,
         address: str,
         currency: str,
-        label: Optional[str],
+        label: str | None,
         db: AsyncSession,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal address addition logic"""
         # Check if user exists
         user_result = await db.execute(select(User).where(User.id == user_id))
@@ -151,8 +152,8 @@ class WithdrawalWhitelistService:
         user_id: int,
         address: str,
         currency: str,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """Remove withdrawal address from user's whitelist"""
         try:
             if db is None:
@@ -170,7 +171,7 @@ class WithdrawalWhitelistService:
 
     async def _remove_address_internal(
         self, user_id: int, address: str, currency: str, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal address removal logic"""
         from ..repositories.preferences_repository import preferences_repository
 
@@ -221,9 +222,9 @@ class WithdrawalWhitelistService:
     async def get_whitelist(
         self,
         user_id: int,
-        currency: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> List[Dict[str, Any]]:
+        currency: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> list[dict[str, Any]]:
         """Get user's withdrawal address whitelist"""
         try:
             if db is None:
@@ -238,8 +239,8 @@ class WithdrawalWhitelistService:
             return []
 
     async def _get_whitelist_internal(
-        self, user_id: int, currency: Optional[str], db: AsyncSession
-    ) -> List[Dict[str, Any]]:
+        self, user_id: int, currency: str | None, db: AsyncSession
+    ) -> list[dict[str, Any]]:
         """Internal whitelist retrieval"""
         from ..repositories.preferences_repository import preferences_repository
 
@@ -277,7 +278,7 @@ class WithdrawalWhitelistService:
         user_id: int,
         address: str,
         currency: str,
-        db: Optional[AsyncSession] = None,
+        db: AsyncSession | None = None,
     ) -> bool:
         """Check if withdrawal address is whitelisted and active"""
         try:

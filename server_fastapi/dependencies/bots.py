@@ -4,6 +4,7 @@ Uses Annotated pattern for better type hints and dependency injection.
 """
 
 from typing import Annotated
+
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 

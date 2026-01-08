@@ -2,14 +2,14 @@
 Infinity Grid repository for database operations.
 """
 
-from typing import List, Optional
+import logging
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.infinity_grid import InfinityGrid
 from .base import SQLAlchemyRepository
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, bot_id: str, user_id: int
-    ) -> Optional[InfinityGrid]:
+    ) -> InfinityGrid | None:
         """Get an infinity grid by ID and user ID with eager loading."""
         query = (
             select(InfinityGrid)
@@ -38,7 +38,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
 
     async def get_user_infinity_grids(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[InfinityGrid]:
+    ) -> list[InfinityGrid]:
         """Get all infinity grids for a user with pagination and eager loading."""
         query = (
             select(InfinityGrid)
@@ -52,7 +52,9 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def count_user_infinity_grids(self, session: AsyncSession, user_id: int) -> int:
+    async def count_user_infinity_grids(
+        self, session: AsyncSession, user_id: int
+    ) -> int:
         """Get total count of infinity grids for a user."""
         from sqlalchemy import func
 
@@ -69,7 +71,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         user_id: int,
         active: bool,
         status: str,
-    ) -> Optional[InfinityGrid]:
+    ) -> InfinityGrid | None:
         """Update infinity grid active status and status field."""
         from datetime import datetime
 
@@ -109,7 +111,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         user_id: int,
         upper_price: float,
         lower_price: float,
-    ) -> Optional[InfinityGrid]:
+    ) -> InfinityGrid | None:
         """Update infinity grid bounds."""
         from datetime import datetime
 
@@ -138,8 +140,8 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         return updated_bot
 
     async def get_active_infinity_grids(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[InfinityGrid]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[InfinityGrid]:
         """Get all active infinity grids with eager loading, optionally filtered by user."""
         query = (
             select(InfinityGrid)

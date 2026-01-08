@@ -2,14 +2,16 @@
 Grid Bot repository for database operations.
 """
 
-from typing import List, Optional, Dict, Any
+import json
+import logging
+from typing import Any
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.grid_bot import GridBot
 from .base import SQLAlchemyRepository
-import json
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, bot_id: str, user_id: int
-    ) -> Optional[GridBot]:
+    ) -> GridBot | None:
         """Get a grid bot by ID and user ID with eager loading."""
         query = (
             select(GridBot)
@@ -38,7 +40,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
 
     async def get_user_grid_bots(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[GridBot]:
+    ) -> list[GridBot]:
         """Get all grid bots for a user with pagination and eager loading."""
         query = (
             select(GridBot)
@@ -69,7 +71,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         user_id: int,
         active: bool,
         status: str,
-    ) -> Optional[GridBot]:
+    ) -> GridBot | None:
         """Update grid bot active status and status field."""
         from datetime import datetime
 
@@ -105,8 +107,8 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         session: AsyncSession,
         bot_id: str,
         user_id: int,
-        grid_state: Dict[str, Any],
-    ) -> Optional[GridBot]:
+        grid_state: dict[str, Any],
+    ) -> GridBot | None:
         """Update grid bot state (orders, filled orders, etc.)."""
         stmt = (
             update(GridBot)
@@ -133,7 +135,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         total_profit: float,
         total_trades: int,
         win_rate: float,
-    ) -> Optional[GridBot]:
+    ) -> GridBot | None:
         """Update grid bot performance metrics."""
         from datetime import datetime
 
@@ -160,8 +162,8 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         return updated_bot
 
     async def get_active_grid_bots(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[GridBot]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[GridBot]:
         """Get all active grid bots with eager loading, optionally filtered by user."""
         query = (
             select(GridBot)

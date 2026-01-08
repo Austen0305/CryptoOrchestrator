@@ -4,16 +4,17 @@ Tax calculation and reporting for different countries
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class Jurisdiction(str, Enum):
     """Supported tax jurisdictions"""
+
     US = "US"  # United States
     UK = "UK"  # United Kingdom
     CA = "CA"  # Canada
@@ -29,6 +30,7 @@ class Jurisdiction(str, Enum):
 @dataclass
 class TaxRule:
     """Tax rules for a jurisdiction"""
+
     jurisdiction: Jurisdiction
     long_term_threshold_days: int  # Days for long-term classification
     short_term_rate: float  # Short-term capital gains tax rate (%)
@@ -45,7 +47,7 @@ class TaxRule:
 class MultiJurisdictionTaxService:
     """
     Multi-jurisdiction tax calculation service
-    
+
     Features:
     - Country-specific tax rules
     - Different holding period thresholds
@@ -53,9 +55,9 @@ class MultiJurisdictionTaxService:
     - Tax year calculations
     - Loss carryforward rules
     """
-    
+
     def __init__(self):
-        self.tax_rules: Dict[Jurisdiction, TaxRule] = {
+        self.tax_rules: dict[Jurisdiction, TaxRule] = {
             Jurisdiction.US: TaxRule(
                 jurisdiction=Jurisdiction.US,
                 long_term_threshold_days=365,
@@ -135,38 +137,38 @@ class MultiJurisdictionTaxService:
                 tax_year_end="12-31",
             ),
         }
-    
+
     def get_tax_rule(self, jurisdiction: Jurisdiction) -> TaxRule:
         """Get tax rules for a jurisdiction"""
         if jurisdiction not in self.tax_rules:
             raise ValueError(f"Unsupported jurisdiction: {jurisdiction}")
         return self.tax_rules[jurisdiction]
-    
+
     def calculate_tax_year(self, date: datetime, jurisdiction: Jurisdiction) -> int:
         """
         Calculate tax year for a given date and jurisdiction
-        
+
         Args:
             date: Date to calculate tax year for
             jurisdiction: Tax jurisdiction
-        
+
         Returns:
             Tax year (e.g., 2024)
         """
         rule = self.get_tax_rule(jurisdiction)
-        
+
         # Parse tax year start (MM-DD)
         start_month, start_day = map(int, rule.tax_year_start.split("-"))
-        
+
         # Create tax year start date for current year
         tax_year_start = datetime(date.year, start_month, start_day)
-        
+
         # If date is before tax year start, use previous year
         if date < tax_year_start:
             return date.year - 1
-        
+
         return date.year
-    
+
     def is_long_term(
         self,
         purchase_date: datetime,
@@ -175,57 +177,57 @@ class MultiJurisdictionTaxService:
     ) -> bool:
         """
         Determine if a holding is long-term based on jurisdiction rules
-        
+
         Args:
             purchase_date: Purchase date
             sale_date: Sale date
             jurisdiction: Tax jurisdiction
-        
+
         Returns:
             True if long-term, False otherwise
         """
         rule = self.get_tax_rule(jurisdiction)
         holding_days = (sale_date - purchase_date).days
         return holding_days >= rule.long_term_threshold_days
-    
+
     def calculate_tax_liability(
         self,
         gain_loss: float,
         is_long_term: bool,
         jurisdiction: Jurisdiction,
-        tax_year: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        tax_year: int | None = None,
+    ) -> dict[str, Any]:
         """
         Calculate tax liability for a gain/loss
-        
+
         Args:
             gain_loss: Gain or loss amount
             is_long_term: Whether it's a long-term holding
             jurisdiction: Tax jurisdiction
             tax_year: Optional tax year for calculations
-        
+
         Returns:
             Dictionary with tax calculation details
         """
         rule = self.get_tax_rule(jurisdiction)
-        
+
         # Apply tax-free threshold
         taxable_amount = gain_loss
         if gain_loss > 0 and rule.tax_free_threshold > 0:
             taxable_amount = max(0, gain_loss - rule.tax_free_threshold)
-        
+
         # Select tax rate
         if is_long_term:
             tax_rate = rule.long_term_rate
         else:
             tax_rate = rule.short_term_rate
-        
+
         # Calculate tax (only on gains)
         if taxable_amount > 0:
             tax_amount = taxable_amount * (tax_rate / 100.0)
         else:
             tax_amount = 0.0
-        
+
         return {
             "jurisdiction": jurisdiction.value,
             "gain_loss": gain_loss,
@@ -237,7 +239,7 @@ class MultiJurisdictionTaxService:
             "currency": rule.currency,
             "tax_year": tax_year,
         }
-    
+
     def get_tax_year_range(
         self,
         tax_year: int,
@@ -245,22 +247,24 @@ class MultiJurisdictionTaxService:
     ) -> tuple[datetime, datetime]:
         """
         Get tax year date range
-        
+
         Args:
             tax_year: Tax year
             jurisdiction: Tax jurisdiction
-        
+
         Returns:
             Tuple of (start_date, end_date)
         """
         rule = self.get_tax_rule(jurisdiction)
-        
+
         # Parse tax year start and end
         start_month, start_day = map(int, rule.tax_year_start.split("-"))
         end_month, end_day = map(int, rule.tax_year_end.split("-"))
-        
+
         # Calculate dates
-        if start_month > end_month or (start_month == end_month and start_day > end_day):
+        if start_month > end_month or (
+            start_month == end_month and start_day > end_day
+        ):
             # Tax year spans two calendar years (e.g., UK: Apr 6 - Apr 5)
             start_date = datetime(tax_year, start_month, start_day)
             end_date = datetime(tax_year + 1, end_month, end_day)
@@ -268,24 +272,26 @@ class MultiJurisdictionTaxService:
             # Tax year within one calendar year
             start_date = datetime(tax_year, start_month, start_day)
             end_date = datetime(tax_year, end_month, end_day)
-        
+
         return (start_date, end_date)
-    
-    def get_supported_jurisdictions(self) -> List[Dict[str, Any]]:
+
+    def get_supported_jurisdictions(self) -> list[dict[str, Any]]:
         """Get list of supported jurisdictions with their tax rules"""
         jurisdictions = []
         for jurisdiction, rule in self.tax_rules.items():
-            jurisdictions.append({
-                "code": jurisdiction.value,
-                "name": jurisdiction.name,
-                "currency": rule.currency,
-                "long_term_threshold_days": rule.long_term_threshold_days,
-                "short_term_rate": rule.short_term_rate,
-                "long_term_rate": rule.long_term_rate,
-                "tax_free_threshold": rule.tax_free_threshold,
-                "tax_year_start": rule.tax_year_start,
-                "tax_year_end": rule.tax_year_end,
-            })
+            jurisdictions.append(
+                {
+                    "code": jurisdiction.value,
+                    "name": jurisdiction.name,
+                    "currency": rule.currency,
+                    "long_term_threshold_days": rule.long_term_threshold_days,
+                    "short_term_rate": rule.short_term_rate,
+                    "long_term_rate": rule.long_term_rate,
+                    "tax_free_threshold": rule.tax_free_threshold,
+                    "tax_year_start": rule.tax_year_start,
+                    "tax_year_end": rule.tax_year_end,
+                }
+            )
         return jurisdictions
 
 

@@ -3,20 +3,19 @@ Celery Worker for Cloud Bot Execution
 Runs trading bots in isolated worker processes
 """
 
-import os
 import logging
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+import os
+from datetime import UTC, datetime
+
 from celery import Celery, Task
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from ..billing import SubscriptionService
 
 # Import models and services
 from ..database import DATABASE_URL
 from ..models.bot import Bot
-from ..models.user import User
-from ..models.subscription import Subscription
-from ..billing import SubscriptionService
 from ..services.trading.bot_service import BotService
 
 logger = logging.getLogger(__name__)
@@ -127,7 +126,7 @@ async def execute_bot(self, bot_id: str, user_id: int, session: AsyncSession = N
 
         # Update bot status
         bot.status = "running"
-        bot.last_started_at = datetime.now(timezone.utc)
+        bot.last_started_at = datetime.now(UTC)
 
         # Store performance data if available
         if result and isinstance(result, dict):
@@ -171,7 +170,7 @@ async def stop_bot(self, bot_id: str, user_id: int, session: AsyncSession = None
 
         bot.active = False
         bot.status = "stopped"
-        bot.last_stopped_at = datetime.now(timezone.utc)
+        bot.last_stopped_at = datetime.now(UTC)
 
         await session.commit()
 
@@ -190,7 +189,7 @@ async def check_subscriptions(session: AsyncSession = None):
     Runs every hour
     """
     try:
-        from sqlalchemy import select, and_
+        from sqlalchemy import select
 
         # Get all active bots
         result = await session.execute(select(Bot).where(Bot.active == True))

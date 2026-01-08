@@ -7,18 +7,13 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")  # Suppress TensorFlow warnin
 os.environ.setdefault("TORCH_CUDA_ARCH_LIST", "")
 os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
 
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
-import uvicorn
-import sys
 import asyncio
 import json
+import sys
+
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 # Feature flag to turn heavy middleware on/off for debugging
 ENABLE_HEAVY_MIDDLEWARE = (
@@ -49,8 +44,8 @@ except ImportError:
 
 # Import database connection pool
 try:
-    from .database.connection_pool import db_pool
     from . import database as _db_module  # Prefer module over package directory
+    from .database.connection_pool import db_pool
 
     init_database = getattr(_db_module, "init_database", None)
 except ImportError:
@@ -66,9 +61,10 @@ except Exception as e:
 
 # Import Redis cache
 try:
+    import redis.asyncio as aioredis
+
     from .middleware.cache_manager import init_redis
     from .middleware.redis_manager import cache_manager
-    import redis.asyncio as aioredis
 
     redis_available = True
 except ImportError:
@@ -78,7 +74,7 @@ except ImportError:
 
 # Import circuit breaker
 try:
-    from .middleware.circuit_breaker import exchange_breaker, database_breaker
+    from .middleware.circuit_breaker import database_breaker, exchange_breaker
 except ImportError:
     exchange_breaker = None
     database_breaker = None
@@ -149,8 +145,8 @@ except ImportError:
 
 # Configure comprehensive logging
 try:
-    from .services.logging_config import setup_logging
     from .config.settings import get_settings
+    from .services.logging_config import setup_logging
 
     settings = get_settings()
     # Disable file logging during testing to avoid file locking issues
@@ -232,10 +228,10 @@ async def lifespan(app: FastAPI):
     # Initialize OpenTelemetry if enabled
     try:
         from .services.observability.opentelemetry_setup import (
-            setup_opentelemetry,
             instrument_fastapi,
-            instrument_sqlalchemy,
             instrument_requests,
+            instrument_sqlalchemy,
+            setup_opentelemetry,
         )
 
         if os.getenv("ENABLE_OPENTELEMETRY", "false").lower() == "true":
@@ -303,7 +299,7 @@ async def lifespan(app: FastAPI):
             )  # Increased from 1.0
             init_redis(redis_client)
             logger.info(f"Redis cache initialized at {redis_url}")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Redis connection timeout - caching disabled")
         except Exception as e:
             logger.warning(f"Redis not available, caching disabled: {e}")
@@ -471,8 +467,8 @@ async def lifespan(app: FastAPI):
     # Start market data streaming service (skip in test mode)
     if os.getenv("TESTING") != "true":
         try:
-            from .services.websocket_manager import connection_manager
             from .services.market_streamer import get_market_streamer
+            from .services.websocket_manager import connection_manager
 
             streamer = get_market_streamer(connection_manager)
             streamer.start()
@@ -576,7 +572,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app - optimized for desktop app performance
 # Enhanced OpenAPI documentation
 try:
-    from .config.openapi_config import get_openapi_config, custom_openapi
+    from .config.openapi_config import custom_openapi, get_openapi_config
 
     openapi_config = get_openapi_config()
     app = FastAPI(
@@ -718,16 +714,18 @@ async def health_check():
                     f"db_pool health check failed, trying direct connection: {e}"
                 )
                 # Fallback to direct connection check
-                from .database import get_db_context
                 from sqlalchemy import text
+
+                from .database import get_db_context
 
                 async with get_db_context() as db:
                     await db.execute(text("SELECT 1"))
                 health_status["database"] = "healthy"
         # Method 2: Try direct connection using get_db_context
         else:
-            from .database import get_db_context
             from sqlalchemy import text
+
+            from .database import get_db_context
 
             async with get_db_context() as db:
                 await db.execute(text("SELECT 1"))
@@ -1085,9 +1083,7 @@ for router_config in ROUTERS_TO_LOAD:
 # Integrations with fallback stub
 try:
     mod = importlib.import_module("server_fastapi.routes.integrations")
-    app.include_router(
-        getattr(mod, "router"), prefix="/api/integrations", tags=["Integrations"]
-    )
+    app.include_router(mod.router, prefix="/api/integrations", tags=["Integrations"])
     logger.info("Loaded integrations router")
 except Exception as e:
     logger.warning(f"Failed to load integrations router ({e}); registering stub.")

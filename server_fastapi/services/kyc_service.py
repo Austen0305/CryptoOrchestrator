@@ -4,7 +4,6 @@ Handles user verification and compliance.
 """
 
 import logging
-from typing import Dict, Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -27,7 +26,7 @@ class KYCService:
 
     def __init__(self):
         # In production, this would use a database
-        self.kyc_records: Dict[int, Dict] = {}
+        self.kyc_records: dict[int, dict] = {}
 
     async def initiate_kyc(
         self,
@@ -37,7 +36,7 @@ class KYCService:
         date_of_birth: str,
         country: str,
         document_type: str = "passport",
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Initiate KYC verification process.
 
@@ -76,7 +75,7 @@ class KYCService:
             logger.error(f"Error initiating KYC: {e}", exc_info=True)
             raise
 
-    async def get_kyc_status(self, user_id: int) -> Optional[Dict]:
+    async def get_kyc_status(self, user_id: int) -> dict | None:
         """Get KYC status for a user"""
         return self.kyc_records.get(user_id)
 
@@ -84,8 +83,8 @@ class KYCService:
         self,
         user_id: int,
         status: KYCStatus,
-        reviewer_id: Optional[int] = None,
-        notes: Optional[str] = None,
+        reviewer_id: int | None = None,
+        notes: str | None = None,
     ) -> bool:
         """
         Update KYC status (admin function).

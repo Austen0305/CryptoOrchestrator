@@ -3,13 +3,14 @@ Response Standardizer Middleware
 Ensures all API responses follow a consistent format
 """
 
+import json
+import logging
+from typing import Any
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response, JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
-import logging
-from typing import Dict, Any, Optional
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,7 @@ class ResponseStandardizerMiddleware(BaseHTTPMiddleware):
 
     def _standardize_response(
         self, data: Any, status_code: int, request: Request
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Standardize response format"""
 
         # If already in standard format, return as-is

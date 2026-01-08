@@ -2,9 +2,8 @@
 Sentry Integration for Error Tracking and Monitoring
 """
 
-import os
 import logging
-from typing import Optional
+import os
 from functools import wraps
 
 logger = logging.getLogger(__name__)
@@ -13,9 +12,9 @@ logger = logging.getLogger(__name__)
 try:
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
-    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-    from sentry_sdk.integrations.redis import RedisIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
     SENTRY_AVAILABLE = True
 except ImportError:
@@ -25,7 +24,7 @@ except ImportError:
     )
 
 
-def init_sentry(dsn: Optional[str] = None, environment: Optional[str] = None) -> bool:
+def init_sentry(dsn: str | None = None, environment: str | None = None) -> bool:
     """
     Initialize Sentry error tracking.
 
@@ -106,9 +105,7 @@ def sentry_context(**tags):
         sentry_sdk.set_context("custom", tags)
 
 
-def sentry_user(
-    user_id: str, email: Optional[str] = None, username: Optional[str] = None
-):
+def sentry_user(user_id: str, email: str | None = None, username: str | None = None):
     """Set user context for Sentry."""
     if SENTRY_AVAILABLE:
         sentry_sdk.set_user(
@@ -150,9 +147,10 @@ def sentry_trace(func):
 # Create a client-like interface for backward compatibility
 class SentryClient:
     """Mock Sentry client interface for crash reporting"""
+
     def capture_exception(self, exception: Exception, **kwargs):
         capture_exception(exception, **kwargs)
-    
+
     def capture_message(self, message: str, level: str = "info", **kwargs):
         capture_message(message, level=level, **kwargs)
 

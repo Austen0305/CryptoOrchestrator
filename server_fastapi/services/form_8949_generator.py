@@ -4,9 +4,8 @@ Generates IRS Form 8949 for cryptocurrency capital gains and losses
 """
 
 import logging
-from typing import List, Dict, Optional
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
 
 from .tax_calculation_service import TaxableEvent, TaxCalculationService
 
@@ -16,9 +15,10 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Form8949Row:
     """A single row on Form 8949"""
+
     # Part I: Short-term transactions
     # Part II: Long-term transactions
-    
+
     description: str  # Description of property (e.g., "Bitcoin")
     date_acquired: str  # Date acquired (MM/DD/YYYY)
     date_sold: str  # Date sold (MM/DD/YYYY)
@@ -33,63 +33,62 @@ class Form8949Row:
 class Form8949Generator:
     """
     Generator for IRS Form 8949
-    
+
     Form 8949 is used to report sales and exchanges of capital assets.
     This generator creates the form data structure that can be exported
     to PDF or imported into tax software.
     """
-    
+
     def __init__(self, tax_service: TaxCalculationService):
         self.tax_service = tax_service
-    
+
     def generate_form_8949(
         self,
         user_id: int,
         tax_year: int,
         method: str = "fifo",
-    ) -> Dict:
+    ) -> dict:
         """
         Generate Form 8949 data structure
-        
+
         Args:
             user_id: User ID
             tax_year: Tax year (e.g., 2024)
             method: Cost basis method (fifo, lifo, average)
-        
+
         Returns:
             Dictionary with Form 8949 data
         """
         start_date = datetime(tax_year, 1, 1)
         end_date = datetime(tax_year, 12, 31, 23, 59, 59)
-        
+
         # Get all taxable events for the year
         summary = self.tax_service.get_tax_summary(
             start_date=start_date,
             end_date=end_date,
         )
-        
+
         # Get all events (would need to be stored/retrieved from database)
         # For now, using the service's internal events
         all_events = []
         for symbol_events in self.tax_service.taxable_events.values():
             year_events = [
-                e for e in symbol_events
-                if start_date <= e.sale_date <= end_date
+                e for e in symbol_events if start_date <= e.sale_date <= end_date
             ]
             all_events.extend(year_events)
-        
+
         # Separate short-term and long-term
         short_term_events = [e for e in all_events if not e.is_long_term]
         long_term_events = [e for e in all_events if e.is_long_term]
-        
+
         # Generate rows
         short_term_rows = [self._event_to_row(e) for e in short_term_events]
         long_term_rows = [self._event_to_row(e) for e in long_term_events]
-        
+
         # Calculate totals
         short_term_totals = self._calculate_totals(short_term_rows)
         long_term_totals = self._calculate_totals(long_term_rows)
-        
+
         return {
             "tax_year": tax_year,
             "user_id": user_id,
@@ -106,7 +105,7 @@ class Form8949Generator:
             "summary": summary,
             "generated_at": datetime.utcnow().isoformat(),
         }
-    
+
     def _event_to_row(self, event: TaxableEvent) -> Form8949Row:
         """Convert a TaxableEvent to a Form 8949 row"""
         # Get symbol from lots (simplified - would need better tracking)
@@ -114,19 +113,23 @@ class Form8949Generator:
         if event.lots_used:
             # Try to extract symbol from trade_id or other metadata
             symbol = "Cryptocurrency"  # Would need to look up actual symbol
-        
+
         # Format dates
-        date_acquired = event.lots_used[0].purchase_date.strftime("%m/%d/%Y") if event.lots_used else ""
+        date_acquired = (
+            event.lots_used[0].purchase_date.strftime("%m/%d/%Y")
+            if event.lots_used
+            else ""
+        )
         date_sold = event.sale_date.strftime("%m/%d/%Y")
-        
+
         # Determine adjustment code
         code = ""
         adjustment_amount = 0.0
-        
+
         if event.is_wash_sale:
             code = "W"  # Wash sale
             adjustment_amount = event.wash_sale_adjustment
-        
+
         return Form8949Row(
             description=symbol,
             date_acquired=date_acquired,
@@ -138,14 +141,14 @@ class Form8949Generator:
             gain_loss=event.gain_loss,
             is_long_term=event.is_long_term,
         )
-    
-    def _calculate_totals(self, rows: List[Form8949Row]) -> Dict:
+
+    def _calculate_totals(self, rows: list[Form8949Row]) -> dict:
         """Calculate totals for a section"""
         total_proceeds = sum(row.proceeds for row in rows)
         total_cost_basis = sum(row.cost_basis for row in rows)
         total_adjustments = sum(row.adjustment_amount for row in rows)
         total_gain_loss = sum(row.gain_loss for row in rows)
-        
+
         return {
             "total_proceeds": total_proceeds,
             "total_cost_basis": total_cost_basis,
@@ -153,110 +156,122 @@ class Form8949Generator:
             "total_gain_loss": total_gain_loss,
             "row_count": len(rows),
         }
-    
-    def export_to_csv(self, form_data: Dict) -> str:
+
+    def export_to_csv(self, form_data: dict) -> str:
         """
         Export Form 8949 to CSV format
-        
+
         Returns:
             CSV string
         """
         import csv
         from io import StringIO
-        
+
         output = StringIO()
         writer = csv.writer(output)
-        
+
         # Header
         writer.writerow(["Form 8949", f"Tax Year: {form_data['tax_year']}"])
         writer.writerow([])
-        
+
         # Part I - Short-term
         writer.writerow([form_data["part_i"]["title"]])
-        writer.writerow([
-            "Description",
-            "Date Acquired",
-            "Date Sold",
-            "Proceeds",
-            "Cost Basis",
-            "Code",
-            "Adjustment",
-            "Gain/(Loss)",
-        ])
-        
+        writer.writerow(
+            [
+                "Description",
+                "Date Acquired",
+                "Date Sold",
+                "Proceeds",
+                "Cost Basis",
+                "Code",
+                "Adjustment",
+                "Gain/(Loss)",
+            ]
+        )
+
         for row in form_data["part_i"]["rows"]:
-            writer.writerow([
-                row.description,
-                row.date_acquired,
-                row.date_sold,
-                f"{row.proceeds:.2f}",
-                f"{row.cost_basis:.2f}",
-                row.code,
-                f"{row.adjustment_amount:.2f}",
-                f"{row.gain_loss:.2f}",
-            ])
-        
+            writer.writerow(
+                [
+                    row.description,
+                    row.date_acquired,
+                    row.date_sold,
+                    f"{row.proceeds:.2f}",
+                    f"{row.cost_basis:.2f}",
+                    row.code,
+                    f"{row.adjustment_amount:.2f}",
+                    f"{row.gain_loss:.2f}",
+                ]
+            )
+
         # Part I totals
         totals = form_data["part_i"]["totals"]
-        writer.writerow([
-            "TOTALS",
-            "",
-            "",
-            f"{totals['total_proceeds']:.2f}",
-            f"{totals['total_cost_basis']:.2f}",
-            "",
-            f"{totals['total_adjustments']:.2f}",
-            f"{totals['total_gain_loss']:.2f}",
-        ])
-        
+        writer.writerow(
+            [
+                "TOTALS",
+                "",
+                "",
+                f"{totals['total_proceeds']:.2f}",
+                f"{totals['total_cost_basis']:.2f}",
+                "",
+                f"{totals['total_adjustments']:.2f}",
+                f"{totals['total_gain_loss']:.2f}",
+            ]
+        )
+
         writer.writerow([])
-        
+
         # Part II - Long-term
         writer.writerow([form_data["part_ii"]["title"]])
-        writer.writerow([
-            "Description",
-            "Date Acquired",
-            "Date Sold",
-            "Proceeds",
-            "Cost Basis",
-            "Code",
-            "Adjustment",
-            "Gain/(Loss)",
-        ])
-        
+        writer.writerow(
+            [
+                "Description",
+                "Date Acquired",
+                "Date Sold",
+                "Proceeds",
+                "Cost Basis",
+                "Code",
+                "Adjustment",
+                "Gain/(Loss)",
+            ]
+        )
+
         for row in form_data["part_ii"]["rows"]:
-            writer.writerow([
-                row.description,
-                row.date_acquired,
-                row.date_sold,
-                f"{row.proceeds:.2f}",
-                f"{row.cost_basis:.2f}",
-                row.code,
-                f"{row.adjustment_amount:.2f}",
-                f"{row.gain_loss:.2f}",
-            ])
-        
+            writer.writerow(
+                [
+                    row.description,
+                    row.date_acquired,
+                    row.date_sold,
+                    f"{row.proceeds:.2f}",
+                    f"{row.cost_basis:.2f}",
+                    row.code,
+                    f"{row.adjustment_amount:.2f}",
+                    f"{row.gain_loss:.2f}",
+                ]
+            )
+
         # Part II totals
         totals = form_data["part_ii"]["totals"]
-        writer.writerow([
-            "TOTALS",
-            "",
-            "",
-            f"{totals['total_proceeds']:.2f}",
-            f"{totals['total_cost_basis']:.2f}",
-            "",
-            f"{totals['total_adjustments']:.2f}",
-            f"{totals['total_gain_loss']:.2f}",
-        ])
-        
+        writer.writerow(
+            [
+                "TOTALS",
+                "",
+                "",
+                f"{totals['total_proceeds']:.2f}",
+                f"{totals['total_cost_basis']:.2f}",
+                "",
+                f"{totals['total_adjustments']:.2f}",
+                f"{totals['total_gain_loss']:.2f}",
+            ]
+        )
+
         return output.getvalue()
-    
-    def export_to_json(self, form_data: Dict) -> Dict:
+
+    def export_to_json(self, form_data: dict) -> dict:
         """Export Form 8949 to JSON format"""
         # Convert dataclasses to dicts
         part_i_rows = [asdict(row) for row in form_data["part_i"]["rows"]]
         part_ii_rows = [asdict(row) for row in form_data["part_ii"]["rows"]]
-        
+
         return {
             "tax_year": form_data["tax_year"],
             "user_id": form_data["user_id"],

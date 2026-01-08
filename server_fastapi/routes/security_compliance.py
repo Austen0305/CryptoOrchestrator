@@ -3,14 +3,15 @@ Security Compliance Routes
 API endpoints for SOC 2 compliance monitoring and reporting.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Annotated, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+from typing import Annotated
 
-from ..services.security.soc2_compliance_service import SOC2ComplianceService
-from ..dependencies.auth import get_current_user, require_admin
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..database import get_db_session
+from ..dependencies.auth import require_admin
+from ..services.security.soc2_compliance_service import SOC2ComplianceService
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ async def get_compliance_report(
         return report
     except Exception as e:
         logger.error(f"Error generating compliance report: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to generate compliance report")
+        raise HTTPException(
+            status_code=500, detail="Failed to generate compliance report"
+        )
 
 
 @router.get("/soc2/summary")
@@ -59,7 +62,7 @@ async def get_compliance_summary(
     try:
         service = SOC2ComplianceService(db)
         report = await service.generate_compliance_report(period_days=30)
-        
+
         return {
             "compliance_percentage": report["summary"]["compliance_percentage"],
             "total_controls": report["summary"]["total_controls"],

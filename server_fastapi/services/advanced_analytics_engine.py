@@ -1,10 +1,11 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
 import logging
-from datetime import datetime
 import math
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class MarketData:
 
 @dataclass
 class Portfolio:
-    positions: Dict[str, Dict[str, Any]]
+    positions: dict[str, dict[str, Any]]
     totalBalance: float
     profitLossTotal: float
 
@@ -67,13 +68,13 @@ class Trade:
 class MarketAnalysisResult(BaseModel):
     pair: str
     timestamp: int
-    trend: Dict[str, Any]
-    volatility: Dict[str, Any]
-    support: Dict[str, Any]
-    resistance: Dict[str, Any]
-    volume: Dict[str, Any]
-    indicators: Dict[str, Any]
-    prediction: Dict[str, Any]
+    trend: dict[str, Any]
+    volatility: dict[str, Any]
+    support: dict[str, Any]
+    resistance: dict[str, Any]
+    volume: dict[str, Any]
+    indicators: dict[str, Any]
+    prediction: dict[str, Any]
 
 
 class PortfolioAnalysisResult(BaseModel):
@@ -87,12 +88,12 @@ class PortfolioAnalysisResult(BaseModel):
     sharpeRatio: float
     maxDrawdown: float
     maxDrawdownPercent: float
-    var: Dict[str, float]
-    correlationMatrix: Dict[str, Dict[str, float]]
-    riskContribution: Dict[str, float]
-    performanceAttribution: Dict[str, float]
+    var: dict[str, float]
+    correlationMatrix: dict[str, dict[str, float]]
+    riskContribution: dict[str, float]
+    performanceAttribution: dict[str, float]
     diversificationRatio: float
-    efficientFrontier: Dict[str, Dict[str, float]]
+    efficientFrontier: dict[str, dict[str, float]]
 
 
 class TradeAnalysisResult(BaseModel):
@@ -112,13 +113,13 @@ class TradeAnalysisResult(BaseModel):
     averageLossDuration: float
     consecutiveWins: int
     consecutiveLosses: int
-    monthlyReturns: Dict[str, float]
-    tradeDistribution: Dict[str, Dict[str, float]]
-    performanceByPair: Dict[str, Dict[str, Any]]
+    monthlyReturns: dict[str, float]
+    tradeDistribution: dict[str, dict[str, float]]
+    performanceByPair: dict[str, dict[str, Any]]
 
 
 class AdvancedAnalyticsEngine:
-    async def analyze(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze(self, params: dict[str, Any]) -> dict[str, Any]:
         """Analyze data based on type and parameters"""
         analysis_type = params.get("type")
         user_id = params.get("user_id")
@@ -139,7 +140,7 @@ class AdvancedAnalyticsEngine:
         else:
             raise ValueError(f"Unsupported analysis type: {analysis_type}")
 
-    async def _analyze_dashboard(self, user_id: int) -> Dict[str, Any]:
+    async def _analyze_dashboard(self, user_id: int) -> dict[str, Any]:
         """Analyze dashboard data for comprehensive summary"""
         try:
             # Get portfolio data
@@ -173,7 +174,7 @@ class AdvancedAnalyticsEngine:
             logger.error(f"Error in dashboard analysis: {e}")
             return {"summary": {}, "details": {}}
 
-    async def _analyze_realtime(self, user_id: int) -> Dict[str, Any]:
+    async def _analyze_realtime(self, user_id: int) -> dict[str, Any]:
         """Analyze real-time metrics"""
         try:
             # Get current portfolio status
@@ -206,8 +207,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     async def analyze_market(
-        pair: str, data: List[MarketData]
-    ) -> Optional[MarketAnalysisResult]:
+        pair: str, data: list[MarketData]
+    ) -> MarketAnalysisResult | None:
         try:
             if len(data) < 50:
                 logger.warning(
@@ -255,8 +256,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     async def analyze_portfolio(
-        portfolio: Portfolio, trades: List[Trade]
-    ) -> Optional[PortfolioAnalysisResult]:
+        portfolio: Portfolio, trades: list[Trade]
+    ) -> PortfolioAnalysisResult | None:
         try:
             if not portfolio.positions or len(portfolio.positions) == 0:
                 logger.warning("投资组合为空")
@@ -344,7 +345,7 @@ class AdvancedAnalyticsEngine:
             return None
 
     @staticmethod
-    async def analyze_trades(trades: List[Trade]) -> Optional[TradeAnalysisResult]:
+    async def analyze_trades(trades: list[Trade]) -> TradeAnalysisResult | None:
         try:
             if not trades:
                 logger.warning("没有交易数据可分析")
@@ -426,7 +427,7 @@ class AdvancedAnalyticsEngine:
             return None
 
     @staticmethod
-    def _calculate_trend(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_trend(data: list[MarketData]) -> dict[str, Any]:
         # Linear regression trend calculation
         n = len(data)
         x_values = list(range(n))
@@ -460,7 +461,7 @@ class AdvancedAnalyticsEngine:
         }
 
     @staticmethod
-    def _calculate_volatility(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_volatility(data: list[MarketData]) -> dict[str, Any]:
         # Calculate daily returns
         returns = []
         for i in range(1, len(data)):
@@ -489,7 +490,7 @@ class AdvancedAnalyticsEngine:
         return {"current": current, "average": average, "trend": trend.value}
 
     @staticmethod
-    def _calculate_support(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_support(data: list[MarketData]) -> dict[str, Any]:
         recent_data = data[-50:]
         local_minima = []
 
@@ -514,7 +515,7 @@ class AdvancedAnalyticsEngine:
         return {"level": support_level, "strength": strength}
 
     @staticmethod
-    def _calculate_resistance(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_resistance(data: list[MarketData]) -> dict[str, Any]:
         recent_data = data[-50:]
         local_maxima = []
 
@@ -539,7 +540,7 @@ class AdvancedAnalyticsEngine:
         return {"level": resistance_level, "strength": strength}
 
     @staticmethod
-    def _calculate_volume_metrics(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_volume_metrics(data: list[MarketData]) -> dict[str, Any]:
         current = data[-1].volume
         average = sum(d.volume for d in data) / len(data)
         ratio = current / average
@@ -547,7 +548,7 @@ class AdvancedAnalyticsEngine:
         return {"current": current, "average": average, "ratio": ratio}
 
     @staticmethod
-    def _calculate_indicators(data: List[MarketData]) -> Dict[str, Any]:
+    def _calculate_indicators(data: list[MarketData]) -> dict[str, Any]:
         rsi = AdvancedAnalyticsEngine._calculate_rsi(data)
         macd = AdvancedAnalyticsEngine._calculate_macd(data)
         bollinger = AdvancedAnalyticsEngine._calculate_bollinger_bands(data)
@@ -556,8 +557,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _generate_prediction(
-        trend: Dict[str, Any], volatility: Dict[str, Any], indicators: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        trend: dict[str, Any], volatility: dict[str, Any], indicators: dict[str, Any]
+    ) -> dict[str, Any]:
         reasoning = []
         direction = Direction.HOLD.value
         confidence = 0.5
@@ -641,7 +642,7 @@ class AdvancedAnalyticsEngine:
         }
 
     @staticmethod
-    def _calculate_rsi(data: List[MarketData], period: int = 14) -> float:
+    def _calculate_rsi(data: list[MarketData], period: int = 14) -> float:
         if len(data) < period + 1:
             return 50
 
@@ -666,16 +667,16 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_macd(
-        data: List[MarketData],
+        data: list[MarketData],
         fast_period: int = 12,
         slow_period: int = 26,
         signal_period: int = 9,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         if len(data) < slow_period:
             return {"value": 0, "signal": 0, "histogram": 0}
 
         # Simplified EMA calculation
-        def ema(data: List[float], period: int) -> float:
+        def ema(data: list[float], period: int) -> float:
             if not data:
                 return 0
             multiplier = 2 / (period + 1)
@@ -696,8 +697,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_bollinger_bands(
-        data: List[MarketData], period: int = 20, std_dev: float = 2
-    ) -> Dict[str, Any]:
+        data: list[MarketData], period: int = 20, std_dev: float = 2
+    ) -> dict[str, Any]:
         if len(data) < period:
             current = data[-1].close
             return {
@@ -728,12 +729,12 @@ class AdvancedAnalyticsEngine:
         return {"upper": upper, "middle": middle, "lower": lower, "position": position}
 
     @staticmethod
-    def _calculate_daily_returns(trades: List[Trade]) -> List[float]:
+    def _calculate_daily_returns(trades: list[Trade]) -> list[float]:
         # Simplified implementation
         return [0.01, 0.005, -0.002]  # Mock daily returns
 
     @staticmethod
-    def _calculate_returns_volatility(returns: List[float]) -> float:
+    def _calculate_returns_volatility(returns: list[float]) -> float:
         if not returns:
             return 0
 
@@ -744,7 +745,7 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_sharpe_ratio(
-        returns: List[float], risk_free_rate: float = 0.02
+        returns: list[float], risk_free_rate: float = 0.02
     ) -> float:
         if not returns:
             return 0
@@ -763,7 +764,7 @@ class AdvancedAnalyticsEngine:
         return (annualized_return - risk_free_rate) / annualized_volatility
 
     @staticmethod
-    def _calculate_max_drawdown(trades: List[Trade]) -> float:
+    def _calculate_max_drawdown(trades: list[Trade]) -> float:
         if not trades:
             return 0
 
@@ -783,7 +784,7 @@ class AdvancedAnalyticsEngine:
         return max_drawdown
 
     @staticmethod
-    def _calculate_var(returns: List[float], confidence: float) -> float:
+    def _calculate_var(returns: list[float], confidence: float) -> float:
         if not returns:
             return 0
 
@@ -794,8 +795,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_correlation_matrix(
-        portfolio: Portfolio, trades: List[Trade]
-    ) -> Dict[str, Dict[str, float]]:
+        portfolio: Portfolio, trades: list[Trade]
+    ) -> dict[str, dict[str, float]]:
         assets = list(portfolio.positions.keys())
         matrix = {}
 
@@ -813,8 +814,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_risk_contribution(
-        portfolio: Portfolio, correlation_matrix: Dict[str, Dict[str, float]]
-    ) -> Dict[str, float]:
+        portfolio: Portfolio, correlation_matrix: dict[str, dict[str, float]]
+    ) -> dict[str, float]:
         assets = list(portfolio.positions.keys())
         contributions = {}
 
@@ -843,13 +844,13 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_performance_attribution(
-        portfolio: Portfolio, trades: List[Trade]
-    ) -> Dict[str, float]:
+        portfolio: Portfolio, trades: list[Trade]
+    ) -> dict[str, float]:
         return {"assetAllocation": 0.4, "securitySelection": 0.5, "interaction": 0.1}
 
     @staticmethod
     def _calculate_diversification_ratio(
-        correlation_matrix: Dict[str, Dict[str, float]],
+        correlation_matrix: dict[str, dict[str, float]],
     ) -> float:
         assets = list(correlation_matrix.keys())
 
@@ -870,8 +871,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_efficient_frontier(
-        portfolio: Portfolio, trades: List[Trade]
-    ) -> Dict[str, Dict[str, float]]:
+        portfolio: Portfolio, trades: list[Trade]
+    ) -> dict[str, dict[str, float]]:
         current_return = portfolio.profitLossTotal / (
             portfolio.totalBalance - portfolio.profitLossTotal
         )
@@ -884,7 +885,7 @@ class AdvancedAnalyticsEngine:
         }
 
     @staticmethod
-    def _calculate_consecutive_stats(trades: List[Trade]) -> tuple[int, int]:
+    def _calculate_consecutive_stats(trades: list[Trade]) -> tuple[int, int]:
         max_wins = 0
         max_losses = 0
         current_wins = 0
@@ -903,7 +904,7 @@ class AdvancedAnalyticsEngine:
         return max_wins, max_losses
 
     @staticmethod
-    def _calculate_monthly_returns(trades: List[Trade]) -> Dict[str, float]:
+    def _calculate_monthly_returns(trades: list[Trade]) -> dict[str, float]:
         monthly_returns = {}
 
         for trade in trades:
@@ -918,8 +919,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_trade_distribution(
-        trades: List[Trade],
-    ) -> Dict[str, Dict[str, float]]:
+        trades: list[Trade],
+    ) -> dict[str, dict[str, float]]:
         time_of_day = {}
         day_of_week = {}
 
@@ -940,8 +941,8 @@ class AdvancedAnalyticsEngine:
 
     @staticmethod
     def _calculate_performance_by_pair(
-        trades: List[Trade],
-    ) -> Dict[str, Dict[str, Any]]:
+        trades: list[Trade],
+    ) -> dict[str, dict[str, Any]]:
         performance_by_pair = {}
 
         trades_by_pair = {}

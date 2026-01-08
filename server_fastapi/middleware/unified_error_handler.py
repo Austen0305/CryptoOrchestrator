@@ -4,23 +4,23 @@ Consolidates error_handler.py and enhanced_error_handler.py into a single, compr
 """
 
 import logging
-import traceback
 import os
 import re
-from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
+import traceback
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any
 
-from fastapi import Request, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 logger = logging.getLogger(__name__)
 
 # Error rate tracking (in-memory, would use Redis in production)
-_error_rate_tracker: Dict[str, list] = defaultdict(list)
+_error_rate_tracker: dict[str, list] = defaultdict(list)
 _error_rate_window = 60  # Track errors per minute
 
 
@@ -44,14 +44,14 @@ class UnifiedErrorResponse:
         code: str,
         message: str,
         status_code: int,
-        details: Optional[dict] = None,
-        request_id: Optional[str] = None,
-        suggestion: Optional[str] = None,
-        classification: Optional[str] = None,
+        details: dict | None = None,
+        request_id: str | None = None,
+        suggestion: str | None = None,
+        classification: str | None = None,
     ) -> dict:
         """
         Create a unified error response
-        
+
         Args:
             code: Error code (e.g., "VALIDATION_ERROR")
             message: Human-readable error message
@@ -164,7 +164,7 @@ class UnifiedErrorHandler:
         """Handle validation errors with helpful messages"""
         is_production = os.getenv("NODE_ENV") == "production"
         request_id = getattr(request.state, "request_id", None)
-        
+
         errors = []
         for error in exc.errors():
             field = ".".join(str(loc) for loc in error.get("loc", []))
@@ -200,7 +200,9 @@ class UnifiedErrorHandler:
                 status_code=422,
                 details={"validation_errors": errors},
                 request_id=request_id,
-                suggestion=UnifiedErrorResponse.ERROR_SUGGESTIONS.get("validation_error"),
+                suggestion=UnifiedErrorResponse.ERROR_SUGGESTIONS.get(
+                    "validation_error"
+                ),
                 classification="user_error",
             ),
             headers={"X-Request-ID": request_id} if request_id else {},
@@ -219,11 +221,15 @@ class UnifiedErrorHandler:
         # Determine error type
         if status_code == 401:
             error_code = "AUTHENTICATION_ERROR"
-            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get("authentication_error")
+            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get(
+                "authentication_error"
+            )
             classification = "security_error"
         elif status_code == 403:
             error_code = "AUTHORIZATION_ERROR"
-            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get("authorization_error")
+            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get(
+                "authorization_error"
+            )
             classification = "security_error"
         elif status_code == 404:
             error_code = "NOT_FOUND"
@@ -231,7 +237,9 @@ class UnifiedErrorHandler:
             classification = "user_error"
         elif status_code == 429:
             error_code = "RATE_LIMIT_EXCEEDED"
-            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get("rate_limit_exceeded")
+            suggestion = UnifiedErrorResponse.ERROR_SUGGESTIONS.get(
+                "rate_limit_exceeded"
+            )
             classification = "security_error"
         else:
             error_code = f"HTTP_{status_code}"
@@ -299,7 +307,9 @@ class UnifiedErrorHandler:
                     message="Database integrity constraint violated. The resource may already exist.",
                     status_code=409,
                     request_id=request_id,
-                    suggestion=UnifiedErrorResponse.ERROR_SUGGESTIONS.get("integrity_error"),
+                    suggestion=UnifiedErrorResponse.ERROR_SUGGESTIONS.get(
+                        "integrity_error"
+                    ),
                     classification="user_error",
                 ),
                 headers={"X-Request-ID": request_id} if request_id else {},
@@ -365,7 +375,9 @@ class UnifiedErrorHandler:
             content=UnifiedErrorResponse.create(
                 code="INTERNAL_ERROR",
                 message=(
-                    sanitized_message if not is_production else "An unexpected error occurred"
+                    sanitized_message
+                    if not is_production
+                    else "An unexpected error occurred"
                 ),
                 status_code=500,
                 details=details,
@@ -377,7 +389,7 @@ class UnifiedErrorHandler:
         )
 
     @staticmethod
-    def handle_trading_error(exc: Exception, request: Request) -> Dict[str, Any]:
+    def handle_trading_error(exc: Exception, request: Request) -> dict[str, Any]:
         """Handle trading-specific errors with appropriate messages"""
         request_id = getattr(request.state, "request_id", None)
 
@@ -432,9 +444,7 @@ def register_unified_error_handlers(app):
     app.add_exception_handler(
         RequestValidationError, UnifiedErrorHandler.validation_error_handler
     )
-    app.add_exception_handler(
-        HTTPException, UnifiedErrorHandler.http_exception_handler
-    )
+    app.add_exception_handler(HTTPException, UnifiedErrorHandler.http_exception_handler)
     app.add_exception_handler(
         StarletteHTTPException, UnifiedErrorHandler.http_exception_handler
     )
@@ -451,4 +461,3 @@ register_enhanced_error_handlers = register_unified_error_handlers
 validation_exception_handler = UnifiedErrorHandler.validation_error_handler
 http_exception_handler = UnifiedErrorHandler.http_exception_handler
 general_exception_handler = UnifiedErrorHandler.generic_exception_handler
-

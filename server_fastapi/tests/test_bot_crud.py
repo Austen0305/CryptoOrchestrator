@@ -5,7 +5,6 @@ Tests CRUD operations and bot lifecycle management
 
 import pytest
 from httpx import AsyncClient
-from fastapi import status
 
 
 @pytest.mark.asyncio
@@ -175,8 +174,9 @@ class TestBotValidation:
 
     async def test_invalid_symbol_format(self, db_session, test_bot_data):
         """Test bot creation with invalid symbol format"""
-        from server_fastapi.models.bot import Bot
         import uuid
+
+        from server_fastapi.models.bot import Bot
 
         # Filter out fields that don't exist in Bot model (exchange, chain_id, config)
         bot_fields = {
@@ -216,9 +216,10 @@ class TestBotLifecycle:
         self, db_session, test_bot_data, test_engine
     ):
         """Test complete lifecycle: create -> start -> stop -> delete"""
-        from server_fastapi.models.bot import Bot
-        from server_fastapi.models.base import Base
         import uuid
+
+        from server_fastapi.models.base import Base
+        from server_fastapi.models.bot import Bot
 
         # Ensure tables exist
         if Base is not None and test_engine is not None:

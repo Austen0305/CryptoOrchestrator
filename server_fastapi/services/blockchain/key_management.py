@@ -5,8 +5,6 @@ In production, should use AWS KMS, HashiCorp Vault, or similar
 """
 
 import logging
-from typing import Optional
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +26,7 @@ class KeyManagementService:
         # NEVER store private keys in code or database
         pass
 
-    async def get_private_key(
-        self, wallet_address: str, chain_id: int
-    ) -> Optional[str]:
+    async def get_private_key(self, wallet_address: str, chain_id: int) -> str | None:
         """
         Get private key for a wallet address from secure key management
 
@@ -102,7 +98,7 @@ class KeyManagementService:
 
 
 # Singleton instance
-_key_management_service: Optional[KeyManagementService] = None
+_key_management_service: KeyManagementService | None = None
 
 
 def get_key_management_service() -> KeyManagementService:

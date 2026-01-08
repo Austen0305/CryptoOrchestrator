@@ -3,20 +3,20 @@ Testing Utilities and Fixtures
 Provides utilities for writing and running tests
 """
 
-import pytest
 import asyncio
-from typing import AsyncGenerator, Dict, Any, Optional
-from fastapi.testclient import TestClient
-from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool
 import os
-import json
+from collections.abc import AsyncGenerator
+from typing import Any
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
 # Test database URL
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
-    "sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared"
+    "sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared",
 )
 
 
@@ -37,14 +37,15 @@ async def test_engine():
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
-    
+
     # Create tables
     from ..models.base import Base
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     # Cleanup
     await engine.dispose()
 
@@ -57,7 +58,7 @@ async def test_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
         class_=AsyncSession,
         expire_on_commit=False,
     )
-    
+
     async with async_session() as session:
         yield session
         await session.rollback()
@@ -71,7 +72,7 @@ async def test_client(app) -> AsyncGenerator[AsyncClient, None]:
 
 
 @pytest.fixture
-def test_user() -> Dict[str, Any]:
+def test_user() -> dict[str, Any]:
     """Create test user data"""
     return {
         "id": "test_user_123",
@@ -92,11 +93,11 @@ async def authenticated_client(test_client, test_user) -> AsyncClient:
             "password": test_user["password"],
         },
     )
-    
+
     if response.status_code == 200:
         token = response.json().get("access_token")
         test_client.headers.update({"Authorization": f"Bearer {token}"})
-    
+
     return test_client
 
 
@@ -109,7 +110,7 @@ class TestHelpers:
         email: str = "test@example.com",
         username: str = "testuser",
         password: str = "testpassword123",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a test user"""
         from ..models.user import User
         from ..utils.security import hash_password
@@ -122,7 +123,7 @@ class TestHelpers:
         session.add(user)
         await session.commit()
         await session.refresh(user)
-        
+
         return {
             "id": str(user.id),
             "email": user.email,
@@ -135,7 +136,7 @@ class TestHelpers:
         user_id: str,
         name: str = "Test Bot",
         strategy: str = "momentum",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a test bot"""
         from ..models.bot import Bot
 
@@ -148,7 +149,7 @@ class TestHelpers:
         session.add(bot)
         await session.commit()
         await session.refresh(bot)
-        
+
         return {
             "id": str(bot.id),
             "name": bot.name,
@@ -196,4 +197,3 @@ async def rollback_transaction(test_session):
     """Automatically rollback transactions after each test"""
     yield
     await test_session.rollback()
-

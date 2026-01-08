@@ -2,12 +2,13 @@
 Market Regime Detection Service - Identify market conditions
 """
 
-from typing import Dict, Any, Optional, List, Tuple
-from pydantic import BaseModel, Field
-from datetime import datetime, timedelta
 import logging
-import numpy as np
+from datetime import datetime
 from enum import Enum
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class MarketRegimeService:
         logger.info("Market Regime Detection Service initialized")
 
     def detect_regime(
-        self, prices: List[float], volumes: List[float], lookback_period: int = 20
+        self, prices: list[float], volumes: list[float], lookback_period: int = 20
     ) -> RegimeMetrics:
         """Detect current market regime from price and volume data"""
         try:
@@ -99,7 +100,7 @@ class MarketRegimeService:
                 macd_signal=0.0,
             )
 
-    def _calculate_rsi(self, prices: List[float], period: int = 14) -> float:
+    def _calculate_rsi(self, prices: list[float], period: int = 14) -> float:
         """Calculate RSI (Relative Strength Index)"""
         if len(prices) < period + 1:
             return 50.0
@@ -119,7 +120,7 @@ class MarketRegimeService:
 
         return float(rsi)
 
-    def _calculate_macd_signal(self, prices: List[float]) -> float:
+    def _calculate_macd_signal(self, prices: list[float]) -> float:
         """Calculate MACD signal strength"""
         if len(prices) < 26:
             return 0.0
@@ -165,7 +166,7 @@ class MarketRegimeService:
 
         return ema[period - 1 :]
 
-    def _calculate_volatility(self, prices: List[float]) -> float:
+    def _calculate_volatility(self, prices: list[float]) -> float:
         """Calculate normalized volatility (0 to 1)"""
         if len(prices) < 2:
             return 0.0
@@ -178,7 +179,7 @@ class MarketRegimeService:
 
         return float(normalized_volatility)
 
-    def _calculate_trend_strength(self, prices: List[float]) -> float:
+    def _calculate_trend_strength(self, prices: list[float]) -> float:
         """Calculate trend strength (-1 to 1)"""
         if len(prices) < 2:
             return 0.0
@@ -195,7 +196,7 @@ class MarketRegimeService:
 
         return float(trend_strength)
 
-    def _calculate_volume_trend(self, volumes: List[float]) -> float:
+    def _calculate_volume_trend(self, volumes: list[float]) -> float:
         """Calculate volume trend (-1 to 1)"""
         if len(volumes) < 2:
             return 0.0
@@ -221,7 +222,7 @@ class MarketRegimeService:
         volume_trend: float,
         rsi: float,
         macd_signal: float,
-    ) -> Tuple[MarketRegime, float]:
+    ) -> tuple[MarketRegime, float]:
         """Classify market regime from metrics"""
         # High volatility -> volatile regime
         if volatility > 0.7:
@@ -254,7 +255,7 @@ class MarketRegimeService:
 
     def get_regime_aware_strategy(
         self, regime: MarketRegime, base_strategy: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get regime-aware strategy recommendations"""
         strategy_mappings = {
             MarketRegime.BULL: {

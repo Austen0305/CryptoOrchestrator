@@ -3,20 +3,21 @@ DCA (Dollar Cost Averaging) Trading Service
 Implements DCA bot functionality - buys at regular intervals to average out purchase price.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import Dict, List, Optional, Any, Tuple
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import get_db_context
 from ...models.dca_bot import DCABot
 from ...repositories.dca_bot_repository import DCABotRepository
+from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.coingecko_service import CoinGeckoService
 from ...services.trading.dex_trading_service import DEXTradingService
-from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...database import get_db_context
-from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class DCATradingService:
     Buys at regular intervals with optional martingale strategy.
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = DCABotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
@@ -52,14 +53,14 @@ class DCATradingService:
         order_amount: float,
         interval_minutes: int,
         trading_mode: str = "paper",
-        max_orders: Optional[int] = None,
+        max_orders: int | None = None,
         use_martingale: bool = False,
         martingale_multiplier: float = 1.5,
         martingale_max_multiplier: float = 5.0,
-        take_profit_percent: Optional[float] = None,
-        stop_loss_percent: Optional[float] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        take_profit_percent: float | None = None,
+        stop_loss_percent: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Create a new DCA trading bot.
 
@@ -218,7 +219,7 @@ class DCATradingService:
             logger.error(f"Error stopping DCA bot {bot_id}: {str(e)}", exc_info=True)
             return False
 
-    async def execute_dca_order(self, bot_id: str, user_id: int) -> Dict[str, Any]:
+    async def execute_dca_order(self, bot_id: str, user_id: int) -> dict[str, Any]:
         """
         Execute the next DCA order for a bot.
         Called by scheduler when next_order_at is reached.
@@ -323,7 +324,7 @@ class DCATradingService:
             )
             return {"action": "error", "error": str(e)}
 
-    async def process_all_due_orders(self) -> Dict[str, Any]:
+    async def process_all_due_orders(self) -> dict[str, Any]:
         """Process all DCA bots that are due for their next order."""
         try:
             async with self._get_session() as session:
@@ -352,7 +353,7 @@ class DCATradingService:
 
     async def _validate_start_conditions(
         self, bot: DCABot, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate that DCA bot can start."""
         # Check if exchange is configured
         # Check if user has sufficient balance
@@ -378,7 +379,7 @@ class DCATradingService:
 
     async def _place_dca_order(
         self, bot: DCABot, amount: float, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Place a DCA buy order."""
         try:
             # Get current market price from CoinGecko
@@ -451,7 +452,7 @@ class DCATradingService:
 
     async def _parse_symbol_to_tokens(
         self, symbol: str, chain_id: int = 1
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """Parse trading symbol to token addresses using token registry."""
         from ..blockchain.token_registry import get_token_registry
 
@@ -482,7 +483,7 @@ class DCATradingService:
 
     async def _check_take_profit_stop_loss(
         self, bot: DCABot, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if take profit or stop loss conditions are met."""
         if bot.orders_executed == 0:
             return {"should_stop": False, "status": None, "reason": None}
@@ -514,7 +515,7 @@ class DCATradingService:
 
         return {"should_stop": False, "status": None, "reason": None}
 
-    async def get_dca_bot(self, bot_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+    async def get_dca_bot(self, bot_id: str, user_id: int) -> dict[str, Any] | None:
         """Get DCA bot details."""
         try:
             async with self._get_session() as session:
@@ -530,7 +531,7 @@ class DCATradingService:
 
     async def list_user_dca_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List all DCA bots for a user with total count."""
         try:
             async with self._get_session() as session:

@@ -3,13 +3,11 @@ WAL Archiving Service
 Manages PostgreSQL Write-Ahead Log (WAL) archiving for Point-in-Time Recovery
 """
 
+import gzip
 import logging
-import subprocess
-import shutil
-from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from pathlib import Path
-import gzip
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +15,14 @@ logger = logging.getLogger(__name__)
 class WALArchivingService:
     """
     Service for managing PostgreSQL WAL archiving
-    
+
     Features:
     - WAL archive configuration
     - WAL archive rotation and cleanup
     - WAL archive verification
     - Recovery point management
     """
-    
+
     def __init__(
         self,
         archive_dir: str = "./wal_archive",
@@ -33,7 +31,7 @@ class WALArchivingService:
     ):
         """
         Initialize WAL archiving service
-        
+
         Args:
             archive_dir: Directory for WAL archives
             retention_days: Days to retain WAL archives
@@ -43,22 +41,22 @@ class WALArchivingService:
         self.archive_dir.mkdir(parents=True, exist_ok=True)
         self.retention_days = retention_days
         self.compress = compress
-    
+
     def get_archive_command(self, postgresql_data_dir: str) -> str:
         """
         Generate archive_command for PostgreSQL postgresql.conf
-        
+
         Args:
             postgresql_data_dir: PostgreSQL data directory
-        
+
         Returns:
             Archive command string
         """
         archive_script = self.archive_dir / "archive_wal.sh"
         self._create_archive_script(archive_script)
-        
+
         return f"cp %p {self.archive_dir}/%f"
-    
+
     def _create_archive_script(self, script_path: Path) -> None:
         """Create WAL archiving script"""
         script_content = f"""#!/bin/bash
@@ -72,7 +70,7 @@ WAL_FILE="$1"
 cp "$WAL_FILE" "$ARCHIVE_DIR/"
 
 # Compress if enabled
-if [ "{'true' if self.compress else 'false'}" = "true" ]; then
+if [ "{"true" if self.compress else "false"}" = "true" ]; then
     gzip "$ARCHIVE_DIR/$(basename $WAL_FILE)"
 fi
 
@@ -81,68 +79,70 @@ exit 0
         script_path.write_text(script_content)
         script_path.chmod(0o755)
         logger.info(f"Created archive script: {script_path}")
-    
+
     def list_archives(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """
         List WAL archives
-        
+
         Args:
             start_date: Filter archives from this date
             end_date: Filter archives to this date
-        
+
         Returns:
             List of archive metadata
         """
         archives = []
-        
+
         for wal_file in self.archive_dir.glob("*.wal*"):
             try:
                 stat = wal_file.stat()
                 file_time = datetime.fromtimestamp(stat.st_mtime)
-                
+
                 # Apply date filters
                 if start_date and file_time < start_date:
                     continue
                 if end_date and file_time > end_date:
                     continue
-                
+
                 is_compressed = wal_file.suffix == ".gz"
                 size = stat.st_size
-                
-                archives.append({
-                    "filename": wal_file.name,
-                    "file_path": str(wal_file),
-                    "size_bytes": size,
-                    "size_mb": round(size / (1024 * 1024), 2),
-                    "created_at": file_time.isoformat(),
-                    "compressed": is_compressed,
-                })
+
+                archives.append(
+                    {
+                        "filename": wal_file.name,
+                        "file_path": str(wal_file),
+                        "size_bytes": size,
+                        "size_mb": round(size / (1024 * 1024), 2),
+                        "created_at": file_time.isoformat(),
+                        "compressed": is_compressed,
+                    }
+                )
             except Exception as e:
                 logger.warning(f"Failed to process {wal_file}: {e}")
-        
+
         # Sort by creation time
         archives.sort(key=lambda x: x["created_at"])
-        
+
         return archives
-    
+
     def verify_archive(self, wal_file: Path) -> bool:
         """
         Verify WAL archive integrity
-        
+
         Args:
             wal_file: Path to WAL file
-        
+
         Returns:
             True if archive is valid
         """
         try:
             if not wal_file.exists():
                 return False
-            
+
             # Check if compressed
             if wal_file.suffix == ".gz":
                 # Try to decompress
@@ -158,27 +158,27 @@ exit 0
                     header = f.read(24)
                     if len(header) < 24:
                         return False
-            
+
             return True
         except Exception as e:
             logger.error(f"Error verifying archive {wal_file}: {e}")
             return False
-    
-    def cleanup_old_archives(self) -> Dict[str, int]:
+
+    def cleanup_old_archives(self) -> dict[str, int]:
         """
         Clean up old WAL archives based on retention policy
-        
+
         Returns:
             Dictionary with cleanup statistics
         """
         cutoff_date = datetime.utcnow() - timedelta(days=self.retention_days)
         deleted_count = 0
         total_size_freed = 0
-        
+
         for wal_file in self.archive_dir.glob("*.wal*"):
             try:
                 file_time = datetime.fromtimestamp(wal_file.stat().st_mtime)
-                
+
                 if file_time < cutoff_date:
                     size = wal_file.stat().st_size
                     wal_file.unlink()
@@ -187,57 +187,59 @@ exit 0
                     logger.info(f"Deleted old WAL archive: {wal_file.name}")
             except Exception as e:
                 logger.warning(f"Failed to delete {wal_file}: {e}")
-        
+
         logger.info(
             f"WAL cleanup completed: {deleted_count} files deleted, "
             f"{round(total_size_freed / (1024 * 1024), 2)} MB freed"
         )
-        
+
         return {
             "deleted_count": deleted_count,
             "size_freed_mb": round(total_size_freed / (1024 * 1024), 2),
         }
-    
+
     def get_recovery_points(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> List[Dict[str, Any]]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Get available recovery points from WAL archives
-        
+
         Args:
             start_date: Filter recovery points from this date
             end_date: Filter recovery points to this date
-        
+
         Returns:
             List of recovery point metadata
         """
         archives = self.list_archives(start_date=start_date, end_date=end_date)
-        
+
         recovery_points = []
         for archive in archives:
-            recovery_points.append({
-                "recovery_time": archive["created_at"],
-                "wal_file": archive["filename"],
-                "wal_path": archive["file_path"],
-                "verified": self.verify_archive(Path(archive["file_path"])),
-            })
-        
+            recovery_points.append(
+                {
+                    "recovery_time": archive["created_at"],
+                    "wal_file": archive["filename"],
+                    "wal_path": archive["file_path"],
+                    "verified": self.verify_archive(Path(archive["file_path"])),
+                }
+            )
+
         return recovery_points
-    
-    def get_archive_stats(self) -> Dict[str, Any]:
+
+    def get_archive_stats(self) -> dict[str, Any]:
         """
         Get WAL archive statistics
-        
+
         Returns:
             Dictionary with archive statistics
         """
         archives = self.list_archives()
-        
+
         total_size = sum(a["size_bytes"] for a in archives)
         compressed_count = sum(1 for a in archives if a["compressed"])
-        
+
         if not archives:
             return {
                 "archive_count": 0,
@@ -246,7 +248,7 @@ exit 0
                 "oldest_archive": None,
                 "newest_archive": None,
             }
-        
+
         return {
             "archive_count": len(archives),
             "total_size_mb": round(total_size / (1024 * 1024), 2),

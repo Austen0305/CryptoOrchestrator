@@ -7,19 +7,19 @@ This service currently supports paper trading and position tracking.
 Real futures trading may need to be disabled or integrated with DEX perpetual protocols.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import get_db_context
 from ...models.futures_position import FuturesPosition
 from ...repositories.futures_position_repository import FuturesPositionRepository
-from ...services.coingecko_service import CoinGeckoService
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...database import get_db_context
-from contextlib import asynccontextmanager
+from ...services.coingecko_service import CoinGeckoService
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class FuturesTradingService:
     Supports leverage trading with margin management and liquidation protection.
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = FuturesPositionRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
@@ -53,13 +53,13 @@ class FuturesTradingService:
         quantity: float,
         leverage: int,
         trading_mode: str = "paper",
-        entry_price: Optional[float] = None,
-        stop_loss_price: Optional[float] = None,
-        take_profit_price: Optional[float] = None,
-        trailing_stop_percent: Optional[float] = None,
-        name: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        entry_price: float | None = None,
+        stop_loss_price: float | None = None,
+        take_profit_price: float | None = None,
+        trailing_stop_percent: float | None = None,
+        name: str | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Create a new futures position.
 
@@ -192,7 +192,7 @@ class FuturesTradingService:
 
     async def update_position_pnl(
         self, position_id: str, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update P&L for a futures position based on current market price."""
         try:
             async with self._get_session() as session:
@@ -292,8 +292,8 @@ class FuturesTradingService:
             return {"action": "error", "error": str(e)}
 
     async def close_futures_position(
-        self, position_id: str, user_id: int, close_price: Optional[float] = None
-    ) -> Dict[str, Any]:
+        self, position_id: str, user_id: int, close_price: float | None = None
+    ) -> dict[str, Any]:
         """Close a futures position."""
         try:
             async with self._get_session() as session:
@@ -345,16 +345,16 @@ class FuturesTradingService:
 
     async def _check_stop_loss_take_profit(
         self, position: FuturesPosition, current_price: float, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if stop loss or take profit conditions are met."""
         # Check stop loss
         if position.stop_loss_price:
-            if position.side == "long" and current_price <= position.stop_loss_price:
-                await self.close_futures_position(
-                    position.id, position.user_id, current_price
-                )
-                return {"should_close": True, "reason": "stop_loss_triggered"}
-            elif position.side == "short" and current_price >= position.stop_loss_price:
+            if (
+                position.side == "long"
+                and current_price <= position.stop_loss_price
+                or position.side == "short"
+                and current_price >= position.stop_loss_price
+            ):
                 await self.close_futures_position(
                     position.id, position.user_id, current_price
                 )
@@ -362,13 +362,13 @@ class FuturesTradingService:
 
         # Check take profit
         if position.take_profit_price:
-            if position.side == "long" and current_price >= position.take_profit_price:
-                await self.close_futures_position(
-                    position.id, position.user_id, current_price
+            if (
+                position.side == "long"
+                and current_price >= position.take_profit_price
+                or (
+                    position.side == "short"
+                    and current_price <= position.take_profit_price
                 )
-                return {"should_close": True, "reason": "take_profit_reached"}
-            elif (
-                position.side == "short" and current_price <= position.take_profit_price
             ):
                 await self.close_futures_position(
                     position.id, position.user_id, current_price
@@ -420,7 +420,7 @@ class FuturesTradingService:
 
     async def get_futures_position(
         self, position_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get futures position details."""
         try:
             async with self._get_session() as session:
@@ -438,7 +438,7 @@ class FuturesTradingService:
 
     async def list_user_futures_positions(
         self, user_id: int, skip: int = 0, limit: int = 100, open_only: bool = False
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List all futures positions for a user with total count."""
         try:
             async with self._get_session() as session:
@@ -447,12 +447,16 @@ class FuturesTradingService:
                         session, user_id
                     )
                     # For open_only, return all positions with total = length
-                    return [position.to_dict() for position in positions], len(positions)
+                    return [position.to_dict() for position in positions], len(
+                        positions
+                    )
                 else:
                     positions = await self.repository.get_user_futures_positions(
                         session, user_id, skip, limit
                     )
-                    total = await self.repository.count_user_futures_positions(session, user_id)
+                    total = await self.repository.count_user_futures_positions(
+                        session, user_id
+                    )
                     return [position.to_dict() for position in positions], total
         except Exception as e:
             logger.error(f"Error listing futures positions: {str(e)}", exc_info=True)

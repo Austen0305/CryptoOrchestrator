@@ -1,11 +1,10 @@
-from typing import List, Dict, Any, Optional, Tuple
-from pydantic import BaseModel
-import logging
-import numpy as np
 import asyncio
-from datetime import datetime
-import math
+import logging
 import os
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel
 
 try:
     import tensorflow as tf
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class NeuralNetworkConfig(BaseModel):
     input_size: int = 50  # Lookback period for technical indicators
-    hidden_layers: List[int] = [128, 64, 32]
+    hidden_layers: list[int] = [128, 64, 32]
     output_size: int = 3  # buy, sell, hold
     learning_rate: float = 0.001
     epochs: int = 100
@@ -38,13 +37,13 @@ class MarketData(BaseModel):
 
 
 class NeuralNetworkEngine:
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = NeuralNetworkConfig(**(config or {}))
-        self.model: Optional[tf.keras.Model] = None
+        self.model: tf.keras.Model | None = None
         self.is_trained: bool = False
-        self.recent_predictions: List[Dict[str, str]] = []
+        self.recent_predictions: list[dict[str, str]] = []
         self.max_recent_predictions: int = 100
-        self.validation_history: List[Dict[str, float]] = []
+        self.validation_history: list[dict[str, float]] = []
 
         self.initialize_model()
 
@@ -115,11 +114,11 @@ class NeuralNetworkEngine:
             raise error
 
     def preprocess_data(
-        self, market_data: List[MarketData]
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, market_data: list[MarketData]
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Preprocess market data for training"""
-        inputs: List[List[float]] = []
-        labels: List[List[float]] = []
+        inputs: list[list[float]] = []
+        labels: list[list[float]] = []
 
         for i in range(self.config.input_size, len(market_data) - 1):
             # Create input features from technical indicators
@@ -143,10 +142,10 @@ class NeuralNetworkEngine:
         return np.array(inputs), np.array(labels)
 
     def extract_features(
-        self, market_data: List[MarketData], index: int
-    ) -> List[float]:
+        self, market_data: list[MarketData], index: int
+    ) -> list[float]:
         """Extract feature vector from market data at given index"""
-        features: List[float] = []
+        features: list[float] = []
         lookback = min(self.config.input_size, index)
 
         # Price data (normalized)
@@ -169,7 +168,7 @@ class NeuralNetworkEngine:
 
         return features[: self.config.input_size]
 
-    async def train(self, market_data: List[MarketData]) -> None:
+    async def train(self, market_data: list[MarketData]) -> None:
         """Train the neural network model"""
         if len(market_data) < self.config.input_size + 10:
             raise ValueError("Insufficient data for training")
@@ -204,15 +203,15 @@ class NeuralNetworkEngine:
             self.is_trained = True
             logger.info(
                 f"Neural network training completed. "
-                f'Final accuracy: {history.history["accuracy"][-1]:.4f}, '
-                f'Final loss: {history.history["loss"][-1]:.4f}'
+                f"Final accuracy: {history.history['accuracy'][-1]:.4f}, "
+                f"Final loss: {history.history['loss'][-1]:.4f}"
             )
 
         except Exception as error:
             logger.error(f"Error training neural network: {error}")
             raise error
 
-    async def predict(self, market_data: List[MarketData]) -> Dict[str, Any]:
+    async def predict(self, market_data: list[MarketData]) -> dict[str, Any]:
         """Generate prediction from market data"""
         try:
             if not TENSORFLOW_AVAILABLE or not self.model or not self.is_trained:

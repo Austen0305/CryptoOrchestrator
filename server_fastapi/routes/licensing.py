@@ -2,14 +2,15 @@
 Licensing Routes - License key generation and validation
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Annotated
 
-from ..services.licensing.license_service import license_service, LicenseType
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
 from ..dependencies.auth import get_current_user
+from ..services.licensing.license_service import LicenseType, license_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -23,24 +24,24 @@ class GenerateLicenseRequest(BaseModel):
 
     user_id: str
     license_type: str = LicenseType.TRIAL
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
 
 
 class ValidateLicenseRequest(BaseModel):
     """Validate license request"""
 
     license_key: str
-    machine_id: Optional[str] = None
+    machine_id: str | None = None
 
 
 class ActivateLicenseRequest(BaseModel):
     """Activate license request"""
 
     license_key: str
-    machine_id: Optional[str] = None
+    machine_id: str | None = None
 
 
-@router.post("/generate", response_model=Dict)
+@router.post("/generate", response_model=dict)
 async def generate_license(
     request: GenerateLicenseRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -81,7 +82,7 @@ async def generate_license(
         raise HTTPException(status_code=500, detail="Failed to generate license")
 
 
-@router.post("/validate", response_model=Dict)
+@router.post("/validate", response_model=dict)
 async def validate_license(
     request: ValidateLicenseRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -108,7 +109,7 @@ async def validate_license(
         raise HTTPException(status_code=500, detail="Failed to validate license")
 
 
-@router.post("/activate", response_model=Dict)
+@router.post("/activate", response_model=dict)
 async def activate_license(
     request: ActivateLicenseRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -153,7 +154,7 @@ async def activate_license(
         raise HTTPException(status_code=500, detail="Failed to activate license")
 
 
-@router.get("/machine-id", response_model=Dict)
+@router.get("/machine-id", response_model=dict)
 async def get_machine_id(
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
@@ -166,7 +167,7 @@ async def get_machine_id(
         raise HTTPException(status_code=500, detail="Failed to get machine ID")
 
 
-@router.get("/types", response_model=Dict)
+@router.get("/types", response_model=dict)
 async def get_license_types():
     """Get available license types and their features"""
     try:

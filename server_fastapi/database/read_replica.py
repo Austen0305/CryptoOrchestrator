@@ -4,16 +4,18 @@ Enables read/write splitting for improved database performance.
 """
 
 import logging
-from typing import Optional, AsyncGenerator, Dict, Any
+import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import (
-    create_async_engine,
+    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
-    AsyncEngine,
+    create_async_engine,
 )
 from sqlalchemy.pool import QueuePool, StaticPool
-from contextlib import asynccontextmanager
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +26,13 @@ class ReadReplicaManager:
     """
 
     def __init__(self):
-        self.write_engine: Optional[AsyncEngine] = None
+        self.write_engine: AsyncEngine | None = None
         self.read_engines: list[AsyncEngine] = []
         self.read_session_factories: list[async_sessionmaker] = []
         self.current_read_index = 0
         self._is_initialized = False
 
-    def initialize(self, write_url: str, read_urls: Optional[list[str]] = None) -> None:
+    def initialize(self, write_url: str, read_urls: list[str] | None = None) -> None:
         """
         Initialize read replica manager
 
@@ -64,7 +66,7 @@ class ReadReplicaManager:
                 self.read_session_factories.append(read_session_factory)
 
                 logger.info(
-                    f"Read replica {i+1} initialized: {read_url.split('@')[1] if '@' in read_url else read_url}"
+                    f"Read replica {i + 1} initialized: {read_url.split('@')[1] if '@' in read_url else read_url}"
                 )
         else:
             # No read replicas configured, use write engine for reads too
@@ -115,7 +117,9 @@ class ReadReplicaManager:
             **(
                 {}
                 if poolclass == StaticPool
-                else pool_config if poolclass == QueuePool else {}
+                else pool_config
+                if poolclass == QueuePool
+                else {}
             ),
         )
 
@@ -203,7 +207,7 @@ class ReadReplicaManager:
             except Exception as close_error:
                 logger.error(f"Write session close error: {close_error}")
 
-    async def health_check(self) -> Dict[str, bool]:
+    async def health_check(self) -> dict[str, bool]:
         """
         Check health of all database connections
 

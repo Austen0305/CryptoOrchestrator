@@ -3,17 +3,16 @@ Observability API Routes
 Endpoints for distributed tracing and observability
 """
 
+import logging
+from datetime import datetime, timedelta
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional, Annotated, Dict, Any
-from datetime import datetime, timedelta
-import logging
-import json
 
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
-from ..services.observability.opentelemetry_setup import get_tracer
 from ..middleware.cache_manager import cached
+from ..services.observability.opentelemetry_setup import get_tracer
 
 logger = logging.getLogger(__name__)
 
@@ -30,32 +29,32 @@ class Trace(BaseModel):
     status: str
     span_count: int
     error_count: int
-    tags: Dict[str, str]
+    tags: dict[str, str]
 
 
 class Span(BaseModel):
     span_id: str
     trace_id: str
-    parent_span_id: Optional[str]
+    parent_span_id: str | None
     service_name: str
     operation_name: str
     start_time: str
     end_time: str
     duration_ms: float
     status: str
-    tags: Dict[str, str]
-    logs: Optional[List[Dict[str, Any]]]
+    tags: dict[str, str]
+    logs: list[dict[str, Any]] | None
 
 
 class TraceDetail(BaseModel):
     trace: Trace
-    spans: List[Span]
-    service_map: Dict[str, List[str]]
+    spans: list[Span]
+    service_map: dict[str, list[str]]
 
 
 @router.get(
     "/traces",
-    response_model=List[Trace],
+    response_model=list[Trace],
     summary="Get distributed traces",
     description="""
     Get list of distributed traces with optional filtering by service, status, and time range.
@@ -92,14 +91,14 @@ class TraceDetail(BaseModel):
 )
 @cached(ttl=10, prefix="observability_traces")
 async def get_traces(
-    service: Optional[str] = Query(None, description="Filter by service name"),
-    status: Optional[str] = Query(None, description="Filter by status: ok, error"),
+    service: str | None = Query(None, description="Filter by service name"),
+    status: str | None = Query(None, description="Filter by status: ok, error"),
     time_range: str = Query("1h", description="Time range: 15m, 1h, 6h, 24h, 7d"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> List[Trace]:
+) -> list[Trace]:
     """
     Get list of traces with optional filtering
-    
+
     Note: This is a simplified implementation. In production, this would
     query a distributed tracing backend (Jaeger, Zipkin, etc.)
     """
@@ -118,11 +117,11 @@ async def get_traces(
             start_time = end_time - timedelta(days=7)
         else:
             start_time = end_time - timedelta(hours=1)
-        
+
         # In production, this would query a tracing backend
         # For now, return empty list or mock data based on configuration
         # This allows the frontend to work without a full tracing setup
-        
+
         # Try to get traces from OpenTelemetry if available
         tracer = get_tracer()
         if tracer:
@@ -132,14 +131,14 @@ async def get_traces(
         else:
             # No tracer available, return empty list
             traces = []
-        
+
         # Filter traces
         if service and service != "all":
             traces = [t for t in traces if t.get("service_name") == service]
-        
+
         if status and status != "all":
             traces = [t for t in traces if t.get("status") == status]
-        
+
         return [Trace(**trace) for trace in traces]
     except Exception as e:
         logger.error(f"Error getting traces: {e}", exc_info=True)
@@ -155,14 +154,14 @@ async def get_trace_detail(
 ) -> TraceDetail:
     """
     Get detailed trace information including all spans
-    
+
     Note: This is a simplified implementation. In production, this would
     query a distributed tracing backend.
     """
     try:
         # In production, query tracing backend for trace details
         # For now, return a structure that matches the expected format
-        
+
         # Try to get trace from OpenTelemetry if available
         tracer = get_tracer()
         if tracer:
@@ -202,7 +201,7 @@ async def get_trace_detail(
                 "spans": [],
                 "service_map": {},
             }
-        
+
         return TraceDetail(
             trace=Trace(**trace_data["trace"]),
             spans=[Span(**span) for span in trace_data["spans"]],
@@ -217,16 +216,16 @@ async def get_trace_detail(
 async def export_trace(
     trace_id: str,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Export trace data as JSON
-    
+
     Returns trace data in a format suitable for export/analysis.
     """
     try:
         # Get trace detail
         trace_detail = await get_trace_detail(trace_id, current_user)
-        
+
         # Convert to exportable format
         export_data = {
             "trace_id": trace_detail.trace.trace_id,
@@ -235,7 +234,7 @@ async def export_trace(
             "spans": [span.dict() for span in trace_detail.spans],
             "service_map": trace_detail.service_map,
         }
-        
+
         return export_data
     except Exception as e:
         logger.error(f"Error exporting trace: {e}", exc_info=True)
@@ -246,10 +245,10 @@ async def export_trace(
 @cached(ttl=300, prefix="observability_services")
 async def get_services(
     current_user: Annotated[dict, Depends(get_current_user)] = None,
-) -> List[str]:
+) -> list[str]:
     """
     Get list of services that have generated traces
-    
+
     Note: In production, this would query the tracing backend.
     """
     try:
@@ -264,7 +263,7 @@ async def get_services(
             "analytics-service",
             "ml-service",
         ]
-        
+
         return services
     except Exception as e:
         logger.error(f"Error getting services: {e}", exc_info=True)

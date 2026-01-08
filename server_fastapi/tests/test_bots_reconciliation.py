@@ -6,8 +6,8 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from server_fastapi.models.risk_alert import RiskAlert as RiskAlertModel
 from server_fastapi.models.bot import Bot
+from server_fastapi.models.risk_alert import RiskAlert as RiskAlertModel
 
 
 @pytest.mark.asyncio

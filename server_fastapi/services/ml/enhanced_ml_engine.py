@@ -1,10 +1,11 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
-import logging
-import numpy as np
 import asyncio
-from datetime import datetime
+import logging
 import math
+from datetime import datetime
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel
 
 try:
     import os
@@ -25,12 +26,12 @@ logger = logging.getLogger(__name__)
 
 class TechnicalIndicators(BaseModel):
     rsi: float
-    macd: Dict[str, float]
-    bollinger_bands: Dict[str, float]
-    ema: Dict[str, float]
+    macd: dict[str, float]
+    bollinger_bands: dict[str, float]
+    ema: dict[str, float]
     atr: float
     volume_oscillator: float
-    stochastic: Dict[str, float]
+    stochastic: dict[str, float]
     adx: float
     obv: float
 
@@ -40,7 +41,7 @@ class MLPrediction(BaseModel):
     confidence: float
     strength: float
     indicators: TechnicalIndicators
-    reasoning: List[str]
+    reasoning: list[str]
 
 
 class MarketData(BaseModel):
@@ -54,9 +55,9 @@ class MarketData(BaseModel):
 
 class EnhancedMLEngine:
     def __init__(self):
-        self.model: Optional[tf.keras.Model] = None
+        self.model: tf.keras.Model | None = None
         self.is_training: bool = False
-        self.prediction_history: List[Dict[str, Any]] = []
+        self.prediction_history: list[dict[str, Any]] = []
         self.max_history: int = 1000
         self.lookback_period: int = 50
         self.feature_count: int = 25
@@ -119,7 +120,7 @@ class EnhancedMLEngine:
             raise error
 
     def calculate_technical_indicators(
-        self, data: List[MarketData], index: int
+        self, data: list[MarketData], index: int
     ) -> TechnicalIndicators:
         """Calculate comprehensive technical indicators"""
         rsi = self.calculate_rsi(data, index)
@@ -145,7 +146,7 @@ class EnhancedMLEngine:
         )
 
     def calculate_rsi(
-        self, data: List[MarketData], index: int, period: int = 14
+        self, data: list[MarketData], index: int, period: int = 14
     ) -> float:
         if index < period:
             return 50.0
@@ -170,12 +171,12 @@ class EnhancedMLEngine:
 
     def calculate_macd(
         self,
-        data: List[MarketData],
+        data: list[MarketData],
         index: int,
         fast_period: int = 12,
         slow_period: int = 26,
         signal_period: int = 9,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         if index < slow_period:
             return {"value": 0.0, "signal": 0.0, "histogram": 0.0}
 
@@ -190,7 +191,7 @@ class EnhancedMLEngine:
         return {"value": macd_value, "signal": signal, "histogram": histogram}
 
     def calculate_ema_value(
-        self, data: List[MarketData], index: int, period: int
+        self, data: list[MarketData], index: int, period: int
     ) -> float:
         if index < period:
             return data[index].close
@@ -204,8 +205,8 @@ class EnhancedMLEngine:
         return ema
 
     def calculate_bollinger_bands(
-        self, data: List[MarketData], index: int, period: int = 20, std_dev: float = 2
-    ) -> Dict[str, float]:
+        self, data: list[MarketData], index: int, period: int = 20, std_dev: float = 2
+    ) -> dict[str, float]:
         if index < period:
             current = data[index].close
             return {"upper": current, "middle": current, "lower": current}
@@ -222,14 +223,14 @@ class EnhancedMLEngine:
             "lower": middle - std_dev * std,
         }
 
-    def calculate_ema(self, data: List[MarketData], index: int) -> Dict[str, float]:
+    def calculate_ema(self, data: list[MarketData], index: int) -> dict[str, float]:
         return {
             "fast": self.calculate_ema_value(data, index, 12),
             "slow": self.calculate_ema_value(data, index, 26),
         }
 
     def calculate_atr(
-        self, data: List[MarketData], index: int, period: int = 14
+        self, data: list[MarketData], index: int, period: int = 14
     ) -> float:
         if index < period:
             return 0.0
@@ -245,7 +246,7 @@ class EnhancedMLEngine:
 
         return tr_sum / period
 
-    def calculate_volume_oscillator(self, data: List[MarketData], index: int) -> float:
+    def calculate_volume_oscillator(self, data: list[MarketData], index: int) -> float:
         if index < 26:
             return 0.0
 
@@ -259,7 +260,7 @@ class EnhancedMLEngine:
         )
 
     def calculate_volume_ema(
-        self, data: List[MarketData], index: int, period: int
+        self, data: list[MarketData], index: int, period: int
     ) -> float:
         if index < period:
             return data[index].volume
@@ -273,8 +274,8 @@ class EnhancedMLEngine:
         return ema
 
     def calculate_stochastic(
-        self, data: List[MarketData], index: int, period: int = 14
-    ) -> Dict[str, float]:
+        self, data: list[MarketData], index: int, period: int = 14
+    ) -> dict[str, float]:
         if index < period:
             return {"k": 50.0, "d": 50.0}
 
@@ -289,7 +290,7 @@ class EnhancedMLEngine:
         return {"k": k, "d": d}
 
     def calculate_adx(
-        self, data: List[MarketData], index: int, period: int = 14
+        self, data: list[MarketData], index: int, period: int = 14
     ) -> float:
         if index < period + 1:
             return 25.0  # Neutral value
@@ -322,7 +323,7 @@ class EnhancedMLEngine:
 
         return dx
 
-    def calculate_obv(self, data: List[MarketData], index: int) -> float:
+    def calculate_obv(self, data: list[MarketData], index: int) -> float:
         if index == 0:
             return data[0].volume
 
@@ -335,7 +336,7 @@ class EnhancedMLEngine:
 
         return obv
 
-    def extract_features(self, data: List[MarketData], index: int) -> List[float]:
+    def extract_features(self, data: list[MarketData], index: int) -> list[float]:
         """Extract feature vector from market data"""
         features = []
         indicators = self.calculate_technical_indicators(data, index)
@@ -462,7 +463,7 @@ class EnhancedMLEngine:
 
         return features
 
-    async def predict(self, data: List[MarketData]) -> MLPrediction:
+    async def predict(self, data: list[MarketData]) -> MLPrediction:
         """Generate trading prediction from market data"""
         try:
             if not TENSORFLOW_AVAILABLE or not self.model:
@@ -515,7 +516,7 @@ class EnhancedMLEngine:
             raise e
 
     def _predict_with_technical_indicators(
-        self, data: List[MarketData]
+        self, data: list[MarketData]
     ) -> MLPrediction:
         """Fallback prediction using technical indicators only"""
         try:
@@ -589,7 +590,7 @@ class EnhancedMLEngine:
 
     def generate_reasoning(
         self, action: str, indicators: TechnicalIndicators, confidence: float
-    ) -> List[str]:
+    ) -> list[str]:
         reasoning = []
 
         # RSI analysis
@@ -611,7 +612,7 @@ class EnhancedMLEngine:
 
         return reasoning
 
-    def prepare_training_data(self, data: List[MarketData]) -> tuple:
+    def prepare_training_data(self, data: list[MarketData]) -> tuple:
         """Prepare training data from market data"""
         inputs = []
         labels = []
@@ -644,7 +645,7 @@ class EnhancedMLEngine:
 
         return np.array(inputs), np.array(labels)
 
-    async def train(self, data: List[MarketData], epochs: int = 50) -> None:
+    async def train(self, data: list[MarketData], epochs: int = 50) -> None:
         """Train the neural network model"""
         if self.is_training:
             logger.warning("Training already in progress")
@@ -683,8 +684,8 @@ class EnhancedMLEngine:
             )
 
             logger.info(
-                f'ML model training completed. Final accuracy: {history.history["accuracy"][-1]:.4f}, '
-                f'Final loss: {history.history["loss"][-1]:.4f}'
+                f"ML model training completed. Final accuracy: {history.history['accuracy'][-1]:.4f}, "
+                f"Final loss: {history.history['loss'][-1]:.4f}"
             )
 
         except Exception as error:

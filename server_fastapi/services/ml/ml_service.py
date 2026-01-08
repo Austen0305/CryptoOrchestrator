@@ -1,15 +1,14 @@
-from fastapi import HTTPException
-from typing import List, Optional
+import logging
+import os
+from datetime import datetime
+
+import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
-import joblib
-import os
-import logging
-from datetime import datetime
 from pydantic import BaseModel
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +28,7 @@ class MLModel:
         self.model_path = "ml_model.pkl"
         self.load_model()
 
-    def preprocess_data(self, data: List[MarketData]) -> pd.DataFrame:
+    def preprocess_data(self, data: list[MarketData]) -> pd.DataFrame:
         df = pd.DataFrame([d.dict() for d in data])
         df["returns"] = df["close"].pct_change()
         df["volatility"] = df["returns"].rolling(20).std()
@@ -44,7 +43,7 @@ class MLModel:
         rs = gain / loss
         return 100 - (100 / (1 + rs))
 
-    def train(self, data: List[MarketData]):
+    def train(self, data: list[MarketData]):
         df = self.preprocess_data(data)
         X = df[["returns", "volatility", "rsi"]]
         y = np.where(df["returns"].shift(-1) > 0, 1, 0)
@@ -54,7 +53,7 @@ class MLModel:
         self.save_model()
         return {"accuracy": accuracy}
 
-    def predict(self, data: List[MarketData]) -> dict:
+    def predict(self, data: list[MarketData]) -> dict:
         df = self.preprocess_data(data)
         X = df[["returns", "volatility", "rsi"]]
         prediction = self.model.predict(X[-1:])[0]

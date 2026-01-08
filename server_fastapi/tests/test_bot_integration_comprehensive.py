@@ -3,16 +3,18 @@ Comprehensive Integration Tests for Bots Service
 Tests complete workflows from creation to execution
 """
 
-import pytest
 import asyncio
-from datetime import datetime
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # These tests follow the existing test patterns in the project
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Integration test requires complex mocking; unit tests cover individual components")
+@pytest.mark.skip(
+    reason="Integration test requires complex mocking; unit tests cover individual components"
+)
 async def test_complete_bot_lifecycle(client, db_session, auth_headers):
     """
     Test complete bot lifecycle: create → configure → start → trade → stop → delete

@@ -3,14 +3,14 @@ DEX Position Repository
 Data access layer for DEXPosition model operations.
 """
 
-from typing import List, Optional
-from sqlalchemy import select, and_, update
+import logging
+
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from ..models.dex_position import DEXPosition
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,8 @@ class DEXPositionRepository(SQLAlchemyRepository[DEXPosition]):
         super().__init__(DEXPosition)
 
     async def get_by_id(
-        self, session: AsyncSession, id: int, load_options: Optional[List] = None
-    ) -> Optional[DEXPosition]:
+        self, session: AsyncSession, id: int, load_options: list | None = None
+    ) -> DEXPosition | None:
         """Get position by ID with eager loading."""
         if load_options is None:
             load_options = [
@@ -41,9 +41,9 @@ class DEXPositionRepository(SQLAlchemyRepository[DEXPosition]):
         self,
         session: AsyncSession,
         user_id: int,
-        chain_id: Optional[int] = None,
-        is_open: Optional[bool] = None,
-    ) -> List[DEXPosition]:
+        chain_id: int | None = None,
+        is_open: bool | None = None,
+    ) -> list[DEXPosition]:
         """Get positions by user with eager loading."""
         conditions = [DEXPosition.user_id == user_id]
 
@@ -65,8 +65,8 @@ class DEXPositionRepository(SQLAlchemyRepository[DEXPosition]):
         return list(result.scalars().all())
 
     async def get_open_positions(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[DEXPosition]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[DEXPosition]:
         """Get all open positions with eager loading."""
         conditions = [DEXPosition.is_open.is_(True)]
 
@@ -97,7 +97,7 @@ class DEXPositionRepository(SQLAlchemyRepository[DEXPosition]):
 
     async def update_position(
         self, session: AsyncSession, position_id: int, update_data: dict
-    ) -> Optional[DEXPosition]:
+    ) -> DEXPosition | None:
         """Update position fields."""
         stmt = (
             update(DEXPosition)

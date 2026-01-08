@@ -4,7 +4,6 @@ Tests for request validation middleware
 
 import pytest
 from httpx import AsyncClient
-from fastapi import status
 
 
 @pytest.mark.asyncio

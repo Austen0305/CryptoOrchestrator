@@ -4,11 +4,11 @@ Automated compliance monitoring and reporting for SOC 2 controls.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class SOC2ComplianceService:
 
     async def check_control_effectiveness(
         self, control_id: str, period_days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check effectiveness of a specific control.
 
@@ -49,7 +49,9 @@ class SOC2ComplianceService:
             "CC7.3": await self._check_backups(period_start),
         }
 
-        check_result = checks.get(control_id, {"status": "unknown", "message": "Control not found"})
+        check_result = checks.get(
+            control_id, {"status": "unknown", "message": "Control not found"}
+        )
 
         return {
             "control_id": control_id,
@@ -60,11 +62,11 @@ class SOC2ComplianceService:
             "period_end": datetime.utcnow().isoformat(),
         }
 
-    async def _check_access_credentials(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_access_credentials(self, period_start: datetime) -> dict[str, Any]:
         """Check CC6.1 - Access Credentials"""
         try:
-            from ..models.user import User
             from ..models.audit_log import AuditLog
+            from ..models.user import User
 
             # Check for 2FA enforcement
             users_with_2fa_result = await self.db.execute(
@@ -127,11 +129,13 @@ class SOC2ComplianceService:
                 "findings": [f"Error checking control: {str(e)}"],
             }
 
-    async def _check_user_access_management(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_user_access_management(
+        self, period_start: datetime
+    ) -> dict[str, Any]:
         """Check CC6.2 - User Access Management"""
         try:
-            from ..models.user import User
             from ..models.audit_log import AuditLog
+            from ..models.user import User
 
             # Check new user registrations
             new_users_result = await self.db.execute(
@@ -173,7 +177,7 @@ class SOC2ComplianceService:
                 "findings": [f"Error checking control: {str(e)}"],
             }
 
-    async def _check_access_removal(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_access_removal(self, period_start: datetime) -> dict[str, Any]:
         """Check CC6.3 - Access Removal"""
         try:
             from ..models.audit_log import AuditLog
@@ -216,7 +220,9 @@ class SOC2ComplianceService:
                 "findings": [f"Error checking control: {str(e)}"],
             }
 
-    async def _check_access_restrictions(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_access_restrictions(
+        self, period_start: datetime
+    ) -> dict[str, Any]:
         """Check CC6.4 - Access Restrictions"""
         try:
             from ..models.audit_log import AuditLog
@@ -266,14 +272,16 @@ class SOC2ComplianceService:
                 "findings": [f"Error checking control: {str(e)}"],
             }
 
-    async def _check_access_monitoring(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_access_monitoring(self, period_start: datetime) -> dict[str, Any]:
         """Check CC6.6 - Access Monitoring"""
         try:
             from ..models.audit_log import AuditLog
 
             # Check audit log coverage
             total_events_result = await self.db.execute(
-                select(func.count(AuditLog.id)).where(AuditLog.created_at >= period_start)
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.created_at >= period_start
+                )
             )
             total_events = total_events_result.scalar() or 0
 
@@ -310,7 +318,7 @@ class SOC2ComplianceService:
                 "findings": [f"Error checking control: {str(e)}"],
             }
 
-    async def _check_system_operations(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_system_operations(self, period_start: datetime) -> dict[str, Any]:
         """Check CC7.1 - System Operations"""
         # This would check health monitoring, error tracking, etc.
         # Implementation depends on monitoring infrastructure
@@ -323,7 +331,7 @@ class SOC2ComplianceService:
             "findings": [],
         }
 
-    async def _check_system_monitoring(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_system_monitoring(self, period_start: datetime) -> dict[str, Any]:
         """Check CC7.2 - System Monitoring"""
         # This would check metrics collection, monitoring dashboards, etc.
         return {
@@ -335,7 +343,7 @@ class SOC2ComplianceService:
             "findings": [],
         }
 
-    async def _check_backups(self, period_start: datetime) -> Dict[str, Any]:
+    async def _check_backups(self, period_start: datetime) -> dict[str, Any]:
         """Check CC7.3 - System Backup"""
         # This would check backup status, verification, etc.
         # Implementation depends on backup infrastructure
@@ -348,9 +356,7 @@ class SOC2ComplianceService:
             "findings": [],
         }
 
-    async def generate_compliance_report(
-        self, period_days: int = 30
-    ) -> Dict[str, Any]:
+    async def generate_compliance_report(self, period_days: int = 30) -> dict[str, Any]:
         """
         Generate comprehensive compliance report.
 
@@ -384,7 +390,9 @@ class SOC2ComplianceService:
         }
 
         for control_id in controls:
-            check_result = await self.check_control_effectiveness(control_id, period_days)
+            check_result = await self.check_control_effectiveness(
+                control_id, period_days
+            )
             report["controls"][control_id] = check_result
 
             status = check_result.get("status", "unknown")

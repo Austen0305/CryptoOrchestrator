@@ -3,19 +3,20 @@ Security Whitelist Routes
 API endpoints for managing IP and withdrawal address whitelists
 """
 
+import logging
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, List, Optional, Annotated
-import logging
 
+from ..database import get_db_context
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.security.ip_whitelist_service import ip_whitelist_service
 from ..services.security.withdrawal_whitelist_service import (
     withdrawal_whitelist_service,
 )
-from ..database import get_db_context
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class AddIPRequest(BaseModel):
     """Request to add IP to whitelist"""
 
     ip_address: str
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class RemoveIPRequest(BaseModel):
@@ -40,7 +41,7 @@ class AddWithdrawalAddressRequest(BaseModel):
 
     address: str
     currency: str
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class RemoveWithdrawalAddressRequest(BaseModel):
@@ -51,11 +52,11 @@ class RemoveWithdrawalAddressRequest(BaseModel):
 
 
 # IP Whitelist Endpoints
-@router.post("/ip", response_model=Dict[str, Any])
+@router.post("/ip", response_model=dict[str, Any])
 async def add_ip_to_whitelist(
     request: AddIPRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Add IP address to user's whitelist"""
     try:
         user_id = _get_user_id(current_user)
@@ -81,11 +82,11 @@ async def add_ip_to_whitelist(
         raise HTTPException(status_code=500, detail="Failed to add IP to whitelist")
 
 
-@router.delete("/ip", response_model=Dict[str, Any])
+@router.delete("/ip", response_model=dict[str, Any])
 async def remove_ip_from_whitelist(
     request: RemoveIPRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Remove IP address from user's whitelist"""
     try:
         user_id = _get_user_id(current_user)
@@ -110,12 +111,12 @@ async def remove_ip_from_whitelist(
         )
 
 
-@router.get("/ip", response_model=List[Dict[str, Any]])
+@router.get("/ip", response_model=list[dict[str, Any]])
 async def get_ip_whitelist(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get user's IP whitelist with pagination"""
     try:
         user_id = _get_user_id(current_user)
@@ -140,11 +141,11 @@ async def get_ip_whitelist(
 
 
 # Withdrawal Address Whitelist Endpoints
-@router.post("/withdrawal", response_model=Dict[str, Any])
+@router.post("/withdrawal", response_model=dict[str, Any])
 async def add_withdrawal_address(
     request: AddWithdrawalAddressRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Add withdrawal address to user's whitelist (24-hour cooldown applies)"""
     try:
         user_id = _get_user_id(current_user)
@@ -171,11 +172,11 @@ async def add_withdrawal_address(
         raise HTTPException(status_code=500, detail="Failed to add withdrawal address")
 
 
-@router.delete("/withdrawal", response_model=Dict[str, Any])
+@router.delete("/withdrawal", response_model=dict[str, Any])
 async def remove_withdrawal_address(
     request: RemoveWithdrawalAddressRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Remove withdrawal address from user's whitelist"""
     try:
         user_id = _get_user_id(current_user)
@@ -204,7 +205,7 @@ async def remove_withdrawal_address(
         )
 
 
-@router.get("/withdrawal", response_model=List[Dict[str, Any]])
+@router.get("/withdrawal", response_model=list[dict[str, Any]])
 @cached(
     ttl=300, prefix="withdrawal_whitelist"
 )  # 5min TTL for withdrawal whitelist (static config)
@@ -212,8 +213,8 @@ async def get_withdrawal_whitelist(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    currency: Optional[str] = Query(None, description="Filter by currency"),
-) -> List[Dict[str, Any]]:
+    currency: str | None = Query(None, description="Filter by currency"),
+) -> list[dict[str, Any]]:
     """Get user's withdrawal address whitelist with pagination"""
     try:
         user_id = _get_user_id(current_user)

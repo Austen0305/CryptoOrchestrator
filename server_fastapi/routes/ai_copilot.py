@@ -2,23 +2,19 @@
 AI Copilot Routes - Trade explanations, strategy generation, optimization, backtest summaries
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Dict, Any, Optional, List, Annotated
 import logging
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Annotated, Any
 
-from ..services.ai_copilot.copilot_service import (
-    copilot_service,
-    TradeExplanation,
-    StrategyGenerationRequest,
-    GeneratedStrategy,
-    StrategyOptimizationRequest,
-    OptimizationResult,
-    BacktestSummaryRequest,
-    BacktestSummary,
-)
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
 from ..dependencies.auth import get_current_user
+from ..services.ai_copilot.copilot_service import (
+    BacktestSummaryRequest,
+    StrategyGenerationRequest,
+    StrategyOptimizationRequest,
+    copilot_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +28,11 @@ class TradeExplanationRequest(BaseModel):
     """Trade explanation request"""
 
     trade_id: str
-    trade_data: Dict[str, Any]
-    market_data: Optional[Dict[str, Any]] = None
+    trade_data: dict[str, Any]
+    market_data: dict[str, Any] | None = None
 
 
-@router.post("/trade/explain", response_model=Dict)
+@router.post("/trade/explain", response_model=dict)
 async def explain_trade(
     request: TradeExplanationRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -57,7 +53,7 @@ async def explain_trade(
 # ===== Strategy Generation Routes =====
 
 
-@router.post("/strategy/generate", response_model=Dict)
+@router.post("/strategy/generate", response_model=dict)
 async def generate_strategy(
     request: StrategyGenerationRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -76,7 +72,7 @@ async def generate_strategy(
 # ===== Strategy Optimization Routes =====
 
 
-@router.post("/strategy/optimize", response_model=Dict)
+@router.post("/strategy/optimize", response_model=dict)
 async def optimize_strategy(
     request: StrategyOptimizationRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -99,13 +95,13 @@ class BacktestSummaryRequestWrapper(BaseModel):
     """Backtest summary request wrapper"""
 
     backtest_id: str
-    backtest_data: Dict[str, Any]
+    backtest_data: dict[str, Any]
     include_charts: bool = True
     include_detailed_metrics: bool = True
-    focus_areas: Optional[List[str]] = None
+    focus_areas: list[str] | None = None
 
 
-@router.post("/backtest/summarize", response_model=Dict)
+@router.post("/backtest/summarize", response_model=dict)
 async def summarize_backtest(
     request: BacktestSummaryRequestWrapper,
     current_user: Annotated[dict, Depends(get_current_user)],

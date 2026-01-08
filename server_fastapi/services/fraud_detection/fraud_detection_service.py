@@ -4,16 +4,16 @@ ML-based anomaly detection for trading and financial operations
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from typing import Any
 
-from ...models.user import User
-from ...models.wallet import WalletTransaction, TransactionStatus
-from ...models.trade import Trade
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...database import get_db_context
+from ...models.user import User
+from ...models.wallet import TransactionStatus, WalletTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,9 @@ class FraudDetectionService:
         transaction_type: str,
         amount: Decimal,
         currency: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        metadata: dict[str, Any] | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Analyze a transaction for fraud indicators
 
@@ -76,9 +76,9 @@ class FraudDetectionService:
         transaction_type: str,
         amount: Decimal,
         currency: str,
-        metadata: Optional[Dict[str, Any]],
+        metadata: dict[str, Any] | None,
         db: AsyncSession,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal fraud analysis logic"""
         indicators = []
         risk_score = 0.0
@@ -174,7 +174,7 @@ class FraudDetectionService:
 
     async def _check_velocity(
         self, user_id: int, transaction_type: str, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check transaction velocity"""
         try:
             window_start = datetime.utcnow() - timedelta(
@@ -235,7 +235,7 @@ class FraudDetectionService:
 
     async def _check_amount_anomaly(
         self, user_id: int, amount: Decimal, transaction_type: str, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check for unusual transaction amounts"""
         try:
             # Get user's transaction history
@@ -307,7 +307,7 @@ class FraudDetectionService:
 
     async def _check_behavioral_pattern(
         self, user_id: int, transaction_type: str, amount: Decimal, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check for behavioral pattern deviations"""
         try:
             # Get user's typical transaction patterns
@@ -350,7 +350,7 @@ class FraudDetectionService:
             return {
                 "is_suspicious": is_suspicious,
                 "message": (
-                    f"Behavioral deviation detected: {deviation*100:.1f}% from average"
+                    f"Behavioral deviation detected: {deviation * 100:.1f}% from average"
                     if is_suspicious
                     else "Transaction matches behavioral pattern"
                 ),
@@ -368,7 +368,7 @@ class FraudDetectionService:
                 "details": {},
             }
 
-    def _check_time_anomaly(self) -> Dict[str, Any]:
+    def _check_time_anomaly(self) -> dict[str, Any]:
         """Check for unusual transaction times"""
         try:
             current_hour = datetime.utcnow().hour
@@ -395,7 +395,7 @@ class FraudDetectionService:
 
     async def _check_geographic_anomaly(
         self, user_id: int, ip_address: str, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check for geographic anomalies (if location data available)"""
         # This would require IP geolocation service
         # For now, return not suspicious
@@ -406,8 +406,8 @@ class FraudDetectionService:
         }
 
     async def get_user_risk_profile(
-        self, user_id: int, db: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        self, user_id: int, db: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """Get comprehensive risk profile for a user"""
         try:
             if db is None:
@@ -421,7 +421,7 @@ class FraudDetectionService:
 
     async def _get_risk_profile_internal(
         self, user_id: int, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal risk profile calculation"""
         # Get transaction statistics
         stats_result = await db.execute(

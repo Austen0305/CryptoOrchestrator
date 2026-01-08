@@ -4,10 +4,10 @@ AI Copilot Services Module
 
 from .copilot_service import (
     AICopilotService,
-    TradeExplanation,
+    BacktestSummaryRequest,
     StrategyGenerationRequest,
     StrategyOptimizationRequest,
-    BacktestSummaryRequest,
+    TradeExplanation,
     copilot_service,
 )
 

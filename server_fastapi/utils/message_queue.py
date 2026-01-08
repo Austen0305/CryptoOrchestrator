@@ -3,20 +3,22 @@ Message Queue Abstraction Layer
 Provides unified interface for different message queue backends (Celery, Redis, RabbitMQ)
 """
 
-import logging
 import asyncio
-import os
-from typing import Dict, Any, Optional, Callable, List
-from enum import Enum
-from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
 import json
+import logging
+import os
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class QueueBackend(str, Enum):
     """Message queue backend types"""
+
     CELERY = "celery"
     REDIS = "redis"
     RABBITMQ = "rabbitmq"
@@ -26,14 +28,15 @@ class QueueBackend(str, Enum):
 @dataclass
 class QueueMessage:
     """Queue message"""
+
     id: str
     task: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     priority: int = 5  # 1-10, higher is more important
     retries: int = 0
     max_retries: int = 3
     created_at: datetime = None
-    scheduled_at: Optional[datetime] = None
+    scheduled_at: datetime | None = None
 
     def __post_init__(self):
         if self.created_at is None:
@@ -43,7 +46,7 @@ class QueueMessage:
 class MessageQueue:
     """
     Unified message queue interface
-    
+
     Supports:
     - Celery (production)
     - Redis (simple queues)
@@ -53,16 +56,16 @@ class MessageQueue:
 
     def __init__(self, backend: QueueBackend = QueueBackend.CELERY):
         self.backend = backend
-        self._handlers: Dict[str, Callable] = {}
-        self._in_memory_queue: List[QueueMessage] = []
+        self._handlers: dict[str, Callable] = {}
+        self._in_memory_queue: list[QueueMessage] = []
         self._running = False
 
     async def enqueue(
         self,
         task: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         priority: int = 5,
-        delay: Optional[timedelta] = None,
+        delay: timedelta | None = None,
         max_retries: int = 3,
     ) -> str:
         """Enqueue a task"""
@@ -80,8 +83,8 @@ class MessageQueue:
     async def _enqueue_celery(
         self,
         task: str,
-        payload: Dict[str, Any],
-        delay: Optional[timedelta],
+        payload: dict[str, Any],
+        delay: timedelta | None,
         max_retries: int,
     ) -> str:
         """Enqueue using Celery"""
@@ -118,9 +121,9 @@ class MessageQueue:
     async def _enqueue_redis(
         self,
         task: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         priority: int,
-        delay: Optional[timedelta],
+        delay: timedelta | None,
     ) -> str:
         """Enqueue using Redis"""
         try:
@@ -150,9 +153,9 @@ class MessageQueue:
     async def _enqueue_in_memory(
         self,
         task: str,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         priority: int,
-        delay: Optional[timedelta],
+        delay: timedelta | None,
     ) -> str:
         """Enqueue in memory (for testing)"""
         message = QueueMessage(
@@ -182,10 +185,12 @@ class MessageQueue:
                 else:
                     handler(message.payload)
             except Exception as e:
-                logger.error(f"Error processing message {message.id}: {e}", exc_info=True)
+                logger.error(
+                    f"Error processing message {message.id}: {e}", exc_info=True
+                )
                 message.retries += 1
                 if message.retries < message.max_retries:
-                    await asyncio.sleep(2 ** message.retries)  # Exponential backoff
+                    await asyncio.sleep(2**message.retries)  # Exponential backoff
                     await self._process_in_memory_message(message)
 
     def register_handler(self, task: str, handler: Callable):
@@ -193,11 +198,12 @@ class MessageQueue:
         self._handlers[task] = handler
         logger.debug(f"Handler registered for task: {task}")
 
-    async def get_status(self, task_id: str) -> Dict[str, Any]:
+    async def get_status(self, task_id: str) -> dict[str, Any]:
         """Get task status"""
         if self.backend == QueueBackend.CELERY:
             try:
                 from ..celery_app import celery_app
+
                 result = celery_app.AsyncResult(task_id)
                 return {
                     "id": task_id,
@@ -216,6 +222,7 @@ class MessageQueue:
         if self.backend == QueueBackend.CELERY:
             try:
                 from ..celery_app import celery_app
+
                 celery_app.control.revoke(task_id, terminate=True)
                 return True
             except Exception as e:
@@ -224,7 +231,7 @@ class MessageQueue:
 
         return False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get queue statistics"""
         return {
             "backend": self.backend.value,
@@ -243,4 +250,3 @@ except ValueError:
     logger.warning(f"Unknown queue backend: {backend_str}, using Celery")
 
 message_queue = MessageQueue(backend=backend)
-

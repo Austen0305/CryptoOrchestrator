@@ -3,15 +3,15 @@ User Analytics API Routes
 Endpoints for tracking and retrieving user analytics
 """
 
+from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
 from ..dependencies.auth import get_optional_user
-from ..models.user import User
 from ..services.user_analytics_service import UserAnalyticsService
 
 router = APIRouter(prefix="/api/analytics/user", tags=["User Analytics"])
@@ -19,36 +19,36 @@ router = APIRouter(prefix="/api/analytics/user", tags=["User Analytics"])
 
 # Pydantic Models
 class TrackEventRequest(BaseModel):
-    session_id: Optional[str] = None
+    session_id: str | None = None
     event_type: str
     event_name: str
-    event_category: Optional[str] = None
-    properties: Optional[Dict[str, Any]] = None
-    page_url: Optional[str] = None
-    page_title: Optional[str] = None
-    referrer: Optional[str] = None
-    duration_ms: Optional[int] = None
+    event_category: str | None = None
+    properties: dict[str, Any] | None = None
+    page_url: str | None = None
+    page_title: str | None = None
+    referrer: str | None = None
+    duration_ms: int | None = None
 
 
 class TrackFeatureUsageRequest(BaseModel):
     feature_name: str
     action: str
-    feature_category: Optional[str] = None
-    duration_seconds: Optional[int] = None
+    feature_category: str | None = None
+    duration_seconds: int | None = None
     success: bool = True
-    properties: Optional[Dict[str, Any]] = None
-    error_message: Optional[str] = None
+    properties: dict[str, Any] | None = None
+    error_message: str | None = None
 
 
 class TrackFunnelStageRequest(BaseModel):
-    session_id: Optional[str] = None
+    session_id: str | None = None
     funnel_name: str
     stage: str
     stage_order: int
-    time_to_stage_seconds: Optional[int] = None
-    time_in_stage_seconds: Optional[int] = None
-    properties: Optional[Dict[str, Any]] = None
-    source: Optional[str] = None
+    time_to_stage_seconds: int | None = None
+    time_in_stage_seconds: int | None = None
+    properties: dict[str, Any] | None = None
+    source: str | None = None
 
 
 class TrackJourneyStepRequest(BaseModel):
@@ -56,33 +56,33 @@ class TrackJourneyStepRequest(BaseModel):
     journey_type: str
     step_name: str
     step_order: int
-    previous_step: Optional[str] = None
-    next_step: Optional[str] = None
-    path: Optional[List[str]] = None
-    time_to_step_seconds: Optional[int] = None
-    time_in_step_seconds: Optional[int] = None
-    properties: Optional[Dict[str, Any]] = None
+    previous_step: str | None = None
+    next_step: str | None = None
+    path: list[str] | None = None
+    time_to_step_seconds: int | None = None
+    time_in_step_seconds: int | None = None
+    properties: dict[str, Any] | None = None
 
 
 class RecordSatisfactionRequest(BaseModel):
     survey_type: str  # nps, csat, ces
     score: int
-    question: Optional[str] = None
-    response: Optional[str] = None
-    context: Optional[str] = None
-    properties: Optional[Dict[str, Any]] = None
+    question: str | None = None
+    response: str | None = None
+    context: str | None = None
+    properties: dict[str, Any] | None = None
 
 
 # Event Tracking Routes
 @router.post("/events/track")
 async def track_event(
     request: TrackEventRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Track a user event"""
     service = UserAnalyticsService(db)
-    
+
     # Get user agent and IP from request headers (would need middleware)
     event = await service.track_event(
         user_id=current_user.id if current_user else None,
@@ -96,27 +96,27 @@ async def track_event(
         referrer=request.referrer,
         duration_ms=request.duration_ms,
     )
-    
+
     return {"success": True, "event_id": event.id}
 
 
 @router.get("/events")
 async def get_user_events(
-    event_type: Optional[str] = Query(None),
-    event_category: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    event_type: str | None = Query(None),
+    event_category: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     limit: int = Query(100, le=1000),
     offset: int = Query(0, ge=0),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get user events"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     events = await service.get_user_events(
         user_id=current_user.id if current_user else None,
         event_type=event_type,
@@ -126,29 +126,29 @@ async def get_user_events(
         limit=limit,
         offset=offset,
     )
-    
+
     return {"events": events, "count": len(events)}
 
 
 @router.get("/events/analytics")
 async def get_event_analytics(
-    event_type: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    event_type: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get aggregated event analytics"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     analytics = await service.get_event_analytics(
         event_type=event_type,
         start_date=start,
         end_date=end,
     )
-    
+
     return analytics
 
 
@@ -156,15 +156,15 @@ async def get_event_analytics(
 @router.post("/features/track")
 async def track_feature_usage(
     request: TrackFeatureUsageRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Track feature usage"""
     if not current_user:
         raise HTTPException(status_code=401, detail="Authentication required")
-    
+
     service = UserAnalyticsService(db)
-    
+
     usage = await service.track_feature_usage(
         user_id=current_user.id,
         feature_name=request.feature_name,
@@ -175,29 +175,29 @@ async def track_feature_usage(
         properties=request.properties,
         error_message=request.error_message,
     )
-    
+
     return {"success": True, "usage_id": usage.id}
 
 
 @router.get("/features/stats")
 async def get_feature_usage_stats(
-    feature_name: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    feature_name: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get feature usage statistics"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     stats = await service.get_feature_usage_stats(
         feature_name=feature_name,
         start_date=start,
         end_date=end,
     )
-    
+
     return stats
 
 
@@ -205,12 +205,12 @@ async def get_feature_usage_stats(
 @router.post("/funnels/track")
 async def track_funnel_stage(
     request: TrackFunnelStageRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Track a conversion funnel stage"""
     service = UserAnalyticsService(db)
-    
+
     funnel = await service.track_funnel_stage(
         user_id=current_user.id if current_user else None,
         session_id=request.session_id,
@@ -222,48 +222,48 @@ async def track_funnel_stage(
         properties=request.properties,
         source=request.source,
     )
-    
+
     return {"success": True, "funnel_id": funnel.id}
 
 
 @router.post("/funnels/complete")
 async def complete_funnel(
     funnel_name: str,
-    session_id: Optional[str] = Query(None),
-    current_user: Optional[dict] = Depends(get_optional_user),
+    session_id: str | None = Query(None),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Mark a funnel as completed"""
     service = UserAnalyticsService(db)
-    
+
     success = await service.complete_funnel(
         user_id=current_user.id if current_user else None,
         session_id=session_id,
         funnel_name=funnel_name,
     )
-    
+
     return {"success": success}
 
 
 @router.get("/funnels/{funnel_name}/analytics")
 async def get_funnel_analytics(
     funnel_name: str,
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get conversion funnel analytics"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     analytics = await service.get_funnel_analytics(
         funnel_name=funnel_name,
         start_date=start,
         end_date=end,
     )
-    
+
     return analytics
 
 
@@ -271,12 +271,12 @@ async def get_funnel_analytics(
 @router.post("/journeys/track")
 async def track_journey_step(
     request: TrackJourneyStepRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Track a user journey step"""
     service = UserAnalyticsService(db)
-    
+
     journey = await service.track_journey_step(
         user_id=current_user.id if current_user else None,
         session_id=request.session_id,
@@ -290,7 +290,7 @@ async def track_journey_step(
         time_in_step_seconds=request.time_in_step_seconds,
         properties=request.properties,
     )
-    
+
     return {"success": True, "journey_id": journey.id}
 
 
@@ -302,34 +302,34 @@ async def complete_journey(
 ):
     """Mark a journey as completed"""
     service = UserAnalyticsService(db)
-    
+
     success = await service.complete_journey(
         session_id=session_id,
         journey_type=journey_type,
     )
-    
+
     return {"success": success}
 
 
 @router.get("/journeys/analytics")
 async def get_journey_analytics(
-    journey_type: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    journey_type: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get user journey analytics"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     analytics = await service.get_journey_analytics(
         journey_type=journey_type,
         start_date=start,
         end_date=end,
     )
-    
+
     return analytics
 
 
@@ -337,12 +337,12 @@ async def get_journey_analytics(
 @router.post("/satisfaction/record")
 async def record_satisfaction(
     request: RecordSatisfactionRequest,
-    current_user: Optional[dict] = Depends(get_optional_user),
+    current_user: dict | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Record user satisfaction score"""
     service = UserAnalyticsService(db)
-    
+
     satisfaction = await service.record_satisfaction(
         user_id=current_user.id if current_user else None,
         survey_type=request.survey_type,
@@ -352,27 +352,27 @@ async def record_satisfaction(
         context=request.context,
         properties=request.properties,
     )
-    
+
     return {"success": True, "satisfaction_id": satisfaction.id}
 
 
 @router.get("/satisfaction/metrics")
 async def get_satisfaction_metrics(
-    survey_type: Optional[str] = Query(None),
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
+    survey_type: str | None = Query(None),
+    start_date: str | None = Query(None),
+    end_date: str | None = Query(None),
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get user satisfaction metrics"""
     service = UserAnalyticsService(db)
-    
+
     start = datetime.fromisoformat(start_date) if start_date else None
     end = datetime.fromisoformat(end_date) if end_date else None
-    
+
     metrics = await service.get_satisfaction_metrics(
         survey_type=survey_type,
         start_date=start,
         end_date=end,
     )
-    
+
     return metrics

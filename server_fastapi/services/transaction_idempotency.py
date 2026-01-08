@@ -3,17 +3,16 @@ Transaction Idempotency Service
 Ensures transactions are processed only once using idempotency keys
 """
 
-import logging
 import hashlib
 import json
-from typing import Dict, Optional, Any
+import logging
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from typing import Any
 
-from ..models.idempotency import IdempotencyKey
+from sqlalchemy import select
+
 from ..database import get_db_context
+from ..models.idempotency import IdempotencyKey
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class TransactionIdempotencyService:
         self.default_ttl = timedelta(hours=24)  # 24 hour TTL for idempotency keys
 
     def generate_idempotency_key(
-        self, user_id: str, operation: str, params: Dict[str, Any]
+        self, user_id: str, operation: str, params: dict[str, Any]
     ) -> str:
         """
         Generate an idempotency key from user, operation, and parameters
@@ -50,7 +49,7 @@ class TransactionIdempotencyService:
 
     async def check_idempotency(
         self, idempotency_key: str, user_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Check if an idempotency key has been used before
 
@@ -100,9 +99,9 @@ class TransactionIdempotencyService:
         self,
         idempotency_key: str,
         user_id: str,
-        result: Dict[str, Any],
+        result: dict[str, Any],
         status_code: int = 200,
-        ttl: Optional[timedelta] = None,
+        ttl: timedelta | None = None,
     ) -> bool:
         """
         Store the result of an idempotent operation

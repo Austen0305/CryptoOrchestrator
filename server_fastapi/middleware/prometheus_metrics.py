@@ -5,23 +5,24 @@ Exports application metrics in Prometheus format
 
 import logging
 import time
-from typing import Dict, Any, Optional
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
-from collections import defaultdict, Counter
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 try:
     from prometheus_client import (
-        Counter as PromCounter,
-        Histogram,
-        Gauge,
-        generate_latest,
         CONTENT_TYPE_LATEST,
+        Gauge,
+        Histogram,
+        generate_latest,
     )
+    from prometheus_client import (
+        Counter as PromCounter,
+    )
+
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
@@ -121,27 +122,29 @@ class PrometheusMetrics:
         endpoint: str,
         status: int,
         duration: float,
-        request_size: Optional[int] = None,
-        response_size: Optional[int] = None,
+        request_size: int | None = None,
+        response_size: int | None = None,
     ):
         """Record HTTP request metrics"""
         if not self.enabled:
             return
 
-        self.http_requests_total.labels(method=method, endpoint=endpoint, status=status).inc()
-        self.http_request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
-            duration
-        )
+        self.http_requests_total.labels(
+            method=method, endpoint=endpoint, status=status
+        ).inc()
+        self.http_request_duration_seconds.labels(
+            method=method, endpoint=endpoint
+        ).observe(duration)
 
         if request_size is not None:
-            self.http_request_size_bytes.labels(method=method, endpoint=endpoint).observe(
-                request_size
-            )
+            self.http_request_size_bytes.labels(
+                method=method, endpoint=endpoint
+            ).observe(request_size)
 
         if response_size is not None:
-            self.http_response_size_bytes.labels(method=method, endpoint=endpoint).observe(
-                response_size
-            )
+            self.http_response_size_bytes.labels(
+                method=method, endpoint=endpoint
+            ).observe(response_size)
 
     def record_db_query(self, operation: str, duration: float, status: str = "success"):
         """Record database query metrics"""
@@ -262,7 +265,11 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
 def get_metrics_response() -> Response:
     """Get Prometheus metrics response"""
-    if not PROMETHEUS_AVAILABLE or not prometheus_metrics or not prometheus_metrics.enabled:
+    if (
+        not PROMETHEUS_AVAILABLE
+        or not prometheus_metrics
+        or not prometheus_metrics.enabled
+    ):
         return StarletteResponse(
             content="Prometheus metrics not available",
             status_code=503,
@@ -272,4 +279,3 @@ def get_metrics_response() -> Response:
         content=generate_latest(),
         media_type=CONTENT_TYPE_LATEST,
     )
-

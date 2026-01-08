@@ -3,18 +3,19 @@ Comprehensive Logging Aggregation
 Provides centralized logging aggregation and analysis
 """
 
-import logging
 import json
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+import logging
 from collections import defaultdict, deque
+from datetime import datetime, timedelta
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class LogLevel(str, Enum):
     """Log levels"""
+
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARNING = "WARNING"
@@ -25,7 +26,7 @@ class LogLevel(str, Enum):
 class LogAggregator:
     """
     Log aggregation system
-    
+
     Features:
     - Centralized log collection
     - Log analysis
@@ -37,9 +38,9 @@ class LogAggregator:
 
     def __init__(self, max_logs: int = 100000):
         self.logs: deque = deque(maxlen=max_logs)
-        self.log_stats: Dict[str, Any] = defaultdict(int)
-        self.error_patterns: Dict[str, int] = defaultdict(int)
-        self.log_by_level: Dict[LogLevel, deque] = {
+        self.log_stats: dict[str, Any] = defaultdict(int)
+        self.error_patterns: dict[str, int] = defaultdict(int)
+        self.log_by_level: dict[LogLevel, deque] = {
             level: deque(maxlen=10000) for level in LogLevel
         }
 
@@ -48,7 +49,7 @@ class LogAggregator:
         level: LogLevel,
         message: str,
         source: str = "system",
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """Add a log entry"""
         log_entry = {
@@ -69,7 +70,7 @@ class LogAggregator:
             if pattern:
                 self.error_patterns[pattern] += 1
 
-    def _extract_error_pattern(self, message: str) -> Optional[str]:
+    def _extract_error_pattern(self, message: str) -> str | None:
         """Extract error pattern from message"""
         # Extract common error patterns
         patterns = [
@@ -80,6 +81,7 @@ class LogAggregator:
         ]
 
         import re
+
         for pattern in patterns:
             match = re.search(pattern, message)
             if match:
@@ -89,12 +91,12 @@ class LogAggregator:
 
     def get_logs(
         self,
-        level: Optional[LogLevel] = None,
-        source: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        level: LogLevel | None = None,
+        source: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 1000,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get logs with filtering"""
         logs = list(self.logs)
 
@@ -121,7 +123,7 @@ class LogAggregator:
         logs.sort(key=lambda x: x["timestamp"], reverse=True)
         return logs[:limit]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get logging statistics"""
         total_logs = len(self.logs)
         recent_logs = [
@@ -141,7 +143,7 @@ class LogAggregator:
             )[:10],
         }
 
-    def search_logs(self, query: str, limit: int = 100) -> List[Dict[str, Any]]:
+    def search_logs(self, query: str, limit: int = 100) -> list[dict[str, Any]]:
         """Search logs by query"""
         results = []
         query_lower = query.lower()
@@ -160,8 +162,8 @@ class LogAggregator:
     def export_logs(
         self,
         format: str = "json",
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> str:
         """Export logs"""
         logs = self.get_logs(start_time=start_time, end_time=end_time, limit=100000)
@@ -178,12 +180,14 @@ class LogAggregator:
             )
             writer.writeheader()
             for log in logs:
-                writer.writerow({
-                    "timestamp": log["timestamp"],
-                    "level": log["level"],
-                    "source": log["source"],
-                    "message": log["message"],
-                })
+                writer.writerow(
+                    {
+                        "timestamp": log["timestamp"],
+                        "level": log["level"],
+                        "source": log["source"],
+                        "message": log["message"],
+                    }
+                )
             return output.getvalue()
         else:
             # Plain text
@@ -237,4 +241,3 @@ root_logger = logging.getLogger()
 aggregating_handler = AggregatingHandler(log_aggregator)
 aggregating_handler.setLevel(logging.INFO)
 root_logger.addHandler(aggregating_handler)
-

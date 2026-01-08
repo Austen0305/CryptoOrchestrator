@@ -3,13 +3,13 @@ Advanced Rate Limiting Middleware
 Redis-backed sliding window rate limiting with per-user and per-IP limits
 """
 
-import time
 import hashlib
-from typing import Optional, Dict
-from fastapi import Request, HTTPException, status
+import logging
+import time
+
+from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ except ImportError:
 class AdvancedRateLimiter:
     """Advanced rate limiter with Redis-backed sliding window"""
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, redis_client: redis.Redis | None = None):
         self.redis = redis_client
         self.redis_available = redis_client is not None
 
@@ -37,7 +37,7 @@ class AdvancedRateLimiter:
         }
 
         # Per-endpoint limits
-        self.endpoint_limits: Dict[str, Dict] = {
+        self.endpoint_limits: dict[str, dict] = {
             "/api/auth/login": {"requests": 5, "window": 60},  # 5 login attempts/min
             "/api/auth/register": {"requests": 3, "window": 60},  # 3 registrations/min
             "/api/trades": {"requests": 100, "window": 60},  # 100 trades/min
@@ -125,7 +125,7 @@ class AdvancedRateLimiter:
         """In-memory fallback rate limiting"""
         # Simple in-memory implementation (not thread-safe, but works for fallback)
         if not hasattr(self, "_memory_limits"):
-            self._memory_limits: Dict[str, list] = {}
+            self._memory_limits: dict[str, list] = {}
 
         key = f"{identifier}:{endpoint}"
         current_time = time.time()
@@ -156,7 +156,7 @@ class AdvancedRateLimiter:
 class AdvancedRateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware for advanced rate limiting"""
 
-    def __init__(self, app: ASGIApp, redis_client: Optional[redis.Redis] = None):
+    def __init__(self, app: ASGIApp, redis_client: redis.Redis | None = None):
         super().__init__(app)
         self.rate_limiter = AdvancedRateLimiter(redis_client)
 

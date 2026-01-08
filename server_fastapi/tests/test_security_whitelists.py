@@ -2,8 +2,6 @@
 Tests for Security Whitelist Services
 """
 
-import pytest
-
 from server_fastapi.services.security.ip_whitelist_service import ip_whitelist_service
 from server_fastapi.services.security.withdrawal_whitelist_service import (
     withdrawal_whitelist_service,

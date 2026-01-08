@@ -3,6 +3,7 @@ Tests for trading strategies (MA Crossover, RSI, Momentum)
 """
 
 import pytest
+
 from server_fastapi.services.trading.bot_trading_service import BotTradingService
 
 

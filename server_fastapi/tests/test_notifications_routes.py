@@ -3,10 +3,10 @@ Integration tests for push notifications API endpoints
 Tests subscription and unsubscription
 """
 
+import logging
+
 import pytest
 from httpx import AsyncClient
-from typing import Dict, Any
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class TestNotificationsRoutes:
     """Integration tests for push notifications API endpoints"""
 
     async def test_subscribe_push_notifications(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test subscribing to push notifications"""
         subscription_data = {
@@ -58,7 +58,7 @@ class TestNotificationsRoutes:
         assert response.status_code in [401, 403]
 
     async def test_unsubscribe_push_notifications(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test unsubscribing from push notifications"""
         response = await client.post(

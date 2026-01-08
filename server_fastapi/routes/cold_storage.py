@@ -3,15 +3,16 @@ Cold Storage Routes
 API endpoints for cold storage management
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Annotated
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.cold_storage_service import ColdStorageService
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..services.cold_storage_service import ColdStorageService
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ class InitiateColdStorageRequest(BaseModel):
 
     currency: str
     amount: float
-    description: Optional[str] = None
+    description: str | None = None
 
 
 @router.post("/check-eligibility")
@@ -33,7 +34,7 @@ async def check_cold_storage_eligibility(
     amount: float,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict:
+) -> dict:
     """Check if transfer is eligible for cold storage"""
     try:
         user_id = _get_user_id(current_user)
@@ -55,7 +56,7 @@ async def initiate_cold_storage_transfer(
     request: InitiateColdStorageRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict:
+) -> dict:
     """Initiate a transfer to cold storage"""
     try:
         user_id = _get_user_id(current_user)
@@ -82,8 +83,8 @@ async def initiate_cold_storage_transfer(
 async def get_cold_storage_balance(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    currency: Optional[str] = None,
-) -> Dict:
+    currency: str | None = None,
+) -> dict:
     """Get cold storage balance for current user"""
     try:
         user_id = _get_user_id(current_user)

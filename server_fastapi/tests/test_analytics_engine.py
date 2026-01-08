@@ -1,10 +1,9 @@
 import pytest
-import asyncio
 
 from server_fastapi.services.analytics_engine import (
     AnalyticsEngine,
-    PerformanceMetrics,
     BotConfig,
+    PerformanceMetrics,
 )
 
 

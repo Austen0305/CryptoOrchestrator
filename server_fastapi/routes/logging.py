@@ -4,11 +4,12 @@ Provides endpoints for log viewing and analysis
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
 from datetime import datetime
-from ..utils.logging_aggregation import log_aggregator, LogLevel
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+
 from ..middleware.auth import get_current_user
+from ..utils.logging_aggregation import LogLevel, log_aggregator
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,10 @@ async def post_logs(
 
 @router.get("/")
 async def get_logs(
-    level: Optional[str] = Query(None, description="Filter by log level"),
-    source: Optional[str] = Query(None, description="Filter by source"),
-    start_time: Optional[str] = Query(None, description="Start time (ISO format)"),
-    end_time: Optional[str] = Query(None, description="End time (ISO format)"),
+    level: str | None = Query(None, description="Filter by log level"),
+    source: str | None = Query(None, description="Filter by source"),
+    start_time: str | None = Query(None, description="Start time (ISO format)"),
+    end_time: str | None = Query(None, description="End time (ISO format)"),
     limit: int = Query(1000, ge=1, le=10000, description="Maximum number of logs"),
     current_user: dict = Depends(get_current_user),
 ):
@@ -99,8 +100,8 @@ async def search_logs(
 @router.get("/export")
 async def export_logs(
     format: str = Query("json", description="Export format (json, csv, txt)"),
-    start_time: Optional[str] = Query(None, description="Start time (ISO format)"),
-    end_time: Optional[str] = Query(None, description="End time (ISO format)"),
+    start_time: str | None = Query(None, description="Start time (ISO format)"),
+    end_time: str | None = Query(None, description="End time (ISO format)"),
     current_user: dict = Depends(get_current_user),
 ):
     """Export logs"""
@@ -133,4 +134,3 @@ async def export_logs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to export logs: {str(e)}",
         )
-

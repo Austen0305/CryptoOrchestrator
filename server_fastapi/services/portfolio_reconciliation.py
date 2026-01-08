@@ -3,10 +3,10 @@ Portfolio Reconciliation Service
 Validates portfolio balances against trade history to detect discrepancies
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from typing import Dict, List, Optional
 import logging
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class PortfolioReconciliationService:
     def __init__(self, db_session: AsyncSession):
         self.db = db_session
 
-    async def reconcile_portfolio(self, user_id: str) -> Dict:
+    async def reconcile_portfolio(self, user_id: str) -> dict:
         """
         Reconcile portfolio balances with trade history
 
@@ -128,7 +128,7 @@ class PortfolioReconciliationService:
             )
             return {"user_id": user_id, "status": "error", "error": str(e)}
 
-    async def reconcile_all_portfolios(self) -> List[Dict]:
+    async def reconcile_all_portfolios(self) -> list[dict]:
         """Reconcile all user portfolios"""
         try:
             from ..models.portfolio import Portfolio
@@ -164,7 +164,7 @@ class PortfolioReconciliationService:
             logger.error(f"Batch reconciliation failed: {e}", exc_info=True)
             return []
 
-    async def _handle_discrepancies(self, user_id: str, discrepancies: List[Dict]):
+    async def _handle_discrepancies(self, user_id: str, discrepancies: list[dict]):
         """
         Handle portfolio discrepancies by creating alerts
 
@@ -214,7 +214,7 @@ class PortfolioReconciliationService:
             logger.error(f"Failed to create discrepancy alert: {e}", exc_info=True)
 
 
-async def reconcile_user_portfolio(user_id: str, session: AsyncSession) -> Dict:
+async def reconcile_user_portfolio(user_id: str, session: AsyncSession) -> dict:
     """Convenience helper to trigger reconciliation using existing session."""
     service = PortfolioReconciliationService(db_session=session)
     return await service.reconcile_portfolio(user_id)

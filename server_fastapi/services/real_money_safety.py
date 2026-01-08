@@ -4,16 +4,17 @@ Comprehensive safety checks and validations for all real money operations
 """
 
 import logging
-from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 from decimal import Decimal
+from typing import Any
 
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..database import get_db_context
 from ..models.base import User
 from ..models.trade import Trade
 from ..models.wallet import Wallet, WalletTransaction
-from ..database import get_db_context
 
 logger = logging.getLogger(__name__)
 
@@ -37,9 +38,9 @@ class RealMoneySafetyService:
         symbol: str,
         side: str,
         amount: Decimal,
-        price: Optional[Decimal] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        price: Decimal | None = None,
+        db: AsyncSession | None = None,
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """
         Comprehensive validation for real money trades
 
@@ -80,11 +81,11 @@ class RealMoneySafetyService:
         symbol: str,
         side: str,
         amount: Decimal,
-        price: Optional[Decimal],
+        price: Decimal | None,
         db: AsyncSession,
-        errors: List[str],
-        metadata: Dict[str, Any],
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        errors: list[str],
+        metadata: dict[str, Any],
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """Internal validation logic"""
 
         # 1. Validate user exists and is active
@@ -224,8 +225,8 @@ class RealMoneySafetyService:
         amount: Decimal,
         currency: str,
         destination: str,
-        db: Optional[AsyncSession] = None,
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        db: AsyncSession | None = None,
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """Validate real money withdrawal"""
         errors = []
         metadata = {}
@@ -258,9 +259,9 @@ class RealMoneySafetyService:
         currency: str,
         destination: str,
         db: AsyncSession,
-        errors: List[str],
-        metadata: Dict[str, Any],
-    ) -> Tuple[bool, List[str], Dict[str, Any]]:
+        errors: list[str],
+        metadata: dict[str, Any],
+    ) -> tuple[bool, list[str], dict[str, Any]]:
         """Internal withdrawal validation"""
 
         # 1. Validate user
@@ -332,9 +333,9 @@ class RealMoneySafetyService:
         self,
         operation_type: str,
         user_id: int,
-        details: Dict[str, Any],
+        details: dict[str, Any],
         success: bool,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Log real money operation for audit"""
         try:

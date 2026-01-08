@@ -2,13 +2,14 @@
 Trailing Bot repository for database operations.
 """
 
-from typing import List, Optional
+import logging
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
+
 from ..models.trailing_bot import TrailingBot
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, bot_id: str, user_id: int
-    ) -> Optional[TrailingBot]:
+    ) -> TrailingBot | None:
         """Get a trailing bot by ID and user ID with eager loading."""
         query = (
             select(TrailingBot)
@@ -37,7 +38,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
 
     async def get_user_trailing_bots(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[TrailingBot]:
+    ) -> list[TrailingBot]:
         """Get all trailing bots for a user with pagination and eager loading."""
         query = (
             select(TrailingBot)
@@ -51,7 +52,9 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def count_user_trailing_bots(self, session: AsyncSession, user_id: int) -> int:
+    async def count_user_trailing_bots(
+        self, session: AsyncSession, user_id: int
+    ) -> int:
         """Get total count of trailing bots for a user."""
         from sqlalchemy import func
 
@@ -68,7 +71,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         user_id: int,
         active: bool,
         status: str,
-    ) -> Optional[TrailingBot]:
+    ) -> TrailingBot | None:
         """Update trailing bot active status and status field."""
         from datetime import datetime
 
@@ -109,7 +112,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         current_price: float,
         highest_price: float,
         lowest_price: float,
-    ) -> Optional[TrailingBot]:
+    ) -> TrailingBot | None:
         """Update trailing bot price tracking."""
         from datetime import datetime
 
@@ -138,8 +141,8 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         return updated_bot
 
     async def get_active_trailing_bots(
-        self, session: AsyncSession, user_id: Optional[int] = None
-    ) -> List[TrailingBot]:
+        self, session: AsyncSession, user_id: int | None = None
+    ) -> list[TrailingBot]:
         """Get all active trailing bots with eager loading, optionally filtered by user."""
         query = (
             select(TrailingBot)

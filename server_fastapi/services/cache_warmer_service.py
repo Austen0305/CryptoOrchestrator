@@ -3,11 +3,12 @@ Cache Warmer Service
 Pre-populates cache with frequently accessed data to reduce cache misses
 """
 
-import logging
 import asyncio
-from typing import Dict, List, Optional, Callable, Any
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from typing import Any
 
 from ..services.cache_service import cache_service
 
@@ -23,8 +24,8 @@ class CacheWarmupTask:
     ttl: int = 300  # Cache TTL in seconds
     interval: int = 60  # Warmup interval in seconds
     enabled: bool = True
-    last_run: Optional[datetime] = None
-    next_run: Optional[datetime] = None
+    last_run: datetime | None = None
+    next_run: datetime | None = None
     run_count: int = 0
     error_count: int = 0
 
@@ -33,9 +34,9 @@ class CacheWarmerService:
     """Service for warming up cache with frequently accessed data"""
 
     def __init__(self):
-        self.tasks: Dict[str, CacheWarmupTask] = {}
+        self.tasks: dict[str, CacheWarmupTask] = {}
         self._running = False
-        self._warmup_task: Optional[asyncio.Task] = None
+        self._warmup_task: asyncio.Task | None = None
 
     def register_task(
         self,
@@ -151,7 +152,7 @@ class CacheWarmerService:
                 logger.error(f"Error in warmup loop: {e}", exc_info=True)
                 await asyncio.sleep(30)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get cache warmer service status"""
         return {
             "running": self._running,
@@ -171,7 +172,7 @@ class CacheWarmerService:
             ],
         }
 
-    async def warmup_now(self, task_name: Optional[str] = None) -> Dict[str, bool]:
+    async def warmup_now(self, task_name: str | None = None) -> dict[str, bool]:
         """Manually trigger warmup for specific task or all tasks"""
         if task_name:
             if task_name not in self.tasks:
@@ -223,8 +224,8 @@ async def warmup_market_data():
 async def warmup_staking_options():
     """Warmup staking options cache"""
     try:
-        from ..services.staking_service import StakingService
         from ..database import get_db_context
+        from ..services.staking_service import StakingService
 
         async with get_db_context() as db:
             staking_service = StakingService(db)
@@ -283,10 +284,11 @@ async def warmup_popular_token_prices():
 async def warmup_active_bot_statuses():
     """Warmup active bot statuses for users with active bots"""
     try:
-        from ..database import get_db_context
-        from ..repositories.bot_repository import BotRepository
         from sqlalchemy import select
+
+        from ..database import get_db_context
         from ..models.bot import Bot
+        from ..repositories.bot_repository import BotRepository
 
         async with get_db_context() as db:
             # Get all active bots
@@ -327,11 +329,11 @@ async def warmup_active_bot_statuses():
 async def warmup_user_portfolios():
     """Warmup portfolios for active users"""
     try:
+        from sqlalchemy import func, select
+
         from ..database import get_db_context
-        from ..repositories.user_repository import UserRepository
-        from sqlalchemy import select, func
-        from ..models.user import User
         from ..models.trade import Trade
+        from ..models.user import User
 
         async with get_db_context() as db:
             # Get users with recent trades (active users)

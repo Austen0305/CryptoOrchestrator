@@ -1,21 +1,23 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, status
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional, Annotated
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession
-from server_fastapi.services.analytics_engine import AnalyticsEngine
-from server_fastapi.services.advanced_analytics_engine import AdvancedAnalyticsEngine
-from server_fastapi.services.monitoring.performance_monitor import PerformanceMonitor
-from server_fastapi.dependencies.auth import get_current_user
-from server_fastapi.database import get_db_session
-from server_fastapi.middleware.cache_manager import cached
-from server_fastapi.utils.route_helpers import _get_user_id
-from server_fastapi.utils.response_optimizer import ResponseOptimizer
 from datetime import datetime, timedelta
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from server_fastapi.database import get_db_session
+from server_fastapi.dependencies.auth import get_current_user
+from server_fastapi.middleware.cache_manager import cached
+from server_fastapi.services.advanced_analytics_engine import AdvancedAnalyticsEngine
+from server_fastapi.services.analytics_engine import AnalyticsEngine
+from server_fastapi.services.monitoring.performance_monitor import PerformanceMonitor
+from server_fastapi.utils.response_optimizer import ResponseOptimizer
+from server_fastapi.utils.route_helpers import _get_user_id
 
 try:
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
     PANDAS_AVAILABLE = True
 except ImportError:
@@ -53,8 +55,8 @@ class AnalyticsSummary(BaseModel):
     total_trades: int
     total_pnl: float
     win_rate: float
-    best_performing_bot: Optional[str]
-    worst_performing_bot: Optional[str]
+    best_performing_bot: str | None
+    worst_performing_bot: str | None
 
 
 class PerformanceMetrics(BaseModel):
@@ -90,7 +92,7 @@ class TradeRecord(BaseModel):
     amount: float
     price: float
     timestamp: datetime
-    pnl: Optional[float]
+    pnl: float | None
     status: str
 
 
@@ -98,7 +100,7 @@ class PortfolioAnalytics(BaseModel):
     total_value: float
     total_pnl: float
     pnl_percentage: float
-    asset_allocation: Dict[str, float]
+    asset_allocation: dict[str, float]
     performance_vs_benchmark: float
     volatility: float
     sharpe_ratio: float
@@ -147,13 +149,13 @@ class DashboardSummary(BaseModel):
 
 
 class PerformanceChartData(BaseModel):
-    labels: List[str]
-    datasets: List[Dict[str, Any]]
+    labels: list[str]
+    datasets: list[dict[str, Any]]
 
 
 class CorrelationMatrix(BaseModel):
-    assets: List[str]
-    matrix: List[List[float]]
+    assets: list[str]
+    matrix: list[list[float]]
 
 
 class AssetAllocation(BaseModel):
@@ -206,9 +208,9 @@ async def get_analytics_summary(
 async def get_performance_metrics(
     engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-    bot_id: Optional[str] = Query(None, description="Filter by specific bot ID"),
+    bot_id: str | None = Query(None, description="Filter by specific bot ID"),
     period: str = Query("30d", description="Time period (1d, 7d, 30d, 90d, 1y)"),
-) -> List[PerformanceMetrics]:
+) -> list[PerformanceMetrics]:
     """Get performance metrics for bots"""
     try:
         user_id = _get_user_id(current_user)
@@ -310,14 +312,15 @@ async def get_risk_metrics(
 async def get_trade_history(
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
-    symbol: Optional[str] = Query(None, description="Filter by trading symbol"),
+    bot_id: str | None = Query(None, description="Filter by bot ID"),
+    symbol: str | None = Query(None, description="Filter by trading symbol"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=500, description="Items per page"),
-) -> List[TradeRecord]:
+) -> list[TradeRecord]:
     """Get trade history from database with pagination"""
     try:
-        from sqlalchemy import select, func
+        from sqlalchemy import func, select
+
         from ..models.trade import Trade
         from ..utils.query_optimizer import QueryOptimizer
 
@@ -398,9 +401,9 @@ async def get_pnl_chart(
     engine: Annotated[AnalyticsEngine, Depends(get_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
+    bot_id: str | None = Query(None, description="Filter by bot ID"),
     period: str = Query("30d", description="Time period"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get PnL chart data from database"""
     try:
         user_id = _get_user_id(current_user)
@@ -465,18 +468,18 @@ async def get_pnl_chart(
 
 @router.get("/win-rate-chart")
 async def get_win_rate_chart(
-    bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
+    bot_id: str | None = Query(None, description="Filter by bot ID"),
     period: str = Query("30d", description="Time period"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get win rate chart data over time"""
     try:
         user_id = _get_user_id(current_user)
-        
+
         # Calculate real win rate from trades
         try:
-            from ..repositories.trade_repository import TradeRepository
             from ..database import get_db_context
-            
+            from ..repositories.trade_repository import TradeRepository
+
             end_date = datetime.now()
             if period == "7d":
                 days = 7
@@ -486,54 +489,68 @@ async def get_win_rate_chart(
                 days = 90
             else:
                 days = 30
-            
+
             start_date = end_date - timedelta(days=days)
-            
+
             async with get_db_context() as session:
                 trade_repo = TradeRepository()
                 # Get trades for user with reasonable limit for chart calculations
                 # Limit to last 1000 trades to prevent performance issues
-                trades = await trade_repo.get_by_user(session, int(user_id), skip=0, limit=1000)
-                
+                trades = await trade_repo.get_by_user(
+                    session, int(user_id), skip=0, limit=1000
+                )
+
                 # Filter trades by period
                 period_trades = [
-                    t for t in trades
-                    if (t.executed_at or t.timestamp or t.created_at) and 
-                       (t.executed_at or t.timestamp or t.created_at) >= start_date
+                    t
+                    for t in trades
+                    if (t.executed_at or t.timestamp or t.created_at)
+                    and (t.executed_at or t.timestamp or t.created_at) >= start_date
                 ]
-                
+
                 # Calculate win rate per day
                 chart_data = []
                 for i in range(days):
                     date = end_date - timedelta(days=days - i - 1)
                     day_start = datetime.combine(date.date(), datetime.min.time())
                     day_end = day_start + timedelta(days=1)
-                    
+
                     day_trades = [
-                        t for t in period_trades
-                        if (t.executed_at or t.timestamp or t.created_at) and 
-                           day_start <= (t.executed_at or t.timestamp or t.created_at) < day_end
+                        t
+                        for t in period_trades
+                        if (t.executed_at or t.timestamp or t.created_at)
+                        and day_start
+                        <= (t.executed_at or t.timestamp or t.created_at)
+                        < day_end
                     ]
-                    
+
                     if day_trades:
                         winning = sum(1 for t in day_trades if t.pnl and t.pnl > 0)
                         win_rate = winning / len(day_trades)
                     else:
                         win_rate = 0.0
-                    
-                    chart_data.append({
-                        "date": date.strftime("%Y-%m-%d"),
-                        "win_rate": win_rate
-                    })
-                
+
+                    chart_data.append(
+                        {"date": date.strftime("%Y-%m-%d"), "win_rate": win_rate}
+                    )
+
                 return chart_data
         except Exception as calc_error:
             logger.warning(f"Failed to calculate win rate chart: {calc_error}")
             # Return empty data instead of mock data
             end_date = datetime.now()
-            days = 30 if period not in ["7d", "30d", "90d"] else (7 if period == "7d" else (30 if period == "30d" else 90))
+            days = (
+                30
+                if period not in ["7d", "30d", "90d"]
+                else (7 if period == "7d" else (30 if period == "30d" else 90))
+            )
             return [
-                {"date": (end_date - timedelta(days=days - i - 1)).strftime("%Y-%m-%d"), "win_rate": 0.0}
+                {
+                    "date": (end_date - timedelta(days=days - i - 1)).strftime(
+                        "%Y-%m-%d"
+                    ),
+                    "win_rate": 0.0,
+                }
                 for i in range(days)
             ]
     except Exception as e:
@@ -543,18 +560,18 @@ async def get_win_rate_chart(
 
 @router.get("/drawdown-chart")
 async def get_drawdown_chart(
-    bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
+    bot_id: str | None = Query(None, description="Filter by bot ID"),
     period: str = Query("30d", description="Time period"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get drawdown chart data"""
     try:
         user_id = _get_user_id(current_user)
-        
+
         # Calculate real drawdown from trade history
         try:
-            from ..repositories.trade_repository import TradeRepository
             from ..database import get_db_context
-            
+            from ..repositories.trade_repository import TradeRepository
+
             end_date = datetime.now()
             if period == "7d":
                 days = 7
@@ -564,60 +581,73 @@ async def get_drawdown_chart(
                 days = 90
             else:
                 days = 30
-            
+
             start_date = end_date - timedelta(days=days)
-            
+
             async with get_db_context() as session:
                 trade_repo = TradeRepository()
                 trades = await trade_repo.get_by_user_id(session, user_id)
-                
+
                 # Filter trades by period and bot if specified
                 period_trades = [
-                    t for t in trades
-                    if t.executed_at and t.executed_at >= start_date
+                    t
+                    for t in trades
+                    if t.executed_at
+                    and t.executed_at >= start_date
                     and (not bot_id or str(t.bot_id) == bot_id)
                 ]
-                
+
                 # Calculate cumulative P&L over time
                 chart_data = []
                 cumulative_pnl = 0.0
                 peak = 0.0
-                
+
                 # Group trades by day
                 for i in range(days):
                     date = end_date - timedelta(days=days - i - 1)
                     day_start = datetime.combine(date.date(), datetime.min.time())
                     day_end = day_start + timedelta(days=1)
-                    
+
                     day_trades = [
-                        t for t in period_trades
-                        if (t.executed_at or t.timestamp or t.created_at) and 
-                           day_start <= (t.executed_at or t.timestamp or t.created_at) < day_end
+                        t
+                        for t in period_trades
+                        if (t.executed_at or t.timestamp or t.created_at)
+                        and day_start
+                        <= (t.executed_at or t.timestamp or t.created_at)
+                        < day_end
                     ]
-                    
+
                     # Add P&L for this day
                     day_pnl = sum((t.pnl or 0.0) for t in day_trades)
                     cumulative_pnl += day_pnl
                     peak = max(peak, cumulative_pnl)
-                    
+
                     # Calculate drawdown
                     drawdown = (peak - cumulative_pnl) / peak if peak > 0 else 0.0
-                    
-                    chart_data.append({
-                        "date": date.strftime("%Y-%m-%d"),
-                        "drawdown": drawdown,
-                        "value": cumulative_pnl,
-                    })
-                
+
+                    chart_data.append(
+                        {
+                            "date": date.strftime("%Y-%m-%d"),
+                            "drawdown": drawdown,
+                            "value": cumulative_pnl,
+                        }
+                    )
+
                 return chart_data
         except Exception as calc_error:
             logger.warning(f"Failed to calculate drawdown chart: {calc_error}")
             # Return empty data instead of mock data
             end_date = datetime.now()
-            days = 30 if period not in ["7d", "30d", "90d"] else (7 if period == "7d" else (30 if period == "30d" else 90))
+            days = (
+                30
+                if period not in ["7d", "30d", "90d"]
+                else (7 if period == "7d" else (30 if period == "30d" else 90))
+            )
             return [
                 {
-                    "date": (end_date - timedelta(days=days - i - 1)).strftime("%Y-%m-%d"),
+                    "date": (end_date - timedelta(days=days - i - 1)).strftime(
+                        "%Y-%m-%d"
+                    ),
                     "drawdown": 0.0,
                     "value": 0.0,
                 }
@@ -693,7 +723,7 @@ async def get_backtesting_results(
     strategy_id: str,
     engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-    backtest_id: Optional[str] = Query(None, description="Specific backtest ID"),
+    backtest_id: str | None = Query(None, description="Specific backtest ID"),
 ) -> BacktestResult:
     """Get backtesting results for a strategy"""
     try:
@@ -745,11 +775,11 @@ async def get_backtesting_results(
 async def compare_backtesting_results(
     engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-    strategy_ids: List[str] = Query(..., description="List of strategy IDs to compare"),
-    backtest_ids: Optional[List[str]] = Query(
+    strategy_ids: list[str] = Query(..., description="List of strategy IDs to compare"),
+    backtest_ids: list[str] | None = Query(
         None, description="Specific backtest IDs for each strategy"
     ),
-) -> List[BacktestResult]:
+) -> list[BacktestResult]:
     """Compare backtesting results across multiple strategies"""
     try:
         user_id = _get_user_id(current_user)
@@ -815,8 +845,8 @@ async def get_backtesting_performance_metrics(
     strategy_id: str,
     engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-    backtest_id: Optional[str] = Query(None, description="Specific backtest ID"),
-) -> Dict[str, Any]:
+    backtest_id: str | None = Query(None, description="Specific backtest ID"),
+) -> dict[str, Any]:
     """Get detailed performance metrics for a backtest"""
     try:
         user_id = _get_user_id(current_user)
@@ -1100,7 +1130,7 @@ async def get_portfolio_performance_chart(
 async def get_asset_allocation_chart(
     engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> List[AssetAllocation]:
+) -> list[AssetAllocation]:
     """Get current asset allocation for pie chart visualization"""
     try:
         user_id = _get_user_id(current_user)
@@ -1111,10 +1141,6 @@ async def get_asset_allocation_chart(
 
         # Get real asset allocation from portfolio
         try:
-            from ..routes.portfolio import get_portfolio
-            from ..dependencies.pnl import get_pnl_service
-            from ..services.pnl_service import PnLService
-            
             # Get asset allocation from portfolio data if available
             # Note: Full integration would require calling portfolio API endpoint
             # For now, calculate from available portfolio_data positions
@@ -1131,11 +1157,13 @@ async def get_asset_allocation_chart(
                         for asset, pos in positions.items():
                             if isinstance(pos, dict):
                                 value = pos.get("totalValue", 0.0)
-                                allocation.append({
-                                    "asset": asset,
-                                    "allocation": (value / total_value) * 100,
-                                    "value": value,
-                                })
+                                allocation.append(
+                                    {
+                                        "asset": asset,
+                                        "allocation": (value / total_value) * 100,
+                                        "value": value,
+                                    }
+                                )
                     return allocation
             return []
         except Exception as e:
@@ -1159,7 +1187,7 @@ async def get_asset_allocation_chart(
 async def get_correlation_matrix_data(
     engine: Annotated[AdvancedAnalyticsEngine, Depends(get_advanced_analytics_engine)],
     current_user: Annotated[dict, Depends(get_current_user)],
-    assets: List[str] = Query(None, description="List of asset symbols"),
+    assets: list[str] = Query(None, description="List of asset symbols"),
 ) -> CorrelationMatrix:
     """Get correlation matrix data for risk analysis visualization"""
     try:
@@ -1299,7 +1327,7 @@ async def get_bot_performance_comparison_chart(
 
         # Prepare data for chart
         bot_names = [
-            m.get("bot_name", f'Bot {m.get("bot_id", "unknown")}') for m in metrics_data
+            m.get("bot_name", f"Bot {m.get('bot_id', 'unknown')}") for m in metrics_data
         ]
         win_rates = [m.get("win_rate", 0) * 100 for m in metrics_data]
         total_pnl = [m.get("total_pnl", 0) for m in metrics_data]
@@ -1340,36 +1368,38 @@ async def get_trade_distribution_chart(
     """Get trade distribution chart data (by hour, day, symbol)"""
     try:
         user_id = _get_user_id(current_user)
-        
+
         # Get real trade distribution from database
         try:
-            from ..repositories.trade_repository import TradeRepository
             from ..database import get_db_context
-            
+            from ..repositories.trade_repository import TradeRepository
+
             hours = [f"{i:02d}:00" for i in range(24)]
             days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
-            
+
             async with get_db_context() as session:
                 trade_repo = TradeRepository()
                 # Get trades for user with reasonable limit for chart calculations
                 # Limit to last 1000 trades to prevent performance issues
-                trades = await trade_repo.get_by_user(session, int(user_id), skip=0, limit=1000)
-                
+                trades = await trade_repo.get_by_user(
+                    session, int(user_id), skip=0, limit=1000
+                )
+
                 # Calculate trades by hour
                 trades_by_hour = [0] * 24
                 for trade in trades:
                     if trade.executed_at:
                         hour = trade.executed_at.hour
                         trades_by_hour[hour] += 1
-                
+
                 # Calculate trades by day of week
                 trades_by_day = [0] * 7
                 for trade in trades:
                     if trade.executed_at:
                         day_of_week = trade.executed_at.weekday()
                         trades_by_day[day_of_week] += 1
-                
+
                 # Calculate trades by symbol
                 trades_by_symbol = [0] * len(symbols)
                 for trade in trades:
@@ -1378,7 +1408,7 @@ async def get_trade_distribution_chart(
                             if symbol in trade.pair or trade.pair in symbol:
                                 trades_by_symbol[idx] += 1
                                 break
-                
+
                 return PerformanceChartData(
                     labels=hours + days + symbols,
                     datasets=[
@@ -1391,7 +1421,9 @@ async def get_trade_distribution_chart(
                         },
                         {
                             "label": "Trades by Day",
-                            "data": [0] * len(hours) + trades_by_day + [0] * len(symbols),
+                            "data": [0] * len(hours)
+                            + trades_by_day
+                            + [0] * len(symbols),
                             "backgroundColor": "rgba(255, 159, 64, 0.6)",
                             "borderColor": "rgba(255, 159, 64, 1)",
                             "type": "bar",
@@ -1445,7 +1477,7 @@ async def get_key_performance_indicators(
     ],
     current_user: Annotated[dict, Depends(get_current_user)],
     period: str = Query("30d", description="Time period"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get key performance indicators for dashboard"""
     try:
         user_id = _get_user_id(current_user)
@@ -1512,17 +1544,18 @@ async def get_key_performance_indicators(
 @router.get("/dashboard/alerts-summary")
 async def get_alerts_summary(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get summary of active alerts and notifications"""
     try:
         user_id = _get_user_id(current_user)
 
         # Get real alerts from database
         try:
-            from ..models.risk_alert import RiskAlert
-            from sqlalchemy import select, desc
+            from sqlalchemy import desc, select
+
             from ..database import get_db_context
-            
+            from ..models.risk_alert import RiskAlert
+
             async with get_db_context() as session:
                 # Query alerts directly if repository doesn't exist
                 query = (
@@ -1533,7 +1566,7 @@ async def get_alerts_summary(
                 )
                 result = await session.execute(query)
                 alerts_list = result.scalars().all()
-                
+
                 # Count alerts by level
                 alerts = {
                     "critical": sum(1 for a in alerts_list if a.severity == "high"),
@@ -1541,15 +1574,19 @@ async def get_alerts_summary(
                     "info": sum(1 for a in alerts_list if a.severity == "low"),
                     "total_unread": len([a for a in alerts_list if not a.read]),
                 }
-                
+
                 # Get recent alerts
                 recent_alerts = [
                     {
                         "id": f"alert-{a.id}",
                         "title": a.alert_type or "Alert",
                         "message": a.message or "",
-                        "level": "critical" if a.severity == "high" else ("warning" if a.severity == "medium" else "info"),
-                        "timestamp": a.created_at.isoformat() if hasattr(a.created_at, "isoformat") else str(a.created_at),
+                        "level": "critical"
+                        if a.severity == "high"
+                        else ("warning" if a.severity == "medium" else "info"),
+                        "timestamp": a.created_at.isoformat()
+                        if hasattr(a.created_at, "isoformat")
+                        else str(a.created_at),
                         "category": a.alert_type or "general",
                     }
                     for a in alerts_list[:10]
@@ -1573,6 +1610,7 @@ async def get_alerts_summary(
 
 
 # ===== PERFORMANCE ATTRIBUTION API =====
+
 
 class AttributionData(BaseModel):
     strategy: str
@@ -1601,9 +1639,9 @@ class FactorAnalysis(BaseModel):
 
 
 class PerformanceAttributionResponse(BaseModel):
-    attribution: List[AttributionData]
-    cumulativeReturns: List[CumulativeReturn]
-    factorAnalysis: List[FactorAnalysis]
+    attribution: list[AttributionData]
+    cumulativeReturns: list[CumulativeReturn]
+    factorAnalysis: list[FactorAnalysis]
 
 
 @router.get(
@@ -1663,11 +1701,11 @@ async def get_performance_attribution(
 ) -> PerformanceAttributionResponse:
     """Get performance attribution analysis by strategy/bot"""
     try:
-        from sqlalchemy import select, func, and_
-        from ..models.trade import Trade
-        from ..models.bot import Bot
-        from ..models.strategy import Strategy
         import calendar
+
+        from sqlalchemy import and_, select
+
+        from ..models.trade import Trade
 
         user_id = _get_user_id(current_user)
 
@@ -1688,7 +1726,7 @@ async def get_performance_attribution(
 
         # Get all trades for the user in the period with eager loading to prevent N+1 queries
         from sqlalchemy.orm import joinedload
-        
+
         trades_query = (
             select(Trade)
             .where(
@@ -1714,7 +1752,7 @@ async def get_performance_attribution(
             )
 
         # Group trades by strategy/bot (bot is already loaded, no N+1 query)
-        strategy_trades: Dict[str, List[Trade]] = {}
+        strategy_trades: dict[str, list[Trade]] = {}
         for trade in trades:
             # Get strategy name from bot or use default
             strategy_name = "Manual Trading"
@@ -1732,7 +1770,9 @@ async def get_performance_attribution(
         total_portfolio_pnl = sum(t.pnl or 0.0 for t in trades)
         total_trades_count = len(trades)
         winning_trades = [t for t in trades if t.pnl and t.pnl > 0]
-        total_win_rate = len(winning_trades) / total_trades_count if total_trades_count > 0 else 0.0
+        total_win_rate = (
+            len(winning_trades) / total_trades_count if total_trades_count > 0 else 0.0
+        )
 
         # Calculate benchmark return (simplified - using average market return)
         # In production, this would use actual market index data
@@ -1747,17 +1787,33 @@ async def get_performance_attribution(
             strategy_pnl = sum(t.pnl or 0.0 for t in strategy_trades_list)
             strategy_trades_count = len(strategy_trades_list)
             strategy_winning = [t for t in strategy_trades_list if t.pnl and t.pnl > 0]
-            strategy_win_rate = len(strategy_winning) / strategy_trades_count if strategy_trades_count > 0 else 0.0
+            strategy_win_rate = (
+                len(strategy_winning) / strategy_trades_count
+                if strategy_trades_count > 0
+                else 0.0
+            )
 
             # Calculate average return per trade
-            strategy_avg_return = strategy_pnl / strategy_trades_count if strategy_trades_count > 0 else 0.0
+            strategy_avg_return = (
+                strategy_pnl / strategy_trades_count
+                if strategy_trades_count > 0
+                else 0.0
+            )
 
             # Calculate contribution percentage
-            contribution_pct = (strategy_pnl / total_portfolio_pnl * 100) if total_portfolio_pnl != 0 else 0.0
+            contribution_pct = (
+                (strategy_pnl / total_portfolio_pnl * 100)
+                if total_portfolio_pnl != 0
+                else 0.0
+            )
 
             # Calculate strategy return
             strategy_total_cost = sum(t.cost for t in strategy_trades_list)
-            strategy_return = (strategy_pnl / strategy_total_cost * 100) if strategy_total_cost > 0 else 0.0
+            strategy_return = (
+                (strategy_pnl / strategy_total_cost * 100)
+                if strategy_total_cost > 0
+                else 0.0
+            )
 
             # Calculate alpha (excess return over benchmark)
             alpha = strategy_return - benchmark_period_return
@@ -1773,7 +1829,7 @@ async def get_performance_attribution(
                 returns = [t.pnl or 0.0 for t in strategy_trades_list]
                 avg_return = sum(returns) / len(returns)
                 variance = sum((r - avg_return) ** 2 for r in returns) / len(returns)
-                std_dev = variance ** 0.5
+                std_dev = variance**0.5
                 sharpe = (avg_return / std_dev) if std_dev > 0 else 0.0
             else:
                 sharpe = 0.0
@@ -1804,7 +1860,7 @@ async def get_performance_attribution(
         cumulative_returns = []
         if period == "1y" and trades:
             # Group trades by month
-            monthly_trades: Dict[str, List[Trade]] = {}
+            monthly_trades: dict[str, list[Trade]] = {}
             for trade in trades:
                 month_key = trade.executed_at.strftime("%Y-%m")
                 if month_key not in monthly_trades:
@@ -1815,27 +1871,27 @@ async def get_performance_attribution(
             cumulative_pnl = 0.0
             cumulative_benchmark = 0.0
             months = sorted(monthly_trades.keys())
-            
+
             for i, month_key in enumerate(months):
                 month_trades = monthly_trades[month_key]
                 month_pnl = sum(t.pnl or 0.0 for t in month_trades)
                 cumulative_pnl += month_pnl
-                
+
                 # Calculate month return percentage
                 month_cost = sum(t.cost for t in month_trades)
                 month_return = (month_pnl / month_cost * 100) if month_cost > 0 else 0.0
-                
+
                 # Benchmark return for month (simplified)
                 month_benchmark_return = benchmark_return / 12  # Monthly benchmark
                 cumulative_benchmark += month_benchmark_return
-                
+
                 # Calculate alpha
                 month_alpha = month_return - month_benchmark_return
-                
+
                 # Get month name
                 year, month_num = month_key.split("-")
                 month_name = calendar.month_abbr[int(month_num)]
-                
+
                 cumulative_returns.append(
                     CumulativeReturn(
                         month=month_name,
@@ -1850,7 +1906,7 @@ async def get_performance_attribution(
             total_return = total_portfolio_pnl
             period_benchmark = benchmark_period_return
             period_alpha = total_return - period_benchmark
-            
+
             cumulative_returns.append(
                 CumulativeReturn(
                     month=period,
@@ -1865,33 +1921,99 @@ async def get_performance_attribution(
         factor_analysis = []
         if attribution_list:
             # Calculate momentum factor (based on win rate)
-            momentum_exposure = sum(a.winRate / 100 for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
-            momentum_contribution = sum(a.contribution for a in attribution_list if a.winRate > 60) / 100 if attribution_list else 0.0
-            
+            momentum_exposure = (
+                sum(a.winRate / 100 for a in attribution_list) / len(attribution_list)
+                if attribution_list
+                else 0.0
+            )
+            momentum_contribution = (
+                sum(a.contribution for a in attribution_list if a.winRate > 60) / 100
+                if attribution_list
+                else 0.0
+            )
+
             # Calculate value factor (based on alpha)
-            value_exposure = sum(max(0, a.alpha) for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
-            value_contribution = sum(a.contribution for a in attribution_list if a.alpha > 0) / 100 if attribution_list else 0.0
-            
+            value_exposure = (
+                sum(max(0, a.alpha) for a in attribution_list) / len(attribution_list)
+                if attribution_list
+                else 0.0
+            )
+            value_contribution = (
+                sum(a.contribution for a in attribution_list if a.alpha > 0) / 100
+                if attribution_list
+                else 0.0
+            )
+
             # Calculate size factor (based on trade count)
-            avg_trades = sum(a.trades for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            avg_trades = (
+                sum(a.trades for a in attribution_list) / len(attribution_list)
+                if attribution_list
+                else 0.0
+            )
             size_exposure = min(1.0, avg_trades / 100)  # Normalize
-            size_contribution = sum(a.contribution for a in attribution_list if a.trades > avg_trades) / 100 if attribution_list else 0.0
-            
+            size_contribution = (
+                sum(a.contribution for a in attribution_list if a.trades > avg_trades)
+                / 100
+                if attribution_list
+                else 0.0
+            )
+
             # Calculate volatility factor (inverse of Sharpe)
-            avg_sharpe = sum(a.sharpe for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
+            avg_sharpe = (
+                sum(a.sharpe for a in attribution_list) / len(attribution_list)
+                if attribution_list
+                else 0.0
+            )
             volatility_exposure = -0.15 if avg_sharpe < 1.0 else 0.15
             volatility_contribution = -2.1 if avg_sharpe < 1.0 else 2.1
-            
+
             # Calculate quality factor (based on information ratio)
-            quality_exposure = sum(a.informationRatio / 2.0 for a in attribution_list) / len(attribution_list) if attribution_list else 0.0
-            quality_contribution = sum(a.contribution for a in attribution_list if a.informationRatio > 1.0) / 100 if attribution_list else 0.0
-            
+            quality_exposure = (
+                sum(a.informationRatio / 2.0 for a in attribution_list)
+                / len(attribution_list)
+                if attribution_list
+                else 0.0
+            )
+            quality_contribution = (
+                sum(
+                    a.contribution for a in attribution_list if a.informationRatio > 1.0
+                )
+                / 100
+                if attribution_list
+                else 0.0
+            )
+
             factor_analysis = [
-                FactorAnalysis(factor="Momentum", exposure=round(momentum_exposure, 2), contribution=round(momentum_contribution * 100, 1), color="#8884d8"),
-                FactorAnalysis(factor="Value", exposure=round(value_exposure / 10, 2), contribution=round(value_contribution * 100, 1), color="#82ca9d"),
-                FactorAnalysis(factor="Size", exposure=round(size_exposure, 2), contribution=round(size_contribution * 100, 1), color="#ffc658"),
-                FactorAnalysis(factor="Volatility", exposure=round(volatility_exposure, 2), contribution=round(volatility_contribution, 1), color="#ff7c7c"),
-                FactorAnalysis(factor="Quality", exposure=round(quality_exposure, 2), contribution=round(quality_contribution * 100, 1), color="#8dd1e1"),
+                FactorAnalysis(
+                    factor="Momentum",
+                    exposure=round(momentum_exposure, 2),
+                    contribution=round(momentum_contribution * 100, 1),
+                    color="#8884d8",
+                ),
+                FactorAnalysis(
+                    factor="Value",
+                    exposure=round(value_exposure / 10, 2),
+                    contribution=round(value_contribution * 100, 1),
+                    color="#82ca9d",
+                ),
+                FactorAnalysis(
+                    factor="Size",
+                    exposure=round(size_exposure, 2),
+                    contribution=round(size_contribution * 100, 1),
+                    color="#ffc658",
+                ),
+                FactorAnalysis(
+                    factor="Volatility",
+                    exposure=round(volatility_exposure, 2),
+                    contribution=round(volatility_contribution, 1),
+                    color="#ff7c7c",
+                ),
+                FactorAnalysis(
+                    factor="Quality",
+                    exposure=round(quality_exposure, 2),
+                    contribution=round(quality_contribution * 100, 1),
+                    color="#8dd1e1",
+                ),
             ]
 
         return PerformanceAttributionResponse(

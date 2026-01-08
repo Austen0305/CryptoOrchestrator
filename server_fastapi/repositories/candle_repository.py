@@ -1,9 +1,10 @@
-from typing import List, Optional
-from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..models.candle import Candle
 
 logger = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ class CandleRepository:
 
     async def get_history(
         self, symbol: str, timeframe: str, limit: int
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         """Get candle history - uses asyncpg for PostgreSQL if available"""
         # Use asyncpg for hot path queries if available (PostgreSQL only)
         if (
@@ -158,7 +159,7 @@ class CandleRepository:
 
     async def get_since(
         self, symbol: str, timeframe: str, since_ms: int, limit: int = 1000
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         """Get candles since timestamp - uses asyncpg for PostgreSQL if available"""
         # Use asyncpg for hot path queries if available (PostgreSQL only)
         if (

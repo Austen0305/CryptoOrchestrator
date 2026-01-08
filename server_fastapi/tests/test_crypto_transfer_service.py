@@ -3,15 +3,16 @@ Crypto Transfer Service Tests
 Unit tests for crypto transfer service
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server_fastapi.services.crypto_transfer_service import CryptoTransferService
+from server_fastapi.repositories.transaction_repository import TransactionRepository
 from server_fastapi.repositories.wallet_balance_repository import (
     WalletBalanceRepository,
 )
-from server_fastapi.repositories.transaction_repository import TransactionRepository
+from server_fastapi.services.crypto_transfer_service import CryptoTransferService
 
 
 @pytest.fixture

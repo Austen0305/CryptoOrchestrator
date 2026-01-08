@@ -4,13 +4,14 @@ Validates and sanitizes incoming requests for security and data integrity
 Consolidated from request_validation.py and request_validator.py
 """
 
+import json
 import logging
-from typing import Callable, Optional
-from fastapi import Request, Response, HTTPException, status
+import re
+from collections.abc import Callable
+
+from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-import json
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class RequestValidatorMiddleware(BaseHTTPMiddleware):
         app: ASGIApp,
         max_body_size: int = 10 * 1024 * 1024,  # 10MB default
         max_header_size: int = 8192,  # 8KB default
-        allowed_content_types: Optional[list] = None,
+        allowed_content_types: list | None = None,
     ):
         super().__init__(app)
         self.max_body_size = max_body_size

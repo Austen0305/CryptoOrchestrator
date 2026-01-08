@@ -3,18 +3,19 @@ Follow Model - Copy trading relationships
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Float,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
+    Integer,
+    String,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -41,7 +42,7 @@ class Follow(Base, TimestampMixin):
     allocation_percentage: Mapped[float] = mapped_column(
         Float, default=100.0, nullable=False
     )
-    max_position_size: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    max_position_size: Mapped[float | None] = mapped_column(Float, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Auto-copy settings
@@ -52,13 +53,13 @@ class Follow(Base, TimestampMixin):
     copy_sell_orders: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
-    min_trade_size: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
-    max_trade_size: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    min_trade_size: Mapped[float | None] = mapped_column(Float, nullable=True)
+    max_trade_size: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Statistics
     total_copied_trades: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     total_profit: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
-    last_copied_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_copied_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     follower: Mapped["User"] = relationship("User", foreign_keys=[follower_id])
@@ -83,7 +84,7 @@ class CopiedTrade(Base, TimestampMixin):
     original_trade_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("trades.id"), nullable=False, index=True
     )
-    copied_trade_id: Mapped[Optional[int]] = mapped_column(
+    copied_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("trades.id"), nullable=True, index=True
     )
 
@@ -98,7 +99,7 @@ class CopiedTrade(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False
     )  # pending, executed, failed
-    error_message: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Relationships
     follower: Mapped["User"] = relationship("User", foreign_keys=[follower_id])

@@ -3,14 +3,14 @@ Performance Profiling API Endpoints
 Exposes slow query and endpoint profiling data
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional, Dict, Any, List
-from typing import Annotated
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies.auth import require_permission
 from ..services.monitoring.performance_profiler import get_performance_profiler
-from ..services.observability.opentelemetry_setup import get_tracer, record_metric
+from ..services.observability.opentelemetry_setup import record_metric
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ async def get_slow_endpoints(
 @router.get("/query-statistics")
 async def get_query_statistics(
     current_user: Annotated[dict, Depends(require_permission("admin:performance"))],
-    query: Optional[str] = Query(None, description="Specific query to analyze"),
+    query: str | None = Query(None, description="Specific query to analyze"),
 ):
     """Get query performance statistics (admin only)"""
     try:
@@ -92,8 +92,8 @@ async def get_query_statistics(
 @router.get("/endpoint-statistics")
 async def get_endpoint_statistics(
     current_user: Annotated[dict, Depends(require_permission("admin:performance"))],
-    method: Optional[str] = Query(None, description="HTTP method"),
-    path: Optional[str] = Query(None, description="Endpoint path"),
+    method: str | None = Query(None, description="HTTP method"),
+    path: str | None = Query(None, description="Endpoint path"),
 ):
     """Get endpoint performance statistics (admin only)"""
     try:

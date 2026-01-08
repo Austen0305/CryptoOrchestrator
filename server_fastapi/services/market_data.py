@@ -1,8 +1,8 @@
 import asyncio
-import random
-from typing import AsyncGenerator, Dict, Any, List, Optional
-import time
 import logging
+import time
+from collections.abc import AsyncGenerator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +12,9 @@ class MarketDataService:
         self.subscribed_symbols = set()
         self.is_streaming = False
         # Simple in-memory candle cache per symbol: list of (ts, open, high, low, close, volume)
-        self.candles: Dict[str, List[List[float]]] = {}
+        self.candles: dict[str, list[list[float]]] = {}
         # CoinGecko service for fallback price data
-        self._coingecko_service: Optional[Any] = None
+        self._coingecko_service: Any | None = None
 
     def _get_coingecko_service(self):
         """Lazy load CoinGecko service"""
@@ -28,7 +28,7 @@ class MarketDataService:
                 self._coingecko_service = None
         return self._coingecko_service
 
-    async def get_price_with_fallback(self, symbol: str) -> Optional[float]:
+    async def get_price_with_fallback(self, symbol: str) -> float | None:
         """
         Get price with fallback to CoinGecko if exchange API fails
 
@@ -53,7 +53,7 @@ class MarketDataService:
         logger.warning(f"Unable to get price for {symbol} from any source")
         return None
 
-    async def stream_market_data(self) -> AsyncGenerator[Dict[str, Any], None]:
+    async def stream_market_data(self) -> AsyncGenerator[dict[str, Any], None]:
         """Stream real-time market data updates using CoinGecko"""
         logger.info("Starting market data stream with real data")
 
@@ -67,7 +67,7 @@ class MarketDataService:
             return
 
         # Track previous prices for change calculation
-        previous_prices: Dict[str, float] = {}
+        previous_prices: dict[str, float] = {}
 
         try:
             while self.is_streaming:
@@ -167,7 +167,7 @@ class MarketDataService:
         self.is_streaming = False
         logger.info("Market data streaming stopped")
 
-    async def get_backfill(self, symbol: str, since_ms: int) -> List[List[float]]:
+    async def get_backfill(self, symbol: str, since_ms: int) -> list[list[float]]:
         """Return candles for a symbol since given millisecond timestamp."""
         candles = self.candles.get(symbol, [])
         return [c for c in candles if c[0] >= since_ms]

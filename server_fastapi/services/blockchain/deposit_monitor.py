@@ -5,17 +5,18 @@ Runs as background task to detect incoming transactions
 """
 
 import logging
-from typing import List, Dict, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from typing import Any
 
-from .web3_service import get_web3_service
-from .balance_service import get_balance_service
-from ...models.user_wallet import UserWallet
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...models.dex_trade import DEXTrade
+from ...models.user_wallet import UserWallet
 from ...repositories.wallet_repository import WalletRepository
+from .balance_service import get_balance_service
+from .web3_service import get_web3_service
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +27,11 @@ class DepositMonitor:
     def __init__(self):
         self.web3_service = get_web3_service()
         self.balance_service = get_balance_service()
-        self._last_checked_block: Dict[int, int] = {}  # {chain_id: block_number}
+        self._last_checked_block: dict[int, int] = {}  # {chain_id: block_number}
 
     async def check_deposits(
         self, chain_id: int, db: AsyncSession, lookback_blocks: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Check for new deposits on a specific chain
 
@@ -210,7 +211,7 @@ class DepositMonitor:
         return deposits_found
 
     async def process_deposits(
-        self, deposits: List[Dict[str, Any]], db: AsyncSession
+        self, deposits: list[dict[str, Any]], db: AsyncSession
     ) -> int:
         """
         Process detected deposits (update balances, notify users)
@@ -273,8 +274,8 @@ class DepositMonitor:
         return processed
 
     async def monitor_all_chains(
-        self, db: AsyncSession, supported_chains: List[int] = None
-    ) -> Dict[int, int]:
+        self, db: AsyncSession, supported_chains: list[int] = None
+    ) -> dict[int, int]:
         """
         Monitor deposits on all supported chains
 
@@ -310,7 +311,7 @@ class DepositMonitor:
 
 
 # Singleton instance
-_deposit_monitor: Optional[DepositMonitor] = None
+_deposit_monitor: DepositMonitor | None = None
 
 
 def get_deposit_monitor() -> DepositMonitor:

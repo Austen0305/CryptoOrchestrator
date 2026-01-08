@@ -4,20 +4,20 @@ Stores user's blockchain wallet addresses for custodial wallets
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from sqlalchemy import (
-    Column,
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
     Integer,
     String,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    Text,
-    JSON,
     UniqueConstraint,
-    Index,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -46,10 +46,10 @@ class UserWallet(Base, TimestampMixin):
     )  # 'custodial' (platform-managed) or 'external' (user's own wallet)
 
     # Balance tracking (cached, updated periodically)
-    balance: Mapped[Optional[dict]] = mapped_column(
+    balance: Mapped[dict | None] = mapped_column(
         JSON, nullable=True
     )  # {token_address: balance_string} - cached balances
-    last_balance_update: Mapped[Optional[datetime]] = mapped_column(
+    last_balance_update: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True
     )
 
@@ -62,10 +62,10 @@ class UserWallet(Base, TimestampMixin):
     )  # Whether user has verified ownership
 
     # Metadata
-    label: Mapped[Optional[str]] = mapped_column(
+    label: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )  # User-friendly label
-    wallet_metadata: Mapped[Optional[dict]] = mapped_column(
+    wallet_metadata: Mapped[dict | None] = mapped_column(
         JSON, nullable=True
     )  # Additional metadata
 

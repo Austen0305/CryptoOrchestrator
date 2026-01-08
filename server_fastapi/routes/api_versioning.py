@@ -4,7 +4,6 @@ Allows multiple API versions for backward compatibility
 """
 
 from fastapi import APIRouter, Request
-from typing import Optional
 
 # Version 1 Router
 router_v1 = APIRouter(prefix="/api/v1", tags=["v1"])
@@ -112,7 +111,7 @@ class VersionedResponse:
         return {"success": False, "error": error}
 
     @staticmethod
-    def format_error_v2(error: str, code: str, details: Optional[dict] = None) -> dict:
+    def format_error_v2(error: str, code: str, details: dict | None = None) -> dict:
         """Format error for API v2"""
         from datetime import datetime
 

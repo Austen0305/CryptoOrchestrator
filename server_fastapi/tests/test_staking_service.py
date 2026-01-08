@@ -3,12 +3,13 @@ Staking Service Tests
 Unit tests for staking service
 """
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server_fastapi.services.staking_service import StakingService
 from server_fastapi.repositories.wallet_repository import WalletRepository
+from server_fastapi.services.staking_service import StakingService
 
 
 @pytest.fixture

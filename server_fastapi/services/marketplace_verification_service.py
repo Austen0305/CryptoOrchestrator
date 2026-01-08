@@ -4,11 +4,12 @@ Verifies and validates signal provider historical performance data.
 """
 
 import logging
-from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from typing import Any
+
 import numpy as np
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.signal_provider import SignalProvider
 from ..models.trade import Trade
@@ -31,7 +32,7 @@ class MarketplaceVerificationService:
         self,
         provider_id: int,
         period_days: int = 90,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Verify historical performance for a signal provider.
 
@@ -86,22 +87,29 @@ class MarketplaceVerificationService:
             }
 
             # Calculate discrepancies
-            discrepancies = self._calculate_discrepancies(stored_metrics, verified_metrics)
+            discrepancies = self._calculate_discrepancies(
+                stored_metrics, verified_metrics
+            )
 
             # Determine verification status
             verified = len(discrepancies) == 0 or all(
-                abs(diff["difference"]) < 0.05 for diff in discrepancies  # 5% tolerance
+                abs(diff["difference"]) < 0.05
+                for diff in discrepancies  # 5% tolerance
             )
-            
+
             # Send email notification if verification failed
             if not verified and discrepancies:
                 try:
-                    from ..services.marketplace_email_service import MarketplaceEmailService
                     from ..models.user import User
+                    from ..services.marketplace_email_service import (
+                        MarketplaceEmailService,
+                    )
+
                     user = await self.db.get(User, provider.user_id)
                     if user and user.email:
                         email_service = MarketplaceEmailService()
                         import asyncio
+
                         asyncio.create_task(
                             email_service.send_verification_failure_email(
                                 to_email=user.email,
@@ -126,7 +134,7 @@ class MarketplaceVerificationService:
             logger.error(f"Error verifying provider performance: {e}", exc_info=True)
             raise
 
-    def _calculate_verified_metrics(self, trades: List[Trade]) -> Dict[str, Any]:
+    def _calculate_verified_metrics(self, trades: list[Trade]) -> dict[str, Any]:
         """Calculate metrics from verified trade history"""
         if not trades:
             return {
@@ -145,7 +153,9 @@ class MarketplaceVerificationService:
 
         # Total return (assuming initial balance)
         initial_balance = 10000.0  # Default assumption
-        total_return = (total_pnl / initial_balance) * 100 if initial_balance > 0 else 0.0
+        total_return = (
+            (total_pnl / initial_balance) * 100 if initial_balance > 0 else 0.0
+        )
 
         # Win rate
         win_rate = len(winning_trades) / len(trades) if trades else 0.0
@@ -160,7 +170,9 @@ class MarketplaceVerificationService:
         if len(returns) > 1:
             mean_return = np.mean(returns)
             std_return = np.std(returns)
-            sharpe_ratio = (mean_return / std_return) * np.sqrt(252) if std_return > 0 else 0.0
+            sharpe_ratio = (
+                (mean_return / std_return) * np.sqrt(252) if std_return > 0 else 0.0
+            )
         else:
             sharpe_ratio = 0.0
 
@@ -193,8 +205,8 @@ class MarketplaceVerificationService:
         }
 
     def _calculate_discrepancies(
-        self, stored: Dict[str, Any], verified: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
+        self, stored: dict[str, Any], verified: dict[str, Any]
+    ) -> list[dict[str, Any]]:
         """Calculate discrepancies between stored and verified metrics"""
         discrepancies = []
 
@@ -223,9 +235,7 @@ class MarketplaceVerificationService:
 
         return discrepancies
 
-    async def verify_all_providers(
-        self, period_days: int = 90
-    ) -> Dict[str, Any]:
+    async def verify_all_providers(self, period_days: int = 90) -> dict[str, Any]:
         """
         Verify all approved signal providers.
 
@@ -278,7 +288,7 @@ class MarketplaceVerificationService:
 
     async def flag_suspicious_providers(
         self, threshold_days: int = 30
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Flag providers with suspicious activity or discrepancies.
 

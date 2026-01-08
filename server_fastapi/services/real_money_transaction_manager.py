@@ -4,11 +4,12 @@ Ensures atomic transactions for all real money operations
 """
 
 import logging
-from typing import Dict, Optional, Any, Callable, Awaitable
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any
+
 from sqlalchemy.exc import SQLAlchemyError
-from decimal import Decimal
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_context
 from .real_money_safety import real_money_safety_service
@@ -60,8 +61,8 @@ class RealMoneyTransactionManager:
         operation: Callable[[AsyncSession], Awaitable[Any]],
         operation_name: str,
         user_id: int,
-        operation_details: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        operation_details: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Execute operation with automatic rollback on failure
 

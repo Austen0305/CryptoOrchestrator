@@ -4,8 +4,9 @@ Tracks task execution metrics, queue depth, and task performance.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
+
 from celery import current_app
 from celery.result import AsyncResult
 
@@ -16,11 +17,11 @@ class CeleryMonitoringService:
     """Service for monitoring Celery tasks"""
 
     def __init__(self):
-        self.task_metrics: Dict[str, Dict[str, Any]] = {}
+        self.task_metrics: dict[str, dict[str, Any]] = {}
 
     async def get_task_metrics(
-        self, task_name: Optional[str] = None, hours: int = 24
-    ) -> Dict[str, Any]:
+        self, task_name: str | None = None, hours: int = 24
+    ) -> dict[str, Any]:
         """
         Get task execution metrics
 
@@ -69,7 +70,7 @@ class CeleryMonitoringService:
                 "error": str(e),
             }
 
-    async def get_queue_depth(self) -> Dict[str, int]:
+    async def get_queue_depth(self) -> dict[str, int]:
         """Get queue depth for each priority queue"""
         try:
             inspect = current_app.control.inspect()
@@ -96,7 +97,7 @@ class CeleryMonitoringService:
             logger.error(f"Error getting queue depth: {e}", exc_info=True)
             return {}
 
-    async def get_task_status(self, task_id: str) -> Dict[str, Any]:
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
         """Get status of a specific task"""
         try:
             result = AsyncResult(task_id, app=current_app)
@@ -144,13 +145,13 @@ class CeleryMonitoringService:
         metrics["min_duration"] = min(metrics["min_duration"], duration_seconds)
         metrics["max_duration"] = max(metrics["max_duration"], duration_seconds)
 
-    def get_task_statistics(self) -> Dict[str, Any]:
+    def get_task_statistics(self) -> dict[str, Any]:
         """Get statistics for all tasks"""
         return {"tasks": self.task_metrics, "timestamp": datetime.utcnow().isoformat()}
 
 
 # Singleton instance
-_celery_monitoring_service: Optional[CeleryMonitoringService] = None
+_celery_monitoring_service: CeleryMonitoringService | None = None
 
 
 def get_celery_monitoring_service() -> CeleryMonitoringService:

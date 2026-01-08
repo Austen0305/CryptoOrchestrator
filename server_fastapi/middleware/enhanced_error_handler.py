@@ -4,22 +4,23 @@ Provides helpful error messages with context and suggestions
 Consolidated from error_handler.py, error_handlers.py, and error_handling.py
 """
 
-from fastapi import Request, HTTPException, status
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 import logging
-import traceback
-from typing import Dict, Any, Optional
-from datetime import datetime, timedelta
-from collections import defaultdict
 import os
+import traceback
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any
+
+from fastapi import HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
 
 # Error rate tracking (in-memory, would use Redis in production)
-_error_rate_tracker: Dict[str, list] = defaultdict(list)
+_error_rate_tracker: dict[str, list] = defaultdict(list)
 _error_rate_window = 60  # Track errors per minute
 
 
@@ -367,7 +368,7 @@ class EnhancedErrorHandler:
         )
 
     @staticmethod
-    def handle_trading_error(exc: Exception, request: Request) -> Dict[str, Any]:
+    def handle_trading_error(exc: Exception, request: Request) -> dict[str, Any]:
         """Handle trading-specific errors with appropriate messages"""
         request_id = getattr(request.state, "request_id", None)
 

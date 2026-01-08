@@ -3,20 +3,20 @@ Trailing Bot Trading Service
 Implements trailing buy/sell bot functionality - follows price movements with dynamic stop-loss/take-profit.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import get_db_context
 from ...models.trailing_bot import TrailingBot
 from ...repositories.trailing_bot_repository import TrailingBotRepository
+from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.coingecko_service import CoinGeckoService
 from ...services.trading.dex_trading_service import DEXTradingService
-from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...database import get_db_context
-from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class TrailingBotService:
     Trailing buy (buy on dips) or trailing sell (sell on peaks).
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = TrailingBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
@@ -52,11 +52,11 @@ class TrailingBotService:
         trailing_percent: float,
         order_amount: float,
         trading_mode: str = "paper",
-        initial_price: Optional[float] = None,
-        max_price: Optional[float] = None,
-        min_price: Optional[float] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        initial_price: float | None = None,
+        max_price: float | None = None,
+        min_price: float | None = None,
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         """Create a new trailing bot."""
         try:
             # Validate inputs
@@ -168,7 +168,7 @@ class TrailingBotService:
 
     async def process_trailing_bot_cycle(
         self, bot_id: str, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process one trailing bot cycle: check price and execute order if conditions met."""
         try:
             async with self._get_session() as session:
@@ -262,7 +262,7 @@ class TrailingBotService:
 
     async def _execute_trailing_order(
         self, bot: TrailingBot, side: str, price: float, session: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a trailing order."""
         try:
             if bot.trading_mode == "paper":
@@ -335,7 +335,7 @@ class TrailingBotService:
 
     async def _parse_symbol_to_tokens(
         self, symbol: str, chain_id: int = 1
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """
         Parse trading symbol (e.g., "ETH/USDC") to token addresses using token registry.
 
@@ -352,7 +352,7 @@ class TrailingBotService:
 
     async def get_trailing_bot(
         self, bot_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get trailing bot details."""
         try:
             async with self._get_session() as session:
@@ -368,7 +368,7 @@ class TrailingBotService:
 
     async def list_user_trailing_bots(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List all trailing bots for a user with total count."""
         try:
             async with self._get_session() as session:

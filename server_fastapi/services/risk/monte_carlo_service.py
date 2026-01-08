@@ -2,11 +2,11 @@
 Monte Carlo Simulation Service - Portfolio risk analysis through simulation
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
-from datetime import datetime
 import logging
+from datetime import datetime
+
 import numpy as np
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -17,13 +17,13 @@ class MonteCarloConfig(BaseModel):
     num_simulations: int = 10000
     time_horizon_days: int = 30
     confidence_level: float = 0.95
-    random_seed: Optional[int] = 42
+    random_seed: int | None = 42
 
 
 class MonteCarloResult(BaseModel):
     """Monte Carlo simulation result"""
 
-    simulations: List[float]  # Simulated portfolio values
+    simulations: list[float]  # Simulated portfolio values
     mean_return: float
     std_return: float
     var_95: float  # 95% VaR
@@ -45,9 +45,9 @@ class MonteCarloService:
 
     def run_simulation(
         self,
-        historical_returns: List[float],
+        historical_returns: list[float],
         initial_value: float,
-        config: Optional[MonteCarloConfig] = None,
+        config: MonteCarloConfig | None = None,
     ) -> MonteCarloResult:
         """Run Monte Carlo simulation"""
         config = config or MonteCarloConfig()
@@ -168,12 +168,12 @@ class MonteCarloService:
 
     def calculate_risk_of_ruin(
         self,
-        historical_returns: List[float],
+        historical_returns: list[float],
         initial_value: float,
         target_value: float = 0.0,  # Ruin threshold (0 = total loss)
         num_simulations: int = 10000,
         time_horizon_days: int = 365,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Calculate risk of ruin (probability of falling below target value)"""
         try:
             if not historical_returns or len(historical_returns) < 2:

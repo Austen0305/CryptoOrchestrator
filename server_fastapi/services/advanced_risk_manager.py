@@ -1,9 +1,9 @@
 import asyncio
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
 import logging
-from datetime import datetime
+from typing import Any, Optional
+
 import numpy as np
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class Trade(BaseModel):
     amount: float
     price: float
     timestamp: int
-    pnl: Optional[float] = None
+    pnl: float | None = None
 
 
 class MarketData(BaseModel):
@@ -49,8 +49,8 @@ class AdvancedRiskManager:
         if AdvancedRiskManager._instance is not None:
             raise Exception("AdvancedRiskManager is a singleton class")
 
-        self.historical_data: List[MarketData] = []
-        self.recent_trades: List[Trade] = []
+        self.historical_data: list[MarketData] = []
+        self.recent_trades: list[Trade] = []
         self.risk_metrics = RiskMetrics(
             current_risk=0.0,
             historical_volatility=0.0,
@@ -61,7 +61,7 @@ class AdvancedRiskManager:
 
         self.max_trades_history = 1000
         self.risk_update_interval = 5 * 60  # 5 minutes in seconds
-        self.update_task: Optional[asyncio.Task] = None
+        self.update_task: asyncio.Task | None = None
 
         AdvancedRiskManager._instance = self
 
@@ -99,7 +99,7 @@ class AdvancedRiskManager:
                 await asyncio.sleep(self.risk_update_interval)
 
     async def calculate_optimal_risk_profile(
-        self, current_price: float, volatility: float, market_conditions: Dict[str, Any]
+        self, current_price: float, volatility: float, market_conditions: dict[str, Any]
     ) -> RiskProfile:
         """Calculate optimal risk profile based on current market conditions"""
         metrics = self.risk_metrics
@@ -158,7 +158,7 @@ class AdvancedRiskManager:
         return max(0.0, min(kelly_fraction, 0.5))
 
     def calculate_dynamic_stop_loss(
-        self, volatility: float, market_conditions: Dict[str, Any]
+        self, volatility: float, market_conditions: dict[str, Any]
     ) -> float:
         """Calculate dynamic stop loss based on volatility and market conditions"""
         # Base stop loss on volatility (simplified ATR)
@@ -172,7 +172,7 @@ class AdvancedRiskManager:
         # Ensure minimum stop loss
         return max(stop_loss, 0.01)
 
-    def calculate_risk_reward_ratio(self, market_conditions: Dict[str, Any]) -> float:
+    def calculate_risk_reward_ratio(self, market_conditions: dict[str, Any]) -> float:
         """Calculate risk-reward ratio based on market regime"""
         regime = market_conditions.get("regime", "normal")
 
@@ -186,7 +186,7 @@ class AdvancedRiskManager:
         else:
             return 2.0
 
-    def calculate_entry_confidence(self, market_conditions: Dict[str, Any]) -> float:
+    def calculate_entry_confidence(self, market_conditions: dict[str, Any]) -> float:
         """Calculate entry confidence score"""
         confidence = 0.5  # Base confidence
 
@@ -257,7 +257,7 @@ class AdvancedRiskManager:
         profit_factor = total_profit / total_loss if total_loss > 0 else float("inf")
 
         # Count positions per symbol
-        position_counts: Dict[str, int] = {}
+        position_counts: dict[str, int] = {}
         for trade in self.recent_trades:
             position_counts[trade.symbol] = position_counts.get(trade.symbol, 0) + 1
 
@@ -313,7 +313,7 @@ class AdvancedRiskManager:
             ),
         )
 
-    def update_risk_metrics(self, market_conditions: Dict[str, Any]):
+    def update_risk_metrics(self, market_conditions: dict[str, Any]):
         """Update risk metrics based on market conditions"""
         # Update risk metrics based on market conditions
         volatility = market_conditions.get("volatility", 0.02)
@@ -326,7 +326,7 @@ class AdvancedRiskManager:
                 extra={"volatility": volatility, "regime": regime},
             )
 
-    def adjust_risk_parameters(self, performance_metrics: Dict[str, Any]):
+    def adjust_risk_parameters(self, performance_metrics: dict[str, Any]):
         """Adjust risk parameters based on performance"""
         # Adjust risk parameters based on performance
         consecutive_losses = performance_metrics.get("consecutive_losses", 0)

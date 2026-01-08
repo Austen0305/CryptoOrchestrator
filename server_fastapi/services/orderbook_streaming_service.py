@@ -5,9 +5,8 @@ Provides real-time order book updates via WebSocket.
 
 import asyncio
 import logging
-from typing import Dict, Set, Optional, Callable
+from collections.abc import Callable
 from datetime import datetime
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,11 @@ class OrderBookStreamingService:
     """Service for streaming order book updates"""
 
     def __init__(self):
-        self.active_streams: Dict[str, Set[Callable]] = {}
-        self.last_updates: Dict[str, Dict] = {}
-        self.update_intervals: Dict[str, float] = {}
+        self.active_streams: dict[str, set[Callable]] = {}
+        self.last_updates: dict[str, dict] = {}
+        self.update_intervals: dict[str, float] = {}
         self._running = False
-        self._tasks: Dict[str, asyncio.Task] = {}
+        self._tasks: dict[str, asyncio.Task] = {}
 
     async def subscribe(
         self, pair: str, callback: Callable, update_interval: float = 1.0
@@ -82,7 +81,7 @@ class OrderBookStreamingService:
                             default_exchange.get_order_book(pair),
                             timeout=10.0,  # 10 second timeout
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         logger.warning(f"Order book fetch timeout for {pair}")
                         order_book = None
 
@@ -108,7 +107,7 @@ class OrderBookStreamingService:
                                         )
                                     else:
                                         callback(order_book)
-                                except asyncio.TimeoutError:
+                                except TimeoutError:
                                     logger.warning(f"Callback timeout for {pair}")
                                     failed_callbacks.append(callback)
                                 except Exception as e:
@@ -160,7 +159,7 @@ class OrderBookStreamingService:
             if pair in self._tasks:
                 del self._tasks[pair]
 
-    async def get_last_update(self, pair: str) -> Optional[Dict]:
+    async def get_last_update(self, pair: str) -> dict | None:
         """Get the last order book update for a pair"""
         return self.last_updates.get(pair)
 

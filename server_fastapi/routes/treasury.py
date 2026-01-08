@@ -3,18 +3,19 @@ Treasury Dashboard API Routes
 Endpoints for treasury management and monitoring
 """
 
+import logging
+from datetime import datetime
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from typing import List, Optional, Annotated, Dict, Any
-from datetime import datetime
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
-from ..services.institutional.treasury_service import TreasuryService
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.institutional.treasury_service import TreasuryService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class TreasuryBalance(BaseModel):
     currency: str
     pending_balance_usd: float
     available_balance_usd: float
-    last_activity: Optional[str]
+    last_activity: str | None
     signer_count: int
     required_signatures: int
 
@@ -51,7 +52,7 @@ class TreasuryActivity(BaseModel):
     wallet_id: str
     wallet_name: str
     activity_type: str
-    amount_usd: Optional[float]
+    amount_usd: float | None
     currency: str
     status: str
     description: str
@@ -61,8 +62,8 @@ class RiskMetrics(BaseModel):
     concentration_risk: float
     diversification_score: float
     liquidity_ratio: float
-    exposure_by_chain: Dict[str, float]
-    exposure_by_asset: Dict[str, float]
+    exposure_by_chain: dict[str, float]
+    exposure_by_asset: dict[str, float]
     risk_level: str
 
 
@@ -94,7 +95,7 @@ class RiskMetrics(BaseModel):
 )
 @cached(ttl=60, prefix="treasury_summary")
 async def get_treasury_summary(
-    wallet_id: Optional[str] = Query(None, description="Filter by wallet ID"),
+    wallet_id: str | None = Query(None, description="Filter by wallet ID"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_db_session)] = None,
 ) -> TreasurySummary:
@@ -102,9 +103,9 @@ async def get_treasury_summary(
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         summary = service.get_treasury_summary(user_id, wallet_id=wallet_id)
-        
+
         return TreasurySummary(
             total_balance_usd=float(summary.total_balance_usd),
             total_wallets=summary.total_wallets,
@@ -123,7 +124,7 @@ async def get_treasury_summary(
 
 @router.get(
     "/balances",
-    response_model=List[TreasuryBalance],
+    response_model=list[TreasuryBalance],
     summary="Get treasury wallet balances",
     description="""
     Get balances for all treasury wallets with optional filtering.
@@ -149,17 +150,17 @@ async def get_treasury_summary(
 )
 @cached(ttl=60, prefix="treasury_balances")
 async def get_treasury_balances(
-    wallet_id: Optional[str] = Query(None, description="Filter by wallet ID"),
+    wallet_id: str | None = Query(None, description="Filter by wallet ID"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_db_session)] = None,
-) -> List[TreasuryBalance]:
+) -> list[TreasuryBalance]:
     """Get balances for all treasury wallets"""
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         balances = service.get_wallet_balances(user_id, wallet_id=wallet_id)
-        
+
         return [
             TreasuryBalance(
                 wallet_id=str(b.wallet_id),
@@ -182,7 +183,7 @@ async def get_treasury_balances(
 
 @router.get(
     "/activity",
-    response_model=List[TreasuryActivity],
+    response_model=list[TreasuryActivity],
     summary="Get treasury activity log",
     description="""
     Get treasury activity log with optional filtering by wallet and time range.
@@ -210,18 +211,18 @@ async def get_treasury_balances(
 )
 @cached(ttl=30, prefix="treasury_activity")
 async def get_treasury_activity(
-    wallet_id: Optional[str] = Query(None, description="Filter by wallet ID"),
+    wallet_id: str | None = Query(None, description="Filter by wallet ID"),
     time_range: str = Query("24h", description="Time range: 1h, 24h, 7d, 30d"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_db_session)] = None,
-) -> List[TreasuryActivity]:
+) -> list[TreasuryActivity]:
     """Get treasury activity log"""
     try:
         from datetime import timedelta
-        
+
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         # Parse time range
         end_date = datetime.now()
         if time_range == "1h":
@@ -234,7 +235,7 @@ async def get_treasury_activity(
             start_date = end_date - timedelta(days=30)
         else:
             start_date = end_date - timedelta(days=1)
-        
+
         activities = service.get_treasury_activity(
             user_id=user_id,
             wallet_id=wallet_id,
@@ -242,7 +243,7 @@ async def get_treasury_activity(
             start_date=start_date,
             end_date=end_date,
         )
-        
+
         return [
             TreasuryActivity(
                 timestamp=a.timestamp.isoformat(),
@@ -291,7 +292,7 @@ async def get_treasury_activity(
 )
 @cached(ttl=120, prefix="treasury_risk_metrics")
 async def get_treasury_risk_metrics(
-    wallet_id: Optional[str] = Query(None, description="Filter by wallet ID"),
+    wallet_id: str | None = Query(None, description="Filter by wallet ID"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_db_session)] = None,
 ) -> RiskMetrics:
@@ -299,9 +300,9 @@ async def get_treasury_risk_metrics(
     try:
         user_id = _get_user_id(current_user)
         service = TreasuryService(lambda: db)
-        
+
         metrics = service.get_risk_metrics(user_id, wallet_id=wallet_id)
-        
+
         return RiskMetrics(
             concentration_risk=float(metrics.get("concentration_risk", 0.0)),
             diversification_score=float(metrics.get("diversification_score", 0.0)),
@@ -312,5 +313,6 @@ async def get_treasury_risk_metrics(
         )
     except Exception as e:
         logger.error(f"Error getting treasury risk metrics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get treasury risk metrics")
-
+        raise HTTPException(
+            status_code=500, detail="Failed to get treasury risk metrics"
+        )

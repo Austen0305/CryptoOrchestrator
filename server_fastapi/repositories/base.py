@@ -3,10 +3,10 @@ Base repository pattern implementation for database operations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, List, Optional, Any, Dict
-from sqlalchemy import select, insert, update, delete
+from typing import Any, Generic, TypeVar
+
+from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 # NOTE: get_db_session imported for completeness; repository methods expect an AsyncSession passed explicitly.
 try:
@@ -27,26 +27,26 @@ class BaseRepository(Generic[T, ID], ABC):
         self.model_class = model_class
 
     @abstractmethod
-    async def get_by_id(self, session: AsyncSession, id: ID) -> Optional[T]:
+    async def get_by_id(self, session: AsyncSession, id: ID) -> T | None:
         """Get a single record by ID."""
         pass
 
     @abstractmethod
     async def get_all(
         self, session: AsyncSession, skip: int = 0, limit: int = 100
-    ) -> List[T]:
+    ) -> list[T]:
         """Get all records with pagination."""
         pass
 
     @abstractmethod
-    async def create(self, session: AsyncSession, data: Dict[str, Any]) -> T:
+    async def create(self, session: AsyncSession, data: dict[str, Any]) -> T:
         """Create a new record."""
         pass
 
     @abstractmethod
     async def update(
-        self, session: AsyncSession, id: ID, data: Dict[str, Any]
-    ) -> Optional[T]:
+        self, session: AsyncSession, id: ID, data: dict[str, Any]
+    ) -> T | None:
         """Update an existing record."""
         pass
 
@@ -63,8 +63,8 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
     """
 
     async def get_by_id(
-        self, session: AsyncSession, id: int, load_options: Optional[List] = None
-    ) -> Optional[T]:
+        self, session: AsyncSession, id: int, load_options: list | None = None
+    ) -> T | None:
         """
         Get a single record by ID.
         Optionally load related entities.
@@ -86,9 +86,9 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         session: AsyncSession,
         skip: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None,
-        load_options: Optional[List] = None,
-    ) -> List[T]:
+        filters: dict[str, Any] | None = None,
+        load_options: list | None = None,
+    ) -> list[T]:
         """
         Get all records with optional filtering and pagination.
         """
@@ -107,7 +107,7 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         result = await session.execute(query)
         return list(result.scalars().all())
 
-    async def create(self, session: AsyncSession, data: Dict[str, Any]) -> T:
+    async def create(self, session: AsyncSession, data: dict[str, Any]) -> T:
         """
         Create a new record.
         """
@@ -116,7 +116,7 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         primary_key_is_string = False
         if hasattr(self.model_class, "id"):
             try:
-                col_type = getattr(self.model_class, "id").property.columns[0].type  # type: ignore[attr-defined]
+                col_type = self.model_class.id.property.columns[0].type  # type: ignore[attr-defined]
                 from sqlalchemy import String
 
                 primary_key_is_string = isinstance(col_type, String)
@@ -177,7 +177,10 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
             # This makes create idempotent for tests which may re-use deterministic IDs.
             if "id" in create_data:
                 existing = await session.execute(
-                    select(self.model_class).where(self.model_class.id == create_data["id"], ~self.model_class.is_deleted)
+                    select(self.model_class).where(
+                        self.model_class.id == create_data["id"],
+                        ~self.model_class.is_deleted,
+                    )
                 )
                 obj = existing.scalar_one_or_none()
                 if obj:
@@ -187,20 +190,20 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
             raise
 
     async def update(
-        self, session: AsyncSession, id: int, data: Dict[str, Any]
-    ) -> Optional[T]:
+        self, session: AsyncSession, id: int, data: dict[str, Any]
+    ) -> T | None:
         """
         Update an existing record.
         """
         # Remove fields that shouldn't be updated directly
-        update_data: Dict[str, Any] = {
+        update_data: dict[str, Any] = {
             k: v for k, v in data.items() if k not in ["created_at"]
         }
 
         # Allow explicit update of string PK only if necessary (rare). Avoid changing integer PK.
         if "id" in update_data:
             try:
-                col_type = getattr(self.model_class, "id").property.columns[0].type  # type: ignore[attr-defined]
+                col_type = self.model_class.id.property.columns[0].type  # type: ignore[attr-defined]
                 from sqlalchemy import Integer
 
                 if isinstance(col_type, Integer):
@@ -291,7 +294,7 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         return result.scalar_one_or_none() is not None
 
     async def count(
-        self, session: AsyncSession, filters: Optional[Dict[str, Any]] = None
+        self, session: AsyncSession, filters: dict[str, Any] | None = None
     ) -> int:
         """
         Count records with optional filters.
@@ -313,7 +316,7 @@ class RepositoryFactory:
     Factory class for creating repository instances.
     """
 
-    _repositories: Dict[type, BaseRepository] = {}
+    _repositories: dict[type, BaseRepository] = {}
 
     @classmethod
     def get_repository(cls, model_class: type[T]) -> BaseRepository[T, int]:

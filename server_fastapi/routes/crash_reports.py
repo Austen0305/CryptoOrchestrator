@@ -3,13 +3,13 @@ Crash Report Endpoints
 Handles crash reports from Electron and frontend, forwards to incident workflow
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated, Any
 
-from ..dependencies.auth import get_current_user, require_permission
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from ..dependencies.auth import require_permission
 from ..services.monitoring.sentry_integration import sentry_client
 
 logger = logging.getLogger(__name__)
@@ -32,13 +32,13 @@ class FrontendCrashReport(BaseModel):
     """Crash report from frontend"""
 
     error_message: str = Field(..., description="Error message")
-    error_stack: Optional[str] = Field(None, description="Error stack trace")
-    user_agent: Optional[str] = Field(None, description="User agent")
-    url: Optional[str] = Field(None, description="URL where error occurred")
+    error_stack: str | None = Field(None, description="Error stack trace")
+    user_agent: str | None = Field(None, description="User agent")
+    url: str | None = Field(None, description="URL where error occurred")
     version: str = Field(..., description="App version")
     timestamp: str = Field(..., description="ISO timestamp")
     environment: str = Field(default="production", description="Environment")
-    context: Optional[Dict[str, Any]] = Field(None, description="Additional context")
+    context: dict[str, Any] | None = Field(None, description="Additional context")
 
 
 @router.post("/crash-reports/electron")

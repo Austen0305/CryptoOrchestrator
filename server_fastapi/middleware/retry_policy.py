@@ -5,9 +5,9 @@ Wraps circuit breakers with intelligent retry logic.
 
 import asyncio
 import logging
-from typing import Callable, Any, Optional, TypeVar, List
-from datetime import datetime, timedelta
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class RetryPolicy:
         exponential_base: float = 2.0,
         jitter: bool = True,
         retryable_exceptions: tuple = (Exception,),
-        dead_letter_callback: Optional[Callable] = None,
+        dead_letter_callback: Callable | None = None,
     ):
         self.max_attempts = max_attempts
         self.base_delay = base_delay

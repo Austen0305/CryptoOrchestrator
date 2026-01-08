@@ -3,14 +3,14 @@ Comprehensive Request/Response Logging Middleware
 Provides detailed logging of requests and responses for debugging and auditing
 """
 
-import logging
 import json
+import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Any
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
     """
     Comprehensive request/response logging
-    
+
     Features:
     - Request logging (method, path, headers, body)
     - Response logging (status, headers, body)
@@ -34,8 +34,8 @@ class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
         log_request_body: bool = False,
         log_response_body: bool = False,
         log_headers: bool = True,
-        sensitive_headers: Optional[list] = None,
-        sensitive_fields: Optional[list] = None,
+        sensitive_headers: list | None = None,
+        sensitive_fields: list | None = None,
     ):
         super().__init__(app)
         self.log_request_body = log_request_body
@@ -55,7 +55,7 @@ class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
             "private_key",
         ]
 
-    def _sanitize_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+    def _sanitize_headers(self, headers: dict[str, str]) -> dict[str, str]:
         """Sanitize sensitive headers"""
         sanitized = {}
         for key, value in headers.items():
@@ -65,7 +65,7 @@ class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
                 sanitized[key] = value
         return sanitized
 
-    def _sanitize_body(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def _sanitize_body(self, body: dict[str, Any]) -> dict[str, Any]:
         """Sanitize sensitive fields in body"""
         if not isinstance(body, dict):
             return body
@@ -169,4 +169,3 @@ class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
                 exc_info=True,
             )
             raise
-

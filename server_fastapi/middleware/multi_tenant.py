@@ -4,10 +4,9 @@ Ensures all queries are scoped to the current user
 """
 
 import logging
-from typing import Callable
-from fastapi import Request, HTTPException, status
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
 logger = logging.getLogger(__name__)
 

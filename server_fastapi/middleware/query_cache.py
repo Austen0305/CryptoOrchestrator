@@ -6,9 +6,9 @@ Caches database query results to improve performance with multi-level caching
 import hashlib
 import json
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional
-from datetime import timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +33,12 @@ except ImportError:
     MultiLevelCache = None
 
 # Global multi-level cache instance
-_multi_level_cache: Optional[MultiLevelCache] = None
+_multi_level_cache: MultiLevelCache | None = None
 
 
 def get_multi_level_cache(
-    redis_client: Optional[Any] = None,
-) -> Optional[MultiLevelCache]:
+    redis_client: Any | None = None,
+) -> MultiLevelCache | None:
     """Get or create multi-level cache instance"""
     global _multi_level_cache
     if CACHE_UTILS_AVAILABLE and MultiLevelCache:

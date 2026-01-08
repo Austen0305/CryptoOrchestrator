@@ -3,14 +3,16 @@ Request Validation Middleware (2026 Best Practices)
 Comprehensive request validation with security hardening
 """
 
-import logging
 import json
-from typing import Any, Callable
-from fastapi import Request, Response, HTTPException, status
+import logging
+from collections.abc import Callable
+from typing import Any
+
+from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
-from ..utils.validation_2026 import sanitize_input, validate_amount, ValidationError
+from ..utils.validation_2026 import sanitize_input
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +25,7 @@ MAX_JSON_KEYS = 1000
 class RequestValidationMiddleware2026(BaseHTTPMiddleware):
     """
     Comprehensive request validation middleware (2026)
-    
+
     Features:
     - Request size limits
     - JSON depth/keys limits
@@ -39,7 +41,7 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Validate request before processing"""
-        
+
         # Check request size
         content_length = request.headers.get("content-length")
         if content_length:
@@ -52,18 +54,22 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                     )
             except ValueError:
                 pass  # Invalid content-length, let it proceed
-        
+
         # Validate JSON payloads
-        if request.method in ("POST", "PUT", "PATCH") and "application/json" in request.headers.get("content-type", ""):
+        if request.method in (
+            "POST",
+            "PUT",
+            "PATCH",
+        ) and "application/json" in request.headers.get("content-type", ""):
             try:
                 body = await request.body()
-                
+
                 if len(body) > self.max_request_size:
                     raise HTTPException(
                         status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                         detail=f"Request body too large (maximum {self.max_request_size} bytes)",
                     )
-                
+
                 # Parse and validate JSON
                 try:
                     data = json.loads(body.decode("utf-8"))
@@ -73,13 +79,13 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Invalid JSON: {str(e)}",
                     )
-                
+
                 # Store validated body for route handlers
                 async def receive():
                     return {"type": "http.request", "body": body}
-                
+
                 request._receive = receive
-                
+
             except HTTPException:
                 raise
             except Exception as e:
@@ -88,7 +94,7 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Request validation failed",
                 )
-        
+
         # Validate query parameters
         for key, value in request.query_params.items():
             try:
@@ -99,18 +105,20 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid query parameter: {key}",
                 )
-        
+
         return await call_next(request)
 
-    def _validate_json_structure(self, data: Any, depth: int = 0, key_count: int = 0) -> None:
+    def _validate_json_structure(
+        self, data: Any, depth: int = 0, key_count: int = 0
+    ) -> None:
         """
         Validate JSON structure (prevent deep nesting and excessive keys)
-        
+
         Args:
             data: JSON data to validate
             depth: Current nesting depth
             key_count: Current key count
-            
+
         Raises:
             HTTPException: If structure is invalid
         """
@@ -119,7 +127,7 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"JSON nesting too deep (maximum {MAX_JSON_DEPTH} levels)",
             )
-        
+
         if isinstance(data, dict):
             key_count += len(data)
             if key_count > MAX_JSON_KEYS:
@@ -127,10 +135,10 @@ class RequestValidationMiddleware2026(BaseHTTPMiddleware):
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Too many JSON keys (maximum {MAX_JSON_KEYS})",
                 )
-            
+
             for value in data.values():
                 self._validate_json_structure(value, depth + 1, key_count)
-        
+
         elif isinstance(data, list):
             for item in data[:100]:  # Limit list validation to first 100 items
                 self._validate_json_structure(item, depth + 1, key_count)

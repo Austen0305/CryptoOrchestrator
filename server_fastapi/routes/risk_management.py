@@ -2,31 +2,26 @@
 Enhanced Risk Management Routes - Complete risk management API
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, Optional, List, Annotated
 import logging
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Annotated, Any
 
-from ..services.risk_service import RiskService, RiskLimits, RiskAlert, RiskMetrics
-from ..services.risk.drawdown_kill_switch import (
-    drawdown_kill_switch,
-    DrawdownKillSwitchConfig,
-    DrawdownState,
-    DrawdownEvent,
-)
-from ..services.risk.var_service import var_service, VaRConfig, VaRResult
-from ..services.risk.monte_carlo_service import (
-    monte_carlo_service,
-    MonteCarloConfig,
-    MonteCarloResult,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 from ..dependencies.auth import get_current_user
 from ..dependencies.risk import get_risk_service
-from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..services.risk.drawdown_kill_switch import (
+    DrawdownKillSwitchConfig,
+    drawdown_kill_switch,
+)
+from ..services.risk.monte_carlo_service import (
+    MonteCarloConfig,
+    monte_carlo_service,
+)
+from ..services.risk.var_service import VaRConfig, var_service
+from ..services.risk_service import RiskAlert, RiskLimits, RiskMetrics, RiskService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +94,7 @@ async def update_limits(
 ):
     user_id = _get_user_id(current_user)
     # Manual validation to enforce reasonable ranges beyond model bounds if needed
-    updates: Dict[str, Any] = {}
+    updates: dict[str, Any] = {}
     for field, value in payload.model_dump(exclude_none=True).items():
         if field == "maxPositionSize" and not (0 <= value <= 100):
             raise HTTPException(
@@ -186,7 +181,7 @@ class KillSwitchConfigRequest(BaseModel):
     shutdown_all_bots: bool = True
 
 
-@router.get("/kill-switch/state", response_model=Dict)
+@router.get("/kill-switch/state", response_model=dict)
 async def get_kill_switch_state(
     current_user: Annotated[dict, Depends(get_current_user)],
 ):
@@ -201,10 +196,10 @@ async def get_kill_switch_state(
         raise HTTPException(status_code=500, detail=f"Failed to get state: {str(e)}")
 
 
-@router.post("/kill-switch/activate", response_model=Dict)
+@router.post("/kill-switch/activate", response_model=dict)
 async def activate_kill_switch(
     current_user: Annotated[dict, Depends(get_current_user)],
-    reason: Optional[str] = None,
+    reason: str | None = None,
 ):
     """Manually activate drawdown kill switch"""
     try:
@@ -221,10 +216,10 @@ async def activate_kill_switch(
         raise HTTPException(status_code=500, detail=f"Failed to activate: {str(e)}")
 
 
-@router.post("/kill-switch/deactivate", response_model=Dict)
+@router.post("/kill-switch/deactivate", response_model=dict)
 async def deactivate_kill_switch(
     current_user: Annotated[dict, Depends(get_current_user)],
-    reason: Optional[str] = None,
+    reason: str | None = None,
 ):
     """Manually deactivate drawdown kill switch"""
     try:
@@ -245,7 +240,7 @@ async def deactivate_kill_switch(
         raise HTTPException(status_code=500, detail=f"Failed to deactivate: {str(e)}")
 
 
-@router.get("/kill-switch/events", response_model=Dict)
+@router.get("/kill-switch/events", response_model=dict)
 async def get_kill_switch_events(
     current_user: Annotated[dict, Depends(get_current_user)],
     limit: int = Query(50, ge=1, le=500),
@@ -259,7 +254,7 @@ async def get_kill_switch_events(
         raise HTTPException(status_code=500, detail=f"Failed to get events: {str(e)}")
 
 
-@router.post("/kill-switch/config", response_model=Dict)
+@router.post("/kill-switch/config", response_model=dict)
 async def update_kill_switch_config(
     config: KillSwitchConfigRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -286,14 +281,14 @@ async def update_kill_switch_config(
 class VaRRequest(BaseModel):
     """VaR calculation request"""
 
-    returns: List[float]
+    returns: list[float]
     portfolio_value: float
     confidence_level: float = Field(0.95, ge=0.5, le=0.99)
     time_horizon_days: int = Field(1, ge=1, le=365)
     method: str = Field("historical", pattern="^(historical|parametric|monte_carlo)$")
 
 
-@router.post("/var/calculate", response_model=Dict)
+@router.post("/var/calculate", response_model=dict)
 async def calculate_var(
     request: VaRRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -316,13 +311,13 @@ async def calculate_var(
         )
 
 
-@router.post("/var/multi-horizon", response_model=Dict)
+@router.post("/var/multi-horizon", response_model=dict)
 async def calculate_multi_horizon_var(
     current_user: Annotated[dict, Depends(get_current_user)],
-    returns: List[float],
+    returns: list[float],
     portfolio_value: float,
     confidence_level: float = Query(0.95, ge=0.5, le=0.99),
-    horizons: Optional[List[int]] = None,
+    horizons: list[int] | None = None,
 ):
     """Calculate VaR for multiple time horizons"""
     try:
@@ -350,15 +345,15 @@ async def calculate_multi_horizon_var(
 class MonteCarloRequest(BaseModel):
     """Monte Carlo simulation request"""
 
-    historical_returns: List[float]
+    historical_returns: list[float]
     initial_value: float
     num_simulations: int = Field(10000, ge=100, le=100000)
     time_horizon_days: int = Field(30, ge=1, le=365)
     confidence_level: float = Field(0.95, ge=0.5, le=0.99)
-    random_seed: Optional[int] = None
+    random_seed: int | None = None
 
 
-@router.post("/monte-carlo/simulate", response_model=Dict)
+@router.post("/monte-carlo/simulate", response_model=dict)
 async def run_monte_carlo_simulation(
     request: MonteCarloRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
@@ -382,10 +377,10 @@ async def run_monte_carlo_simulation(
         )
 
 
-@router.post("/monte-carlo/risk-of-ruin", response_model=Dict)
+@router.post("/monte-carlo/risk-of-ruin", response_model=dict)
 async def calculate_risk_of_ruin(
     current_user: Annotated[dict, Depends(get_current_user)],
-    historical_returns: List[float],
+    historical_returns: list[float],
     initial_value: float,
     target_value: float = 0.0,
     num_simulations: int = Query(10000, ge=1000, le=100000),

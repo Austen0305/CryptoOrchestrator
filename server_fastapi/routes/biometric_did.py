@@ -3,11 +3,11 @@ Biometric Authentication and DID API Routes
 Endpoints for biometric auth and decentralized identity
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from ..dependencies.auth import get_current_user
 from ..services.security.biometric_auth import biometric_auth_service
@@ -24,7 +24,7 @@ class RegisterBiometricRequest(BaseModel):
     biometric_type: str = Field(..., description="Type: fingerprint, face_id, voice")
     device_id: str = Field(..., description="Device identifier")
     public_key: str = Field(..., description="Public key (base64)")
-    credential_id: Optional[str] = None
+    credential_id: str | None = None
 
 
 class VerifyBiometricRequest(BaseModel):
@@ -36,20 +36,20 @@ class VerifyBiometricRequest(BaseModel):
 
 class CreateDIDRequest(BaseModel):
     method: str = Field("key", description="DID method")
-    user_id: Optional[int] = None
+    user_id: int | None = None
 
 
 class IssueCredentialRequest(BaseModel):
     issuer_did: str = Field(..., description="Issuer DID")
     subject_did: str = Field(..., description="Subject DID")
-    credential_type: List[str] = Field(..., description="Credential types")
-    claims: Dict[str, Any] = Field(..., description="Credential claims")
-    expires_days: Optional[int] = None
+    credential_type: list[str] = Field(..., description="Credential types")
+    claims: dict[str, Any] = Field(..., description="Credential claims")
+    expires_days: int | None = None
 
 
 class CreatePresentationRequest(BaseModel):
     holder_did: str = Field(..., description="Holder DID")
-    credential_ids: List[str] = Field(..., description="Credential IDs")
+    credential_ids: list[str] = Field(..., description="Credential IDs")
 
 
 # Biometric Endpoints
@@ -61,10 +61,11 @@ async def register_biometric(
     """Register biometric credential"""
     try:
         import base64
+
         user_id = _get_user_id(current_user)
-        
+
         public_key_bytes = base64.b64decode(request.public_key)
-        
+
         credential = biometric_auth_service.register_biometric(
             user_id=user_id,
             biometric_type=request.biometric_type,
@@ -72,7 +73,7 @@ async def register_biometric(
             public_key=public_key_bytes,
             credential_id=request.credential_id,
         )
-        
+
         return {
             "credential_id": credential.credential_id,
             "biometric_type": credential.biometric_type,
@@ -87,20 +88,21 @@ async def register_biometric(
 @router.post("/biometric/challenge")
 async def create_biometric_challenge(
     timeout_seconds: int = Query(60, ge=10, le=300),
-    credential_id: Optional[str] = None,
+    credential_id: str | None = None,
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ):
     """Create biometric authentication challenge"""
     try:
         user_id = _get_user_id(current_user) if current_user else 0
-        
+
         challenge = biometric_auth_service.create_challenge(
             user_id=user_id,
             credential_id=credential_id,
             timeout_seconds=timeout_seconds,
         )
-        
+
         import base64
+
         return {
             "challenge_id": challenge.challenge_id,
             "challenge_data": base64.b64encode(challenge.challenge_data).decode(),
@@ -119,16 +121,17 @@ async def verify_biometric(
     """Verify biometric authentication"""
     try:
         import base64
+
         signature = base64.b64decode(request.signature)
         authenticator_data = base64.b64decode(request.authenticator_data)
-        
+
         is_valid = biometric_auth_service.verify_biometric(
             challenge_id=request.challenge_id,
             credential_id=request.credential_id,
             signature=signature,
             authenticator_data=authenticator_data,
         )
-        
+
         return {
             "verified": is_valid,
             "credential_id": request.credential_id,
@@ -146,7 +149,7 @@ async def get_biometric_credentials(
     try:
         user_id = _get_user_id(current_user)
         credentials = biometric_auth_service.get_user_credentials(user_id)
-        
+
         return [
             {
                 "credential_id": c.credential_id,
@@ -171,12 +174,12 @@ async def create_did(
     """Create a new DID"""
     try:
         user_id = _get_user_id(current_user)
-        
+
         document = did_service.create_did(
             method=request.method,
             user_id=user_id,
         )
-        
+
         return {
             "did": document.did,
             "verification_methods": document.verification_methods,
@@ -196,10 +199,10 @@ async def resolve_did(
     """Resolve a DID to its document"""
     try:
         document = did_service.resolve_did(did)
-        
+
         if not document:
             raise HTTPException(status_code=404, detail="DID not found")
-        
+
         return {
             "did": document.did,
             "context": document.context,
@@ -230,7 +233,7 @@ async def issue_credential(
             claims=request.claims,
             expires_days=request.expires_days,
         )
-        
+
         return {
             "credential_id": credential.credential_id,
             "did": credential.did,
@@ -258,7 +261,7 @@ async def create_presentation(
             holder_did=request.holder_did,
             credential_ids=request.credential_ids,
         )
-        
+
         return {
             "presentation_id": presentation.presentation_id,
             "holder_did": presentation.holder_did,
@@ -280,7 +283,7 @@ async def verify_credential(
     """Verify a verifiable credential"""
     try:
         is_valid = did_service.verify_credential(credential_id)
-        
+
         return {
             "credential_id": credential_id,
             "verified": is_valid,
@@ -298,7 +301,7 @@ async def verify_presentation(
     """Verify a verifiable presentation"""
     try:
         is_valid = did_service.verify_presentation(presentation_id)
-        
+
         return {
             "presentation_id": presentation_id,
             "verified": is_valid,

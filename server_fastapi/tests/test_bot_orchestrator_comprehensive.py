@@ -3,11 +3,11 @@ Comprehensive Integration Tests for Bot Trading Orchestrator
 Tests complete trading workflows, error scenarios, and edge cases
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
 import logging
+from unittest.mock import patch
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 

@@ -2,17 +2,18 @@
 License Service - License key generation and validation
 """
 
-from typing import Dict, Any, Optional, Tuple, List
-from pydantic import BaseModel
-from datetime import datetime, timedelta
-from enum import Enum
-import logging
-import os
+import base64
 import hashlib
 import hmac
-import base64
-import secrets
 import json
+import logging
+import os
+import secrets
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,11 @@ class LicenseStatus(BaseModel):
 
     valid: bool
     license_type: str
-    expires_at: Optional[datetime] = None
-    activated_at: Optional[datetime] = None
+    expires_at: datetime | None = None
+    activated_at: datetime | None = None
     max_bots: int = 1
-    features: List[str] = []
-    message: Optional[str] = None
+    features: list[str] = []
+    message: str | None = None
 
 
 class LicenseKey(BaseModel):
@@ -44,12 +45,12 @@ class LicenseKey(BaseModel):
     license_key: str
     license_type: str
     user_id: str
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     max_bots: int = 1
-    features: List[str] = []
+    features: list[str] = []
     created_at: datetime
-    activated_at: Optional[datetime] = None
-    machine_id: Optional[str] = None
+    activated_at: datetime | None = None
+    machine_id: str | None = None
 
 
 class LicenseService:
@@ -98,7 +99,7 @@ class LicenseService:
         },
     }
 
-    def __init__(self, secret_key: Optional[str] = None):
+    def __init__(self, secret_key: str | None = None):
         # Use secret key from environment or generate one
         self.secret_key = secret_key or os.getenv(
             "LICENSE_SECRET_KEY", secrets.token_hex(32)
@@ -106,7 +107,7 @@ class LicenseService:
         logger.info("License service initialized")
 
     def generate_license_key(
-        self, user_id: str, license_type: str, expires_at: Optional[datetime] = None
+        self, user_id: str, license_type: str, expires_at: datetime | None = None
     ) -> str:
         """Generate a license key"""
         try:
@@ -156,7 +157,7 @@ class LicenseService:
             logger.error(f"Failed to generate license key: {e}")
             raise
 
-    def parse_license_key(self, license_key: str) -> Optional[Dict[str, Any]]:
+    def parse_license_key(self, license_key: str) -> dict[str, Any] | None:
         """Parse and validate license key"""
         try:
             # Remove formatting
@@ -188,7 +189,7 @@ class LicenseService:
             return None
 
     def validate_license_key(
-        self, license_key: str, machine_id: Optional[str] = None
+        self, license_key: str, machine_id: str | None = None
     ) -> LicenseStatus:
         """Validate a license key"""
         try:
@@ -259,7 +260,7 @@ class LicenseService:
                 mac_bytes = b"00" * 6
 
             mac_address = ":".join(
-                ["{:02x}".format(mac_bytes[i]) for i in range(min(6, len(mac_bytes)))]
+                [f"{mac_bytes[i]:02x}" for i in range(min(6, len(mac_bytes)))]
             )
 
             # Create unique machine ID

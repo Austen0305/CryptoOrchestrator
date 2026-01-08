@@ -5,13 +5,14 @@ Check MEV protection status and configuration
 
 import logging
 from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 
-from ..services.blockchain.mev_protection import (
-    get_mev_protection_service,
-    MEVProtectionProvider,
-)
 from ..dependencies.auth import get_current_user
+from ..services.blockchain.mev_protection import (
+    MEVProtectionProvider,
+    get_mev_protection_service,
+)
 
 logger = logging.getLogger(__name__)
 

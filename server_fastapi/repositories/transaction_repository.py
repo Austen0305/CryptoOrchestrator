@@ -3,15 +3,15 @@ Transaction Repository
 Data access layer for WalletTransaction model operations.
 """
 
-from typing import List, Optional
+import logging
 from datetime import datetime
-from sqlalchemy import select, and_
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import joinedload
 
 from ..models.wallet import WalletTransaction
 from .base import SQLAlchemyRepository
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         super().__init__(WalletTransaction)
 
     async def get_by_id(
-        self, session: AsyncSession, id: int, load_options: Optional[List] = None
-    ) -> Optional[WalletTransaction]:
+        self, session: AsyncSession, id: int, load_options: list | None = None
+    ) -> WalletTransaction | None:
         """Get transaction by ID with eager loading."""
         if load_options is None:
             load_options = [
@@ -42,10 +42,10 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         self,
         session: AsyncSession,
         user_id: int,
-        transaction_type: Optional[str] = None,
+        transaction_type: str | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[WalletTransaction]:
+    ) -> list[WalletTransaction]:
         """Get all transactions for a user with eager loading."""
         conditions = [WalletTransaction.user_id == user_id]
 
@@ -72,10 +72,10 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         self,
         session: AsyncSession,
         wallet_id: int,
-        transaction_type: Optional[str] = None,
+        transaction_type: str | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> List[WalletTransaction]:
+    ) -> list[WalletTransaction]:
         """Get all transactions for a wallet with eager loading."""
         conditions = [WalletTransaction.wallet_id == wallet_id]
 
@@ -100,7 +100,7 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
 
     async def get_by_status(
         self, session: AsyncSession, status: str, skip: int = 0, limit: int = 100
-    ) -> List[WalletTransaction]:
+    ) -> list[WalletTransaction]:
         """Get transactions by status with eager loading."""
         query = (
             select(WalletTransaction)
@@ -120,7 +120,7 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
 
     async def get_by_reference_id(
         self, session: AsyncSession, reference_id: str
-    ) -> Optional[WalletTransaction]:
+    ) -> WalletTransaction | None:
         """Get transaction by reference ID with eager loading."""
         query = select(WalletTransaction).where(
             WalletTransaction.reference_id == reference_id
@@ -151,8 +151,8 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         session: AsyncSession,
         transaction_id: int,
         status: str,
-        processed_at: Optional[datetime] = None,
-    ) -> Optional[WalletTransaction]:
+        processed_at: datetime | None = None,
+    ) -> WalletTransaction | None:
         """Update transaction status."""
         from sqlalchemy import update
 

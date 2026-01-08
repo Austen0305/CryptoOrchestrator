@@ -4,13 +4,14 @@ Implements alerting rules, channels, incident management integration,
 alert escalation, and fatigue prevention.
 """
 
+import asyncio
 import logging
-from typing import Dict, List, Optional, Any, Callable, Set
+import uuid
+from collections import defaultdict
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
-from collections import defaultdict
-import asyncio
-import uuid
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class AlertRule:
         threshold: float,
         operator: str,  # "gt", "lt", "eq"
         severity: AlertSeverity,
-        channels: List[AlertChannel],
+        channels: list[AlertChannel],
         duration: int = 60,  # Duration in seconds before alerting
         cooldown: int = 300,  # Cooldown period in seconds
     ):
@@ -56,7 +57,7 @@ class AlertRule:
         self.channels = channels
         self.duration = duration
         self.cooldown = cooldown
-        self.last_triggered: Optional[datetime] = None
+        self.last_triggered: datetime | None = None
         self.trigger_count = 0
 
 
@@ -68,7 +69,7 @@ class Alert:
         rule: AlertRule,
         current_value: float,
         message: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         self.id = str(uuid.uuid4())
         self.rule = rule
@@ -78,20 +79,20 @@ class Alert:
         self.timestamp = datetime.utcnow()
         self.metadata = metadata or {}
         self.acknowledged = False
-        self.acknowledged_by: Optional[str] = None
-        self.acknowledged_at: Optional[datetime] = None
+        self.acknowledged_by: str | None = None
+        self.acknowledged_at: datetime | None = None
         self.resolved = False
-        self.resolved_at: Optional[datetime] = None
+        self.resolved_at: datetime | None = None
         self.escalation_level = 0  # 0 = initial, increases with escalation
         self.notification_count = 0  # Track notifications sent
-        self.incident_id: Optional[str] = None  # Link to incident
+        self.incident_id: str | None = None  # Link to incident
 
 
 class Incident:
     """Incident instance - groups related alerts"""
 
     def __init__(
-        self, title: str, severity: AlertSeverity, description: Optional[str] = None
+        self, title: str, severity: AlertSeverity, description: str | None = None
     ):
         self.id = str(uuid.uuid4())
         self.title = title
@@ -100,34 +101,34 @@ class Incident:
         self.status = "open"  # open, investigating, resolved, closed
         self.created_at = datetime.utcnow()
         self.updated_at = datetime.utcnow()
-        self.resolved_at: Optional[datetime] = None
-        self.assigned_to: Optional[str] = None
-        self.related_alerts: List[str] = []  # Alert IDs
-        self.metadata: Dict[str, Any] = {}
+        self.resolved_at: datetime | None = None
+        self.assigned_to: str | None = None
+        self.related_alerts: list[str] = []  # Alert IDs
+        self.metadata: dict[str, Any] = {}
 
 
 class AlertingService:
     """Service for managing alerts, incidents, and notifications"""
 
     def __init__(self):
-        self.rules: Dict[str, AlertRule] = {}
-        self.active_alerts: Dict[str, Alert] = {}
-        self.alert_history: List[Alert] = []
-        self.channel_handlers: Dict[AlertChannel, Callable] = {}
+        self.rules: dict[str, AlertRule] = {}
+        self.active_alerts: dict[str, Alert] = {}
+        self.alert_history: list[Alert] = []
+        self.channel_handlers: dict[AlertChannel, Callable] = {}
         self.max_history = 10000
 
         # Incident management
-        self.active_incidents: Dict[str, Incident] = {}
-        self.incident_history: List[Incident] = []
+        self.active_incidents: dict[str, Incident] = {}
+        self.incident_history: list[Incident] = []
 
         # Alert fatigue prevention
-        self.alert_groups: Dict[str, List[str]] = {}  # Group key -> alert IDs
-        self.notification_timestamps: Dict[str, List[datetime]] = defaultdict(list)
+        self.alert_groups: dict[str, list[str]] = {}  # Group key -> alert IDs
+        self.notification_timestamps: dict[str, list[datetime]] = defaultdict(list)
         self.max_notifications_per_hour = 10  # Per alert rule
         self.max_notifications_per_day = 50  # Per alert rule
 
         # Escalation policies
-        self.escalation_policies: Dict[AlertSeverity, Dict[str, Any]] = {
+        self.escalation_policies: dict[AlertSeverity, dict[str, Any]] = {
             AlertSeverity.LOW: {
                 "escalate_after_minutes": 60,
                 "escalation_channels": [AlertChannel.EMAIL],
@@ -159,7 +160,7 @@ class AlertingService:
         self.rules[rule.name] = rule
         logger.info(f"Registered alert rule: {rule.name}")
 
-    def get_alert_rules(self) -> List[AlertRule]:
+    def get_alert_rules(self) -> list[AlertRule]:
         """Get all registered alert rules"""
         return list(self.rules.values())
 
@@ -169,9 +170,7 @@ class AlertingService:
         """Register a handler for an alert channel"""
         self.channel_handlers[channel] = handler
 
-    async def evaluate_rule(
-        self, rule_name: str, current_value: float
-    ) -> Optional[Alert]:
+    async def evaluate_rule(self, rule_name: str, current_value: float) -> Alert | None:
         """
         Evaluate an alert rule against current metric value
 
@@ -291,7 +290,7 @@ class AlertingService:
 
         return True
 
-    def _group_alerts(self, alert: Alert) -> Optional[str]:
+    def _group_alerts(self, alert: Alert) -> str | None:
         """
         Group similar alerts to prevent duplicate notifications
 
@@ -410,7 +409,7 @@ class AlertingService:
                 if alert.severity in [AlertSeverity.CRITICAL, AlertSeverity.HIGH]:
                     await self._create_or_update_incident(alert)
 
-    async def _create_or_update_incident(self, alert: Alert) -> Optional[Incident]:
+    async def _create_or_update_incident(self, alert: Alert) -> Incident | None:
         """Create or update incident for critical/high severity alerts"""
         # Check if incident already exists for this alert
         if alert.incident_id and alert.incident_id in self.active_incidents:
@@ -449,7 +448,7 @@ class AlertingService:
         return incident
 
     def acknowledge_alert(
-        self, alert_id: str, acknowledged_by: Optional[str] = None
+        self, alert_id: str, acknowledged_by: str | None = None
     ) -> bool:
         """Acknowledge an alert"""
         for alert in self.active_alerts.values():
@@ -474,9 +473,7 @@ class AlertingService:
             return True
         return False
 
-    def get_active_alerts(
-        self, severity: Optional[AlertSeverity] = None
-    ) -> List[Alert]:
+    def get_active_alerts(self, severity: AlertSeverity | None = None) -> list[Alert]:
         """Get active alerts, optionally filtered by severity"""
         alerts = list(self.active_alerts.values())
         if severity:
@@ -484,8 +481,8 @@ class AlertingService:
         return sorted(alerts, key=lambda a: a.timestamp, reverse=True)
 
     def get_alert_history(
-        self, limit: int = 100, severity: Optional[AlertSeverity] = None
-    ) -> List[Alert]:
+        self, limit: int = 100, severity: AlertSeverity | None = None
+    ) -> list[Alert]:
         """Get alert history"""
         alerts = self.alert_history[-limit:] if limit else self.alert_history
         if severity:
@@ -496,8 +493,8 @@ class AlertingService:
         self,
         title: str,
         severity: AlertSeverity,
-        description: Optional[str] = None,
-        related_alert_ids: Optional[List[str]] = None,
+        description: str | None = None,
+        related_alert_ids: list[str] | None = None,
     ) -> Incident:
         """Manually create an incident"""
         incident = Incident(title=title, severity=severity, description=description)
@@ -514,8 +511,8 @@ class AlertingService:
         return incident
 
     def get_active_incidents(
-        self, severity: Optional[AlertSeverity] = None
-    ) -> List[Incident]:
+        self, severity: AlertSeverity | None = None
+    ) -> list[Incident]:
         """Get active incidents"""
         incidents = list(self.active_incidents.values())
         if severity:
@@ -523,7 +520,7 @@ class AlertingService:
         return sorted(incidents, key=lambda i: i.created_at, reverse=True)
 
     def resolve_incident(
-        self, incident_id: str, resolved_by: Optional[str] = None
+        self, incident_id: str, resolved_by: str | None = None
     ) -> bool:
         """Resolve an incident"""
         if incident_id in self.active_incidents:
@@ -562,7 +559,7 @@ class AlertingService:
                 return True
         return False
 
-    def get_fatigue_stats(self) -> Dict[str, Any]:
+    def get_fatigue_stats(self) -> dict[str, Any]:
         """Get alert fatigue statistics"""
         stats = {}
         for rule_name, timestamps in self.notification_timestamps.items():
@@ -586,7 +583,7 @@ class AlertingService:
 
 
 # Default alert rules
-def create_default_alert_rules() -> List[AlertRule]:
+def create_default_alert_rules() -> list[AlertRule]:
     """Create default alert rules"""
     return [
         AlertRule(
@@ -633,7 +630,7 @@ def create_default_alert_rules() -> List[AlertRule]:
 
 
 # Singleton instance
-_alerting_service: Optional[AlertingService] = None
+_alerting_service: AlertingService | None = None
 
 
 def get_alerting_service() -> AlertingService:

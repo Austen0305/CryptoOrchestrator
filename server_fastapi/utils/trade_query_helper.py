@@ -5,10 +5,11 @@ databases, falling back to SQLAlchemy for SQLite or when asyncpg is unavailable.
 """
 
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import Any
+
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc
+
 from ..models.trade import Trade
 
 logger = logging.getLogger(__name__)
@@ -19,8 +20,8 @@ class TradeQueryHelper:
 
     @staticmethod
     async def get_trades_by_user_asyncpg(
-        user_id: int, limit: int = 100, offset: int = 0, mode: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+        user_id: int, limit: int = 100, offset: int = 0, mode: str | None = None
+    ) -> list[dict[str, Any]]:
         """Get trades by user using asyncpg (PostgreSQL only)"""
         try:
             from ..database.asyncpg_pool import AsyncPGPool
@@ -87,8 +88,8 @@ class TradeQueryHelper:
         user_id: int,
         limit: int = 100,
         offset: int = 0,
-        mode: Optional[str] = None,
-    ) -> List[Trade]:
+        mode: str | None = None,
+    ) -> list[Trade]:
         """Get trades by user using SQLAlchemy (fallback)"""
         stmt = select(Trade).where(Trade.user_id == user_id)
 
@@ -102,7 +103,7 @@ class TradeQueryHelper:
     @staticmethod
     async def get_trades_by_bot_asyncpg(
         bot_id: str, limit: int = 100, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get trades by bot using asyncpg (PostgreSQL only)"""
         try:
             from ..database.asyncpg_pool import AsyncPGPool
@@ -160,7 +161,7 @@ class TradeQueryHelper:
     @staticmethod
     async def get_trades_by_bot_sqlalchemy(
         session: AsyncSession, bot_id: str, limit: int = 100, offset: int = 0
-    ) -> List[Trade]:
+    ) -> list[Trade]:
         """Get trades by bot using SQLAlchemy (fallback)"""
         stmt = (
             select(Trade)

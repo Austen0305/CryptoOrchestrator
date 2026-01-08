@@ -5,13 +5,13 @@ Automatically copies trades from followed traders in real-time.
 
 import asyncio
 import logging
-from typing import Dict, List, Optional
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
 
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.follow import Follow
 from ..models.trade import Trade
-from ..models.follow import Follow, CopiedTrade
 from ..services.copy_trading_service import CopyTradingService
 
 logger = logging.getLogger(__name__)
@@ -24,8 +24,8 @@ class CopyTradingWorker:
         self.db = db
         self.copy_service = CopyTradingService(db)
         self.running = False
-        self._task: Optional[asyncio.Task] = None
-        self.last_check_time: Dict[int, datetime] = {}  # trader_id -> last check time
+        self._task: asyncio.Task | None = None
+        self.last_check_time: dict[int, datetime] = {}  # trader_id -> last check time
 
     async def start(self):
         """Start the copy trading worker"""
@@ -176,4 +176,4 @@ class CopyTradingWorker:
 
 
 # Global worker instance (will be initialized in main.py)
-copy_trading_worker: Optional[CopyTradingWorker] = None
+copy_trading_worker: CopyTradingWorker | None = None

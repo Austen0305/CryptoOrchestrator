@@ -5,15 +5,16 @@ Provides decorators for retry logic, rate limiting, batching, and monitoring.
 
 import logging
 import time
-from typing import Callable, Optional, Any
+from collections.abc import Callable
 from functools import wraps
+
 from celery import Task
 from celery.exceptions import Retry
 
-from ..utils.task_retry import retry_with_backoff, CircuitBreaker, RetryStrategy
-from ..utils.task_rate_limiter import get_task_rate_limiter
-from ..utils.task_batching import get_task_deduplicator
 from ..services.monitoring.celery_monitoring import get_celery_monitoring_service
+from ..utils.task_batching import get_task_deduplicator
+from ..utils.task_rate_limiter import get_task_rate_limiter
+from ..utils.task_retry import CircuitBreaker, RetryStrategy
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class EnhancedTask(Task):
         self.rate_limiter = get_task_rate_limiter()
         self.deduplicator = get_task_deduplicator()
         self.monitoring = get_celery_monitoring_service()
-        self.circuit_breaker: Optional[CircuitBreaker] = None
+        self.circuit_breaker: CircuitBreaker | None = None
 
     def __call__(self, *args, **kwargs):
         """Execute task with enhanced features"""
@@ -164,7 +165,7 @@ def task_with_monitoring(func: Callable) -> Callable:
 
             return result
 
-        except Exception as e:
+        except Exception:
             duration = time.time() - start_time
 
             # Record failure

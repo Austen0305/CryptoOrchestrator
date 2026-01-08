@@ -4,11 +4,11 @@ Implements HTTP ETag support for cache validation and conditional requests (304 
 """
 
 import hashlib
+import logging
+
 from fastapi import Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-from typing import Optional
-import logging
 
 logger = logging.getLogger(__name__)
 

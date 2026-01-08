@@ -1,6 +1,7 @@
 import logging
+from collections.abc import Callable
 from math import sqrt
-from typing import Dict, Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ class RiskScenarioService:
         shock_percent: float,
         horizon_days: int = 1,
         correlation_factor: float = 1.0,
-        notify: Callable[[Dict[str, Any]], Any] | None = None,
-    ) -> Dict[str, Any]:
+        notify: Callable[[dict[str, Any]], Any] | None = None,
+    ) -> dict[str, Any]:
         """Compute a shocked Value-at-Risk scenario.
 
         Args:

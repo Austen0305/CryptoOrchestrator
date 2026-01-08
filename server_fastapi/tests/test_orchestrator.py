@@ -4,7 +4,6 @@ Tests order validation, placement, and risk management
 """
 
 import pytest
-from datetime import datetime
 
 
 @pytest.mark.asyncio
@@ -79,8 +78,8 @@ class TestOrderValidation:
         # Most exchanges have minimum order sizes
         min_order = 0.001  # BTC
 
-        assert 0.01 > min_order  # Valid
-        assert 0.0001 < min_order  # Too small
+        assert min_order < 0.01  # Valid
+        assert min_order > 0.0001  # Too small
 
     async def test_maximum_position_size(self, db_session):
         """Test maximum position size validation"""

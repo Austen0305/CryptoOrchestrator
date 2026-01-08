@@ -4,14 +4,15 @@ Check ETH and ERC-20 token balances with caching
 """
 
 import logging
-from typing import Optional, Dict, Any
+from datetime import datetime
 from decimal import Decimal
-from datetime import datetime, timedelta
+from typing import Any
 
 # Defensive imports to prevent route loading failures if web3 is not installed
 try:
     from web3 import AsyncWeb3
     from web3.exceptions import Web3Exception
+
     WEB3_AVAILABLE = True
 except ImportError as e:
     WEB3_AVAILABLE = False
@@ -20,10 +21,10 @@ except ImportError as e:
     logger = logging.getLogger(__name__)
     logger.warning(f"Web3 not available: {e}. Balance service will be limited.")
 
-from .web3_service import get_web3_service
 from ...config.settings import get_settings
+from .web3_service import get_web3_service
 
-if 'logger' not in locals():
+if "logger" not in locals():
     logger = logging.getLogger(__name__)
 
 # Try to get Redis cache service
@@ -78,25 +79,27 @@ class BalanceService:
     def __init__(self):
         self.settings = get_settings()
         if not WEB3_AVAILABLE:
-            logger.warning("Web3 not available - BalanceService will have limited functionality")
+            logger.warning(
+                "Web3 not available - BalanceService will have limited functionality"
+            )
         try:
             self.web3_service = get_web3_service()
         except Exception as e:
             logger.warning(f"Failed to initialize web3 service: {e}")
             self.web3_service = None
-        self._balance_cache: Dict[str, Dict[str, Any]] = (
-            {}
-        )  # {f"{chain_id}:{address}:{token}": {balance, timestamp}}
+        self._balance_cache: dict[
+            str, dict[str, Any]
+        ] = {}  # {f"{chain_id}:{address}:{token}": {balance, timestamp}}
         self._cache_ttl = 30  # Cache for 30 seconds
 
     def _get_cache_key(
-        self, chain_id: int, address: str, token_address: Optional[str] = None
+        self, chain_id: int, address: str, token_address: str | None = None
     ) -> str:
         """Generate cache key"""
         token = token_address or "ETH"
         return f"{chain_id}:{address}:{token}"
 
-    async def _get_cached_balance(self, cache_key: str) -> Optional[Decimal]:
+    async def _get_cached_balance(self, cache_key: str) -> Decimal | None:
         """Get balance from cache if not expired (checks Redis first, then in-memory)"""
         redis_key = f"balance:{cache_key}"
 
@@ -138,7 +141,7 @@ class BalanceService:
 
     async def get_eth_balance(
         self, chain_id: int, address: str, use_cache: bool = True
-    ) -> Optional[Decimal]:
+    ) -> Decimal | None:
         """
         Get ETH balance for an address
 
@@ -202,7 +205,7 @@ class BalanceService:
         address: str,
         token_address: str,
         use_cache: bool = True,
-    ) -> Optional[Decimal]:
+    ) -> Decimal | None:
         """
         Get ERC-20 token balance for an address
 
@@ -284,7 +287,7 @@ class BalanceService:
         chain_id: int,
         address: str,
         token_addresses: list[str],
-    ) -> Dict[str, Optional[Decimal]]:
+    ) -> dict[str, Decimal | None]:
         """
         Get multiple token balances efficiently
 
@@ -296,7 +299,7 @@ class BalanceService:
         Returns:
             Dictionary mapping token addresses to balances
         """
-        results: Dict[str, Optional[Decimal]] = {}
+        results: dict[str, Decimal | None] = {}
 
         # Get ETH balance if None is in the list
         if None in token_addresses:
@@ -311,9 +314,7 @@ class BalanceService:
 
         return results
 
-    def clear_cache(
-        self, chain_id: Optional[int] = None, address: Optional[str] = None
-    ):
+    def clear_cache(self, chain_id: int | None = None, address: str | None = None):
         """
         Clear balance cache
 
@@ -346,8 +347,8 @@ class BalanceService:
         self,
         chain_id: int,
         address: str,
-        token_address: Optional[str] = None,
-    ) -> Optional[Decimal]:
+        token_address: str | None = None,
+    ) -> Decimal | None:
         """
         Force refresh balance from blockchain (bypasses cache)
 
@@ -382,7 +383,7 @@ class BalanceService:
 
 
 # Singleton instance
-_balance_service: Optional[BalanceService] = None
+_balance_service: BalanceService | None = None
 
 
 def get_balance_service() -> BalanceService:

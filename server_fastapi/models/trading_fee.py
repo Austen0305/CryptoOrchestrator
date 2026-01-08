@@ -4,24 +4,25 @@ Tracks fees collected from trades for revenue analysis
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
 from sqlalchemy import (
-    Column,
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
     Integer,
     String,
-    Float,
-    DateTime,
-    Boolean,
-    ForeignKey,
     Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from .user import User
     from .dex_trade import DEXTrade
     from .trade import Trade
+    from .user import User
 
 
 class TradingFee(Base, TimestampMixin):
@@ -38,10 +39,10 @@ class TradingFee(Base, TimestampMixin):
     trade_type: Mapped[str] = mapped_column(
         String(20), nullable=False, index=True
     )  # 'dex' or 'cex' (centralized exchange)
-    dex_trade_id: Mapped[Optional[int]] = mapped_column(
+    dex_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("dex_trades.id"), nullable=True, index=True
     )
-    cex_trade_id: Mapped[Optional[int]] = mapped_column(
+    cex_trade_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("trades.id"), nullable=True, index=True
     )
 
@@ -78,10 +79,10 @@ class TradingFee(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False, index=True
     )  # 'pending', 'collected', 'refunded'
-    collected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    collected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Metadata
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User")

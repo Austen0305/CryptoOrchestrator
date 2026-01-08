@@ -5,17 +5,16 @@ Monitors blockchain payments and automatically activates subscriptions
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
-from sqlalchemy.orm import selectinload
+from typing import Any
 
-from ...models.user import User
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...models.subscription import Subscription
-from ..blockchain.transaction_service import TransactionService
 from ..blockchain.token_registry import get_token_registry
+from ..blockchain.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class CryptoSubscriptionService:
 
     async def get_subscription_payment_address(
         self, user_id: int, chain_id: int = 1
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get a unique payment address for user's subscription payments
 
@@ -91,7 +90,7 @@ class CryptoSubscriptionService:
         tier: str,
         token_symbol: str,
         chain_id: int = 1,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Calculate payment amount in crypto for a subscription tier
 
@@ -146,7 +145,7 @@ class CryptoSubscriptionService:
         user_id: int,
         transaction_hash: str,
         chain_id: int = 1,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Verify a payment transaction and activate subscription
 
@@ -184,7 +183,7 @@ class CryptoSubscriptionService:
                 "transaction_hash": transaction_hash,
                 "chain_id": chain_id,
                 "block_number": receipt.get("blockNumber"),
-                "timestamp": datetime.now(timezone.utc),
+                "timestamp": datetime.now(UTC),
             }
 
         except Exception as e:
@@ -198,7 +197,7 @@ class CryptoSubscriptionService:
         tier: str,
         transaction_hash: str,
         chain_id: int = 1,
-    ) -> Optional[Subscription]:
+    ) -> Subscription | None:
         """
         Activate subscription after payment verification
 
@@ -214,7 +213,9 @@ class CryptoSubscriptionService:
         """
         try:
             # Verify payment first
-            verification = await self.verify_payment(user_id, transaction_hash, chain_id)
+            verification = await self.verify_payment(
+                user_id, transaction_hash, chain_id
+            )
             if not verification or not verification.get("verified"):
                 logger.warning(f"Payment verification failed for user {user_id}")
                 return None
@@ -230,24 +231,22 @@ class CryptoSubscriptionService:
                     user_id=user_id,
                     plan=tier,
                     status="active",
-                    current_period_start=datetime.now(timezone.utc),
-                    current_period_end=datetime.now(timezone.utc) + timedelta(days=30),
+                    current_period_start=datetime.now(UTC),
+                    current_period_end=datetime.now(UTC) + timedelta(days=30),
                 )
                 db.add(subscription)
             else:
                 subscription.plan = tier
                 subscription.status = "active"
-                subscription.current_period_start = datetime.now(timezone.utc)
-                subscription.current_period_end = datetime.now(timezone.utc) + timedelta(
-                    days=30
-                )
+                subscription.current_period_start = datetime.now(UTC)
+                subscription.current_period_end = datetime.now(UTC) + timedelta(days=30)
 
             # Store payment info (you might want a separate payments table)
             subscription.metadata = subscription.metadata or {}
             subscription.metadata["last_payment"] = {
                 "transaction_hash": transaction_hash,
                 "chain_id": chain_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             await db.commit()
@@ -266,7 +265,7 @@ class CryptoSubscriptionService:
 
     async def check_subscription_status(
         self, db: AsyncSession, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check subscription status and payment requirements
 
@@ -290,7 +289,7 @@ class CryptoSubscriptionService:
                 "needs_payment": False,
             }
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         is_active = (
             subscription.status == "active"
             and subscription.current_period_end
@@ -318,7 +317,7 @@ class CryptoSubscriptionService:
             ),
         }
 
-    async def _get_token_price_usd(self, token_symbol: str) -> Optional[float]:
+    async def _get_token_price_usd(self, token_symbol: str) -> float | None:
         """
         Get token price in USD (simplified - use price oracle in production)
 
@@ -339,7 +338,3 @@ class CryptoSubscriptionService:
         }
 
         return prices.get(token_symbol.upper())
-
-
-
-

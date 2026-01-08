@@ -4,12 +4,12 @@ Provides utilities for benchmarking and performance testing
 """
 
 import logging
-import time
-import asyncio
 import statistics
-from typing import Dict, Any, List, Callable, Optional
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BenchmarkResult:
     """Benchmark result"""
+
     name: str
     iterations: int
     total_time: float
@@ -34,7 +35,7 @@ class BenchmarkResult:
         if self.timestamp is None:
             self.timestamp = datetime.utcnow()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return {
             "name": self.name,
@@ -55,7 +56,7 @@ class BenchmarkResult:
 class PerformanceBenchmark:
     """
     Performance benchmarking utility
-    
+
     Features:
     - Function benchmarking
     - Async function benchmarking
@@ -65,7 +66,7 @@ class PerformanceBenchmark:
     """
 
     def __init__(self):
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
 
     async def benchmark_async(
         self,
@@ -130,7 +131,7 @@ class PerformanceBenchmark:
         return self._calculate_results(func.__name__, times, iterations, errors)
 
     def _calculate_results(
-        self, name: str, times: List[float], iterations: int, errors: int
+        self, name: str, times: list[float], iterations: int, errors: int
     ) -> BenchmarkResult:
         """Calculate benchmark statistics"""
         if not times:
@@ -175,18 +176,18 @@ class PerformanceBenchmark:
         self.results.append(result)
         return result
 
-    def get_results(self) -> List[Dict[str, Any]]:
+    def get_results(self) -> list[dict[str, Any]]:
         """Get all benchmark results"""
         return [r.to_dict() for r in self.results]
 
-    def get_result(self, name: str) -> Optional[BenchmarkResult]:
+    def get_result(self, name: str) -> BenchmarkResult | None:
         """Get specific benchmark result"""
         for result in self.results:
             if result.name == name:
                 return result
         return None
 
-    def compare(self, name1: str, name2: str) -> Dict[str, Any]:
+    def compare(self, name1: str, name2: str) -> dict[str, Any]:
         """Compare two benchmark results"""
         result1 = self.get_result(name1)
         result2 = self.get_result(name2)
@@ -208,4 +209,3 @@ class PerformanceBenchmark:
 
 # Global benchmark instance
 performance_benchmark = PerformanceBenchmark()
-

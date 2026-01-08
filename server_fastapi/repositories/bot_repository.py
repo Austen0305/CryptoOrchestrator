@@ -2,12 +2,12 @@
 Bot repository for database operations.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+
 from ..models.bot import Bot
-from ..utils.query_optimizer import QueryOptimizer
 from .base import SQLAlchemyRepository
 
 
@@ -21,12 +21,12 @@ class BotRepository(SQLAlchemyRepository[Bot]):
 
     async def get_by_user_and_id(
         self, session: AsyncSession, bot_id: str, user_id: int
-    ) -> Optional[Bot]:
+    ) -> Bot | None:
         """
         Get a bot by ID and user ID with eager loading.
         """
         from sqlalchemy.orm import joinedload
-        
+
         query = (
             select(Bot)
             .where(Bot.id == bot_id, Bot.user_id == user_id, ~Bot.is_deleted)
@@ -37,7 +37,7 @@ class BotRepository(SQLAlchemyRepository[Bot]):
 
     async def get_user_bots(
         self, session: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[Bot]:
+    ) -> list[Bot]:
         """
         Get all bots for a user with pagination and eager loading.
         """
@@ -64,7 +64,7 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         user_id: int,
         active: bool,
         status: str,
-    ) -> Optional[Bot]:
+    ) -> Bot | None:
         """
         Update bot active status and status field.
 
@@ -120,8 +120,8 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         return result.rowcount > 0
 
     async def update_bot_config(
-        self, session: AsyncSession, bot_id: str, user_id: int, updates: Dict[str, Any]
-    ) -> Optional[Bot]:
+        self, session: AsyncSession, bot_id: str, user_id: int, updates: dict[str, Any]
+    ) -> Bot | None:
         """
         Update bot configuration fields.
         """
@@ -158,7 +158,7 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         session: AsyncSession,
         bot_id: str,
         user_id: int,
-        performance_data: Dict[str, Any],
+        performance_data: dict[str, Any],
     ) -> bool:
         """
         Update bot performance data.
@@ -186,7 +186,7 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         name: str,
         symbol: str,
         strategy: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
     ) -> Bot:
         """
         Create a new bot.

@@ -1,8 +1,7 @@
+import json
 import logging
 import os
-from datetime import datetime
 from logging.handlers import RotatingFileHandler
-import json
 
 # Create logs directory if it doesn't exist
 logs_dir = os.path.join(os.getcwd(), "logs")

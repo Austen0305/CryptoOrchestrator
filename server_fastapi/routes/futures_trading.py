@@ -2,18 +2,19 @@
 Futures Trading API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..services.trading.futures_trading_service import FuturesTradingService
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.trading.futures_trading_service import FuturesTradingService
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +28,14 @@ class CreateFuturesPositionRequest(BaseModel):
     quantity: float = Field(..., gt=0)
     leverage: int = Field(..., ge=1, le=125, description="Leverage multiplier (1-125x)")
     trading_mode: str = Field(default="paper", pattern="^(paper|real)$")
-    entry_price: Optional[float] = Field(
+    entry_price: float | None = Field(
         None, gt=0, description="Entry price (None = market)"
     )
-    stop_loss_price: Optional[float] = Field(None, gt=0)
-    take_profit_price: Optional[float] = Field(None, gt=0)
-    trailing_stop_percent: Optional[float] = Field(None, gt=0, le=100)
-    name: Optional[str] = Field(None, max_length=100)
-    config: Optional[Dict[str, Any]] = None
+    stop_loss_price: float | None = Field(None, gt=0)
+    take_profit_price: float | None = Field(None, gt=0)
+    trailing_stop_percent: float | None = Field(None, gt=0, le=100)
+    name: str | None = Field(None, max_length=100)
+    config: dict[str, Any] | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -55,7 +56,7 @@ class CreateFuturesPositionRequest(BaseModel):
 class FuturesPositionResponse(BaseModel):
     id: str
     user_id: int
-    name: Optional[str]
+    name: str | None
     symbol: str
     exchange: str
     trading_mode: str
@@ -68,9 +69,9 @@ class FuturesPositionResponse(BaseModel):
     margin_available: float
     liquidation_price: float
     maintenance_margin: float
-    stop_loss_price: Optional[float]
-    take_profit_price: Optional[float]
-    trailing_stop_percent: Optional[float]
+    stop_loss_price: float | None
+    take_profit_price: float | None
+    trailing_stop_percent: float | None
     is_open: bool
     status: str
     unrealized_pnl: float
@@ -80,15 +81,15 @@ class FuturesPositionResponse(BaseModel):
     liquidation_risk: float
     margin_ratio: float
     opened_at: str
-    closed_at: Optional[str]
-    config: Dict[str, Any]
+    closed_at: str | None
+    config: dict[str, Any]
 
     model_config = {"from_attributes": True}
 
 
 @router.post(
     "/futures/positions",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     status_code=status.HTTP_201_CREATED,
     tags=["Futures Trading"],
 )
@@ -137,7 +138,7 @@ async def create_futures_position(
 
 @router.get(
     "/futures/positions",
-    response_model=List[FuturesPositionResponse],
+    response_model=list[FuturesPositionResponse],
     tags=["Futures Trading"],
 )
 @cached(ttl=60, prefix="futures_positions")  # 60s TTL for futures positions list
@@ -202,14 +203,14 @@ async def get_futures_position(
 
 @router.post(
     "/futures/positions/{position_id}/close",
-    response_model=Dict[str, Any],
+    response_model=dict[str, Any],
     tags=["Futures Trading"],
 )
 async def close_futures_position(
     position_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    close_price: Optional[float] = Query(None, gt=0),
+    close_price: float | None = Query(None, gt=0),
 ):
     """Close a futures position."""
     try:
@@ -236,7 +237,7 @@ async def close_futures_position(
 
 @router.post(
     "/futures/positions/{position_id}/update-pnl",
-    response_model=Dict[str, Any],
+    response_model=dict[str, Any],
     tags=["Futures Trading"],
 )
 async def update_position_pnl(

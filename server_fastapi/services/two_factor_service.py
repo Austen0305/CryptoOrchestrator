@@ -3,11 +3,9 @@ Two-Factor Authentication Service
 Handles 2FA for trading operations and sensitive actions.
 """
 
-import logging
-import io
 import base64
-from typing import Optional, Dict, List
-from datetime import datetime, timedelta
+import io
+import logging
 
 # Optional imports with fallbacks
 try:
@@ -58,7 +56,7 @@ class TwoFactorService:
 
     def __init__(self):
         # In production, this should be stored per-user in database
-        self.user_secrets: Dict[int, str] = {}
+        self.user_secrets: dict[int, str] = {}
 
     def generate_secret(self, user_id: int) -> str:
         """
@@ -80,7 +78,7 @@ class TwoFactorService:
             logger.error(f"Error generating 2FA secret: {e}", exc_info=True)
             raise
 
-    def get_secret(self, user_id: int) -> Optional[str]:
+    def get_secret(self, user_id: int) -> str | None:
         """Get TOTP secret for a user"""
         return self.user_secrets.get(user_id)
 

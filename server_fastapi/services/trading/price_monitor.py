@@ -3,10 +3,9 @@ Price Monitoring Service
 Continuously monitors market prices and triggers stop-loss/take-profit orders
 """
 
-import logging
 import asyncio
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,7 @@ class PriceMonitoringService:
 
     def __init__(self):
         self.monitoring = False
-        self.monitor_task: Optional[asyncio.Task] = None
+        self.monitor_task: asyncio.Task | None = None
         self.monitored_symbols: set = set()
         self.check_interval = 5  # Check every 5 seconds
 
@@ -115,7 +114,7 @@ class PriceMonitoringService:
         except Exception as e:
             logger.error(f"Error checking triggers: {e}", exc_info=True)
 
-    async def _fetch_current_prices(self, symbols: set) -> Dict[str, float]:
+    async def _fetch_current_prices(self, symbols: set) -> dict[str, float]:
         """
         Fetch current market prices for all symbols using batch fetching.
         More efficient than sequential fetching.
@@ -159,7 +158,7 @@ class PriceMonitoringService:
 
         return prices
 
-    async def _execute_triggered_order(self, order: Dict[str, Any]):
+    async def _execute_triggered_order(self, order: dict[str, Any]):
         """
         Execute an order that has been triggered.
 
@@ -188,8 +187,9 @@ class PriceMonitoringService:
             if not chain_id and order.get("bot_id"):
                 try:
                     # Try to get chain_id from bot config if available
-                    from ..database import get_db_context
                     from sqlalchemy import select
+
+                    from ..database import get_db_context
                     from ..models.bot import Bot
 
                     async with get_db_context() as db:
@@ -262,7 +262,7 @@ class PriceMonitoringService:
         except Exception as e:
             logger.error(f"Error processing triggered order: {e}", exc_info=True)
 
-    def get_monitoring_status(self) -> Dict[str, Any]:
+    def get_monitoring_status(self) -> dict[str, Any]:
         """Get current monitoring status."""
         return {
             "monitoring": self.monitoring,
@@ -270,7 +270,7 @@ class PriceMonitoringService:
             "monitored_symbols": list(self.monitored_symbols),
         }
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Alias for get_monitoring_status() for API compatibility.
 

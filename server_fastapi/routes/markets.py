@@ -1,11 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, WebSocket
-from .ws import get_current_user_ws
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
 import time
+from datetime import datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
+from pydantic import BaseModel
+
+from .ws import get_current_user_ws
 
 # Import OrderBook model
 try:
@@ -14,24 +15,25 @@ except ImportError:
     # Define OrderBook if model doesn't exist
     class OrderBook(BaseModel):
         pair: str
-        bids: List[Dict[str, float]]
-        asks: List[Dict[str, float]]
+        bids: list[dict[str, float]]
+        asks: list[dict[str, float]]
         timestamp: int
 
 
 # Exchange services removed - using blockchain/DEX data sources
 # Market data now comes from CoinGecko and DEX aggregators
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from server_fastapi.services.coingecko_service import CoinGeckoService
+from server_fastapi.services.correlation_service import CorrelationService
 from server_fastapi.services.market_analysis_service import MarketAnalysisService
 from server_fastapi.services.volatility_analyzer import VolatilityAnalyzer
-from server_fastapi.services.correlation_service import CorrelationService
-from ..dependencies.auth import get_current_user
+
 from ..database import get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
-from ..repositories.candle_repository import CandleRepository
-from ..models.candle import Candle
-from ..middleware.query_cache import cache_query_result
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..middleware.query_cache import cache_query_result
+from ..repositories.candle_repository import CandleRepository
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -60,16 +62,16 @@ class TradingPair(BaseModel):
     current_price: float
     change_24h: float
     volume_24h: float
-    high_24h: Optional[float] = None
-    low_24h: Optional[float] = None
-    market_cap: Optional[float] = None
+    high_24h: float | None = None
+    low_24h: float | None = None
+    market_cap: float | None = None
     is_active: bool = True
 
 
 class MarketSummary(BaseModel):
     total_pairs: int
     total_volume_24h: float
-    top_pairs: List[TradingPair]
+    top_pairs: list[TradingPair]
 
 
 class TickerResponse(BaseModel):
@@ -83,8 +85,8 @@ class TickerResponse(BaseModel):
 
 class OHLCVRequest(BaseModel):
     pair: str
-    timeframe: Optional[str] = "1h"
-    limit: Optional[int] = 100
+    timeframe: str | None = "1h"
+    limit: int | None = 100
 
 
 class MarketData(BaseModel):
@@ -92,13 +94,13 @@ class MarketData(BaseModel):
 
     timestamp: int
     price: float
-    volume: Optional[float] = None
+    volume: float | None = None
 
 
 class PriceChartResponse(BaseModel):
     pair: str
     timeframe: str
-    data: List[MarketData]
+    data: list[MarketData]
 
 
 class CandleDTO(BaseModel):
@@ -113,7 +115,7 @@ class CandleDTO(BaseModel):
 class CandleHistoryResponse(BaseModel):
     pair: str
     timeframe: str
-    candles: List[CandleDTO]
+    candles: list[CandleDTO]
 
 
 class TradingPairDetails(BaseModel):
@@ -125,11 +127,11 @@ class TradingPairDetails(BaseModel):
     volume_24h: float
     high_24h: float
     low_24h: float
-    market_cap: Optional[float] = None
+    market_cap: float | None = None
     price_precision: int = 8
     quantity_precision: int = 8
     min_order_size: float = 0.0
-    max_order_size: Optional[float] = None
+    max_order_size: float | None = None
     is_active: bool = True
 
 
@@ -139,21 +141,21 @@ class RealTimeMarketData(BaseModel):
     change_24h: float
     volume_24h: float
     timestamp: int
-    bid_price: Optional[float] = None
-    ask_price: Optional[float] = None
+    bid_price: float | None = None
+    ask_price: float | None = None
 
 
 class TechnicalIndicator(BaseModel):
     name: str
     value: float
     signal: str
-    period: Optional[int] = None
+    period: int | None = None
 
 
 class MarketAnalysisResponse(BaseModel):
     pair: str
     price: float
-    indicators: List[TechnicalIndicator]
+    indicators: list[TechnicalIndicator]
     trend: str
     strength: float
     recommendation: str
@@ -161,11 +163,11 @@ class MarketAnalysisResponse(BaseModel):
 
 
 # Existing endpoints updated with dependency injection and improved models
-@router.get("/", response_model=List[TradingPair])
+@router.get("/", response_model=list[TradingPair])
 @cache_query_result(
     ttl=600, key_prefix="markets", include_user=False, include_params=False
 )
-async def get_markets() -> List[TradingPair]:
+async def get_markets() -> list[TradingPair]:
     """Get all available trading pairs from CoinGecko"""
     try:
         from ..services.coingecko_service import CoinGeckoService
@@ -412,11 +414,11 @@ async def get_price(pair: str) -> dict:
 
 
 # New market data endpoints
-@router.get("/tickers", response_model=List[TickerResponse])
+@router.get("/tickers", response_model=list[TickerResponse])
 @cached(ttl=60, prefix="markets")  # 60s TTL for ticker data
 async def get_tickers(
     limit: int = Query(50, description="Number of tickers to return", ge=1, le=500),
-) -> List[TickerResponse]:
+) -> list[TickerResponse]:
     """Get ticker data for multiple trading pairs"""
     try:
         coingecko = CoinGeckoService()
@@ -477,7 +479,7 @@ async def get_market_summary(
 async def search_trading_pairs(
     query: str = Query(..., description="Search query for pair symbols"),
     limit: int = Query(20, description="Maximum number of results", ge=1, le=100),
-) -> List[TradingPair]:
+) -> list[TradingPair]:
     """Search for trading pairs by symbol"""
     try:
         if not query or len(query.strip()) < 1:
@@ -562,11 +564,11 @@ async def get_trading_pair_details(pair: str) -> TradingPairDetails:
 
 
 # Protected endpoints (require authentication)
-@router.get("/favorites", response_model=List[TradingPair])
+@router.get("/favorites", response_model=list[TradingPair])
 @cached(ttl=120, prefix="markets_favorites")
 async def get_favorite_pairs(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> List[TradingPair]:
+) -> list[TradingPair]:
     """Get user's favorite trading pairs (requires authentication)"""
     try:
         user_id = _get_user_id(current_user)
@@ -584,11 +586,11 @@ async def get_favorite_pairs(
         raise HTTPException(status_code=500, detail="Failed to fetch favorite pairs")
 
 
-@router.get("/watchlist", response_model=List[TradingPair])
+@router.get("/watchlist", response_model=list[TradingPair])
 @cached(ttl=120, prefix="markets_watchlist")
 async def get_watchlist(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> List[TradingPair]:
+) -> list[TradingPair]:
     """Get user's watchlist (requires authentication)"""
     try:
         user_id = _get_user_id(current_user)
@@ -610,7 +612,7 @@ async def get_watchlist(
 async def get_advanced_market_analysis(
     pair: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-    indicators: List[str] = Query(
+    indicators: list[str] = Query(
         ["rsi", "macd", "bollinger"], description="Technical indicators to calculate"
     ),
     period: int = Query(14, description="Period for indicators", ge=1, le=200),
@@ -697,7 +699,9 @@ async def get_advanced_market_analysis(
                 signal = (
                     "bullish"
                     if rsi_value < 30
-                    else "bearish" if rsi_value > 70 else "neutral"
+                    else "bearish"
+                    if rsi_value > 70
+                    else "neutral"
                 )
                 calculated_indicators.append(
                     TechnicalIndicator(
@@ -764,7 +768,9 @@ async def get_advanced_market_analysis(
         trend = (
             "bullish"
             if trend_strength > 0.6
-            else "bearish" if trend_strength < 0.4 else "sideways"
+            else "bearish"
+            if trend_strength < 0.4
+            else "sideways"
         )
 
         # Generate recommendation based on analysis
@@ -848,14 +854,16 @@ async def get_realtime_price_stream(
 
 class CorrelationMatrixResponse(BaseModel):
     """Response model for correlation matrix"""
-    symbols: List[str]
-    matrix: Dict[str, Dict[str, float]]
+
+    symbols: list[str]
+    matrix: dict[str, dict[str, float]]
     calculated_at: str
 
 
 class HeatmapDataResponse(BaseModel):
     """Response model for heatmap data"""
-    data: Dict[str, Dict[str, float]]
+
+    data: dict[str, dict[str, float]]
     metric: str
     calculated_at: str
 
@@ -863,54 +871,58 @@ class HeatmapDataResponse(BaseModel):
 @router.get("/correlation/matrix", response_model=CorrelationMatrixResponse)
 @cached(ttl=3600, prefix="correlation")  # Cache for 1 hour
 async def get_correlation_matrix(
-    symbols: str = Query(..., description="Comma-separated list of trading pairs (e.g., BTC/USD,ETH/USD)"),
-    days: int = Query(30, ge=7, le=365, description="Number of days of historical data to use"),
-    current_user: Optional[Annotated[dict, Depends(get_current_user)]] = None,
+    symbols: str = Query(
+        ..., description="Comma-separated list of trading pairs (e.g., BTC/USD,ETH/USD)"
+    ),
+    days: int = Query(
+        30, ge=7, le=365, description="Number of days of historical data to use"
+    ),
+    current_user: Annotated[dict, Depends(get_current_user)] | None = None,
 ) -> CorrelationMatrixResponse:
     """
     Calculate correlation matrix for multiple trading pairs
-    
+
     Returns correlation coefficients between all pairs of symbols.
     Correlation ranges from -1 (perfect negative) to +1 (perfect positive).
     """
     try:
         # Parse symbols
         symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
-        
+
         if len(symbol_list) < 2:
             raise HTTPException(
                 status_code=400,
-                detail="At least 2 trading pairs required for correlation calculation"
+                detail="At least 2 trading pairs required for correlation calculation",
             )
-        
+
         if len(symbol_list) > 50:
             raise HTTPException(
-                status_code=400,
-                detail="Maximum 50 trading pairs allowed"
+                status_code=400, detail="Maximum 50 trading pairs allowed"
             )
-        
+
         # Calculate correlation matrix
-        matrix = await correlation_service.calculate_correlation_matrix(symbol_list, days)
-        
+        matrix = await correlation_service.calculate_correlation_matrix(
+            symbol_list, days
+        )
+
         if not matrix:
             raise HTTPException(
                 status_code=500,
-                detail="Failed to calculate correlation matrix - insufficient data"
+                detail="Failed to calculate correlation matrix - insufficient data",
             )
-        
+
         return CorrelationMatrixResponse(
             symbols=symbol_list,
             matrix=matrix,
             calculated_at=datetime.utcnow().isoformat(),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error calculating correlation matrix: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail="Failed to calculate correlation matrix"
+            status_code=500, detail="Failed to calculate correlation matrix"
         )
 
 
@@ -918,13 +930,15 @@ async def get_correlation_matrix(
 @cached(ttl=300, prefix="heatmap")  # Cache for 5 minutes
 async def get_heatmap_data(
     symbols: str = Query(..., description="Comma-separated list of trading pairs"),
-    metric: str = Query("change_24h", description="Metric: change_24h, volume_24h, or correlation"),
+    metric: str = Query(
+        "change_24h", description="Metric: change_24h, volume_24h, or correlation"
+    ),
     days: int = Query(30, ge=7, le=365, description="Days for correlation calculation"),
-    current_user: Optional[Annotated[dict, Depends(get_current_user)]] = None,
+    current_user: Annotated[dict, Depends(get_current_user)] | None = None,
 ) -> HeatmapDataResponse:
     """
     Get heatmap data for multiple trading pairs
-    
+
     Supports different metrics:
     - change_24h: 24-hour price change percentage
     - volume_24h: 24-hour trading volume
@@ -933,50 +947,42 @@ async def get_heatmap_data(
     try:
         # Parse symbols
         symbol_list = [s.strip() for s in symbols.split(",") if s.strip()]
-        
+
         if len(symbol_list) < 1:
             raise HTTPException(
-                status_code=400,
-                detail="At least 1 trading pair required"
+                status_code=400, detail="At least 1 trading pair required"
             )
-        
+
         if len(symbol_list) > 100:
             raise HTTPException(
-                status_code=400,
-                detail="Maximum 100 trading pairs allowed"
+                status_code=400, detail="Maximum 100 trading pairs allowed"
             )
-        
+
         # Validate metric
         valid_metrics = ["change_24h", "volume_24h", "correlation"]
         if metric not in valid_metrics:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid metric. Must be one of: {', '.join(valid_metrics)}"
+                detail=f"Invalid metric. Must be one of: {', '.join(valid_metrics)}",
             )
-        
+
         # Get heatmap data
         data = await correlation_service.get_heatmap_data(symbol_list, metric, days)
-        
+
         if not data:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to fetch heatmap data"
-            )
-        
+            raise HTTPException(status_code=500, detail="Failed to fetch heatmap data")
+
         return HeatmapDataResponse(
             data=data,
             metric=metric,
             calculated_at=datetime.utcnow().isoformat(),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error fetching heatmap data: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to fetch heatmap data"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch heatmap data")
 
 
 @router.websocket("/ws/market-stream/{pair}")
@@ -1030,7 +1036,7 @@ async def websocket_market_stream(
                     data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
                     if data.get("action") == "unsubscribe":
                         break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass  # No message received, continue with updates
 
                 # Send periodic updates (every 5 seconds in mock mode)

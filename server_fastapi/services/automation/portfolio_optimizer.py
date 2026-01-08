@@ -2,11 +2,12 @@
 Portfolio Optimization Advisor - LLM-based portfolio recommendations
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +31,10 @@ class OptimizationRecommendation(BaseModel):
     priority: str  # "high", "medium", "low"
     title: str
     description: str
-    current_state: Dict[str, Any]
-    recommended_state: Dict[str, Any]
-    expected_impact: Dict[str, float]
-    actions: List[Dict[str, Any]]
+    current_state: dict[str, Any]
+    recommended_state: dict[str, Any]
+    expected_impact: dict[str, float]
+    actions: list[dict[str, Any]]
     confidence_score: float
     reasoning: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -47,10 +48,10 @@ class PortfolioOptimizationAdvisor:
 
     async def analyze_portfolio(
         self,
-        portfolio: Dict[str, Any],
-        goals: List[OptimizationGoal],
-        preferences: Optional[Dict[str, Any]] = None,
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        goals: list[OptimizationGoal],
+        preferences: dict[str, Any] | None = None,
+    ) -> list[OptimizationRecommendation]:
         """Analyze portfolio and generate optimization recommendations"""
         try:
             recommendations = []
@@ -84,8 +85,8 @@ class PortfolioOptimizationAdvisor:
             raise
 
     async def _calculate_portfolio_metrics(
-        self, portfolio: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, portfolio: dict[str, Any]
+    ) -> dict[str, Any]:
         """Calculate portfolio metrics"""
         # Mock implementation - would calculate actual metrics
         positions = portfolio.get("positions", {})
@@ -116,11 +117,11 @@ class PortfolioOptimizationAdvisor:
 
     async def _generate_recommendations_for_goal(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
         goal: OptimizationGoal,
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate recommendations for a specific goal"""
         recommendations = []
 
@@ -162,10 +163,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_maximize_returns(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate recommendations to maximize returns"""
         recommendations = []
 
@@ -181,7 +182,7 @@ class PortfolioOptimizationAdvisor:
                     priority="high",
                     title="Reduce Concentration Risk",
                     description=(
-                        f"Portfolio is {concentration*100:.1f}% concentrated in a single asset. "
+                        f"Portfolio is {concentration * 100:.1f}% concentrated in a single asset. "
                         "Diversifying can improve risk-adjusted returns."
                     ),
                     current_state={"concentration": concentration},
@@ -202,10 +203,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_minimize_risk(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate recommendations to minimize risk"""
         recommendations = []
 
@@ -240,10 +241,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_maximize_sharpe(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate recommendations to maximize Sharpe ratio"""
         recommendations = []
 
@@ -283,10 +284,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_minimize_drawdown(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate recommendations to minimize drawdown"""
         recommendations = []
 
@@ -322,10 +323,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_diversification(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate diversification recommendations"""
         recommendations = []
 
@@ -364,10 +365,10 @@ class PortfolioOptimizationAdvisor:
 
     async def _recommend_tax_optimization(
         self,
-        portfolio: Dict[str, Any],
-        metrics: Dict[str, Any],
-        preferences: Optional[Dict[str, Any]],
-    ) -> List[OptimizationRecommendation]:
+        portfolio: dict[str, Any],
+        metrics: dict[str, Any],
+        preferences: dict[str, Any] | None,
+    ) -> list[OptimizationRecommendation]:
         """Generate tax optimization recommendations"""
         recommendations = []
 

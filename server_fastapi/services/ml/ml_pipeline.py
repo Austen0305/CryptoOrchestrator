@@ -2,17 +2,16 @@
 ML Pipeline - Data loader, windowing, normalization, and trainer service
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Literal
-from pydantic import BaseModel
 import logging
+from typing import Any, Literal
+
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
-import os
+from pydantic import BaseModel
 
 try:
-    from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
-    from sklearn.model_selection import train_test_split, TimeSeriesSplit
+    from sklearn.model_selection import TimeSeriesSplit, train_test_split
+    from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
     SKLEARN_AVAILABLE = True
 except ImportError:
@@ -49,12 +48,12 @@ class MarketData(BaseModel):
 class MLPipeline:
     """Machine Learning Pipeline for data processing and training"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = PipelineConfig(**(config or {}))
         self.scaler = None
-        self.feature_names: List[str] = ["open", "high", "low", "close", "volume"]
+        self.feature_names: list[str] = ["open", "high", "low", "close", "volume"]
 
-    def load_data(self, market_data: List[MarketData]) -> pd.DataFrame:
+    def load_data(self, market_data: list[MarketData]) -> pd.DataFrame:
         """Load market data into pandas DataFrame"""
         data = {
             "timestamp": [d.timestamp for d in market_data],
@@ -158,9 +157,9 @@ class MLPipeline:
     def create_sequences(
         self,
         df: pd.DataFrame,
-        feature_cols: Optional[List[str]] = None,
-        label_col: Optional[str] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        feature_cols: list[str] | None = None,
+        label_col: str | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Create sequences from time-series data"""
         if feature_cols is None:
             # Use all numeric columns except timestamp
@@ -215,15 +214,15 @@ class MLPipeline:
     def split_data(
         self,
         X: np.ndarray,
-        y: Optional[np.ndarray] = None,
+        y: np.ndarray | None = None,
         method: Literal["sequential", "random", "timeseries"] = "sequential",
-    ) -> Tuple[
+    ) -> tuple[
         np.ndarray,
-        Optional[np.ndarray],
+        np.ndarray | None,
         np.ndarray,
-        Optional[np.ndarray],
+        np.ndarray | None,
         np.ndarray,
-        Optional[np.ndarray],
+        np.ndarray | None,
     ]:
         """Split data into train/validation/test sets"""
         n_samples = len(X)
@@ -269,8 +268,8 @@ class MLPipeline:
         return X_train, y_train, X_val, y_val, X_test, y_test
 
     def process_data(
-        self, market_data: List[MarketData], create_labels: bool = True
-    ) -> Dict[str, Any]:
+        self, market_data: list[MarketData], create_labels: bool = True
+    ) -> dict[str, Any]:
         """Complete data processing pipeline"""
         # Load data
         df = self.load_data(market_data)

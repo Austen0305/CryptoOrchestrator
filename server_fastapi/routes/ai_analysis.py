@@ -3,11 +3,12 @@ AI-Powered Trade Analysis Endpoint
 Provides intelligent insights and recommendations for trading strategies
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class TradeInsight(BaseModel):
     description: str
     confidence: float  # 0.0 to 1.0
     actionable: bool
-    suggestion: Optional[str] = None
+    suggestion: str | None = None
     priority: int = 1  # 1 (low) to 5 (critical)
     impact_score: float = 0.0  # Potential impact on portfolio
 
@@ -34,10 +35,10 @@ class AIAnalysisResponse(BaseModel):
     symbol: str
     timestamp: str
     overall_score: float  # 0-100
-    insights: List[TradeInsight]
-    market_sentiment: Dict[str, Any]
-    risk_assessment: Dict[str, Any]
-    recommendations: List[str]
+    insights: list[TradeInsight]
+    market_sentiment: dict[str, Any]
+    risk_assessment: dict[str, Any]
+    recommendations: list[str]
 
 
 class MarketSentiment(BaseModel):
@@ -45,8 +46,8 @@ class MarketSentiment(BaseModel):
 
     sentiment: str  # "bullish", "bearish", "neutral"
     confidence: float
-    indicators: Dict[str, float]
-    news_sentiment: Optional[float] = None
+    indicators: dict[str, float]
+    news_sentiment: float | None = None
 
 
 @router.get("/bot/{bot_id}", response_model=AIAnalysisResponse)
@@ -129,7 +130,7 @@ async def get_symbol_sentiment(symbol: str):
 # Helper functions
 
 
-async def _get_bot_details(bot_id: str) -> Optional[Dict]:
+async def _get_bot_details(bot_id: str) -> dict | None:
     """Get bot configuration and current state"""
     # In production, query from database
     # For now, return mock data
@@ -146,7 +147,7 @@ async def _get_bot_details(bot_id: str) -> Optional[Dict]:
     }
 
 
-async def _generate_insights(bot: Dict) -> List[TradeInsight]:
+async def _generate_insights(bot: dict) -> list[TradeInsight]:
     """Generate AI-powered trading insights"""
     insights = []
 
@@ -156,7 +157,7 @@ async def _generate_insights(bot: Dict) -> List[TradeInsight]:
             TradeInsight(
                 type="strength",
                 title="Strong Win Rate",
-                description=f"Bot maintains a {bot['win_rate']*100:.1f}% win rate, indicating effective strategy execution.",
+                description=f"Bot maintains a {bot['win_rate'] * 100:.1f}% win rate, indicating effective strategy execution.",
                 confidence=0.9,
                 actionable=False,
                 priority=3,
@@ -168,7 +169,7 @@ async def _generate_insights(bot: Dict) -> List[TradeInsight]:
             TradeInsight(
                 type="weakness",
                 title="Low Win Rate Detected",
-                description=f"Win rate of {bot['win_rate']*100:.1f}% is below optimal threshold.",
+                description=f"Win rate of {bot['win_rate'] * 100:.1f}% is below optimal threshold.",
                 confidence=0.85,
                 actionable=True,
                 suggestion="Consider adjusting entry/exit criteria or switching to a different strategy.",
@@ -237,7 +238,7 @@ async def _generate_insights(bot: Dict) -> List[TradeInsight]:
     return insights
 
 
-async def _analyze_market_sentiment(symbol: str) -> Dict:
+async def _analyze_market_sentiment(symbol: str) -> dict:
     """Analyze market sentiment using technical indicators"""
     import random
 
@@ -264,7 +265,7 @@ async def _analyze_market_sentiment(symbol: str) -> Dict:
     }
 
 
-async def _assess_risks(bot: Dict) -> Dict:
+async def _assess_risks(bot: dict) -> dict:
     """Assess risk levels for the trading bot"""
     return {
         "overall_risk": "medium",
@@ -285,8 +286,8 @@ async def _assess_risks(bot: Dict) -> Dict:
 
 
 async def _generate_recommendations(
-    bot: Dict, insights: List[TradeInsight]
-) -> List[str]:
+    bot: dict, insights: list[TradeInsight]
+) -> list[str]:
     """Generate actionable recommendations based on insights"""
     recommendations = []
 
@@ -315,7 +316,7 @@ async def _generate_recommendations(
 
 
 def _calculate_overall_score(
-    insights: List[TradeInsight], sentiment: Dict, risk: Dict
+    insights: list[TradeInsight], sentiment: dict, risk: dict
 ) -> float:
     """Calculate overall bot performance score (0-100)"""
     # Weighted scoring

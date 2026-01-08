@@ -4,7 +4,6 @@ Tests for advanced order types (stop-limit, take-profit, trailing-stop)
 
 import pytest
 from httpx import AsyncClient
-from fastapi import status
 
 # Check if web3 is available (required for trades route)
 try:

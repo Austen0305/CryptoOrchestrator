@@ -3,16 +3,16 @@ Security-related Celery tasks
 Periodic tasks for security monitoring, audit log verification, and fraud detection
 """
 
-from celery import shared_task
 import logging
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
+
+from celery import shared_task
 
 from ..database import get_db_context
+from ..services.audit.audit_logger import audit_logger
 from ..services.security.security_event_alerting import (
     get_security_event_alerting_service,
 )
-from ..services.audit.audit_logger import audit_logger
 
 logger = logging.getLogger(__name__)
 

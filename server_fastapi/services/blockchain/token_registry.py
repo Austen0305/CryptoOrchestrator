@@ -5,10 +5,10 @@ Uses 0x API for supported tokens, with fallback to common tokens.
 """
 
 import logging
-from typing import Dict, Optional, List, Any
+from datetime import datetime
+from typing import Any
+
 import httpx
-import asyncio
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class TokenRegistryService:
     """
 
     # Common token addresses by chain (fallback when 0x API unavailable)
-    COMMON_TOKENS: Dict[int, Dict[str, str]] = {
+    COMMON_TOKENS: dict[int, dict[str, str]] = {
         1: {  # Ethereum Mainnet
             "ETH": "0x0000000000000000000000000000000000000000",
             "WETH": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
@@ -76,7 +76,7 @@ class TokenRegistryService:
     }
 
     # Chain ID to name mapping
-    CHAIN_NAMES: Dict[int, str] = {
+    CHAIN_NAMES: dict[int, str] = {
         1: "Ethereum",
         8453: "Base",
         42161: "Arbitrum One",
@@ -90,8 +90,8 @@ class TokenRegistryService:
     ZEROX_API_BASE = "https://api.0x.org"
 
     def __init__(self):
-        self._token_cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_timestamps: Dict[str, float] = {}
+        self._token_cache: dict[str, dict[str, Any]] = {}
+        self._cache_timestamps: dict[str, float] = {}
         self._zeroex_api_key = None  # Optional: Set via environment variable
         self._redis_cache = None
 
@@ -107,7 +107,7 @@ class TokenRegistryService:
         """Generate cache key for token lookup"""
         return f"{chain_id}:{symbol.upper()}"
 
-    async def get_token_address(self, symbol: str, chain_id: int = 1) -> Optional[str]:
+    async def get_token_address(self, symbol: str, chain_id: int = 1) -> str | None:
         """
         Get token address from symbol and chain.
 
@@ -174,7 +174,7 @@ class TokenRegistryService:
         logger.warning(f"Token {symbol} not found on chain {chain_id}")
         return None
 
-    async def _get_token_from_zeroex(self, symbol: str, chain_id: int) -> Optional[str]:
+    async def _get_token_from_zeroex(self, symbol: str, chain_id: int) -> str | None:
         """
         Get token address from 0x API token list.
 
@@ -295,7 +295,7 @@ class TokenRegistryService:
 
     async def _query_token_decimals_from_chain(
         self, token_address: str, chain_id: int
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         Query token decimals from blockchain contract.
 
@@ -342,9 +342,7 @@ class TokenRegistryService:
             )
             return None
 
-    async def get_token_symbol(
-        self, token_address: str, chain_id: int
-    ) -> Optional[str]:
+    async def get_token_symbol(self, token_address: str, chain_id: int) -> str | None:
         """
         Get token symbol from address (reverse lookup).
 
@@ -446,7 +444,7 @@ class TokenRegistryService:
 
 
 # Singleton instance
-_token_registry: Optional[TokenRegistryService] = None
+_token_registry: TokenRegistryService | None = None
 
 
 def get_token_registry() -> TokenRegistryService:

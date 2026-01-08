@@ -3,12 +3,13 @@ Redis Cache Manager with Automatic In-Memory Fallback
 Provides resilient caching with graceful degradation
 """
 
+import asyncio
 import json
 import logging
-import asyncio
-from typing import Optional, Any, Callable
-from functools import wraps
+from collections.abc import Callable
 from datetime import datetime, timedelta
+from functools import wraps
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +26,9 @@ except ImportError:
 class RedisCacheManager:
     """Redis cache with automatic fallback to in-memory storage"""
 
-    def __init__(self, redis_url: Optional[str] = None):
+    def __init__(self, redis_url: str | None = None):
         self.redis_url = redis_url
-        self.client: Optional[redis.Redis] = None
+        self.client: redis.Redis | None = None
         self.available = False
         self._memory_cache = {}  # Fallback in-memory cache
         self._memory_ttl = {}  # TTL tracking for memory cache
@@ -54,7 +55,7 @@ class RedisCacheManager:
             await asyncio.wait_for(self.client.ping(), timeout=3.0)
             self.available = True
             logger.info("[OK] Redis connected successfully")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("Redis connection timeout, using in-memory cache")
             self.available = False
             self.client = None
@@ -63,7 +64,7 @@ class RedisCacheManager:
             self.available = False
             self.client = None
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get value from cache (Redis or in-memory)"""
         # Try Redis first if available
         if self.available and self.client:
@@ -124,7 +125,7 @@ class RedisCacheManager:
             return True
         return False
 
-    async def clear(self, pattern: Optional[str] = None):
+    async def clear(self, pattern: str | None = None):
         """Clear cache (all keys or matching pattern)"""
         if self.available and self.client:
             try:
@@ -170,7 +171,7 @@ class RedisCacheManager:
                 logger.error(f"Error closing Redis connection: {e}")
 
     # In-memory cache helpers
-    def _get_from_memory(self, key: str) -> Optional[Any]:
+    def _get_from_memory(self, key: str) -> Any | None:
         """Get value from in-memory cache"""
         if key not in self._memory_cache:
             return None

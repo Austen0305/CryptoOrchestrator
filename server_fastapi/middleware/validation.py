@@ -1,9 +1,10 @@
-import re
 import html
-from typing import Any, Dict, Optional
-from fastapi import Request, HTTPException
-from pydantic import BaseModel, field_validator, ConfigDict
+import re
+from typing import Any
+
 import bleach
+from fastapi import HTTPException
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class SanitizedBaseModel(BaseModel):
@@ -80,7 +81,7 @@ def validate_email_format(email: str) -> bool:
     return True
 
 
-def validate_password_strength(password: str) -> Dict[str, Any]:
+def validate_password_strength(password: str) -> dict[str, Any]:
     """
     Validate password strength according to security checklist requirements.
     Requirements:

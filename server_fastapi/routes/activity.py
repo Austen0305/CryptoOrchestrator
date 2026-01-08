@@ -2,11 +2,11 @@
 Activity Routes - Recent activity tracking
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional, Annotated
-from pydantic import BaseModel
-from datetime import datetime
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
@@ -40,7 +40,7 @@ class ActivityItem(BaseModel):
     type: str  # "trade" | "bot" | "alert" | "system"
     message: str
     timestamp: str
-    status: Optional[str] = None  # "success" | "warning" | "error"
+    status: str | None = None  # "success" | "warning" | "error"
 
 
 @router.get("/recent")
@@ -50,7 +50,7 @@ class ActivityItem(BaseModel):
 async def get_recent_activity(
     current_user: Annotated[dict, Depends(get_current_user)],
     limit: int = Query(10, ge=1, le=100),
-) -> List[ActivityItem]:
+) -> list[ActivityItem]:
     """
     Get recent activity for the current user.
 
@@ -64,14 +64,14 @@ async def get_recent_activity(
         user_id = _get_user_id(current_user)
 
         # Import repositories
+        from sqlalchemy import desc, select
+
         from ..database import get_db_context
-        from sqlalchemy.ext.asyncio import AsyncSession
-        from sqlalchemy import select, desc
-        from ..models.trade import Trade
         from ..models.bot import Bot
         from ..models.risk_alert import RiskAlert
+        from ..models.trade import Trade
 
-        activities: List[ActivityItem] = []
+        activities: list[ActivityItem] = []
 
         async with get_db_context() as db:
             # Get recent trades
@@ -146,7 +146,9 @@ async def get_recent_activity(
                         status=(
                             "warning"
                             if alert.severity == "medium"
-                            else "error" if alert.severity == "high" else "success"
+                            else "error"
+                            if alert.severity == "high"
+                            else "success"
                         ),
                     )
                 )

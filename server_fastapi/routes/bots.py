@@ -1,16 +1,17 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any, Annotated
 import logging
 from datetime import datetime
+from typing import Annotated, Any
 
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from ..dependencies.auth import get_current_user
+from ..dependencies.bots import get_bot_service, get_bot_trading_service
+from ..middleware.cache_manager import cached
+from ..routes.integrations import get_trading_orchestrator
 from ..services.trading.bot_service import BotService
 from ..services.trading.bot_trading_service import BotTradingService
-from ..dependencies.bots import get_bot_service, get_bot_trading_service
-from ..dependencies.auth import get_current_user
-from ..middleware.cache_manager import cached
 from ..utils.route_helpers import _get_user_id
-from ..routes.integrations import get_trading_orchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,8 @@ class BotConfig(BaseModel):
     symbol: str
     strategy: str
     is_active: bool
-    status: Optional[str] = None  # Bot status: "stopped", "running", "error", etc.
-    config: Dict[str, Any]
+    status: str | None = None  # Bot status: "stopped", "running", "error", etc.
+    config: dict[str, Any]
     created_at: datetime
     updated_at: datetime
 
@@ -35,7 +36,7 @@ class CreateBotRequest(BaseModel):
     name: str
     symbol: str
     strategy: str
-    config: Dict[str, Any]
+    config: dict[str, Any]
 
     @staticmethod
     def validate_strategy(strategy: str):
@@ -54,11 +55,11 @@ class CreateBotRequest(BaseModel):
 
 
 class UpdateBotRequest(BaseModel):
-    name: Optional[str] = None
-    symbol: Optional[str] = None
-    strategy: Optional[str] = None
-    is_active: Optional[bool] = None
-    config: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    symbol: str | None = None
+    strategy: str | None = None
+    is_active: bool | None = None
+    config: dict[str, Any] | None = None
 
 
 class BotPerformance(BaseModel):
@@ -101,14 +102,14 @@ class MockBotStorage:
         }
         self.bots["bot-1"] = default_bot
 
-    def get_all_bots(self) -> List[BotConfig]:
+    def get_all_bots(self) -> list[BotConfig]:
         return [BotConfig(**bot) for bot in self.bots.values()]
 
-    def get_bot(self, bot_id: str) -> Optional[BotConfig]:
+    def get_bot(self, bot_id: str) -> BotConfig | None:
         bot = self.bots.get(bot_id)
         return BotConfig(**bot) if bot else None
 
-    def create_bot(self, bot_data: Dict[str, Any], user_id: int) -> BotConfig:
+    def create_bot(self, bot_data: dict[str, Any], user_id: int) -> BotConfig:
         bot_id = f"bot-{self.next_id}"
         self.next_id += 1
         bot = {
@@ -125,12 +126,12 @@ class MockBotStorage:
         self.bots[bot_id] = bot
         return BotConfig(**bot)
 
-    def get_user_bots(self, user_id: int) -> List[BotConfig]:
+    def get_user_bots(self, user_id: int) -> list[BotConfig]:
         return [
             BotConfig(**bot) for bot in self.bots.values() if bot["user_id"] == user_id
         ]
 
-    def update_bot(self, bot_id: str, updates: Dict[str, Any]) -> Optional[BotConfig]:
+    def update_bot(self, bot_id: str, updates: dict[str, Any]) -> BotConfig | None:
         if bot_id not in self.bots:
             return None
 
@@ -159,10 +160,10 @@ async def get_bots(
     bot_service: Annotated[BotService, Depends(get_bot_service)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    fields: Optional[str] = Query(
+    fields: str | None = Query(
         None, description="Comma-separated list of fields to include"
     ),
-) -> List[BotConfig]:
+) -> list[BotConfig]:
     """Get all trading bots for the authenticated user with pagination and field selection"""
     try:
         from ..middleware.query_cache import cache_query_result
@@ -249,7 +250,9 @@ async def get_bot(
             or "mapper" in error_str
             or "not found" in error_str
         ):
-            logger.warning(f"Bot not found or table not available, returning 404 for bot {bot_id}: {e}")
+            logger.warning(
+                f"Bot not found or table not available, returning 404 for bot {bot_id}: {e}"
+            )
             raise HTTPException(status_code=404, detail="Bot not found")
         logger.error(f"Error fetching bot {bot_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -298,6 +301,7 @@ async def create_bot(
         # Invalidate bot list cache for this user (new bot added)
         try:
             from ..middleware.cache_manager import invalidate_pattern
+
             await invalidate_pattern(f"bots:get_bots:*:{user_id}*")
             await invalidate_pattern(f"bot_list:*:{user_id}*")
         except Exception as cache_error:
@@ -349,7 +353,7 @@ async def update_bot(
         # Invalidate cache for this bot and bot list
         try:
             from ..middleware.cache_manager import invalidate_pattern
-            
+
             # Invalidate bot-specific cache
             await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
             # Invalidate bot list cache for this user
@@ -390,7 +394,7 @@ async def delete_bot(
         # Invalidate cache for this bot and bot list
         try:
             from ..middleware.cache_manager import invalidate_pattern
-            
+
             # Invalidate bot-specific cache
             await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
             # Invalidate bot list cache for this user
@@ -448,7 +452,7 @@ async def start_bot(
         # Invalidate cache for this bot and bot list
         try:
             from ..middleware.cache_manager import invalidate_pattern
-            
+
             # Invalidate bot-specific cache
             await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
             # Invalidate bot list cache for this user
@@ -495,7 +499,7 @@ async def stop_bot(
         # Invalidate cache for this bot and bot list
         try:
             from ..middleware.cache_manager import invalidate_pattern
-            
+
             # Invalidate bot-specific cache
             await invalidate_pattern(f"bots:get_bot:{bot_id}:{user_id}")
             # Invalidate bot list cache for this user
@@ -519,7 +523,7 @@ async def get_bot_model(
     bot_id: str,
     current_user: Annotated[dict, Depends(get_current_user)],
     bot_service: Annotated[BotService, Depends(get_bot_service)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get bot's ML model status"""
     try:
         user_id = _get_user_id(current_user)
@@ -559,8 +563,8 @@ async def get_bot_model(
 class TradeRequest(BaseModel):
     side: str
     amount: float
-    price: Optional[float] = None
-    symbol: Optional[str] = None
+    price: float | None = None
+    symbol: str | None = None
 
 
 @router.post("/{bot_id}/trade")
@@ -616,7 +620,7 @@ async def get_bot_performance(
 
         # Get performance data from bot service
         performance = await bot_service.get_bot_performance(bot_id, user_id)
-        
+
         return BotPerformance(
             total_trades=performance.get("total_trades", 0),
             winning_trades=performance.get("winning_trades", 0),
@@ -796,7 +800,9 @@ async def get_bot_risk_metrics(
                 "suggested_position_size": (
                     "conservative"
                     if risk_score > 0.7
-                    else "moderate" if risk_score > 0.4 else "normal"
+                    else "moderate"
+                    if risk_score > 0.4
+                    else "normal"
                 ),
                 "stop_loss_adjustment": "tight" if risk_score > 0.7 else "normal",
                 "warnings": [
@@ -826,8 +832,9 @@ async def optimize_bot_parameters(
     """Optimize bot parameters based on current market conditions and learning history"""
     try:
         import numpy as np
-        from ..services.trading.smart_bot_engine import SmartBotEngine
+
         from ..services.ml.adaptive_learning import adaptive_learning_service
+        from ..services.trading.smart_bot_engine import SmartBotEngine
 
         user_id = _get_user_id(current_user)
         bot_status = await bot_service.get_bot_status(bot_id, user_id)

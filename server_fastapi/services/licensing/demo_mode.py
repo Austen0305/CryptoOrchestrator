@@ -2,12 +2,12 @@
 Demo Mode Service - Feature-limited trial mode
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel
-from datetime import datetime
 import logging
+from typing import Any
 
-from .license_service import license_service, LicenseStatus, LicenseType
+from pydantic import BaseModel
+
+from .license_service import LicenseStatus, LicenseType
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ class FeatureFlag(BaseModel):
 
     name: str
     enabled: bool
-    limit: Optional[int] = None  # Usage limit for demo mode
-    message: Optional[str] = None  # Message when feature is disabled
+    limit: int | None = None  # Usage limit for demo mode
+    message: str | None = None  # Message when feature is disabled
 
 
 class DemoModeService:
@@ -72,7 +72,7 @@ class DemoModeService:
     }
 
     def __init__(self):
-        self.current_license: Optional[LicenseStatus] = None
+        self.current_license: LicenseStatus | None = None
         self.is_demo_mode = True
 
     def set_license(self, license_status: LicenseStatus) -> None:
@@ -82,7 +82,7 @@ class DemoModeService:
             not license_status.valid or license_status.license_type == LicenseType.TRIAL
         )
 
-    def check_feature(self, feature_name: str) -> Dict[str, Any]:
+    def check_feature(self, feature_name: str) -> dict[str, Any]:
         """Check if a feature is available"""
         if (
             not self.is_demo_mode
@@ -95,7 +95,7 @@ class DemoModeService:
             else:
                 return {
                     "enabled": False,
-                    "message": f'{feature_name.replace("_", " ").title()} is not available in your license tier',
+                    "message": f"{feature_name.replace('_', ' ').title()} is not available in your license tier",
                 }
 
         # Demo mode - check demo features
@@ -110,7 +110,7 @@ class DemoModeService:
             "message": feature.message,
         }
 
-    def get_available_features(self) -> List[str]:
+    def get_available_features(self) -> list[str]:
         """Get list of available features"""
         if (
             not self.is_demo_mode
@@ -122,7 +122,7 @@ class DemoModeService:
         # Demo mode features
         return [name for name, flag in self.DEMO_FEATURES.items() if flag.enabled]
 
-    def get_feature_limits(self) -> Dict[str, int]:
+    def get_feature_limits(self) -> dict[str, int]:
         """Get feature limits for current mode"""
         limits = {}
 
@@ -137,7 +137,7 @@ class DemoModeService:
 
         return limits
 
-    def get_demo_info(self) -> Dict[str, Any]:
+    def get_demo_info(self) -> dict[str, Any]:
         """Get demo mode information"""
         return {
             "is_demo_mode": self.is_demo_mode,

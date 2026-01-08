@@ -3,12 +3,10 @@ Portfolio Reconciliation Tests
 Tests portfolio reconciliation service, edge cases, and error scenarios
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch, MagicMock
 import logging
-from datetime import datetime
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 

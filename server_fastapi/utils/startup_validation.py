@@ -5,8 +5,8 @@ Validates all configuration and dependencies on application startup
 
 import logging
 import os
-from typing import List, Dict, Any, Tuple
 from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class StartupValidator:
     """
     Validates configuration and dependencies on startup
-    
+
     Features:
     - Environment variable validation
     - Database connectivity check
@@ -25,11 +25,11 @@ class StartupValidator:
     """
 
     def __init__(self):
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
-        self.checks: List[Dict[str, Any]] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+        self.checks: list[dict[str, Any]] = []
 
-    def validate_environment(self) -> Tuple[bool, List[str]]:
+    def validate_environment(self) -> tuple[bool, list[str]]:
         """Validate environment variables"""
         errors = []
         warnings = []
@@ -43,9 +43,11 @@ class StartupValidator:
         for var, description in required_vars.items():
             value = os.getenv(var)
             if not value:
-                errors.append(f"Missing required environment variable: {var} ({description})")
+                errors.append(
+                    f"Missing required environment variable: {var} ({description})"
+                )
             elif var == "JWT_SECRET" and len(value) < 32:
-                errors.append(f"JWT_SECRET must be at least 32 characters")
+                errors.append("JWT_SECRET must be at least 32 characters")
 
         # Optional but recommended
         recommended_vars = {
@@ -55,15 +57,18 @@ class StartupValidator:
 
         for var, description in recommended_vars.items():
             if not os.getenv(var):
-                warnings.append(f"Missing recommended environment variable: {var} ({description})")
+                warnings.append(
+                    f"Missing recommended environment variable: {var} ({description})"
+                )
 
         return len(errors) == 0, errors + warnings
 
-    async def validate_database(self) -> Tuple[bool, str]:
+    async def validate_database(self) -> tuple[bool, str]:
         """Validate database connectivity"""
         try:
-            from ..database.session import get_db_context
             from sqlalchemy import text
+
+            from ..database.session import get_db_context
 
             async with get_db_context() as session:
                 await session.execute(text("SELECT 1"))
@@ -71,7 +76,7 @@ class StartupValidator:
         except Exception as e:
             return False, f"Database connection failed: {str(e)}"
 
-    async def validate_redis(self) -> Tuple[bool, str]:
+    async def validate_redis(self) -> tuple[bool, str]:
         """Validate Redis connectivity"""
         redis_enabled = os.getenv("REDIS_ENABLED", "false").lower() == "true"
         if not redis_enabled:
@@ -90,7 +95,7 @@ class StartupValidator:
         except Exception as e:
             return False, f"Redis connection failed: {str(e)}"
 
-    async def validate_external_services(self) -> List[Dict[str, Any]]:
+    async def validate_external_services(self) -> list[dict[str, Any]]:
         """Validate external service connectivity"""
         results = []
 
@@ -100,27 +105,33 @@ class StartupValidator:
             try:
                 # Basic validation - check if DSN format is valid
                 if sentry_dsn.startswith("https://"):
-                    results.append({
-                        "service": "Sentry",
-                        "status": "configured",
-                        "message": "Sentry DSN configured",
-                    })
+                    results.append(
+                        {
+                            "service": "Sentry",
+                            "status": "configured",
+                            "message": "Sentry DSN configured",
+                        }
+                    )
                 else:
-                    results.append({
+                    results.append(
+                        {
+                            "service": "Sentry",
+                            "status": "error",
+                            "message": "Invalid Sentry DSN format",
+                        }
+                    )
+            except Exception as e:
+                results.append(
+                    {
                         "service": "Sentry",
                         "status": "error",
-                        "message": "Invalid Sentry DSN format",
-                    })
-            except Exception as e:
-                results.append({
-                    "service": "Sentry",
-                    "status": "error",
-                    "message": f"Sentry validation failed: {str(e)}",
-                })
+                        "message": f"Sentry validation failed: {str(e)}",
+                    }
+                )
 
         return results
 
-    async def validate_all(self) -> Dict[str, Any]:
+    async def validate_all(self) -> dict[str, Any]:
         """Run all validation checks"""
         self.errors = []
         self.warnings = []
@@ -129,36 +140,46 @@ class StartupValidator:
         # Environment validation
         env_valid, env_issues = self.validate_environment()
         if not env_valid:
-            self.errors.extend([issue for issue in env_issues if "Missing required" in issue])
-            self.warnings.extend([issue for issue in env_issues if "Missing recommended" in issue])
+            self.errors.extend(
+                [issue for issue in env_issues if "Missing required" in issue]
+            )
+            self.warnings.extend(
+                [issue for issue in env_issues if "Missing recommended" in issue]
+            )
 
-        self.checks.append({
-            "check": "Environment Variables",
-            "status": "pass" if env_valid else "fail",
-            "issues": env_issues,
-        })
+        self.checks.append(
+            {
+                "check": "Environment Variables",
+                "status": "pass" if env_valid else "fail",
+                "issues": env_issues,
+            }
+        )
 
         # Database validation
         db_valid, db_message = await self.validate_database()
         if not db_valid:
             self.errors.append(db_message)
 
-        self.checks.append({
-            "check": "Database",
-            "status": "pass" if db_valid else "fail",
-            "message": db_message,
-        })
+        self.checks.append(
+            {
+                "check": "Database",
+                "status": "pass" if db_valid else "fail",
+                "message": db_message,
+            }
+        )
 
         # Redis validation
         redis_valid, redis_message = await self.validate_redis()
         if not redis_valid:
             self.warnings.append(redis_message)
 
-        self.checks.append({
-            "check": "Redis",
-            "status": "pass" if redis_valid else "warning",
-            "message": redis_message,
-        })
+        self.checks.append(
+            {
+                "check": "Redis",
+                "status": "pass" if redis_valid else "warning",
+                "message": redis_message,
+            }
+        )
 
         # External services
         external_results = await self.validate_external_services()
@@ -172,7 +193,7 @@ class StartupValidator:
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-    def log_results(self, results: Dict[str, Any]):
+    def log_results(self, results: dict[str, Any]):
         """Log validation results"""
         if results["valid"]:
             logger.info("Startup validation passed")
@@ -191,11 +212,12 @@ class StartupValidator:
             if status == "pass":
                 logger.info(f"  ✓ {check['check']}: {check.get('message', 'OK')}")
             elif status == "warning":
-                logger.warning(f"  ⚠ {check['check']}: {check.get('message', 'WARNING')}")
+                logger.warning(
+                    f"  ⚠ {check['check']}: {check.get('message', 'WARNING')}"
+                )
             else:
                 logger.error(f"  ✗ {check['check']}: {check.get('message', 'FAILED')}")
 
 
 # Global validator instance
 startup_validator = StartupValidator()
-

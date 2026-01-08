@@ -14,17 +14,17 @@ Optional aggregators (require API keys):
 - Rubic (if RUBIC_API_KEY provided)
 """
 
+import asyncio
 import logging
 import os
-from typing import Dict, List, Optional, Any, Tuple
 from decimal import Decimal
-import asyncio
+from typing import Any
 
-from ..integrations.zeroex_service import ZeroExService
 from ..integrations.okx_dex_service import OKXDEXService
-from ..integrations.rubic_service import RubicService
 from ..integrations.oneinch_service import OneInchService
 from ..integrations.paraswap_service import ParaswapService
+from ..integrations.rubic_service import RubicService
+from ..integrations.zeroex_service import ZeroExService
 
 # Import rate limiter for DEX aggregators
 try:
@@ -61,13 +61,13 @@ class AggregatorRouter:
         self.zeroex = ZeroExService()
         self.oneinch = OneInchService()
         self.paraswap = ParaswapService()
-        
+
         # Optional aggregators (only if API keys are provided)
         self.okx = OKXDEXService() if os.getenv("OKX_API_KEY") else None
         self.rubic = RubicService() if os.getenv("RUBIC_API_KEY") else None
 
         # Initialize circuit breakers for each aggregator
-        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self.circuit_breakers: dict[str, CircuitBreaker] = {}
         if CIRCUIT_BREAKER_AVAILABLE:
             self.circuit_breakers = {
                 "0x": CircuitBreaker(
@@ -107,14 +107,14 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
-        taker_address: Optional[str] = None,
+        taker_address: str | None = None,
         cross_chain: bool = False,
-        to_chain_id: Optional[int] = None,
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        to_chain_id: int | None = None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """
         Get the best quote from all available aggregators
 
@@ -214,7 +214,7 @@ class AggregatorRouter:
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks, return_exceptions=True), timeout=timeout_seconds
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"Quote fetching timed out after {timeout_seconds} seconds")
             results = []
 
@@ -254,12 +254,12 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         chain_id: int,
         slippage_percentage: float,
-        taker_address: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        taker_address: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Get quote from 0x with circuit breaker, retry policy, and timeout"""
 
         async def _fetch_quote():
@@ -313,8 +313,8 @@ class AggregatorRouter:
                     quote = await _fetch_quote()
                 return ("0x", quote) if quote else (None, None)
 
-        except asyncio.TimeoutError:
-            logger.warning(f"0x quote request timed out")
+        except TimeoutError:
+            logger.warning("0x quote request timed out")
             return None, None
         except Exception as e:
             logger.warning(f"0x quote error: {e}", exc_info=True)
@@ -324,12 +324,12 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         chain_id: int,
         slippage_percentage: float,
-        taker_address: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        taker_address: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Get quote from 1inch with circuit breaker, retry policy, and timeout"""
 
         # 1inch requires amount, so use sell_amount or skip if only buy_amount provided
@@ -342,7 +342,9 @@ class AggregatorRouter:
             if RATE_LIMITER_AVAILABLE and exchange_rate_limiter:
                 allowed = await exchange_rate_limiter.check_rate_limit("1inch")
                 if not allowed:
-                    logger.warning("1inch aggregator rate limit exceeded, skipping quote")
+                    logger.warning(
+                        "1inch aggregator rate limit exceeded, skipping quote"
+                    )
                     return None
 
             # Add timeout to individual aggregator calls
@@ -387,8 +389,8 @@ class AggregatorRouter:
                     quote = await _fetch_quote()
                 return ("1inch", quote) if quote else (None, None)
 
-        except asyncio.TimeoutError:
-            logger.warning(f"1inch quote request timed out")
+        except TimeoutError:
+            logger.warning("1inch quote request timed out")
             return None, None
         except Exception as e:
             logger.warning(f"1inch quote error: {e}", exc_info=True)
@@ -398,12 +400,12 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         chain_id: int,
         slippage_percentage: float,
-        taker_address: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        taker_address: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Get quote from Paraswap with circuit breaker, retry policy, and timeout"""
 
         # Paraswap requires amount, so use sell_amount or skip if only buy_amount provided
@@ -416,7 +418,9 @@ class AggregatorRouter:
             if RATE_LIMITER_AVAILABLE and exchange_rate_limiter:
                 allowed = await exchange_rate_limiter.check_rate_limit("paraswap")
                 if not allowed:
-                    logger.warning("Paraswap aggregator rate limit exceeded, skipping quote")
+                    logger.warning(
+                        "Paraswap aggregator rate limit exceeded, skipping quote"
+                    )
                     return None
 
             # Add timeout to individual aggregator calls
@@ -461,8 +465,8 @@ class AggregatorRouter:
                     quote = await _fetch_quote()
                 return ("paraswap", quote) if quote else (None, None)
 
-        except asyncio.TimeoutError:
-            logger.warning(f"Paraswap quote request timed out")
+        except TimeoutError:
+            logger.warning("Paraswap quote request timed out")
             return None, None
         except Exception as e:
             logger.warning(f"Paraswap quote error: {e}", exc_info=True)
@@ -472,12 +476,12 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         chain_id: int,
         slippage_percentage: float,
-        taker_address: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        taker_address: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Get quote from OKX with circuit breaker, retry policy, and timeout"""
 
         # OKX requires amount, so use sell_amount or estimate from buy_amount
@@ -540,8 +544,8 @@ class AggregatorRouter:
                     quote = await _fetch_quote()
                 return ("okx", quote) if quote else (None, None)
 
-        except asyncio.TimeoutError:
-            logger.warning(f"OKX quote request timed out")
+        except TimeoutError:
+            logger.warning("OKX quote request timed out")
             return None, None
         except Exception as e:
             logger.warning(f"OKX quote error: {e}", exc_info=True)
@@ -551,13 +555,13 @@ class AggregatorRouter:
         self,
         sell_token: str,
         buy_token: str,
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
+        sell_amount: str | None,
+        buy_amount: str | None,
         from_chain_id: int,
-        to_chain_id: Optional[int],
+        to_chain_id: int | None,
         slippage_percentage: float,
-        taker_address: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        taker_address: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """Get quote from Rubic with circuit breaker, retry policy, and timeout"""
 
         # Rubic requires amount
@@ -621,8 +625,8 @@ class AggregatorRouter:
                     quote = await _fetch_quote()
                 return ("rubic", quote) if quote else (None, None)
 
-        except asyncio.TimeoutError:
-            logger.warning(f"Rubic quote request timed out")
+        except TimeoutError:
+            logger.warning("Rubic quote request timed out")
             return None, None
         except Exception as e:
             logger.warning(f"Rubic quote error: {e}", exc_info=True)
@@ -630,10 +634,10 @@ class AggregatorRouter:
 
     def _select_best_quote(
         self,
-        quotes: List[Tuple[str, Dict[str, Any]]],
-        sell_amount: Optional[str],
-        buy_amount: Optional[str],
-    ) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        quotes: list[tuple[str, dict[str, Any]]],
+        sell_amount: str | None,
+        buy_amount: str | None,
+    ) -> tuple[str | None, dict[str, Any] | None]:
         """
         Select the best quote based on output amount (highest buy amount for sell_amount, or lowest sell amount for buy_amount)
 
@@ -730,13 +734,13 @@ class AggregatorRouter:
         sell_token: str,
         buy_token: str,
         taker_address: str,
-        sell_amount: Optional[str] = None,
-        buy_amount: Optional[str] = None,
+        sell_amount: str | None = None,
+        buy_amount: str | None = None,
         chain_id: int = 1,
         slippage_percentage: float = 0.5,
         cross_chain: bool = False,
-        to_chain_id: Optional[int] = None,
-    ) -> Optional[Dict[str, Any]]:
+        to_chain_id: int | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get swap calldata from the specified aggregator
 
@@ -822,7 +826,7 @@ class AggregatorRouter:
             )
             return None
 
-    def get_circuit_breaker_stats(self) -> Dict[str, Any]:
+    def get_circuit_breaker_stats(self) -> dict[str, Any]:
         """Get statistics for all aggregator circuit breakers"""
         if not CIRCUIT_BREAKER_AVAILABLE:
             return {"status": "unavailable", "message": "Circuit breakers not enabled"}
@@ -833,7 +837,7 @@ class AggregatorRouter:
 
         return stats
 
-    def reset_circuit_breaker(self, aggregator_name: str) -> Dict[str, Any]:
+    def reset_circuit_breaker(self, aggregator_name: str) -> dict[str, Any]:
         """Manually reset a circuit breaker for an aggregator"""
         if (
             not CIRCUIT_BREAKER_AVAILABLE

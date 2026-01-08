@@ -4,11 +4,12 @@ Implements comprehensive security headers based on 2026 security standards
 """
 
 import logging
-from typing import Callable
+import os
+from collections.abc import Callable
+
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class SecurityHeadersMiddleware2026(BaseHTTPMiddleware):
     """
     Enhanced security headers middleware (2026 best practices)
-    
+
     Implements:
     - Content Security Policy (CSP) with nonce support
     - Strict Transport Security (HSTS)
@@ -38,6 +39,7 @@ class SecurityHeadersMiddleware2026(BaseHTTPMiddleware):
 
         # Generate nonce for CSP (2026 best practice)
         import secrets
+
         nonce = secrets.token_urlsafe(16)
 
         # Content Security Policy (CSP) - 2026 best practice
@@ -56,7 +58,7 @@ class SecurityHeadersMiddleware2026(BaseHTTPMiddleware):
             "upgrade-insecure-requests",
             "report-uri /api/security/csp-report",
         ]
-        
+
         response.headers["Content-Security-Policy"] = "; ".join(
             directive.format(nonce=nonce) for directive in csp_directives
         )

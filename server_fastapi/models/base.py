@@ -3,10 +3,9 @@ Base database models and common functionality.
 """
 
 from datetime import datetime
-from typing import Optional, List, TYPE_CHECKING
-from sqlalchemy import Column, Integer, DateTime, String, Text, Boolean
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.orm import DeclarativeBase
+
+from sqlalchemy import Boolean, DateTime, Integer
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 # Define Base here to avoid circular imports
@@ -36,7 +35,7 @@ class SoftDeleteMixin:
     Mixin class providing soft delete functionality.
     """
 
-    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     def soft_delete(self):

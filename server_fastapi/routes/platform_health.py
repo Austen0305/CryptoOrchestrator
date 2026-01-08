@@ -3,17 +3,18 @@ Platform Health Metrics API
 System health dashboard with uptime, error rates, performance, and resource usage
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict, Any, List, Optional, Annotated
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
 import logging
+from datetime import datetime
+from typing import Annotated, Any
 
-from ..dependencies.auth import require_permission
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..database import get_db_session
-from ..services.monitoring.production_monitor import production_monitor
+from ..dependencies.auth import require_permission
 from ..services.health_monitor import HealthMonitor
 from ..services.monitoring.performance_monitor import PerformanceMonitor
+from ..services.monitoring.production_monitor import production_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ performance_monitor = PerformanceMonitor()
 async def get_platform_health_dashboard(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get comprehensive platform health dashboard (admin only)"""
     try:
         # Get system health
@@ -44,7 +45,9 @@ async def get_platform_health_dashboard(
         redis_health = await health_monitor.check_redis()
 
         # Get uptime
-        uptime_seconds = (datetime.utcnow() - production_monitor.start_time).total_seconds()
+        uptime_seconds = (
+            datetime.utcnow() - production_monitor.start_time
+        ).total_seconds()
         uptime_days = uptime_seconds / 86400
 
         # Get error rates (from production monitor)
@@ -92,10 +95,12 @@ async def get_platform_health_dashboard(
 @router.get("/uptime")
 async def get_uptime_metrics(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get system uptime metrics (admin only)"""
     try:
-        uptime_seconds = (datetime.utcnow() - production_monitor.start_time).total_seconds()
+        uptime_seconds = (
+            datetime.utcnow() - production_monitor.start_time
+        ).total_seconds()
         uptime_days = uptime_seconds / 86400
         uptime_hours = uptime_seconds / 3600
 
@@ -109,14 +114,16 @@ async def get_uptime_metrics(
         }
     except Exception as e:
         logger.error(f"Error getting uptime metrics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get uptime metrics: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get uptime metrics: {str(e)}"
+        )
 
 
 @router.get("/error-rates")
 async def get_error_rates(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
     hours: int = Query(24, ge=1, le=168, description="Number of hours to analyze"),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get error rates and error analysis (admin only)"""
     try:
         # Get error rate from production monitor
@@ -140,13 +147,15 @@ async def get_error_rates(
         }
     except Exception as e:
         logger.error(f"Error getting error rates: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get error rates: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get error rates: {str(e)}"
+        )
 
 
 @router.get("/performance")
 async def get_performance_metrics(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get performance metrics (admin only)"""
     try:
         metrics = await performance_monitor.collect_system_metrics()
@@ -176,7 +185,7 @@ async def get_performance_metrics(
 @router.get("/resource-usage")
 async def get_resource_usage(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get resource usage metrics (admin only)"""
     try:
         metrics = await performance_monitor.collect_system_metrics()
@@ -185,24 +194,30 @@ async def get_resource_usage(
             "cpu": {
                 "usage_percent": metrics.cpu_usage,
                 "status": (
-                    "critical" if metrics.cpu_usage > 90
-                    else "warning" if metrics.cpu_usage > 70
+                    "critical"
+                    if metrics.cpu_usage > 90
+                    else "warning"
+                    if metrics.cpu_usage > 70
                     else "normal"
                 ),
             },
             "memory": {
                 "usage_percent": metrics.memory_usage,
                 "status": (
-                    "critical" if metrics.memory_usage > 90
-                    else "warning" if metrics.memory_usage > 70
+                    "critical"
+                    if metrics.memory_usage > 90
+                    else "warning"
+                    if metrics.memory_usage > 70
                     else "normal"
                 ),
             },
             "disk": {
                 "usage_percent": metrics.disk_usage,
                 "status": (
-                    "critical" if metrics.disk_usage > 90
-                    else "warning" if metrics.disk_usage > 70
+                    "critical"
+                    if metrics.disk_usage > 90
+                    else "warning"
+                    if metrics.disk_usage > 70
                     else "normal"
                 ),
             },
@@ -223,7 +238,7 @@ async def get_resource_usage(
 async def get_services_health(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get health status of all services (admin only)"""
     try:
         # Check all services

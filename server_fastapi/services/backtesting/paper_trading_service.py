@@ -2,15 +2,13 @@
 Paper trading service for backtesting
 """
 
+import logging
 import os
 import sqlite3
-import json
-from typing import Dict, List, Optional
-from pydantic import BaseModel
-from datetime import datetime
-import logging
-import asyncio
 import uuid
+from datetime import datetime
+
+from pydantic import BaseModel
 
 # Import cache utilities
 try:
@@ -56,7 +54,7 @@ class PaperPosition(BaseModel):
 class PaperPortfolio(BaseModel):
     total_balance: float
     available_balance: float
-    positions: List[PaperPosition]
+    positions: list[PaperPosition]
     total_pnl: float
     total_pnl_percentage: float
 
@@ -294,7 +292,7 @@ class PaperTradingService:
 
     async def get_paper_trades(
         self, user_id: str, limit: int = 100
-    ) -> List[PaperTrade]:
+    ) -> list[PaperTrade]:
         """Get paper trading history for user"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(

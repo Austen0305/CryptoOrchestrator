@@ -1,21 +1,18 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Query
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Dict, Any, List, Optional, Annotated
 import logging
+from typing import Annotated, Any
 
-from ..services.trading_orchestrator import (
-    TradingOrchestrator,
-    EnsemblePrediction,
-    PingResult,
-    BacktestResult,
-)
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
+
 from ..services.integration_service import (
     integration_service,
-    IntegrationConfig,
-    FreqtradeConfig,
-    JesseConfig,
 )
-
+from ..services.trading_orchestrator import (
+    BacktestResult,
+    EnsemblePrediction,
+    PingResult,
+    TradingOrchestrator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,44 +36,44 @@ from ..middleware.cache_manager import cached
 class IntegrationListResponse(BaseModel):
     name: str
     enabled: bool
-    status: Dict[str, Any]
-    version: Optional[str] = None
-    config: Dict[str, Any]
+    status: dict[str, Any]
+    version: str | None = None
+    config: dict[str, Any]
 
 
 class ConfigureIntegrationRequest(BaseModel):
-    enabled: Optional[bool] = None
-    config: Optional[Dict[str, Any]] = None
+    enabled: bool | None = None
+    config: dict[str, Any] | None = None
 
 
 class IntegrationTestRequest(BaseModel):
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
 
 class IntegrationResponse(BaseModel):
     message: str
-    data: Optional[Dict[str, Any]] = None
+    data: dict[str, Any] | None = None
 
 
 class IntegrationStatusResponse(BaseModel):
     name: str
-    status: Dict[str, Any]
-    details: Optional[Dict[str, Any]] = None
+    status: dict[str, Any]
+    details: dict[str, Any] | None = None
 
 
 class IntegrationStatusDetail(BaseModel):
     name: str
     running: bool
-    pid: Optional[int] = None
+    pid: int | None = None
     enabled: bool = True
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class IntegrationsOverviewResponse(BaseModel):
     status: str
     running: bool
-    integrations: Dict[str, IntegrationStatusDetail]
-    adapters: Dict[str, IntegrationStatusDetail] | None = None
+    integrations: dict[str, IntegrationStatusDetail]
+    adapters: dict[str, IntegrationStatusDetail] | None = None
     started: bool | None = None
 
 
@@ -91,7 +88,7 @@ async def get_integrations_overview(
 ) -> IntegrationsOverviewResponse:
     """Get overview status of all integrations and trading adapters"""
     try:
-        statuses: Dict[str, IntegrationStatusDetail] = {}
+        statuses: dict[str, IntegrationStatusDetail] = {}
         any_running = False
 
         # Check integration service processes
@@ -108,7 +105,7 @@ async def get_integrations_overview(
             )
 
         # Collect adapter statuses separately for response shape expected by tests
-        adapters: Dict[str, IntegrationStatusDetail] = {}
+        adapters: dict[str, IntegrationStatusDetail] = {}
         for adapter_name in ["freqtrade", "jesse"]:
             detail = IntegrationStatusDetail(
                 name=adapter_name, running=orchestrator.started, enabled=True
@@ -132,14 +129,14 @@ async def get_integrations_overview(
 
 
 # Integration management endpoints
-@router.get("/integrations", response_model=List[IntegrationListResponse])
+@router.get("/integrations", response_model=list[IntegrationListResponse])
 @cached(ttl=120, prefix="integrations")  # 120s TTL for integrations list
 async def list_integrations(
     integration_svc: Annotated[Any, Depends(get_integration_service)],
     user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[IntegrationListResponse]:
+) -> list[IntegrationListResponse]:
     """List all available integrations with their status and pagination"""
     try:
         integrations = await integration_svc.list_integrations()
@@ -200,13 +197,13 @@ async def configure_integration(
         raise HTTPException(status_code=500, detail=f"Failed to configure {name}")
 
 
-@router.post("/integrations/{name}/test", response_model=Dict[str, Any])
+@router.post("/integrations/{name}/test", response_model=dict[str, Any])
 async def run_integration_test(
     name: str,
     integration_svc: Annotated[Any, Depends(get_integration_service)],
     user: Annotated[dict, Depends(get_current_user)],
     request: IntegrationTestRequest = IntegrationTestRequest(),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run tests for an integration"""
     try:
         result = await integration_svc.run_integration_test(name, request.config)
@@ -278,7 +275,7 @@ async def restart_integration(
 class PredictRequest(BaseModel):
     symbol: str = Field(..., description="Trading symbol (e.g., 'BTC/USDT')")
     timeframe: str = Field("1h", description="Timeframe for analysis")
-    data: List[Dict[str, Any]] = Field(
+    data: list[dict[str, Any]] = Field(
         ..., description="OHLCV market data", min_length=1
     )
 
@@ -307,7 +304,7 @@ class BacktestRequest(BaseModel):
     start_date: str = Field(..., description="Backtest start date (ISO format)")
     end_date: str = Field(..., description="Backtest end date (ISO format)")
     initial_balance: float = Field(10000.0, description="Initial balance", gt=0)
-    strategy_params: Dict[str, Any] = Field(
+    strategy_params: dict[str, Any] = Field(
         default_factory=dict, description="Strategy parameters"
     )
 
@@ -455,7 +452,7 @@ async def get_status(
     orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
     integration_svc: Annotated[Any, Depends(get_integration_service)],
     user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get status of all trading framework adapters"""
     try:
         ping_result = await orchestrator.ping_all()
@@ -487,7 +484,7 @@ async def get_adapter_health(
     orchestrator: Annotated[TradingOrchestrator, Depends(get_trading_orchestrator)],
     integration_svc: Annotated[Any, Depends(get_integration_service)],
     user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get health status of a specific adapter"""
     try:
         # Check orchestrator health
@@ -509,9 +506,11 @@ async def get_adapter_health(
         }
 
         # Determine overall health
-        if orchestrator_status and orchestrator_status.get("ok", False):
-            healthy = True
-        elif integration_status.get("status") == "running":
+        if (
+            orchestrator_status
+            and orchestrator_status.get("ok", False)
+            or integration_status.get("status") == "running"
+        ):
             healthy = True
 
         return {"adapter": name, "healthy": healthy, "details": details}

@@ -3,17 +3,17 @@ Price Alerts Routes
 Manages price alerts for cryptocurrency trading
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import Optional, List, Literal, Annotated
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Annotated, Literal
 from uuid import uuid4
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
-from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,15 +24,15 @@ class PriceAlert(BaseModel):
     id: str
     symbol: str
     condition: Literal["above", "below", "change", "volume"]
-    targetPrice: Optional[float] = None
-    changePercent: Optional[float] = None
-    volumeThreshold: Optional[float] = None
+    targetPrice: float | None = None
+    changePercent: float | None = None
+    volumeThreshold: float | None = None
     isActive: bool = True
     triggered: bool = False
     createdAt: datetime
-    triggeredAt: Optional[datetime] = None
-    channels: List[Literal["email", "push", "sms", "telegram", "discord"]] = ["push"]
-    sound: Optional[bool] = False
+    triggeredAt: datetime | None = None
+    channels: list[Literal["email", "push", "sms", "telegram", "discord"]] = ["push"]
+    sound: bool | None = False
 
     model_config = {"from_attributes": True}
 
@@ -40,11 +40,11 @@ class PriceAlert(BaseModel):
 class CreatePriceAlertRequest(BaseModel):
     symbol: str
     condition: Literal["above", "below", "change", "volume"]
-    targetPrice: Optional[float] = None
-    changePercent: Optional[float] = None
-    volumeThreshold: Optional[float] = None
-    channels: List[Literal["email", "push", "sms", "telegram", "discord"]] = ["push"]
-    sound: Optional[bool] = False
+    targetPrice: float | None = None
+    changePercent: float | None = None
+    volumeThreshold: float | None = None
+    channels: list[Literal["email", "push", "sms", "telegram", "discord"]] = ["push"]
+    sound: bool | None = False
 
 
 class ToggleAlertRequest(BaseModel):
@@ -55,7 +55,7 @@ class ToggleAlertRequest(BaseModel):
 _price_alerts_storage: dict[str, dict] = {}
 
 
-@router.get("/", response_model=List[PriceAlert])
+@router.get("/", response_model=list[PriceAlert])
 @cached(ttl=120, prefix="price_alerts")  # 120s TTL for price alerts list
 async def get_price_alerts(
     current_user: Annotated[dict, Depends(get_current_user)],

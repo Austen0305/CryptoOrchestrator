@@ -3,20 +3,20 @@ Infinity Grid Trading Service
 Implements infinity grid bot functionality - dynamic grid that follows price movements.
 """
 
+import json
 import logging
 import uuid
-import json
-from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...database import get_db_context
 from ...models.infinity_grid import InfinityGrid
 from ...repositories.infinity_grid_repository import InfinityGridRepository
+from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.coingecko_service import CoinGeckoService
 from ...services.trading.dex_trading_service import DEXTradingService
-from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...database import get_db_context
-from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class InfinityGridService:
     Dynamic grid that adjusts upper/lower bounds as price moves.
     """
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = InfinityGridRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
@@ -54,8 +54,8 @@ class InfinityGridService:
         trading_mode: str = "paper",
         upper_adjustment_percent: float = 5.0,
         lower_adjustment_percent: float = 5.0,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        config: dict[str, Any] | None = None,
+    ) -> str | None:
         """Create a new infinity grid bot."""
         try:
             # Validate inputs
@@ -186,7 +186,7 @@ class InfinityGridService:
 
     async def process_infinity_grid_cycle(
         self, bot_id: str, user_id: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Process one infinity grid cycle: check price and adjust bounds if needed."""
         try:
             async with self._get_session() as session:
@@ -236,7 +236,7 @@ class InfinityGridService:
 
     async def _check_bound_adjustment(
         self, bot: InfinityGrid, current_price: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Check if grid bounds need adjustment."""
         upper_threshold = bot.current_upper_price * (
             1 - bot.upper_adjustment_percent / 100
@@ -270,7 +270,7 @@ class InfinityGridService:
         self,
         bot: InfinityGrid,
         current_price: float,
-        adjustment: Dict[str, Any],
+        adjustment: dict[str, Any],
         session: AsyncSession,
     ) -> None:
         """Adjust grid bounds and rebalance orders."""
@@ -289,7 +289,7 @@ class InfinityGridService:
 
     async def _place_initial_grid_orders(
         self, bot: InfinityGrid, session: AsyncSession
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Place initial grid orders."""
         # Calculate grid prices within current bounds
         price_range = bot.current_upper_price - bot.current_lower_price
@@ -356,7 +356,7 @@ class InfinityGridService:
         price: float,
         amount: float,
         session: AsyncSession,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Place a single grid order."""
         try:
             if bot.trading_mode == "paper":
@@ -434,7 +434,7 @@ class InfinityGridService:
 
     async def _parse_symbol_to_tokens(
         self, symbol: str, chain_id: int = 1
-    ) -> Tuple[str, str]:
+    ) -> tuple[str, str]:
         """Parse trading symbol to token addresses using token registry."""
         from ..blockchain.token_registry import get_token_registry
 
@@ -447,10 +447,10 @@ class InfinityGridService:
     async def _check_filled_orders(
         self,
         bot: InfinityGrid,
-        grid_state: Dict[str, Any],
+        grid_state: dict[str, Any],
         current_price: float,
         session: AsyncSession,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Check which orders have been filled."""
         filled = []
         for order in grid_state.get("orders", []):
@@ -466,8 +466,8 @@ class InfinityGridService:
     async def _rebalance_grid(
         self,
         bot: InfinityGrid,
-        filled_orders: List[Dict[str, Any]],
-        grid_state: Dict[str, Any],
+        filled_orders: list[dict[str, Any]],
+        grid_state: dict[str, Any],
         current_price: float,
         session: AsyncSession,
     ) -> None:
@@ -488,7 +488,7 @@ class InfinityGridService:
 
     async def get_infinity_grid(
         self, bot_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Get infinity grid details."""
         try:
             async with self._get_session() as session:
@@ -504,14 +504,16 @@ class InfinityGridService:
 
     async def list_user_infinity_grids(
         self, user_id: int, skip: int = 0, limit: int = 100
-    ) -> Tuple[List[Dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int]:
         """List all infinity grids for a user with total count."""
         try:
             async with self._get_session() as session:
                 bots = await self.repository.get_user_infinity_grids(
                     session, user_id, skip, limit
                 )
-                total = await self.repository.count_user_infinity_grids(session, user_id)
+                total = await self.repository.count_user_infinity_grids(
+                    session, user_id
+                )
                 return [bot.to_dict() for bot in bots], total
         except Exception as e:
             logger.error(f"Error listing infinity grids: {str(e)}", exc_info=True)

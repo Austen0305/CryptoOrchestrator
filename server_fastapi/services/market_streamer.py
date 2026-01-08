@@ -4,9 +4,8 @@ Fetches real-time market data and broadcasts to WebSocket subscribers
 """
 
 import asyncio
-from typing import Dict, Optional
-from datetime import datetime
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +24,10 @@ class MarketDataStreamer:
     def __init__(self, connection_manager):
         self.connection_manager = connection_manager
         self.running = False
-        self.task: Optional[asyncio.Task] = None
+        self.task: asyncio.Task | None = None
 
         # Track which symbols need updates
-        self.active_symbols: Dict[str, int] = {}  # symbol -> subscriber count
+        self.active_symbols: dict[str, int] = {}  # symbol -> subscriber count
 
         # Configuration
         self.update_interval = 1.0  # seconds
@@ -133,9 +132,7 @@ class MarketDataStreamer:
             }
 
             # Recent trades (simplified - would need exchange-specific implementation)
-            trades_data = (
-                []
-            )  # Most exchanges require authenticated API for recent trades
+            trades_data = []  # Most exchanges require authenticated API for recent trades
 
             return {
                 "symbol": symbol,
@@ -219,7 +216,7 @@ class MarketDataStreamer:
 
 
 # Global streamer instance (initialized in startup)
-market_data_streamer: Optional[MarketDataStreamer] = None
+market_data_streamer: MarketDataStreamer | None = None
 
 
 def get_market_streamer(connection_manager) -> MarketDataStreamer:

@@ -4,11 +4,10 @@ Provides capabilities to search, filter, and analyze application logs.
 """
 
 import json
-import re
-from typing import List, Dict, Any, Optional
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class LogSearchService:
     Service for searching and filtering application logs
     """
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         """
         Initialize log search service
 
@@ -37,17 +36,17 @@ class LogSearchService:
 
     def search_logs(
         self,
-        query: Optional[str] = None,
-        level: Optional[str] = None,
-        user_id: Optional[str] = None,
-        request_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        query: str | None = None,
+        level: str | None = None,
+        user_id: str | None = None,
+        request_id: str | None = None,
+        trace_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         log_file: str = "app",
         limit: int = 100,
         offset: int = 0,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Search logs with various filters
 
@@ -74,7 +73,7 @@ class LogSearchService:
         total_matched = 0
 
         try:
-            with open(log_file_path, "r", encoding="utf-8") as f:
+            with open(log_file_path, encoding="utf-8") as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -127,7 +126,7 @@ class LogSearchService:
             "has_more": total_matched > offset + len(matching_entries),
         }
 
-    def _parse_text_log(self, line: str) -> Dict[str, Any]:
+    def _parse_text_log(self, line: str) -> dict[str, Any]:
         """Parse text-format log line into structured format"""
         # Format: "timestamp - logger - level - message"
         parts = line.split(" - ", 3)
@@ -142,14 +141,14 @@ class LogSearchService:
 
     def _matches_filters(
         self,
-        entry: Dict[str, Any],
-        query: Optional[str] = None,
-        level: Optional[str] = None,
-        user_id: Optional[str] = None,
-        request_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        entry: dict[str, Any],
+        query: str | None = None,
+        level: str | None = None,
+        user_id: str | None = None,
+        request_id: str | None = None,
+        trace_id: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
     ) -> bool:
         """Check if log entry matches all filters"""
 
@@ -206,10 +205,10 @@ class LogSearchService:
 
     def get_log_statistics(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         log_file: str = "app",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get statistics about logs in a time range
 
@@ -238,7 +237,7 @@ class LogSearchService:
         error_count = 0
 
         try:
-            with open(log_file_path, "r", encoding="utf-8") as f:
+            with open(log_file_path, encoding="utf-8") as f:
                 for line in f:
                     if not line.strip():
                         continue
@@ -287,7 +286,7 @@ class LogSearchService:
             },
         }
 
-    def tail_logs(self, log_file: str = "app", lines: int = 50) -> List[Dict[str, Any]]:
+    def tail_logs(self, log_file: str = "app", lines: int = 50) -> list[dict[str, Any]]:
         """
         Get the last N lines from a log file (like `tail -n`)
 
@@ -305,7 +304,7 @@ class LogSearchService:
         entries = []
 
         try:
-            with open(log_file_path, "r", encoding="utf-8") as f:
+            with open(log_file_path, encoding="utf-8") as f:
                 # Read all lines (for small files) or use efficient tail for large files
                 all_lines = f.readlines()
                 tail_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines

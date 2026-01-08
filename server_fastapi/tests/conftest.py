@@ -1,15 +1,15 @@
-import pytest
-import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import StaticPool, NullPool
-from sqlalchemy import event
-from httpx import AsyncClient, ASGITransport
-import sys
-from pathlib import Path
-import os
 import asyncio
 import logging
-from contextlib import asynccontextmanager
+import os
+import sys
+from datetime import UTC
+from pathlib import Path
+
+import pytest
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
 
 # Set TESTING environment variable for test mode
 os.environ["TESTING"] = "true"
@@ -111,7 +111,11 @@ async def test_db_setup(test_engine):
                     await conn.run_sync(Base.metadata.create_all)
             except Exception as e2:
                 error_str = str(e2).lower()
-                if "already exists" in error_str or "table" in error_str and "exists" in error_str:
+                if (
+                    "already exists" in error_str
+                    or "table" in error_str
+                    and "exists" in error_str
+                ):
                     logger.debug(f"Tables already exist, dropping and recreating: {e2}")
                     try:
                         async with test_engine.begin() as conn:
@@ -131,7 +135,11 @@ async def test_db_setup(test_engine):
         except Exception as e:
             error_str = str(e).lower()
             # If tables already exist, that's fine for SQLite (shared memory can persist)
-            if "already exists" in error_str or "table" in error_str and "exists" in error_str:
+            if (
+                "already exists" in error_str
+                or "table" in error_str
+                and "exists" in error_str
+            ):
                 logger.debug(f"Tables already exist (expected with shared SQLite): {e}")
                 # Try to drop and recreate for clean state
                 try:
@@ -141,7 +149,9 @@ async def test_db_setup(test_engine):
                         await conn.run_sync(Base.metadata.create_all)
                     logger.debug("Successfully recreated tables after drop")
                 except Exception as e2:
-                    logger.warning(f"Could not recreate tables: {e2}, continuing anyway")
+                    logger.warning(
+                        f"Could not recreate tables: {e2}, continuing anyway"
+                    )
             else:
                 # Re-raise if it's a different error
                 raise
@@ -326,12 +336,12 @@ def mock_bot_repository():
 @pytest_asyncio.fixture
 async def client(db_session):
     """Provide test client with database session override and proper dependency injection"""
-    from server_fastapi.main import app
     from server_fastapi.database import get_db_session
     from server_fastapi.dependencies.bots import (
         get_bot_service,
         get_bot_trading_service,
     )
+    from server_fastapi.main import app
     from server_fastapi.services.trading.bot_service import BotService
     from server_fastapi.services.trading.bot_trading_service import BotTradingService
 
@@ -498,7 +508,7 @@ async def auth_headers(client, db_session, test_engine, test_db_setup):
 async def test_user(db_session):
     """Create a test user in the database"""
     import uuid
-    from server_fastapi.models.user import User
+
     from server_fastapi.services.auth.auth_service import AuthService
 
     unique_email = f"testuser-{uuid.uuid4().hex[:8]}@example.com"
@@ -539,11 +549,11 @@ def test_bot_config():
 def factories():
     """Provide access to test data factories"""
     from .utils.test_factories import (
-        UserFactory,
         BotFactory,
-        WalletFactory,
-        TradeFactory,
         PortfolioFactory,
+        TradeFactory,
+        UserFactory,
+        WalletFactory,
     )
 
     return {
@@ -582,9 +592,10 @@ async def test_user_with_auth(db_session, factories):
 async def admin_headers(client, db_session):
     """Provide authentication headers for admin user"""
     import uuid
-    from server_fastapi.services.auth.auth_service import AuthService
+
     from server_fastapi.database import get_db_session
     from server_fastapi.main import app
+    from server_fastapi.services.auth.auth_service import AuthService
 
     # Override database dependency for auth service
     async def override_get_db():
@@ -594,8 +605,10 @@ async def admin_headers(client, db_session):
     app.dependency_overrides[get_db_session] = override_get_db
 
     try:
+        from datetime import datetime, timedelta
+
         import jwt
-        from datetime import datetime, timedelta, timezone
+
         from server_fastapi.config.settings import settings
 
         # Create an admin user using AuthService
@@ -622,7 +635,7 @@ async def admin_headers(client, db_session):
         # Create a JWT token with admin role manually
         # The require_permission checks for "roles" (plural) in the token payload
         user_id = user.get("id") or 1
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = {
             "id": user_id,
             "sub": str(user_id),  # Standard JWT claim

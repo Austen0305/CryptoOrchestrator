@@ -4,9 +4,7 @@ Tests portfolio rebalancing, backtesting, marketplace, and arbitrage
 """
 
 import pytest
-import asyncio
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
 
 
 class TestPortfolioRebalancing:

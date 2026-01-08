@@ -3,15 +3,16 @@ Fraud Detection Routes
 API endpoints for fraud detection and risk analysis
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, Annotated
-from decimal import Decimal
 import logging
+from decimal import Decimal
+from typing import Annotated, Any
 
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from ..database import get_db_context
 from ..dependencies.auth import get_current_user
 from ..services.fraud_detection.fraud_detection_service import fraud_detection_service
-from ..database import get_db_context
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -25,14 +26,14 @@ class TransactionAnalysisRequest(BaseModel):
     transaction_type: str  # 'deposit', 'withdrawal', 'trade'
     amount: float
     currency: str = "USD"
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
-@router.post("/analyze", response_model=Dict[str, Any])
+@router.post("/analyze", response_model=dict[str, Any])
 async def analyze_transaction(
     request: TransactionAnalysisRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Analyze a transaction for fraud indicators
 
@@ -59,10 +60,10 @@ async def analyze_transaction(
         raise HTTPException(status_code=500, detail="Failed to analyze transaction")
 
 
-@router.get("/risk-profile", response_model=Dict[str, Any])
+@router.get("/risk-profile", response_model=dict[str, Any])
 async def get_risk_profile(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get user's risk profile"""
     try:
         user_id = _get_user_id(current_user)

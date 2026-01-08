@@ -1,8 +1,9 @@
-import pytest
 import json
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from server_fastapi.repositories.bot_repository import BotRepository
-from server_fastapi.models.bot import Bot
 
 
 @pytest.mark.asyncio

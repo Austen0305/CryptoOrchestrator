@@ -1,6 +1,6 @@
-from typing import Dict, Any, List, Optional, Tuple
-import asyncio
 import logging
+from typing import Any
+
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class EnsemblePrediction(BaseModel):
     action: str  # 'buy', 'sell', 'hold'
     confidence: float
-    votes: Dict[str, Dict[str, Any]]  # qLearning and neuralNetwork votes
+    votes: dict[str, dict[str, Any]]  # qLearning and neuralNetwork votes
 
 
 class MarketData(BaseModel):
@@ -25,7 +25,7 @@ class EnsembleEngine:
     def __init__(self):
         self.q_learning_engine = None
         self.neural_network_engine = None
-        self.q_table: Dict[str, Dict[str, float]] = {}
+        self.q_table: dict[str, dict[str, float]] = {}
 
         # Import the engines dynamically to avoid circular imports
         try:
@@ -47,11 +47,11 @@ class EnsembleEngine:
             except AttributeError:
                 logger.warning("Neural network engine does not have load_model method")
 
-    def set_q_table(self, q_table: Dict[str, Dict[str, float]]) -> None:
+    def set_q_table(self, q_table: dict[str, dict[str, float]]) -> None:
         """Set the Q-table for Q-learning predictions"""
         self.q_table = q_table
 
-    async def train(self, market_data: List[MarketData]) -> None:
+    async def train(self, market_data: list[MarketData]) -> None:
         """Train the neural network model"""
         if self.neural_network_engine:
             try:
@@ -72,7 +72,7 @@ class EnsembleEngine:
         min_q = min(vals)
         return (max_q - min_q) / (abs(max_q) + 1) if (max_q - min_q) != 0 else 0.0
 
-    async def predict(self, market_data: List[MarketData]) -> EnsemblePrediction:
+    async def predict(self, market_data: list[MarketData]) -> EnsemblePrediction:
         """Generate ensemble prediction from both models"""
 
         # Get predictions from both engines
@@ -92,7 +92,7 @@ class EnsembleEngine:
         total_weight = q_learning_weight + nn_weight or 1.0
 
         # Calculate weighted votes
-        votes: Dict[str, float] = {"buy": 0.0, "sell": 0.0, "hold": 0.0}
+        votes: dict[str, float] = {"buy": 0.0, "sell": 0.0, "hold": 0.0}
 
         votes[q_learning_prediction["action"]] += (
             q_learning_weight / total_weight
@@ -118,8 +118,8 @@ class EnsembleEngine:
         )
 
     async def _get_q_learning_prediction(
-        self, market_data: List[MarketData]
-    ) -> Dict[str, Any]:
+        self, market_data: list[MarketData]
+    ) -> dict[str, Any]:
         """Get prediction from Q-learning engine"""
         if self.q_learning_engine:
             try:
@@ -132,8 +132,8 @@ class EnsembleEngine:
         return {"action": "hold", "confidence": 0.0}
 
     async def _get_neural_network_prediction(
-        self, market_data: List[MarketData]
-    ) -> Dict[str, Any]:
+        self, market_data: list[MarketData]
+    ) -> dict[str, Any]:
         """Get prediction from neural network engine"""
         if self.neural_network_engine:
             try:
@@ -166,10 +166,10 @@ class EnsembleEngine:
 
     def update_q_value(
         self,
-        state: Dict[str, Any],
+        state: dict[str, Any],
         action: str,
         reward: float,
-        next_state: Dict[str, Any],
+        next_state: dict[str, Any],
     ) -> None:
         """Update Q-value in the Q-table"""
         state_key = self._get_state_key(state)
@@ -197,7 +197,7 @@ class EnsembleEngine:
         action: str,
         entry_price: float,
         exit_price: float,
-        position: Optional[str],
+        position: str | None,
     ) -> float:
         """Calculate reward based on trading action and outcome"""
         if position == "long":
@@ -223,8 +223,8 @@ class EnsembleEngine:
             return 0.0
 
     def _derive_state(
-        self, market_data: List[MarketData], current_index: Optional[int] = None
-    ) -> Dict[str, Any]:
+        self, market_data: list[MarketData], current_index: int | None = None
+    ) -> dict[str, Any]:
         """Derive state from market data"""
         if not market_data:
             return {
@@ -318,12 +318,12 @@ class EnsembleEngine:
             "trend": trend,
         }
 
-    def _get_state_key(self, state: Dict[str, Any]) -> str:
+    def _get_state_key(self, state: dict[str, Any]) -> str:
         """Convert state to a string key for Q-table"""
         return f"{state['price_direction']}_{state['rsi']}_{state['volume']}_{state['volatility']}_{state['trend']}"
 
     def _calculate_rsi(
-        self, data: List[MarketData], index: int, period: int = 14
+        self, data: list[MarketData], index: int, period: int = 14
     ) -> float:
         """Calculate RSI for the given index"""
         if index < period:

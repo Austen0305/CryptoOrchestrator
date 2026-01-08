@@ -1,7 +1,7 @@
-import os
 import asyncio
 import logging
-from typing import Callable
+import os
+from collections.abc import Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -21,16 +21,20 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         env_timeout = os.getenv("REQUEST_TIMEOUT")
         try:
-            self.timeout_seconds = int(env_timeout) if env_timeout is not None else timeout_seconds or 30
+            self.timeout_seconds = (
+                int(env_timeout) if env_timeout is not None else timeout_seconds or 30
+            )
         except Exception:
             self.timeout_seconds = timeout_seconds or 30
 
     async def dispatch(self, request: Request, call_next: Callable):
         try:
             # Bound the entire request handling including downstream middleware
-            response = await asyncio.wait_for(call_next(request), timeout=self.timeout_seconds)
+            response = await asyncio.wait_for(
+                call_next(request), timeout=self.timeout_seconds
+            )
             return response
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 f"Request timed out after {self.timeout_seconds}s: {request.method} {request.url.path}"
             )
@@ -41,6 +45,6 @@ class TimeoutMiddleware(BaseHTTPMiddleware):
                     "timeout_seconds": self.timeout_seconds,
                 },
             )
-        except Exception as e:
+        except Exception:
             # Let other exceptions propagate to the app's exception handlers
             raise

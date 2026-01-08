@@ -1,19 +1,20 @@
-from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Depends
-from fastapi.routing import APIRouter
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import json
 import asyncio
-import jwt
-import os
+import json
 import logging
+import os
 import time
-from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from ..services.market_data import MarketDataService
-from ..services.trading_orchestrator import TradingOrchestrator
-from ..services.notification_service import NotificationService
-from ..services.monitoring.performance_monitor import PerformanceMonitor
+from typing import Any
+
+import jwt
+from fastapi import HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.routing import APIRouter
+from fastapi.security import HTTPBearer
+
 from ..database import get_db_context
+from ..services.market_data import MarketDataService
+from ..services.monitoring.performance_monitor import PerformanceMonitor
+from ..services.notification_service import NotificationService
+from ..services.trading_orchestrator import TradingOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[Dict[str, Any]] = (
-            []
-        )  # Store connection info with user_id
+        self.active_connections: list[
+            dict[str, Any]
+        ] = []  # Store connection info with user_id
 
     async def connect(self, websocket: WebSocket, user_id: int):
         await websocket.accept()
@@ -43,7 +44,7 @@ class ConnectionManager:
         ]
         logger.info("WebSocket connection closed")
 
-    def get_connection(self, websocket: WebSocket) -> Optional[Dict[str, Any]]:
+    def get_connection(self, websocket: WebSocket) -> dict[str, Any] | None:
         for conn in self.active_connections:
             if conn["websocket"] == websocket:
                 return conn

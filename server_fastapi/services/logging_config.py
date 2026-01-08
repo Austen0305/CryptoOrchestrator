@@ -4,22 +4,21 @@ Implements structured logging with context (user_id, request_id, trace_id),
 log aggregation support, and log sampling.
 """
 
-import logging
 import json
+import logging
+import os
 import sys
-from typing import Dict, Any, Optional
+from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
-import os
-from contextvars import ContextVar
 
 # Log directory
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
 # Context variables for request-scoped logging
-REQUEST_ID_CTX: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-TRACE_ID_CTX: ContextVar[Optional[str]] = ContextVar("trace_id", default=None)
+REQUEST_ID_CTX: ContextVar[str | None] = ContextVar("request_id", default=None)
+TRACE_ID_CTX: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 
 class StructuredFormatter(logging.Formatter):
@@ -101,7 +100,7 @@ class ContextFilter(logging.Filter):
 def setup_logging(
     log_level: str = "INFO",
     log_format: str = "json",  # "json" or "text"
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     enable_console: bool = True,
     enable_file: bool = True,
     log_sampling_rate: float = 1.0,  # 1.0 = 100%, 0.1 = 10%
@@ -121,7 +120,7 @@ def setup_logging(
     # Get root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-    
+
     # Clear existing handlers properly (close them first to avoid file locks)
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
@@ -129,7 +128,7 @@ def setup_logging(
             handler.close()
         except Exception:
             pass
-    
+
     # Also clear handlers from the crypto_orchestrator logger (logger_service.py)
     crypto_logger = logging.getLogger("crypto_orchestrator")
     for handler in crypto_logger.handlers[:]:
@@ -189,7 +188,7 @@ def setup_logging(
             # Use RotatingFileHandler with delay=True for Windows compatibility
             # delay=True prevents file locking issues on Windows by delaying file opening
             from logging.handlers import RotatingFileHandler
-            
+
             file_handler = RotatingFileHandler(
                 str(log_file),
                 maxBytes=10 * 1024 * 1024,  # 10MB
@@ -207,7 +206,9 @@ def setup_logging(
             root_logger.addHandler(file_handler)
         except PermissionError as e:
             # File is locked (e.g., by another process), skip file logging
-            logging.warning(f"Log file is locked by another process, skipping file logging: {e}")
+            logging.warning(
+                f"Log file is locked by another process, skipping file logging: {e}"
+            )
         except Exception as e:
             logging.warning(f"Could not setup file logging: {e}")
 
@@ -217,7 +218,7 @@ def setup_logging(
             error_log_file = LOG_DIR / "errors.log"
             # Use RotatingFileHandler with delay=True for Windows compatibility
             from logging.handlers import RotatingFileHandler
-            
+
             error_handler = RotatingFileHandler(
                 str(error_log_file),
                 maxBytes=10 * 1024 * 1024,  # 10MB
@@ -246,9 +247,9 @@ def setup_logging(
 
 def get_logger_with_context(
     name: str,
-    user_id: Optional[str] = None,
-    request_id: Optional[str] = None,
-    trace_id: Optional[str] = None,
+    user_id: str | None = None,
+    request_id: str | None = None,
+    trace_id: str | None = None,
 ) -> logging.Logger:
     """
     Get logger with context for structured logging

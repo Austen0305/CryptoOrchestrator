@@ -4,13 +4,14 @@ Tracks platform revenue from deposit fees and other sources
 """
 
 import logging
-from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from typing import Any
 
-from ..models.wallet import WalletTransaction, TransactionStatus
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.wallet import TransactionStatus, WalletTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,10 @@ class PlatformRevenueService:
 
     async def get_total_revenue(
         self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Get total platform revenue from deposit fees
 
@@ -45,10 +46,10 @@ class PlatformRevenueService:
 
     async def _get_total_revenue_internal(
         self,
-        start_date: Optional[datetime],
-        end_date: Optional[datetime],
+        start_date: datetime | None,
+        end_date: datetime | None,
         db: AsyncSession,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal revenue calculation"""
         try:
             # Build query conditions
@@ -109,8 +110,8 @@ class PlatformRevenueService:
             }
 
     async def get_daily_revenue(
-        self, days: int = 30, db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        self, days: int = 30, db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get daily revenue breakdown
 
@@ -130,7 +131,7 @@ class PlatformRevenueService:
 
     async def _get_daily_revenue_internal(
         self, days: int, db: AsyncSession
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Internal daily revenue calculation"""
         try:
             start_date = datetime.utcnow() - timedelta(days=days)

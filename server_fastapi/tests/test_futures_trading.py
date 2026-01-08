@@ -2,16 +2,18 @@
 Integration tests for Futures Trading Service
 """
 
+import os
+
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from server_fastapi.services.trading.futures_trading_service import (
-    FuturesTradingService,
-)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from server_fastapi.models.user import User
 from server_fastapi.repositories.futures_position_repository import (
     FuturesPositionRepository,
 )
-from server_fastapi.models.user import User
-import os
+from server_fastapi.services.trading.futures_trading_service import (
+    FuturesTradingService,
+)
 
 TEST_DB_URL = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 

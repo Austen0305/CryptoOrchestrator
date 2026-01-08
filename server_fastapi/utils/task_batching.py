@@ -3,11 +3,12 @@ Task Batching Utilities
 Implements efficient batching of Celery tasks to reduce overhead and improve throughput.
 """
 
-import logging
-from typing import List, Dict, Any, Callable, Optional, TypeVar
-from datetime import datetime, timedelta
-from collections import deque
 import asyncio
+import logging
+from collections import deque
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +30,16 @@ class TaskBatcher:
         """
         self.batch_size = batch_size
         self.batch_timeout_seconds = batch_timeout_seconds
-        self.batches: Dict[str, deque] = {}
-        self.batch_timestamps: Dict[str, datetime] = {}
-        self.batch_callbacks: Dict[str, Callable] = {}
-        self.locks: Dict[str, asyncio.Lock] = {}
+        self.batches: dict[str, deque] = {}
+        self.batch_timestamps: dict[str, datetime] = {}
+        self.batch_callbacks: dict[str, Callable] = {}
+        self.locks: dict[str, asyncio.Lock] = {}
 
     async def add_to_batch(
         self,
         batch_key: str,
         item: Any,
-        batch_callback: Callable[[List[Any]], Any],
+        batch_callback: Callable[[list[Any]], Any],
         force_flush: bool = False,
     ) -> Any:
         """
@@ -101,7 +102,7 @@ class TaskBatcher:
                     )
                     raise
 
-    async def flush_batch(self, batch_key: str) -> Optional[Any]:
+    async def flush_batch(self, batch_key: str) -> Any | None:
         """
         Force flush a specific batch.
 
@@ -133,7 +134,7 @@ class TaskBatcher:
                 logger.error(f"Error flushing batch {batch_key}: {e}", exc_info=True)
                 raise
 
-    async def flush_all_batches(self) -> Dict[str, Any]:
+    async def flush_all_batches(self) -> dict[str, Any]:
         """
         Flush all pending batches.
 
@@ -152,7 +153,7 @@ class TaskBatcher:
 
         return results
 
-    def get_batch_stats(self) -> Dict[str, Any]:
+    def get_batch_stats(self) -> dict[str, Any]:
         """
         Get statistics about current batches.
 
@@ -182,8 +183,8 @@ class TaskDeduplicator:
         Args:
             ttl_seconds: Time to live for idempotency keys
         """
-        self.idempotency_keys: Dict[str, datetime] = {}
-        self.results: Dict[str, Any] = {}
+        self.idempotency_keys: dict[str, datetime] = {}
+        self.results: dict[str, Any] = {}
         self.ttl_seconds = ttl_seconds
 
     def generate_idempotency_key(
@@ -213,7 +214,7 @@ class TaskDeduplicator:
 
         return f"idempotency:{task_name}:{key_hash[:16]}"
 
-    def check_duplicate(self, idempotency_key: str) -> Optional[Any]:
+    def check_duplicate(self, idempotency_key: str) -> Any | None:
         """
         Check if task with this idempotency key was already executed.
 

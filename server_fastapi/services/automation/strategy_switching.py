@@ -2,12 +2,12 @@
 Strategy Switching Service - Adaptive strategy selection
 """
 
-from typing import Dict, Any, Optional, List
-from pydantic import BaseModel, Field
+import asyncio
+import logging
 from datetime import datetime
 from enum import Enum
-import logging
-import asyncio
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class StrategySwitch(BaseModel):
     from_strategy: str
     to_strategy: str
     reason: str
-    regime: Optional[str] = None
+    regime: str | None = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -60,10 +60,10 @@ class StrategySwitchingService:
     """Strategy switching service for adaptive strategy selection"""
 
     def __init__(self):
-        self.active_strategies: Dict[str, str] = {}  # bot_id -> strategy_id
-        self.strategy_performances: Dict[str, List[StrategyPerformance]] = {}
-        self.switch_history: List[StrategySwitch] = []
-        self.monitoring_tasks: Dict[str, asyncio.Task] = {}
+        self.active_strategies: dict[str, str] = {}  # bot_id -> strategy_id
+        self.strategy_performances: dict[str, list[StrategyPerformance]] = {}
+        self.switch_history: list[StrategySwitch] = []
+        self.monitoring_tasks: dict[str, asyncio.Task] = {}
         logger.info("Strategy Switching Service initialized")
 
     async def start_monitoring(self, bot_id: str, config: StrategySwitchConfig) -> bool:
@@ -166,7 +166,7 @@ class StrategySwitchingService:
 
     async def _evaluate_strategy_performance(
         self, bot_id: str, strategy_id: str, config: StrategySwitchConfig
-    ) -> Optional[StrategyPerformance]:
+    ) -> StrategyPerformance | None:
         """Evaluate strategy performance"""
         # Mock implementation - would query actual performance data
         return StrategyPerformance(
@@ -270,8 +270,8 @@ class StrategySwitchingService:
         return regime_strategies.get(regime, "trend_following")
 
     def get_switch_history(
-        self, bot_id: Optional[str] = None, limit: int = 50
-    ) -> List[StrategySwitch]:
+        self, bot_id: str | None = None, limit: int = 50
+    ) -> list[StrategySwitch]:
         """Get strategy switch history"""
         history = self.switch_history
 

@@ -4,17 +4,17 @@ Manages API tiers and rate limits for different user tiers
 """
 
 import logging
-from typing import Dict, Optional, List
-from enum import Enum
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from collections import defaultdict
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
 
 class APITier(str, Enum):
     """API tier levels"""
+
     FREE = "free"
     BASIC = "basic"
     PROFESSIONAL = "professional"
@@ -25,6 +25,7 @@ class APITier(str, Enum):
 @dataclass
 class RateLimit:
     """Rate limit configuration"""
+
     requests_per_second: int
     requests_per_minute: int
     requests_per_hour: int
@@ -35,11 +36,12 @@ class RateLimit:
 @dataclass
 class APITierConfig:
     """API tier configuration"""
+
     tier: APITier
     name: str
     rate_limit: RateLimit
-    features: List[str]
-    latency_sla_ms: Optional[float] = None  # SLA latency in milliseconds
+    features: list[str]
+    latency_sla_ms: float | None = None  # SLA latency in milliseconds
     dedicated_support: bool = False
     co_location_ready: bool = False
 
@@ -47,17 +49,17 @@ class APITierConfig:
 class EnterpriseAPITierService:
     """
     Service for managing enterprise API tiers and rate limits
-    
+
     Provides:
     - Tier-based rate limiting
     - SLA tracking
     - Feature access control
     - Usage monitoring
     """
-    
+
     def __init__(self):
         # Tier configurations
-        self.tier_configs: Dict[APITier, APITierConfig] = {
+        self.tier_configs: dict[APITier, APITierConfig] = {
             APITier.FREE: APITierConfig(
                 tier=APITier.FREE,
                 name="Free",
@@ -144,114 +146,122 @@ class EnterpriseAPITierService:
                 co_location_ready=True,
             ),
         }
-        
+
         # User tier assignments (in production, this would be in database)
-        self.user_tiers: Dict[int, APITier] = {}
-        
+        self.user_tiers: dict[int, APITier] = {}
+
         # Rate limit tracking
-        self.request_counts: Dict[int, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
-        self.request_timestamps: Dict[int, List[datetime]] = defaultdict(list)
-    
+        self.request_counts: dict[int, dict[str, int]] = defaultdict(
+            lambda: defaultdict(int)
+        )
+        self.request_timestamps: dict[int, list[datetime]] = defaultdict(list)
+
     def get_user_tier(self, user_id: int) -> APITier:
         """Get API tier for a user"""
         return self.user_tiers.get(user_id, APITier.FREE)
-    
+
     def set_user_tier(self, user_id: int, tier: APITier):
         """Set API tier for a user"""
         self.user_tiers[user_id] = tier
         logger.info(f"Set API tier for user {user_id}: {tier.value}")
-    
+
     def get_tier_config(self, tier: APITier) -> APITierConfig:
         """Get configuration for a tier"""
         return self.tier_configs.get(tier, self.tier_configs[APITier.FREE])
-    
-    def check_rate_limit(self, user_id: int, endpoint: str = "default") -> tuple[bool, Optional[str]]:
+
+    def check_rate_limit(
+        self, user_id: int, endpoint: str = "default"
+    ) -> tuple[bool, str | None]:
         """
         Check if user has exceeded rate limit
-        
+
         Returns:
             (allowed, error_message)
         """
         tier = self.get_user_tier(user_id)
         config = self.get_tier_config(tier)
         rate_limit = config.rate_limit
-        
+
         now = datetime.utcnow()
-        
+
         # Clean old timestamps (older than 1 hour)
         cutoff = now - timedelta(hours=1)
         self.request_timestamps[user_id] = [
             ts for ts in self.request_timestamps[user_id] if ts > cutoff
         ]
-        
+
         # Count requests in different time windows
         timestamps = self.request_timestamps[user_id]
-        
+
         # Requests in last second
         requests_last_second = sum(
-            1 for ts in timestamps
-            if (now - ts).total_seconds() < 1.0
+            1 for ts in timestamps if (now - ts).total_seconds() < 1.0
         )
-        
+
         # Requests in last minute
         requests_last_minute = sum(
-            1 for ts in timestamps
-            if (now - ts).total_seconds() < 60.0
+            1 for ts in timestamps if (now - ts).total_seconds() < 60.0
         )
-        
+
         # Requests in last hour
         requests_last_hour = len(timestamps)
-        
+
         # Check limits
         if requests_last_second >= rate_limit.requests_per_second:
-            return False, f"Rate limit exceeded: {rate_limit.requests_per_second} requests/second"
-        
+            return (
+                False,
+                f"Rate limit exceeded: {rate_limit.requests_per_second} requests/second",
+            )
+
         if requests_last_minute >= rate_limit.requests_per_minute:
-            return False, f"Rate limit exceeded: {rate_limit.requests_per_minute} requests/minute"
-        
+            return (
+                False,
+                f"Rate limit exceeded: {rate_limit.requests_per_minute} requests/minute",
+            )
+
         if requests_last_hour >= rate_limit.requests_per_hour:
-            return False, f"Rate limit exceeded: {rate_limit.requests_per_hour} requests/hour"
-        
+            return (
+                False,
+                f"Rate limit exceeded: {rate_limit.requests_per_hour} requests/hour",
+            )
+
         # Record request
         self.request_timestamps[user_id].append(now)
-        
+
         return True, None
-    
+
     def has_feature_access(self, user_id: int, feature: str) -> bool:
         """Check if user has access to a feature"""
         tier = self.get_user_tier(user_id)
         config = self.get_tier_config(tier)
         return feature in config.features
-    
-    def get_latency_sla(self, user_id: int) -> Optional[float]:
+
+    def get_latency_sla(self, user_id: int) -> float | None:
         """Get latency SLA for user's tier"""
         tier = self.get_user_tier(user_id)
         config = self.get_tier_config(tier)
         return config.latency_sla_ms
-    
-    def get_rate_limit_info(self, user_id: int) -> Dict:
+
+    def get_rate_limit_info(self, user_id: int) -> dict:
         """Get rate limit information for user"""
         tier = self.get_user_tier(user_id)
         config = self.get_tier_config(tier)
         rate_limit = config.rate_limit
-        
+
         # Calculate current usage
         now = datetime.utcnow()
         timestamps = self.request_timestamps[user_id]
-        
+
         requests_last_second = sum(
-            1 for ts in timestamps
-            if (now - ts).total_seconds() < 1.0
+            1 for ts in timestamps if (now - ts).total_seconds() < 1.0
         )
         requests_last_minute = sum(
-            1 for ts in timestamps
-            if (now - ts).total_seconds() < 60.0
+            1 for ts in timestamps if (now - ts).total_seconds() < 60.0
         )
-        requests_last_hour = len([
-            ts for ts in timestamps
-            if (now - ts).total_seconds() < 3600.0
-        ])
-        
+        requests_last_hour = len(
+            [ts for ts in timestamps if (now - ts).total_seconds() < 3600.0]
+        )
+
         return {
             "tier": tier.value,
             "tier_name": config.name,

@@ -2,17 +2,21 @@
 Tests for Copy Trading Marketplace Service
 """
 
+from datetime import datetime, timedelta
+
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
-from decimal import Decimal
-
-from server_fastapi.services.marketplace_service import MarketplaceService
-from server_fastapi.models.signal_provider import SignalProvider, SignalProviderRating, Payout, CuratorStatus
-from server_fastapi.models.user import User
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from server_fastapi.models.signal_provider import (
+    CuratorStatus,
+    Payout,
+    SignalProvider,
+    SignalProviderRating,
+)
+from server_fastapi.models.user import User
+from server_fastapi.services.marketplace_service import MarketplaceService
 
 pytestmark = pytest.mark.asyncio
 
@@ -89,7 +93,9 @@ class TestMarketplaceService:
         provider = await db.get(SignalProvider, apply_result["id"])
         assert provider.curator_status == CuratorStatus.APPROVED.value
 
-    async def test_update_performance_metrics(self, db_session: AsyncSession, test_provider):
+    async def test_update_performance_metrics(
+        self, db_session: AsyncSession, test_provider
+    ):
         """Test updating performance metrics"""
         service = MarketplaceService(db_session)
 
@@ -113,7 +119,9 @@ class TestMarketplaceService:
         await db.refresh(test_provider)
         assert test_provider.total_return is not None
 
-    async def test_rate_signal_provider(self, db: AsyncSession, test_provider, test_user):
+    async def test_rate_signal_provider(
+        self, db: AsyncSession, test_provider, test_user
+    ):
         """Test rating a signal provider"""
         service = MarketplaceService(db_session)
 
@@ -149,7 +157,9 @@ class TestMarketplaceService:
         assert rating_obj is not None
         assert rating_obj.rating == 5
 
-    async def test_get_marketplace_traders(self, db_session: AsyncSession, test_provider):
+    async def test_get_marketplace_traders(
+        self, db_session: AsyncSession, test_provider
+    ):
         """Test getting marketplace traders with filters"""
         service = MarketplaceService(db_session)
 

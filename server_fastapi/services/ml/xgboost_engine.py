@@ -2,13 +2,13 @@
 XGBoost Engine - Gradient boosting for time-series prediction
 """
 
-from typing import List, Dict, Any, Optional, Tuple
-from pydantic import BaseModel
 import logging
-import numpy as np
-from datetime import datetime
 import os
 import pickle
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel
 
 try:
     import xgboost as xgb
@@ -19,8 +19,8 @@ except ImportError:
     logging.warning("XGBoost unavailable; XGBoost engine will use mock model.")
 
 try:
-    from sklearn.preprocessing import MinMaxScaler, LabelEncoder
     from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 
     SKLEARN_AVAILABLE = True
 except ImportError:
@@ -63,9 +63,9 @@ class MarketData(BaseModel):
 class XGBoostEngine:
     """XGBoost gradient boosting engine for time-series prediction"""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = XGBoostConfig(**(config or {}))
-        self.model: Optional[xgb.XGBClassifier] = None
+        self.model: xgb.XGBClassifier | None = None
         self.is_training: bool = False
         self.scaler = None
         self.label_encoder = None
@@ -128,8 +128,8 @@ class XGBoostEngine:
             raise error
 
     def create_features(
-        self, market_data: List[MarketData], lookback: int = 60
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        self, market_data: list[MarketData], lookback: int = 60
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Create feature vectors from market data with technical indicators"""
         if len(market_data) < lookback:
             return np.array([]), None
@@ -213,8 +213,8 @@ class XGBoostEngine:
         return features, None  # Labels created separately
 
     def preprocess_data(
-        self, market_data: List[MarketData], labels: Optional[List[str]] = None
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        self, market_data: list[MarketData], labels: list[str] | None = None
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         """Preprocess market data for XGBoost input"""
         if not market_data:
             raise ValueError("Market data is empty")
@@ -239,7 +239,7 @@ class XGBoostEngine:
 
         return X, y
 
-    def predict(self, market_data: List[MarketData]) -> Dict[str, Any]:
+    def predict(self, market_data: list[MarketData]) -> dict[str, Any]:
         """Make prediction using XGBoost model"""
         try:
             X, _ = self.preprocess_data(market_data)
@@ -296,9 +296,9 @@ class XGBoostEngine:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        X_val: Optional[np.ndarray] = None,
-        y_val: Optional[np.ndarray] = None,
-    ) -> Dict[str, Any]:
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> dict[str, Any]:
         """Train the XGBoost model"""
         if not XGBOOST_AVAILABLE:
             logger.warning("XGBoost not available, cannot train model")

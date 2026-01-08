@@ -3,18 +3,20 @@ Health Check Aggregation System
 Aggregates health checks from multiple services and components
 """
 
-import logging
 import asyncio
-from typing import Dict, Any, List, Optional, Callable
-from enum import Enum
+import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class HealthStatus(str, Enum):
     """Health status"""
+
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNHEALTHY = "unhealthy"
@@ -24,10 +26,11 @@ class HealthStatus(str, Enum):
 @dataclass
 class HealthCheck:
     """Health check result"""
+
     name: str
     status: HealthStatus
-    message: Optional[str] = None
-    details: Dict[str, Any] = None
+    message: str | None = None
+    details: dict[str, Any] = None
     timestamp: datetime = None
 
     def __post_init__(self):
@@ -40,7 +43,7 @@ class HealthCheck:
 class HealthAggregator:
     """
     Aggregates health checks from multiple sources
-    
+
     Features:
     - Multiple health check providers
     - Automatic aggregation
@@ -50,17 +53,17 @@ class HealthAggregator:
     """
 
     def __init__(self, cache_ttl: int = 30):
-        self.checkers: Dict[str, Callable] = {}
+        self.checkers: dict[str, Callable] = {}
         self.cache_ttl = cache_ttl
-        self._cache: Optional[Dict[str, Any]] = None
-        self._cache_time: Optional[datetime] = None
+        self._cache: dict[str, Any] | None = None
+        self._cache_time: datetime | None = None
 
     def register(self, name: str, checker: Callable):
         """Register a health check function"""
         self.checkers[name] = checker
         logger.debug(f"Health check registered: {name}")
 
-    async def check_all(self, use_cache: bool = True) -> Dict[str, Any]:
+    async def check_all(self, use_cache: bool = True) -> dict[str, Any]:
         """Run all health checks"""
         # Check cache
         if use_cache and self._cache and self._cache_time:
@@ -69,7 +72,7 @@ class HealthAggregator:
                 return self._cache
 
         # Run checks
-        checks: List[HealthCheck] = []
+        checks: list[HealthCheck] = []
         tasks = []
 
         for name, checker in self.checkers.items():
@@ -81,11 +84,13 @@ class HealthAggregator:
             if isinstance(result, HealthCheck):
                 checks.append(result)
             elif isinstance(result, Exception):
-                checks.append(HealthCheck(
-                    name="unknown",
-                    status=HealthStatus.UNHEALTHY,
-                    message=str(result),
-                ))
+                checks.append(
+                    HealthCheck(
+                        name="unknown",
+                        status=HealthStatus.UNHEALTHY,
+                        message=str(result),
+                    )
+                )
 
         # Aggregate status
         overall_status = self._aggregate_status(checks)
@@ -140,7 +145,7 @@ class HealthAggregator:
                     status=HealthStatus.UNKNOWN,
                     message=f"Unexpected return type: {type(result)}",
                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return HealthCheck(
                 name=name,
                 status=HealthStatus.UNHEALTHY,
@@ -154,7 +159,7 @@ class HealthAggregator:
                 message=str(e),
             )
 
-    def _aggregate_status(self, checks: List[HealthCheck]) -> HealthStatus:
+    def _aggregate_status(self, checks: list[HealthCheck]) -> HealthStatus:
         """Aggregate health check statuses"""
         if not checks:
             return HealthStatus.UNKNOWN
@@ -191,8 +196,10 @@ health_aggregator = HealthAggregator()
 async def check_database():
     """Check database health"""
     try:
-        from ..database.session import get_db_context
         from sqlalchemy import text
+
+        from ..database.session import get_db_context
+
         async with get_db_context() as session:
             await session.execute(text("SELECT 1"))
         return HealthCheck(
@@ -212,6 +219,7 @@ async def check_redis():
     """Check Redis health"""
     try:
         import redis.asyncio as redis
+
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         client = redis.from_url(redis_url)
         await client.ping()
@@ -235,4 +243,3 @@ import os
 health_aggregator.register("database", check_database)
 if os.getenv("REDIS_ENABLED", "false").lower() == "true":
     health_aggregator.register("redis", check_redis)
-

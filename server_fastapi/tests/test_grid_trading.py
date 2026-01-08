@@ -2,17 +2,18 @@
 Integration tests for Grid Trading Service
 """
 
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import os
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Import User model (always available)
 from server_fastapi.models.user import User
 
 # Optional imports - skip tests if services are not available
 try:
-    from server_fastapi.services.trading.grid_trading_service import GridTradingService
     from server_fastapi.repositories.grid_bot_repository import GridBotRepository
+    from server_fastapi.services.trading.grid_trading_service import GridTradingService
 
     GRID_TRADING_AVAILABLE = True
 except ImportError as e:

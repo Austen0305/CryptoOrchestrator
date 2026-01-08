@@ -1,10 +1,11 @@
-from typing import Callable
+import uuid
+from collections.abc import Callable
+
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from server_fastapi.services.logging_config import REQUEST_ID_CTX
-import uuid
 
 
 class StructuredLoggingMiddleware(BaseHTTPMiddleware):
@@ -30,7 +31,7 @@ class StructuredLoggingMiddleware(BaseHTTPMiddleware):
 
         # Ensure downstream middleware/handlers can access the same id
         try:
-            setattr(request.state, "request_id", request_id)
+            request.state.request_id = request_id
         except Exception:
             # best-effort; not critical
             pass

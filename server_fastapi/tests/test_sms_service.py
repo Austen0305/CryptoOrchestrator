@@ -3,7 +3,6 @@ Tests for SMS Service
 """
 
 import pytest
-import os
 
 from server_fastapi.services.sms_service import sms_service
 

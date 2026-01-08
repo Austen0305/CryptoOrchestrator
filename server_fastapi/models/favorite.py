@@ -3,9 +3,11 @@ Favorite Model - User's favorite trading pairs
 """
 
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import Base, TimestampMixin
 
 if TYPE_CHECKING:
@@ -27,10 +29,10 @@ class Favorite(Base, TimestampMixin):
     exchange: Mapped[str] = mapped_column(String(50), nullable=False, default="binance")
 
     # User notes
-    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Tracking
-    last_viewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="favorites")

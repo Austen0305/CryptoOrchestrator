@@ -4,11 +4,11 @@ Uses async patterns with AsyncClient for proper async route testing
 Enhanced with proper database isolation and test factories
 """
 
+import logging
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-import uuid
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,9 @@ class TestBotsIntegration:
         assert response.status_code in [
             200,
             201,
-        ], f"Expected 200/201, got {response.status_code}: {error_data if 'error_data' in locals() else response.text}"
+        ], (
+            f"Expected 200/201, got {response.status_code}: {error_data if 'error_data' in locals() else response.text}"
+        )
         bot = response.json()
         assert bot["name"] == test_bot_config["name"]
         assert bot["symbol"] == test_bot_config["symbol"]

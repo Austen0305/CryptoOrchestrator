@@ -2,14 +2,15 @@
 Performance monitoring middleware for tracking request performance.
 """
 
-import time
+import asyncio
 import logging
-from typing import Dict, Any
+import time
+from collections import defaultdict, deque
+from typing import Any
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from collections import defaultdict, deque
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ class PerformanceMonitor:
     def __init__(self, max_history: int = 1000):
         self.max_history = max_history
         self.request_times: deque = deque(maxlen=max_history)
-        self.endpoint_stats: Dict[str, Dict[str, Any]] = defaultdict(
+        self.endpoint_stats: dict[str, dict[str, Any]] = defaultdict(
             lambda: {
                 "count": 0,
                 "total_time": 0.0,
@@ -57,7 +58,7 @@ class PerformanceMonitor:
             if is_error:
                 stats["errors"] += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get current performance statistics"""
         if not self.request_times:
             return {"total_requests": 0, "average_response_time": 0.0, "endpoints": {}}

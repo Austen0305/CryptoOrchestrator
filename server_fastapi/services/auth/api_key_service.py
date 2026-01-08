@@ -2,14 +2,13 @@
 API Key service for FastAPI backend
 """
 
-import os
-import uuid
 import hashlib
-import secrets
 import logging
-from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
-from pydantic import BaseModel, Field, ConfigDict
+import secrets
+import uuid
+from datetime import UTC, datetime
+
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -19,21 +18,19 @@ class APIKey(BaseModel):
     user_id: str
     key_hash: str  # Store hash instead of plain key
     key_prefix: str  # First 8 characters for identification
-    permissions: List[str]
+    permissions: list[str]
     active: bool = True
-    created_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-    last_used_at: Optional[str] = None
-    expires_at: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    last_used_at: str | None = None
+    expires_at: str | None = None
 
     model_config = ConfigDict(extra="allow")
 
 
 class APIKeyCreateRequest(BaseModel):
     user_id: str
-    permissions: List[str]
-    expires_in_days: Optional[int] = None  # Optional expiration
+    permissions: list[str]
+    expires_in_days: int | None = None  # Optional expiration
 
 
 class APIKeyService:
@@ -42,15 +39,15 @@ class APIKeyService:
     def __init__(self):
         # In production, replace with proper database (e.g., PostgreSQL, MongoDB)
         # For now, using in-memory storage - keys would be lost on restart
-        self._keys: Dict[str, APIKey] = {}  # key_id -> APIKey
-        self._key_hashes: Dict[str, str] = {}  # key_hash -> key_id (for lookup)
+        self._keys: dict[str, APIKey] = {}  # key_id -> APIKey
+        self._key_hashes: dict[str, str] = {}  # key_hash -> key_id (for lookup)
         logger.info("APIKeyService initialized with in-memory storage")
 
     async def create_api_key(
         self,
         user_id: str,
-        permissions: List[str],
-        expires_in_days: Optional[int] = None,
+        permissions: list[str],
+        expires_in_days: int | None = None,
     ) -> APIKey:
         """Create new API key for user with secure generation"""
         try:
@@ -67,8 +64,7 @@ class APIKeyService:
             expires_at = None
             if expires_in_days:
                 expires_at = (
-                    datetime.now(timezone.utc)
-                    + datetime.timedelta(days=expires_in_days)
+                    datetime.now(UTC) + datetime.timedelta(days=expires_in_days)
                 ).isoformat()
 
             # Create APIKey instance
@@ -100,7 +96,7 @@ class APIKeyService:
             logger.error(f"Failed to create API key for user {user_id}: {str(e)}")
             raise
 
-    async def validate_api_key(self, key: str) -> Optional[APIKey]:
+    async def validate_api_key(self, key: str) -> APIKey | None:
         """Validate API key and return key data if valid"""
         try:
             logger.debug(
@@ -129,14 +125,14 @@ class APIKeyService:
             # Check expiration
             if api_key.expires_at:
                 expires_dt = datetime.fromisoformat(api_key.expires_at)
-                if datetime.now(timezone.utc) > expires_dt:
+                if datetime.now(UTC) > expires_dt:
                     logger.warning(f"API key {key_id} has expired")
                     # Auto-deactivate expired keys
                     await self._deactivate_key(key_id)
                     return None
 
             # Update last used timestamp
-            api_key.last_used_at = datetime.now(timezone.utc).isoformat()
+            api_key.last_used_at = datetime.now(UTC).isoformat()
             self._keys[key_id] = api_key
 
             logger.debug(f"API key validated successfully for user: {api_key.user_id}")
@@ -184,7 +180,7 @@ class APIKeyService:
             logger.error(f"Failed to deactivate key {key_id}: {str(e)}")
             return False
 
-    async def get_user_api_keys(self, user_id: str) -> List[APIKey]:
+    async def get_user_api_keys(self, user_id: str) -> list[APIKey]:
         """Get all active API keys for a user"""
         try:
             user_keys = [
@@ -219,7 +215,7 @@ class APIKeyService:
         try:
             logger.info("Starting cleanup of expired API keys")
             cleaned_count = 0
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
 
             for key_id, api_key in list(self._keys.items()):
                 if (

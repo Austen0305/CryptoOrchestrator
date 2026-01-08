@@ -3,17 +3,18 @@ Background Jobs Monitoring Routes
 Monitor Celery tasks and background job status with enhanced metrics and management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import Dict, List, Optional, Any, Annotated
 import logging
 from datetime import datetime
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.monitoring.celery_monitoring import get_celery_monitoring_service
 from ..utils.task_batching import get_task_batcher
 from ..utils.task_rate_limiter import get_task_rate_limiter
-from ..middleware.cache_manager import cached
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +27,12 @@ class JobStatus(BaseModel):
     job_id: str
     status: str  # pending, started, success, failure, retry
     task_name: str
-    created_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    result: Optional[Any] = None
-    error: Optional[str] = None
-    progress: Optional[float] = None  # 0.0 to 1.0
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    result: Any | None = None
+    error: str | None = None
+    progress: float | None = None  # 0.0 to 1.0
 
 
 def _get_active_workers() -> int:
@@ -74,7 +75,7 @@ def _get_pending_tasks() -> int:
 )  # 30s TTL for job status (frequently changing)
 async def get_jobs_status(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get overall background jobs status (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin" and "admin" not in current_user.get(
@@ -110,7 +111,7 @@ async def get_active_tasks(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-) -> List[JobStatus]:
+) -> list[JobStatus]:
     """Get list of active background tasks with pagination (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin" and "admin" not in current_user.get(
@@ -219,7 +220,7 @@ async def get_task_status(
 @cached(ttl=60, prefix="background_jobs_stats")  # 60s TTL for job statistics
 async def get_jobs_statistics(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get background jobs statistics (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin" and "admin" not in current_user.get(
@@ -247,7 +248,7 @@ async def get_jobs_statistics(
 @router.get("/queue-depth")
 async def get_queue_depth(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """Get queue depth for each priority queue (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin" and "admin" not in current_user.get(
@@ -269,7 +270,7 @@ async def get_queue_depth(
 @router.get("/batching/stats")
 async def get_batching_stats(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get task batching statistics (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -289,7 +290,7 @@ async def get_batching_stats(
 @router.post("/batching/flush")
 async def flush_all_batches(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Flush all pending batches (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -313,8 +314,8 @@ async def flush_all_batches(
 @router.get("/rate-limits")
 async def get_rate_limits(
     current_user: Annotated[dict, Depends(get_current_user)],
-    task_name: Optional[str] = Query(None, description="Filter by task name"),
-) -> Dict[str, Any]:
+    task_name: str | None = Query(None, description="Filter by task name"),
+) -> dict[str, Any]:
     """Get rate limit status for tasks (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":
@@ -345,7 +346,7 @@ async def get_rate_limits(
 async def reset_rate_limit(
     task_name: str,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Reset rate limit for a task (admin only)"""
     # Check admin permission
     if current_user.get("role") != "admin":

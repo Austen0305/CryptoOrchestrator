@@ -3,28 +3,26 @@ Admin Panel Routes
 Admin-only endpoints for managing users, subscriptions, and system
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Query
-from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from typing import List, Optional, Dict, Any, Annotated
-from datetime import datetime
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
-from ..dependencies.user import get_current_user_db, require_admin
-from ..models.user import User
-from ..models.subscription import Subscription
-from ..models.bot import Bot
-from ..models.trade import Trade
-from ..billing import SubscriptionService
+from ..dependencies.user import require_admin
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..models.bot import Bot
+from ..models.subscription import Subscription
+from ..models.trade import Trade
+from ..models.user import User
 from ..services.marketplace_analytics_service import MarketplaceAnalyticsService
-from fastapi import Request
+from ..utils.query_optimizer import QueryOptimizer
+
 try:
-    from ..rate_limit_config import limiter, get_rate_limit
+    from ..rate_limit_config import get_rate_limit, limiter
 except ImportError:
     limiter = None
     get_rate_limit = lambda x: x
@@ -43,9 +41,9 @@ class UserSummary(BaseModel):
     is_active: bool
     is_email_verified: bool
     created_at: str
-    last_login_at: Optional[str] = None
-    subscription_plan: Optional[str] = None
-    subscription_status: Optional[str] = None
+    last_login_at: str | None = None
+    subscription_plan: str | None = None
+    subscription_status: str | None = None
     bot_count: int = 0
     trade_count: int = 0
 
@@ -59,7 +57,7 @@ class AdminStats(BaseModel):
     total_bots: int
     active_bots: int
     total_trades: int
-    revenue_by_plan: Dict[str, int]
+    revenue_by_plan: dict[str, int]
 
 
 @router.get("/stats")
@@ -143,8 +141,8 @@ async def get_users(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    search: Optional[str] = None,
-    role: Optional[str] = None,
+    search: str | None = None,
+    role: str | None = None,
 ):
     """Get list of users with pagination"""
     try:
@@ -380,13 +378,10 @@ async def get_logs(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    level: Optional[str] = None,
+    level: str | None = None,
 ):
     """Get system logs with pagination (if stored in database)"""
     try:
-        from ..services.audit.audit_logger import audit_logger
-        from datetime import datetime, timedelta
-
         # Get recent audit logs (last 7 days by default)
         # Note: This is a simplified implementation - full implementation would query database
         logs = []
@@ -450,12 +445,17 @@ async def get_top_providers(
     admin: Annotated[User, Depends(require_admin())],
     db: Annotated[AsyncSession, Depends(get_db_session)],
     limit: int = Query(10, ge=1, le=50, description="Number of top providers"),
-    sort_by: str = Query("total_return", description="Sort by: total_return, sharpe_ratio, follower_count, rating"),
+    sort_by: str = Query(
+        "total_return",
+        description="Sort by: total_return, sharpe_ratio, follower_count, rating",
+    ),
 ):
     """Get top performing signal providers (admin only)"""
     try:
         analytics_service = MarketplaceAnalyticsService(db)
-        top_providers = await analytics_service.get_top_providers(limit=limit, sort_by=sort_by)
+        top_providers = await analytics_service.get_top_providers(
+            limit=limit, sort_by=sort_by
+        )
         return {"providers": top_providers, "limit": limit, "sort_by": sort_by}
     except Exception as e:
         logger.error(f"Failed to get top providers: {e}", exc_info=True)
@@ -472,12 +472,16 @@ async def get_top_indicators(
     admin: Annotated[User, Depends(require_admin())],
     db: Annotated[AsyncSession, Depends(get_db_session)],
     limit: int = Query(10, ge=1, le=50, description="Number of top indicators"),
-    sort_by: str = Query("purchase_count", description="Sort by: purchase_count, rating, price"),
+    sort_by: str = Query(
+        "purchase_count", description="Sort by: purchase_count, rating, price"
+    ),
 ):
     """Get top performing indicators (admin only)"""
     try:
         analytics_service = MarketplaceAnalyticsService(db)
-        top_indicators = await analytics_service.get_top_indicators(limit=limit, sort_by=sort_by)
+        top_indicators = await analytics_service.get_top_indicators(
+            limit=limit, sort_by=sort_by
+        )
         return {"indicators": top_indicators, "limit": limit, "sort_by": sort_by}
     except Exception as e:
         logger.error(f"Failed to get top indicators: {e}", exc_info=True)

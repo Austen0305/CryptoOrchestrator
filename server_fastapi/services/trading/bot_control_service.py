@@ -3,14 +3,15 @@ Bot control service for start/stop/status operations
 """
 
 import logging
-from typing import Dict, Optional, Any
 from contextlib import asynccontextmanager
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db_context
 from ...repositories.bot_repository import BotRepository
-from .bot_creation_service import BotCreationService
 from ..portfolio_reconciliation import reconcile_user_portfolio
+from .bot_creation_service import BotCreationService
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 class BotControlService:
     """Service for bot control operations (start, stop, status)"""
 
-    def __init__(self, session: Optional[AsyncSession] = None):
+    def __init__(self, session: AsyncSession | None = None):
         self.repository = BotRepository()
         self.creation_service = BotCreationService(session=session)
         self._session = session
@@ -131,9 +132,7 @@ class BotControlService:
             logger.error(f"Error stopping bot {bot_id}: {str(e)}")
             raise
 
-    async def get_bot_status(
-        self, bot_id: str, user_id: int
-    ) -> Optional[Dict[str, Any]]:
+    async def get_bot_status(self, bot_id: str, user_id: int) -> dict[str, Any] | None:
         """Get bot status"""
         try:
             async with self._get_session() as session:

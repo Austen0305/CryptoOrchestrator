@@ -3,8 +3,10 @@ Celery Tasks for Transaction Batcher
 Periodically flushes pending batches to execute swaps
 """
 
-from celery import shared_task
 import logging
+
+from celery import shared_task
+
 from ..services.blockchain.transaction_batcher import get_transaction_batcher
 
 logger = logging.getLogger(__name__)

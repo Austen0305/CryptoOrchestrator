@@ -3,11 +3,11 @@ Comprehensive System Health Monitoring
 Provides detailed health checks for all system components
 """
 
-import logging
 import asyncio
-from typing import Dict, Any, List
-from datetime import datetime
+import logging
 import time
+from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class HealthMonitor:
         self.health_checks = []
         logger.info("Health Monitor initialized")
 
-    async def check_database(self) -> Dict[str, Any]:
+    async def check_database(self) -> dict[str, Any]:
         """Check database connectivity and performance"""
         try:
             from ...database import get_db_context
@@ -61,7 +61,7 @@ class HealthMonitor:
                 "message": "Database connection failed",
             }
 
-    async def check_redis(self) -> Dict[str, Any]:
+    async def check_redis(self) -> dict[str, Any]:
         """Check Redis connectivity"""
         try:
             from ...services.cache_service import redis_available, redis_client
@@ -94,7 +94,7 @@ class HealthMonitor:
                 "message": "Redis connection failed",
             }
 
-    async def check_trading_safety(self) -> Dict[str, Any]:
+    async def check_trading_safety(self) -> dict[str, Any]:
         """Check trading safety service"""
         try:
             from ...services.trading.trading_safety_service import (
@@ -121,7 +121,7 @@ class HealthMonitor:
                 "message": "Trading safety service unavailable",
             }
 
-    async def check_sl_tp(self) -> Dict[str, Any]:
+    async def check_sl_tp(self) -> dict[str, Any]:
         """Check stop-loss/take-profit service"""
         try:
             from ...services.trading.sl_tp_service import get_sl_tp_service
@@ -144,7 +144,7 @@ class HealthMonitor:
                 "message": "SL/TP service unavailable",
             }
 
-    async def check_price_monitor(self) -> Dict[str, Any]:
+    async def check_price_monitor(self) -> dict[str, Any]:
         """Check price monitoring service"""
         try:
             from ...services.trading.price_monitor import get_price_monitor
@@ -170,7 +170,7 @@ class HealthMonitor:
                 "message": "Price monitoring service unavailable",
             }
 
-    def check_system_resources(self) -> Dict[str, Any]:
+    def check_system_resources(self) -> dict[str, Any]:
         """Check system resource usage"""
         try:
             import psutil
@@ -216,7 +216,7 @@ class HealthMonitor:
                 "message": "Failed to check system resources",
             }
 
-    def check_uptime(self) -> Dict[str, Any]:
+    def check_uptime(self) -> dict[str, Any]:
         """Check system uptime"""
         uptime_seconds = time.time() - self.start_time
         uptime_hours = uptime_seconds / 3600
@@ -232,7 +232,7 @@ class HealthMonitor:
             "message": f"Uptime: {uptime_days:.1f} days",
         }
 
-    async def run_all_checks(self) -> Dict[str, Any]:
+    async def run_all_checks(self) -> dict[str, Any]:
         """Run all health checks"""
         checks = await asyncio.gather(
             self.check_database(),

@@ -3,12 +3,13 @@ Performance monitoring service - migrated from TypeScript
 """
 
 import asyncio
+import logging
 import math
 import time
-from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
-import logging
+from typing import Any
+
 import psutil
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,8 @@ class PerformanceMonitor:
             max_drawdown=0.0,
             sharpe_ratio=0.0,
         )
-        self.recent_trades: List[TradeMetrics] = []
-        self.system_metrics: List[SystemMetrics] = []
+        self.recent_trades: list[TradeMetrics] = []
+        self.system_metrics: list[SystemMetrics] = []
         self.max_trades_history = 1000
         self.alert_thresholds = {
             "min_win_rate": 0.4,  # 40% minimum win rate
@@ -75,7 +76,7 @@ class PerformanceMonitor:
             "max_drawdown": 0.15,  # 15% maximum drawdown
             "min_sharpe_ratio": 0.5,  # Minimum Sharpe ratio
         }
-        self._update_task: Optional[asyncio.Task] = None
+        self._update_task: asyncio.Task | None = None
         # Don't start async task in __init__ to avoid event loop issues
         # Will be started when needed in FastAPI startup
 
@@ -238,12 +239,12 @@ class PerformanceMonitor:
                 active_connections=0,
             )
 
-    async def get_metrics_history(self, hours: int = 24) -> List[SystemMetrics]:
+    async def get_metrics_history(self, hours: int = 24) -> list[SystemMetrics]:
         """Get system metrics history"""
         cutoff_time = time.time() - (hours * 3600)
         return [m for m in self.system_metrics if m.timestamp >= cutoff_time]
 
-    async def get_system_health(self) -> Dict[str, Any]:
+    async def get_system_health(self) -> dict[str, Any]:
         """Get overall system health status"""
         try:
             # Simple health checks
@@ -262,7 +263,7 @@ class PerformanceMonitor:
             logger.error(f"Error getting system health: {e}")
             return {"status": "unknown", "uptime": 0}
 
-    async def alert_on_thresholds(self, thresholds: Dict[str, float]) -> List[str]:
+    async def alert_on_thresholds(self, thresholds: dict[str, float]) -> list[str]:
         """Check metrics against custom thresholds and return alerts"""
         alerts = []
         current_metrics = await self.collect_system_metrics()
@@ -278,7 +279,7 @@ class PerformanceMonitor:
 
         return alerts
 
-    def adjust_risk_thresholds(self, conditions: Dict[str, Any]) -> None:
+    def adjust_risk_thresholds(self, conditions: dict[str, Any]) -> None:
         """Adjust risk thresholds based on market conditions"""
         # Placeholder for dynamic threshold adjustment
         logger.debug("Risk thresholds adjustment requested", extra=conditions)

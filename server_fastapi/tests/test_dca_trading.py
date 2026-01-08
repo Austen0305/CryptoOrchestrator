@@ -2,17 +2,18 @@
 Integration tests for DCA Trading Service
 """
 
-import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import os
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Import User model (always available)
 from server_fastapi.models.user import User
 
 # Optional imports - skip tests if services are not available
 try:
-    from server_fastapi.services.trading.dca_trading_service import DCATradingService
     from server_fastapi.repositories.dca_bot_repository import DCABotRepository
+    from server_fastapi.services.trading.dca_trading_service import DCATradingService
 
     DCA_TRADING_AVAILABLE = True
 except ImportError as e:

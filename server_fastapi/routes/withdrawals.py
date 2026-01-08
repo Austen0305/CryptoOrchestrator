@@ -4,15 +4,16 @@ API endpoints for processing withdrawals
 """
 
 import logging
-from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from decimal import Decimal
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from decimal import Decimal
 
-from ..services.blockchain.withdrawal_service import get_withdrawal_service
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..services.blockchain.withdrawal_service import get_withdrawal_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class WithdrawalRequest(BaseModel):
         ..., description="Withdrawal amount (as string to preserve precision)"
     )
     currency: str = Field(default="ETH", description="Currency (ETH or token address)")
-    mfa_token: Optional[str] = Field(
+    mfa_token: str | None = Field(
         None, description="2FA token (required for withdrawals)"
     )
 
@@ -47,7 +48,7 @@ class WithdrawalRequest(BaseModel):
 
 class WithdrawalResponse(BaseModel):
     success: bool
-    transaction_hash: Optional[str]
+    transaction_hash: str | None
     amount: str
     currency: str
     to_address: str
@@ -58,9 +59,9 @@ class WithdrawalResponse(BaseModel):
 
 class WithdrawalStatusResponse(BaseModel):
     status: str  # pending, confirmed, failed, not_found
-    success: Optional[bool]
-    block_number: Optional[int]
-    gas_used: Optional[int]
+    success: bool | None
+    block_number: int | None
+    gas_used: int | None
 
     model_config = {"from_attributes": True}
 

@@ -4,17 +4,18 @@ Provides factories for users, bots, wallets, trades, etc.
 """
 
 import uuid
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
-    from server_fastapi.models.user import User
     from server_fastapi.models.bot import Bot
-    from server_fastapi.models.wallet import Wallet, UserWallet
-    from server_fastapi.models.trade import Trade
-    from server_fastapi.models.portfolio import Portfolio
     from server_fastapi.models.order import Order
+    from server_fastapi.models.portfolio import Portfolio
+    from server_fastapi.models.trade import Trade
+    from server_fastapi.models.user import User
+    from server_fastapi.models.wallet import UserWallet, Wallet
     from server_fastapi.services.auth.auth_service import AuthService
 except ImportError:
     # Models may not be available in all test environments
@@ -34,11 +35,11 @@ class UserFactory:
     @staticmethod
     async def create_user(
         db: AsyncSession,
-        email: Optional[str] = None,
+        email: str | None = None,
         password: str = "TestPassword123!",
-        name: Optional[str] = None,
+        name: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a test user in the database"""
         if AuthService is None:
             raise ImportError("AuthService not available")
@@ -61,11 +62,11 @@ class UserFactory:
 
     @staticmethod
     def user_data(
-        email: Optional[str] = None,
+        email: str | None = None,
         password: str = "TestPassword123!",
-        name: Optional[str] = None,
+        name: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate user data dict without creating in DB"""
         unique_email = email or f"testuser-{uuid.uuid4().hex[:8]}@example.com"
         user_name = name or f"Test User {uuid.uuid4().hex[:6]}"
@@ -83,12 +84,12 @@ class BotFactory:
 
     @staticmethod
     def bot_data(
-        name: Optional[str] = None,
+        name: str | None = None,
         symbol: str = "BTC/USDT",
         strategy: str = "simple_ma",
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate bot configuration data"""
         bot_name = name or f"Test Bot {uuid.uuid4().hex[:6]}"
 
@@ -115,11 +116,11 @@ class BotFactory:
     async def create_bot(
         db: AsyncSession,
         user_id: str,
-        name: Optional[str] = None,
+        name: str | None = None,
         symbol: str = "BTC/USDT",
         strategy: str = "simple_ma",
         **kwargs,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a bot in the database"""
         if Bot is None:
             return None
@@ -160,12 +161,12 @@ class WalletFactory:
 
     @staticmethod
     def wallet_data(
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         chain_id: int = 1,  # Ethereum
-        address: Optional[str] = None,
+        address: str | None = None,
         is_custodial: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate wallet data"""
         if address is None:
             # Generate a fake Ethereum address
@@ -186,9 +187,9 @@ class WalletFactory:
         db: AsyncSession,
         user_id: str,
         chain_id: int = 1,
-        address: Optional[str] = None,
+        address: str | None = None,
         **kwargs,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a wallet in the database"""
         if UserWallet is None:
             return None
@@ -226,14 +227,14 @@ class TradeFactory:
 
     @staticmethod
     def trade_data(
-        user_id: Optional[str] = None,
-        bot_id: Optional[str] = None,
+        user_id: str | None = None,
+        bot_id: str | None = None,
         symbol: str = "BTC/USDT",
         side: str = "buy",
         amount: float = 0.1,
         price: float = 50000.0,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate trade data"""
         return {
             "user_id": user_id,
@@ -253,11 +254,11 @@ class TradeFactory:
     async def create_trade(
         db: AsyncSession,
         user_id: str,
-        bot_id: Optional[str] = None,
+        bot_id: str | None = None,
         symbol: str = "BTC/USDT",
         side: str = "buy",
         **kwargs,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a trade in the database"""
         if Trade is None:
             return None
@@ -303,11 +304,11 @@ class PortfolioFactory:
 
     @staticmethod
     def portfolio_data(
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         total_balance: float = 10000.0,
         available_balance: float = 9000.0,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Generate portfolio data"""
         return {
             "user_id": user_id,
@@ -321,7 +322,7 @@ class PortfolioFactory:
     @staticmethod
     async def create_portfolio(
         db: AsyncSession, user_id: str, total_balance: float = 10000.0, **kwargs
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Create a portfolio in the database"""
         if Portfolio is None:
             return None

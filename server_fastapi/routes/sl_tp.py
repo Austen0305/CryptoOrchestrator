@@ -2,13 +2,13 @@
 Stop-Loss and Take-Profit API Routes
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, List
 import logging
 
-from server_fastapi.services.trading.sl_tp_service import get_sl_tp_service, OrderType
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
 from server_fastapi.services.trading.price_monitor import get_price_monitor
+from server_fastapi.services.trading.sl_tp_service import get_sl_tp_service
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -19,14 +19,20 @@ class CreateStopLossRequest(BaseModel):
 
     position_id: str = Field(..., description="Unique position identifier")
     symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"})
-    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Original trade side")
+    side: str = Field(
+        ..., json_schema_extra={"example": "buy"}, description="Original trade side"
+    )
     quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1})
     entry_price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
     stop_loss_pct: float = Field(
-        ..., gt=0, le=1, json_schema_extra={"example": 0.02}, description="Stop-loss percentage (0.02 = 2%)"
+        ...,
+        gt=0,
+        le=1,
+        json_schema_extra={"example": 0.02},
+        description="Stop-loss percentage (0.02 = 2%)",
     )
     user_id: str = Field(..., description="User identifier")
-    bot_id: Optional[str] = Field(None, description="Optional bot identifier")
+    bot_id: str | None = Field(None, description="Optional bot identifier")
 
 
 class CreateTakeProfitRequest(BaseModel):
@@ -34,14 +40,20 @@ class CreateTakeProfitRequest(BaseModel):
 
     position_id: str = Field(..., description="Unique position identifier")
     symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"})
-    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Original trade side")
+    side: str = Field(
+        ..., json_schema_extra={"example": "buy"}, description="Original trade side"
+    )
     quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1})
     entry_price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
     take_profit_pct: float = Field(
-        ..., gt=0, le=1, json_schema_extra={"example": 0.05}, description="Take-profit percentage (0.05 = 5%)"
+        ...,
+        gt=0,
+        le=1,
+        json_schema_extra={"example": 0.05},
+        description="Take-profit percentage (0.05 = 5%)",
     )
     user_id: str = Field(..., description="User identifier")
-    bot_id: Optional[str] = Field(None, description="Optional bot identifier")
+    bot_id: str | None = Field(None, description="Optional bot identifier")
 
 
 class CreateTrailingStopRequest(BaseModel):
@@ -49,20 +61,26 @@ class CreateTrailingStopRequest(BaseModel):
 
     position_id: str = Field(..., description="Unique position identifier")
     symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"})
-    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Original trade side")
+    side: str = Field(
+        ..., json_schema_extra={"example": "buy"}, description="Original trade side"
+    )
     quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1})
     entry_price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
     trailing_pct: float = Field(
-        ..., gt=0, le=1, json_schema_extra={"example": 0.03}, description="Trailing percentage (0.03 = 3%)"
+        ...,
+        gt=0,
+        le=1,
+        json_schema_extra={"example": 0.03},
+        description="Trailing percentage (0.03 = 3%)",
     )
     user_id: str = Field(..., description="User identifier")
-    bot_id: Optional[str] = Field(None, description="Optional bot identifier")
+    bot_id: str | None = Field(None, description="Optional bot identifier")
 
 
 class CheckTriggersRequest(BaseModel):
     """Request model for checking order triggers."""
 
-    current_prices: Dict[str, float] = Field(
+    current_prices: dict[str, float] = Field(
         ...,
         json_schema_extra={"example": {"BTC/USDT": 51000.0, "ETH/USDT": 3000.0}},
         description="Current prices for symbols",
@@ -212,9 +230,7 @@ async def cancel_order(order_id: str):
 
 
 @router.get("/active")
-async def get_active_orders(
-    user_id: Optional[str] = None, bot_id: Optional[str] = None
-):
+async def get_active_orders(user_id: str | None = None, bot_id: str | None = None):
     """Get all active stop-loss/take-profit orders."""
     try:
         service = get_sl_tp_service()

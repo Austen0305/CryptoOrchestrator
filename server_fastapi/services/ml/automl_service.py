@@ -2,12 +2,14 @@
 AutoML Service - Automated hyperparameter tuning and optimization
 """
 
-from typing import Dict, Any, Optional, List, Callable, Tuple
-from pydantic import BaseModel, Field
-from datetime import datetime
 import logging
-import numpy as np
+from collections.abc import Callable
+from datetime import datetime
 from enum import Enum
+from typing import Any
+
+import numpy as np
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ except ImportError:
 
 try:
     from skopt import gp_minimize
-    from skopt.space import Real, Integer, Categorical
+    from skopt.space import Categorical, Integer, Real
 
     SKOPT_AVAILABLE = True
 except ImportError:
@@ -45,10 +47,10 @@ class HyperparameterRange(BaseModel):
 
     name: str
     param_type: str  # 'int', 'float', 'categorical'
-    min: Optional[float] = None
-    max: Optional[float] = None
-    step: Optional[float] = None
-    values: Optional[List[Any]] = None  # For categorical
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    values: list[Any] | None = None  # For categorical
 
 
 class OptimizationConfig(BaseModel):
@@ -57,11 +59,11 @@ class OptimizationConfig(BaseModel):
     model_config = {"protected_namespaces": ()}
 
     model_type: str  # 'lstm', 'gru', 'transformer', 'xgboost'
-    hyperparameter_ranges: Dict[str, HyperparameterRange]
+    hyperparameter_ranges: dict[str, HyperparameterRange]
     search_strategy: SearchStrategy = SearchStrategy.BAYESIAN
     n_trials: int = 100
     n_jobs: int = 1  # Parallel trials
-    timeout: Optional[int] = None  # Timeout in seconds
+    timeout: int | None = None  # Timeout in seconds
     metric: str = "accuracy"  # Metric to optimize
     direction: str = "maximize"  # 'maximize' or 'minimize'
 
@@ -69,11 +71,11 @@ class OptimizationConfig(BaseModel):
 class OptimizationResult(BaseModel):
     """Optimization result"""
 
-    best_params: Dict[str, Any]
+    best_params: dict[str, Any]
     best_score: float
     n_trials: int
     optimization_time: float
-    trial_results: List[Dict[str, Any]] = []
+    trial_results: list[dict[str, Any]] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -86,7 +88,7 @@ class AutoMLService:
     def optimize_hyperparameters(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any = None,
     ) -> OptimizationResult:
         """Optimize hyperparameters using specified search strategy"""
@@ -109,7 +111,7 @@ class AutoMLService:
     def _grid_search(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any,
     ) -> OptimizationResult:
         """Grid search hyperparameter optimization"""
@@ -174,7 +176,7 @@ class AutoMLService:
                     best_score = score
                     best_params = params
             except Exception as e:
-                logger.warning(f"Trial {i+1} failed: {e}")
+                logger.warning(f"Trial {i + 1} failed: {e}")
                 continue
 
         optimization_time = time.time() - start_time
@@ -190,7 +192,7 @@ class AutoMLService:
     def _random_search(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any,
     ) -> OptimizationResult:
         """Random search hyperparameter optimization"""
@@ -227,7 +229,7 @@ class AutoMLService:
                     best_score = score
                     best_params = params
             except Exception as e:
-                logger.warning(f"Trial {i+1} failed: {e}")
+                logger.warning(f"Trial {i + 1} failed: {e}")
                 continue
 
         optimization_time = time.time() - start_time
@@ -243,7 +245,7 @@ class AutoMLService:
     def _bayesian_optimization(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any,
     ) -> OptimizationResult:
         """Bayesian optimization using Optuna or scikit-optimize"""
@@ -265,7 +267,7 @@ class AutoMLService:
     def _optuna_optimization(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any,
     ) -> OptimizationResult:
         """Bayesian optimization using Optuna"""
@@ -326,7 +328,7 @@ class AutoMLService:
     def _skopt_optimization(
         self,
         config: OptimizationConfig,
-        objective_function: Callable[[Dict[str, Any]], float],
+        objective_function: Callable[[dict[str, Any]], float],
         model_engine: Any,
     ) -> OptimizationResult:
         """Bayesian optimization using scikit-optimize"""

@@ -4,10 +4,9 @@ Calculates price correlations and generates correlation matrices for trading pai
 """
 
 import logging
+from typing import Any
+
 import numpy as np
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime, timedelta
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -16,13 +15,14 @@ class CorrelationService:
     """Service for calculating price correlations between trading pairs"""
 
     def __init__(self):
-        self._coingecko_service: Optional[Any] = None
+        self._coingecko_service: Any | None = None
 
     def _get_coingecko_service(self):
         """Lazy load CoinGecko service"""
         if self._coingecko_service is None:
             try:
                 from .coingecko_service import CoinGeckoService
+
                 self._coingecko_service = CoinGeckoService()
             except ImportError:
                 logger.warning("CoinGecko service not available")
@@ -30,15 +30,15 @@ class CorrelationService:
         return self._coingecko_service
 
     async def get_historical_prices(
-        self, symbols: List[str], days: int = 30
-    ) -> Dict[str, List[float]]:
+        self, symbols: list[str], days: int = 30
+    ) -> dict[str, list[float]]:
         """
         Get historical price data for multiple symbols
-        
+
         Args:
             symbols: List of trading pair symbols (e.g., ["BTC/USD", "ETH/USD"])
             days: Number of days of historical data to fetch
-            
+
         Returns:
             Dict mapping symbols to lists of closing prices
         """
@@ -46,8 +46,8 @@ class CorrelationService:
         if not coingecko:
             return {}
 
-        historical_data: Dict[str, List[float]] = {}
-        
+        historical_data: dict[str, list[float]] = {}
+
         # Fetch historical data for each symbol
         for symbol in symbols:
             try:
@@ -55,7 +55,9 @@ class CorrelationService:
                 prices = await coingecko.get_historical_prices(symbol, days=days)
                 if prices and len(prices) > 0:
                     # Extract closing prices
-                    historical_data[symbol] = [p.get("close", 0.0) for p in prices if p.get("close")]
+                    historical_data[symbol] = [
+                        p.get("close", 0.0) for p in prices if p.get("close")
+                    ]
                 else:
                     logger.warning(f"No historical data for {symbol}")
                     historical_data[symbol] = []
@@ -65,39 +67,39 @@ class CorrelationService:
 
         return historical_data
 
-    def calculate_returns(self, prices: List[float]) -> List[float]:
+    def calculate_returns(self, prices: list[float]) -> list[float]:
         """
         Calculate percentage returns from price series
-        
+
         Args:
             prices: List of closing prices
-            
+
         Returns:
             List of percentage returns
         """
         if len(prices) < 2:
             return []
-        
+
         returns = []
         for i in range(1, len(prices)):
-            if prices[i-1] > 0:
-                ret = (prices[i] - prices[i-1]) / prices[i-1] * 100
+            if prices[i - 1] > 0:
+                ret = (prices[i] - prices[i - 1]) / prices[i - 1] * 100
                 returns.append(ret)
             else:
                 returns.append(0.0)
-        
+
         return returns
 
     def calculate_correlation(
-        self, prices1: List[float], prices2: List[float]
+        self, prices1: list[float], prices2: list[float]
     ) -> float:
         """
         Calculate Pearson correlation coefficient between two price series
-        
+
         Args:
             prices1: First price series
             prices2: Second price series
-            
+
         Returns:
             Correlation coefficient (-1 to 1)
         """
@@ -123,70 +125,75 @@ class CorrelationService:
             return 0.0
 
     async def calculate_correlation_matrix(
-        self, symbols: List[str], days: int = 30
-    ) -> Dict[str, Dict[str, float]]:
+        self, symbols: list[str], days: int = 30
+    ) -> dict[str, dict[str, float]]:
         """
         Calculate correlation matrix for multiple trading pairs
-        
+
         Args:
             symbols: List of trading pair symbols
             days: Number of days of historical data to use
-            
+
         Returns:
             Nested dict: {symbol1: {symbol2: correlation, ...}, ...}
         """
         # Get historical prices for all symbols
         historical_prices = await self.get_historical_prices(symbols, days)
-        
+
         # Filter out symbols with insufficient data
         valid_symbols = [
-            s for s in symbols 
+            s
+            for s in symbols
             if s in historical_prices and len(historical_prices[s]) >= 2
         ]
-        
+
         if len(valid_symbols) < 2:
             logger.warning("Insufficient data for correlation calculation")
             return {}
 
         # Align price series to same length (use minimum length)
         min_length = min(len(historical_prices[s]) for s in valid_symbols)
-        aligned_prices: Dict[str, List[float]] = {}
-        
+        aligned_prices: dict[str, list[float]] = {}
+
         for symbol in valid_symbols:
             # Take the last min_length prices to align
             aligned_prices[symbol] = historical_prices[symbol][-min_length:]
 
         # Calculate correlation matrix
-        correlation_matrix: Dict[str, Dict[str, float]] = {}
-        
+        correlation_matrix: dict[str, dict[str, float]] = {}
+
         for i, symbol1 in enumerate(valid_symbols):
             correlation_matrix[symbol1] = {}
             for symbol2 in valid_symbols:
                 if symbol1 == symbol2:
                     correlation_matrix[symbol1][symbol2] = 1.0
-                elif symbol2 in correlation_matrix and symbol1 in correlation_matrix[symbol2]:
+                elif (
+                    symbol2 in correlation_matrix
+                    and symbol1 in correlation_matrix[symbol2]
+                ):
                     # Use symmetric property
-                    correlation_matrix[symbol1][symbol2] = correlation_matrix[symbol2][symbol1]
+                    correlation_matrix[symbol1][symbol2] = correlation_matrix[symbol2][
+                        symbol1
+                    ]
                 else:
                     corr = self.calculate_correlation(
-                        aligned_prices[symbol1],
-                        aligned_prices[symbol2]
+                        aligned_prices[symbol1], aligned_prices[symbol2]
                     )
                     correlation_matrix[symbol1][symbol2] = corr
 
         return correlation_matrix
 
     async def get_heatmap_data(
-        self, symbols: List[str], metric: str = "change_24h", days: int = 30
-    ) -> Dict[str, Dict[str, float]]:
+        self, symbols: list[str], metric: str = "change_24h", days: int = 30
+    ) -> dict[str, dict[str, float]]:
         """
         Get heatmap data for multiple symbols
-        
+
         Args:
             symbols: List of trading pair symbols
             metric: Metric to display ("change_24h", "volume_24h", "correlation")
             days: Number of days for correlation calculation (if metric is "correlation")
-            
+
         Returns:
             Dict with symbol data for heatmap visualization
         """
@@ -199,7 +206,7 @@ class CorrelationService:
             return await self.calculate_correlation_matrix(symbols, days)
         elif metric == "change_24h":
             # Get 24h price changes
-            heatmap_data: Dict[str, Dict[str, float]] = {}
+            heatmap_data: dict[str, dict[str, float]] = {}
             for symbol in symbols:
                 try:
                     market_data = await coingecko.get_market_data(symbol)
@@ -214,7 +221,7 @@ class CorrelationService:
             return heatmap_data
         elif metric == "volume_24h":
             # Get 24h volumes
-            heatmap_data: Dict[str, Dict[str, float]] = {}
+            heatmap_data: dict[str, dict[str, float]] = {}
             for symbol in symbols:
                 try:
                     market_data = await coingecko.get_market_data(symbol)

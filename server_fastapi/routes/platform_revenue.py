@@ -3,15 +3,15 @@ Platform Revenue Routes
 API endpoints for viewing platform revenue from deposit fees
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import Dict, Any, Optional, List, Annotated
-from datetime import datetime
 import logging
+from datetime import datetime
+from typing import Annotated, Any
 
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from ..database import get_db_context
 from ..dependencies.auth import get_current_user
 from ..services.platform_revenue import platform_revenue_service
-from ..database import get_db_context
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ router = APIRouter(prefix="/api/platform-revenue", tags=["Platform Revenue"])
 @router.get("/total")
 async def get_total_revenue(
     current_user: Annotated[dict, Depends(get_current_user)],
-    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
-    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
-) -> Dict[str, Any]:
+    start_date: str | None = Query(None, description="Start date (ISO format)"),
+    end_date: str | None = Query(None, description="End date (ISO format)"),
+) -> dict[str, Any]:
     """Get total platform revenue from deposit fees (admin only)"""
     try:
         # Check if user is admin (you may want to add proper admin check)
@@ -48,7 +48,7 @@ async def get_total_revenue(
 async def get_daily_revenue(
     current_user: Annotated[dict, Depends(get_current_user)],
     days: int = Query(30, ge=1, le=365, description="Number of days to retrieve"),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Get daily revenue breakdown (admin only)"""
     try:
         # Check if user is admin (you may want to add proper admin check)

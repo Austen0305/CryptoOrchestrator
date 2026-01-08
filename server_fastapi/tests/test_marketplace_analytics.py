@@ -4,14 +4,13 @@ Tests for Marketplace Analytics API Routes
 
 import pytest
 from httpx import AsyncClient
-from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
-from server_fastapi.models.signal_provider import SignalProvider, CuratorStatus
-from server_fastapi.models.indicator import Indicator, IndicatorStatus, IndicatorPurchase
+from server_fastapi.models.indicator import (
+    IndicatorStatus,
+)
+from server_fastapi.models.signal_provider import CuratorStatus, SignalProvider
 from server_fastapi.models.user import User
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -33,7 +32,7 @@ class TestMarketplaceAnalyticsRoutes:
         assert "copy_trading" in data
         assert "indicators" in data
         assert "timestamp" in data
-        
+
         # Verify structure
         assert "total_providers" in data["copy_trading"]
         assert "total_indicators" in data["indicators"]
@@ -43,7 +42,7 @@ class TestMarketplaceAnalyticsRoutes:
     ):
         """Test that non-admin users cannot access marketplace overview"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
-        
+
         response = await client.get(
             "/admin/marketplace/overview",
             headers=headers,
@@ -72,20 +71,18 @@ class TestMarketplaceAnalyticsRoutes:
     ):
         """Test getting top providers with different sort options"""
         sort_options = ["total_return", "sharpe_ratio", "follower_count", "rating"]
-        
+
         for sort_by in sort_options:
             response = await client.get(
                 f"/admin/marketplace/top-providers?limit=5&sort_by={sort_by}",
                 headers=admin_headers,
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data["sort_by"] == sort_by
 
-    async def test_get_top_indicators(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_top_indicators(self, client: AsyncClient, admin_headers: dict):
         """Test getting top indicators"""
         response = await client.get(
             "/admin/marketplace/top-indicators?limit=10&sort_by=purchase_count",
@@ -99,9 +96,7 @@ class TestMarketplaceAnalyticsRoutes:
         assert "sort_by" in data
         assert isinstance(data["indicators"], list)
 
-    async def test_get_revenue_trends(
-        self, client: AsyncClient, admin_headers: dict
-    ):
+    async def test_get_revenue_trends(self, client: AsyncClient, admin_headers: dict):
         """Test getting revenue trends"""
         response = await client.get(
             "/admin/marketplace/revenue-trends?days=30",
@@ -120,13 +115,13 @@ class TestMarketplaceAnalyticsRoutes:
     ):
         """Test getting revenue trends with different periods"""
         periods = [7, 30, 90, 365]
-        
+
         for days in periods:
             response = await client.get(
                 f"/admin/marketplace/revenue-trends?days={days}",
                 headers=admin_headers,
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data["period_days"] == days
@@ -140,7 +135,7 @@ class TestDeveloperAnalyticsRoutes:
     ):
         """Test getting developer analytics"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
-        
+
         response = await client.get(
             "/api/indicators/analytics/developer",
             headers=headers,
@@ -161,10 +156,10 @@ class TestDeveloperAnalyticsRoutes:
         """Test getting analytics for own indicator"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
         user_id = test_user_with_auth["user_id"]
-        
+
         # Create an indicator for this user
         from ..models.indicator import Indicator
-        
+
         indicator = Indicator(
             name="Test Indicator",
             code="values = [1.0]",
@@ -175,7 +170,7 @@ class TestDeveloperAnalyticsRoutes:
         db_session.add(indicator)
         await db_session.commit()
         await db_session.refresh(indicator)
-        
+
         response = await client.get(
             f"/api/indicators/analytics/indicator/{indicator.id}",
             headers=headers,
@@ -193,7 +188,7 @@ class TestDeveloperAnalyticsRoutes:
     ):
         """Test that non-owners cannot access indicator analytics"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
-        
+
         # Create another user and indicator
         other_user = User(
             email="other@test.com",
@@ -203,9 +198,9 @@ class TestDeveloperAnalyticsRoutes:
         db_session.add(other_user)
         await db_session.commit()
         await db.refresh(other_user)
-        
+
         from ..models.indicator import Indicator
-        
+
         indicator = Indicator(
             name="Other User Indicator",
             code="values = [1.0]",
@@ -216,7 +211,7 @@ class TestDeveloperAnalyticsRoutes:
         db_session.add(indicator)
         await db_session.commit()
         await db_session.refresh(indicator)
-        
+
         response = await client.get(
             f"/api/indicators/analytics/indicator/{indicator.id}",
             headers=headers,
@@ -234,7 +229,7 @@ class TestProviderAnalyticsRoutes:
         """Test getting analytics for own provider"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
         user_id = test_user_with_auth["user_id"]
-        
+
         # Create a signal provider for this user
         provider = SignalProvider(
             user_id=user_id,
@@ -244,7 +239,7 @@ class TestProviderAnalyticsRoutes:
         db_session.add(provider)
         await db_session.commit()
         await db_session.refresh(provider)
-        
+
         response = await client.get(
             f"/api/marketplace/analytics/provider/{provider.id}",
             headers=headers,
@@ -264,7 +259,7 @@ class TestProviderAnalyticsRoutes:
     ):
         """Test that non-owners cannot access provider analytics"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
-        
+
         # Create another user and provider
         other_user = User(
             email="other2@test.com",
@@ -274,7 +269,7 @@ class TestProviderAnalyticsRoutes:
         db_session.add(other_user)
         await db_session.commit()
         await db.refresh(other_user)
-        
+
         provider = SignalProvider(
             user_id=other_user.id,
             curator_status=CuratorStatus.APPROVED.value,
@@ -283,7 +278,7 @@ class TestProviderAnalyticsRoutes:
         db_session.add(provider)
         await db_session.commit()
         await db_session.refresh(provider)
-        
+
         response = await client.get(
             f"/api/marketplace/analytics/provider/{provider.id}",
             headers=headers,
@@ -296,7 +291,7 @@ class TestProviderAnalyticsRoutes:
     ):
         """Test getting analytics for non-existent provider"""
         headers = {"Authorization": f"Bearer {test_user_with_auth['token']}"}
-        
+
         response = await client.get(
             "/api/marketplace/analytics/provider/99999",
             headers=headers,

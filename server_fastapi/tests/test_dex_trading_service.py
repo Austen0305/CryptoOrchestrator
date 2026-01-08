@@ -3,18 +3,18 @@ DEX Trading Service Tests
 Unit tests for DEX trading service with mocked dependencies
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
-from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Optional imports - skip tests if services are not available
 try:
-    from server_fastapi.services.trading.dex_trading_service import DEXTradingService
-    from server_fastapi.services.trading.aggregator_router import AggregatorRouter
-    from server_fastapi.services.wallet_signature_service import WalletSignatureService
-    from server_fastapi.services.wallet_service import WalletService
     from server_fastapi.services.payments.trading_fee_service import TradingFeeService
+    from server_fastapi.services.trading.aggregator_router import AggregatorRouter
+    from server_fastapi.services.trading.dex_trading_service import DEXTradingService
+    from server_fastapi.services.wallet_service import WalletService
+    from server_fastapi.services.wallet_signature_service import WalletSignatureService
 
     DEX_TRADING_AVAILABLE = True
 except ImportError as e:
@@ -129,14 +129,17 @@ async def test_get_quote_no_aggregator_available(dex_service, db_session):
 async def test_execute_custodial_swap_success(dex_service, db_session):
     """Test successful custodial swap execution"""
     # Mock blockchain services
-    with patch(
-        "server_fastapi.services.trading.dex_trading_service.get_balance_service"
-    ) as mock_balance, patch(
-        "server_fastapi.services.trading.dex_trading_service.get_transaction_service"
-    ) as mock_tx, patch(
-        "server_fastapi.services.trading.dex_trading_service.get_key_management_service"
-    ) as mock_key:
-
+    with (
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.get_balance_service"
+        ) as mock_balance,
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.get_transaction_service"
+        ) as mock_tx,
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.get_key_management_service"
+        ) as mock_key,
+    ):
         # Mock balance check
         mock_balance_service = MagicMock()
         mock_balance_service.get_eth_balance = AsyncMock(return_value=Decimal("2.0"))
@@ -193,12 +196,14 @@ async def test_execute_custodial_swap_success(dex_service, db_session):
 @pytest.mark.asyncio
 async def test_execute_custodial_swap_insufficient_balance(dex_service, db_session):
     """Test custodial swap with insufficient balance"""
-    with patch(
-        "server_fastapi.services.trading.dex_trading_service.get_balance_service"
-    ) as mock_balance, patch(
-        "server_fastapi.services.trading.dex_trading_service.WalletRepository"
-    ) as mock_repo:
-
+    with (
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.get_balance_service"
+        ) as mock_balance,
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.WalletRepository"
+        ) as mock_repo,
+    ):
         # Mock insufficient balance
         mock_balance_service = MagicMock()
         mock_balance_service.get_eth_balance = AsyncMock(return_value=Decimal("0.5"))
@@ -302,12 +307,14 @@ async def test_error_handling_no_swap_calldata(dex_service, db_session):
     """Test error handling when swap calldata fails"""
     dex_service.router.get_swap_calldata = AsyncMock(return_value=None)
 
-    with patch(
-        "server_fastapi.services.trading.dex_trading_service.get_balance_service"
-    ) as mock_balance, patch(
-        "server_fastapi.services.trading.dex_trading_service.WalletRepository"
-    ) as mock_repo:
-
+    with (
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.get_balance_service"
+        ) as mock_balance,
+        patch(
+            "server_fastapi.services.trading.dex_trading_service.WalletRepository"
+        ) as mock_repo,
+    ):
         mock_balance_service = MagicMock()
         mock_balance_service.get_eth_balance = AsyncMock(return_value=Decimal("2.0"))
         mock_balance.return_value = mock_balance_service
@@ -456,8 +463,6 @@ async def test_get_swap_status_pending(dex_service, db_session):
         with patch(
             "server_fastapi.services.trading.dex_trading_service.DEXTrade"
         ) as mock_trade_model:
-            from sqlalchemy import select
-
             mock_trade = MagicMock()
             mock_trade.id = trade_id
             mock_trade.status = "executing"
@@ -807,7 +812,7 @@ async def test_network_timeout_error(dex_service, db_session):
     # Mock aggregator with timeout
     async def timeout_quote(*args, **kwargs):
         await asyncio.sleep(0.1)
-        raise asyncio.TimeoutError("Network timeout")
+        raise TimeoutError("Network timeout")
 
     dex_service.router.get_best_quote = AsyncMock(side_effect=timeout_quote)
 

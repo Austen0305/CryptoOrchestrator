@@ -4,14 +4,15 @@ Manages IP whitelists for enhanced security
 """
 
 import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, delete
-from ipaddress import ip_address, IPv4Address, IPv6Address
+from ipaddress import ip_address
+from typing import Any
 
-from ...models.base import User
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ...database import get_db_context
+from ...models.base import User
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +24,9 @@ class IPWhitelistService:
         self,
         user_id: int,
         ip_address_str: str,
-        label: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[str, Any]:
+        label: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
         """
         Add IP address to user's whitelist
 
@@ -60,8 +61,8 @@ class IPWhitelistService:
             return {"success": False, "error": str(e)}
 
     async def _add_ip_internal(
-        self, user_id: int, ip_address_str: str, label: Optional[str], db: AsyncSession
-    ) -> Dict[str, Any]:
+        self, user_id: int, ip_address_str: str, label: str | None, db: AsyncSession
+    ) -> dict[str, Any]:
         """Internal IP addition logic"""
         # Check if user exists
         user_result = await db.execute(select(User).where(User.id == user_id))
@@ -120,8 +121,8 @@ class IPWhitelistService:
         }
 
     async def remove_ip_from_whitelist(
-        self, user_id: int, ip_address_str: str, db: Optional[AsyncSession] = None
-    ) -> Dict[str, Any]:
+        self, user_id: int, ip_address_str: str, db: AsyncSession | None = None
+    ) -> dict[str, Any]:
         """Remove IP address from user's whitelist"""
         try:
             if db is None:
@@ -137,7 +138,7 @@ class IPWhitelistService:
 
     async def _remove_ip_internal(
         self, user_id: int, ip_address_str: str, db: AsyncSession
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Internal IP removal logic"""
         from ..repositories.preferences_repository import preferences_repository
 
@@ -183,8 +184,8 @@ class IPWhitelistService:
         }
 
     async def get_whitelist(
-        self, user_id: int, db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        self, user_id: int, db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """Get user's IP whitelist"""
         try:
             if db is None:
@@ -198,7 +199,7 @@ class IPWhitelistService:
 
     async def _get_whitelist_internal(
         self, user_id: int, db: AsyncSession
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Internal whitelist retrieval"""
         from ..repositories.preferences_repository import preferences_repository
 
@@ -216,7 +217,7 @@ class IPWhitelistService:
             return []
 
     async def is_ip_whitelisted(
-        self, user_id: int, ip_address_str: str, db: Optional[AsyncSession] = None
+        self, user_id: int, ip_address_str: str, db: AsyncSession | None = None
     ) -> bool:
         """Check if IP address is whitelisted for user"""
         try:

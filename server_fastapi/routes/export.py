@@ -2,19 +2,18 @@
 Export Routes - Export trades and performance data to CSV/PDF
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Response
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Optional, Annotated
-from datetime import datetime, date
-import logging
 import csv
 import io
+import logging
+from datetime import date, datetime
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..dependencies.pnl import get_pnl_service
-from ..database import get_db_session
 from ..services.pnl_service import PnLService
 from ..utils.route_helpers import _get_user_id
 
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def generate_trades_csv(trades: List[dict]) -> str:
+def generate_trades_csv(trades: list[dict]) -> str:
     """
     Generate CSV string from trades data.
 
@@ -104,10 +103,10 @@ def generate_performance_csv(metrics: dict) -> str:
 async def export_trades_csv(
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[date] = Query(None, description="Start date for export"),
-    end_date: Optional[date] = Query(None, description="End date for export"),
-    bot_id: Optional[str] = Query(None, description="Filter by bot ID"),
-    symbol: Optional[str] = Query(None, description="Filter by symbol"),
+    start_date: date | None = Query(None, description="Start date for export"),
+    end_date: date | None = Query(None, description="End date for export"),
+    bot_id: str | None = Query(None, description="Filter by bot ID"),
+    symbol: str | None = Query(None, description="Filter by symbol"),
 ):
     """
     Export trades to CSV file.
@@ -116,7 +115,8 @@ async def export_trades_csv(
     """
     try:
         user_id = _get_user_id(current_user)
-        from sqlalchemy import select, and_
+        from sqlalchemy import select
+
         from ..models.trade import Trade
 
         # Build query
@@ -190,9 +190,9 @@ async def export_performance_csv(
     current_user: Annotated[dict, Depends(get_current_user)],
     db_session: Annotated[AsyncSession, Depends(get_db_session)],
     pnl_service: Annotated[PnLService, Depends(get_pnl_service)],
-    start_date: Optional[date] = Query(None, description="Start date for export"),
-    end_date: Optional[date] = Query(None, description="End date for export"),
-    mode: Optional[str] = Query("paper", description="Trading mode (paper/real)"),
+    start_date: date | None = Query(None, description="Start date for export"),
+    end_date: date | None = Query(None, description="End date for export"),
+    mode: str | None = Query("paper", description="Trading mode (paper/real)"),
 ):
     """
     Export performance metrics to CSV file.
@@ -200,9 +200,9 @@ async def export_performance_csv(
     try:
         user_id = _get_user_id(current_user)
         # Fetch actual performance metrics from trades
-        from sqlalchemy import select, func, and_
+        from sqlalchemy import and_, select
+
         from ..models.trade import Trade
-        from ..services.pnl_service import PnLService
         from ..utils.trading_utils import normalize_trading_mode
 
         # Get user's trades
@@ -301,6 +301,7 @@ async def export_bots_csv(
     try:
         user_id = _get_user_id(current_user)
         from sqlalchemy import select
+
         from ..models.bot import Bot
 
         # Get all user's bots
@@ -328,7 +329,8 @@ async def export_bots_csv(
         writer.writeheader()
 
         # Get trades for all bots to calculate win rates
-        from sqlalchemy import select, and_
+        from sqlalchemy import and_, select
+
         from ..models.trade import Trade
 
         for bot in bots:

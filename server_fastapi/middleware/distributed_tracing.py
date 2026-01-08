@@ -5,22 +5,24 @@ Provides OpenTelemetry and custom tracing support
 
 import logging
 import time
-from typing import Dict, Any, Optional
+import uuid
+from typing import Any
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-import uuid
 
 logger = logging.getLogger(__name__)
 
 # Try to import OpenTelemetry
 try:
     from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
     OPENTELEMETRY_AVAILABLE = True
 except ImportError:
     OPENTELEMETRY_AVAILABLE = False
@@ -66,7 +68,7 @@ class DistributedTracing:
         """Setup custom tracing (fallback)"""
         logger.info("Using custom tracing (OpenTelemetry not available)")
 
-    def start_span(self, name: str, context: Optional[Dict[str, Any]] = None):
+    def start_span(self, name: str, context: dict[str, Any] | None = None):
         """Start a trace span"""
         if self.enable_opentelemetry and self.tracer:
             span = self.tracer.start_span(name)
@@ -78,7 +80,7 @@ class DistributedTracing:
             # Custom span object
             return CustomSpan(name, context or {})
 
-    def get_trace_context(self, request: Request) -> Dict[str, str]:
+    def get_trace_context(self, request: Request) -> dict[str, str]:
         """Extract trace context from request"""
         trace_id = request.headers.get("X-Trace-ID") or str(uuid.uuid4())
         span_id = request.headers.get("X-Span-ID") or str(uuid.uuid4())
@@ -90,7 +92,9 @@ class DistributedTracing:
             "parent_span_id": parent_span_id,
         }
 
-    def inject_trace_context(self, headers: Dict[str, str], trace_id: str, span_id: str):
+    def inject_trace_context(
+        self, headers: dict[str, str], trace_id: str, span_id: str
+    ):
         """Inject trace context into headers"""
         headers["X-Trace-ID"] = trace_id
         headers["X-Span-ID"] = span_id
@@ -99,7 +103,7 @@ class DistributedTracing:
 class CustomSpan:
     """Custom span implementation (fallback)"""
 
-    def __init__(self, name: str, attributes: Dict[str, Any]):
+    def __init__(self, name: str, attributes: dict[str, Any]):
         self.name = name
         self.attributes = attributes
         self.start_time = time.perf_counter()
@@ -113,7 +117,7 @@ class CustomSpan:
         """End the span"""
         self.end_time = time.perf_counter()
         duration = self.end_time - self.start_time
-        logger.debug(f"Span {self.name} completed in {duration*1000:.2f}ms")
+        logger.debug(f"Span {self.name} completed in {duration * 1000:.2f}ms")
 
     def __enter__(self):
         return self

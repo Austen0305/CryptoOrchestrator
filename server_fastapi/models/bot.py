@@ -3,9 +3,11 @@ Bot database model.
 """
 
 from datetime import datetime
-from typing import Optional, Dict, Any, TYPE_CHECKING
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, Text, ForeignKey
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from .base import BaseModel
 
 if TYPE_CHECKING:
@@ -29,18 +31,16 @@ class Bot(BaseModel):
     user: Mapped["User"] = relationship("User", back_populates="bots")
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
     strategy: Mapped[str] = mapped_column(String(50), nullable=False)
-    parameters: Mapped[Optional[str]] = mapped_column(
-        Text, nullable=True
-    )  # JSON string
+    parameters: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
     active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="stopped", nullable=False)
-    last_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_stopped_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    performance_data: Mapped[Optional[str]] = mapped_column(
+    last_started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_stopped_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    performance_data: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # JSON string
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert bot instance to dictionary with parsed JSON fields.
         Maps DB column names to API response format.

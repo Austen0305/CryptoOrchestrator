@@ -3,16 +3,16 @@ Load Testing Script for Marketplace Endpoints
 Run with: locust -f server_fastapi/tests/load_test_marketplace.py
 """
 
-from locust import HttpUser, task, between
 import random
-import json
+
+from locust import HttpUser, between, task
 
 
 class MarketplaceUser(HttpUser):
     """Simulates user interactions with marketplace endpoints"""
-    
+
     wait_time = between(1, 3)  # Wait 1-3 seconds between requests
-    
+
     def on_start(self):
         """Login and get auth token"""
         # Register/login (simplified for load testing)
@@ -31,7 +31,7 @@ class MarketplaceUser(HttpUser):
                 self.token = data.get("access_token")
         except:
             pass
-        
+
         # If registration failed, try login
         if not self.token:
             try:
@@ -47,45 +47,55 @@ class MarketplaceUser(HttpUser):
                     self.token = data.get("access_token")
             except:
                 pass
-    
+
     def _get_headers(self):
         """Get headers with auth token"""
         if self.token:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
-    
+
     @task(3)
     def browse_traders(self):
         """Browse marketplace traders (most common action)"""
         params = {
             "skip": random.randint(0, 10) * 20,
             "limit": 20,
-            "sort_by": random.choice(["total_return", "sharpe_ratio", "win_rate", "rating"]),
+            "sort_by": random.choice(
+                ["total_return", "sharpe_ratio", "win_rate", "rating"]
+            ),
         }
-        self.client.get("/api/marketplace/traders", params=params, headers=self._get_headers())
-    
+        self.client.get(
+            "/api/marketplace/traders", params=params, headers=self._get_headers()
+        )
+
     @task(2)
     def view_trader_profile(self):
         """View a specific trader profile"""
         trader_id = random.randint(1, 100)  # Assume traders exist
-        self.client.get(f"/api/marketplace/traders/{trader_id}", headers=self._get_headers())
-    
+        self.client.get(
+            f"/api/marketplace/traders/{trader_id}", headers=self._get_headers()
+        )
+
     @task(1)
     def browse_indicators(self):
         """Browse indicator marketplace"""
         params = {
             "skip": random.randint(0, 5) * 20,
             "limit": 20,
-            "category": random.choice(["trend", "momentum", "volatility", "volume", None]),
+            "category": random.choice(
+                ["trend", "momentum", "volatility", "volume", None]
+            ),
         }
-        self.client.get("/api/indicators/marketplace", params=params, headers=self._get_headers())
-    
+        self.client.get(
+            "/api/indicators/marketplace", params=params, headers=self._get_headers()
+        )
+
     @task(1)
     def view_indicator(self):
         """View a specific indicator"""
         indicator_id = random.randint(1, 100)  # Assume indicators exist
         self.client.get(f"/api/indicators/{indicator_id}", headers=self._get_headers())
-    
+
     @task(1)
     def rate_trader(self):
         """Rate a trader (less frequent)"""
@@ -99,7 +109,7 @@ class MarketplaceUser(HttpUser):
                 },
                 headers=self._get_headers(),
             )
-    
+
     @task(1)
     def apply_as_provider(self):
         """Apply as signal provider (rare)"""
@@ -113,20 +123,20 @@ class MarketplaceUser(HttpUser):
 
 class AdminUser(HttpUser):
     """Simulates admin interactions"""
-    
+
     wait_time = between(2, 5)
     weight = 1  # Fewer admin users
-    
+
     def on_start(self):
         """Login as admin"""
         # This would need actual admin credentials
         self.token = None
-    
+
     def _get_headers(self):
         if self.token:
             return {"Authorization": f"Bearer {self.token}"}
         return {}
-    
+
     @task(1)
     def verify_providers(self):
         """Verify provider performance"""
@@ -136,7 +146,7 @@ class AdminUser(HttpUser):
                 params={"period_days": 90},
                 headers=self._get_headers(),
             )
-    
+
     @task(1)
     def get_flagged_providers(self):
         """Get flagged providers"""

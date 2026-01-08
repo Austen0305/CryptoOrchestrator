@@ -5,16 +5,14 @@ Cross-chain swaps across 100+ blockchains
 Good for users with assets on different chains
 """
 
-import httpx
-import os
-import logging
-from typing import Dict, List, Optional, Any
-from decimal import Decimal
-from datetime import datetime
 import asyncio
-from typing import Optional as Opt
+import logging
+import os
+from typing import Any
 
-from ..monitoring.circuit_breaker import CircuitBreaker, CircuitState
+import httpx
+
+from ..monitoring.circuit_breaker import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +32,7 @@ class RubicService:
         self.max_retries = 3
         self.retry_delay_base = 1.0
         # Shared HTTP client with connection pooling (reuse connections)
-        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client: httpx.AsyncClient | None = None
 
     async def _rate_limit(self):
         """Enforce rate limiting"""
@@ -44,7 +42,7 @@ class RubicService:
             await asyncio.sleep(self.RATE_LIMIT_DELAY - time_since_last)
         self.last_request_time = asyncio.get_event_loop().time()
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _get_headers(self) -> dict[str, str]:
         """Get request headers with API key if available"""
         headers = {"Content-Type": "application/json"}
         if self.api_key:
@@ -57,10 +55,10 @@ class RubicService:
         to_token_address: str,
         amount: str,
         from_chain_id: int = 1,  # Source chain
-        to_chain_id: Optional[int] = None,  # Destination chain (None = same chain)
+        to_chain_id: int | None = None,  # Destination chain (None = same chain)
         slippage_tolerance: float = 0.5,
-        user_wallet_address: Optional[str] = None,
-    ) -> Optional[Dict[str, Any]]:
+        user_wallet_address: str | None = None,
+    ) -> dict[str, Any] | None:
         """
         Get a quote for a token swap (supports cross-chain)
 
@@ -247,8 +245,8 @@ class RubicService:
         to_token_address: str,
         amount: str,
         from_chain_id: int = 1,
-        to_chain_id: Optional[int] = None,
-    ) -> Optional[float]:
+        to_chain_id: int | None = None,
+    ) -> float | None:
         """
         Get the price (output amount) for a given input amount
 
@@ -288,9 +286,9 @@ class RubicService:
         amount: str,
         user_wallet_address: str,
         from_chain_id: int = 1,
-        to_chain_id: Optional[int] = None,
+        to_chain_id: int | None = None,
         slippage_tolerance: float = 0.5,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get swap calldata for execution (supports cross-chain)
 
@@ -331,7 +329,7 @@ class RubicService:
 
         return swap_data
 
-    async def get_supported_chains(self) -> List[Dict[str, Any]]:
+    async def get_supported_chains(self) -> list[dict[str, Any]]:
         """
         Get list of supported blockchain networks (100+ chains)
 
@@ -363,7 +361,7 @@ class RubicService:
         self,
         from_chain_id: int,
         to_chain_id: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check if bridge between two chains is operational.
 
@@ -419,7 +417,7 @@ class RubicService:
         self,
         transaction_hash: str,
         chain_id: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get status of a cross-chain swap transaction.
 

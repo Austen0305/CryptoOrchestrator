@@ -3,25 +3,24 @@ Business Metrics API Endpoints
 Exposes business KPIs: revenue, user growth, trading volume, etc.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated
 import logging
+from datetime import datetime
+from typing import Annotated
 
-from ..dependencies.auth import require_permission
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..database import get_db_session
+from ..dependencies.auth import require_permission
 from ..services.monitoring.business_metrics import get_business_metrics_service
 from ..services.monitoring.enhanced_business_metrics import (
     get_enhanced_business_metrics_service,
 )
-from ..services.platform_revenue import platform_revenue_service
 from ..services.observability.opentelemetry_setup import (
     get_tracer,
-    get_meter,
     record_metric,
 )
+from ..services.platform_revenue import platform_revenue_service
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +58,8 @@ async def get_business_metrics_summary(
 async def get_revenue_metrics(
     current_user: Annotated[dict, Depends(require_permission("admin:metrics"))],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    start_date: Optional[datetime] = Query(None, description="Start date"),
-    end_date: Optional[datetime] = Query(None, description="End date"),
+    start_date: datetime | None = Query(None, description="Start date"),
+    end_date: datetime | None = Query(None, description="End date"),
 ):
     """Get revenue metrics (admin only)"""
     try:

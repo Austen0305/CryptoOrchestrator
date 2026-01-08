@@ -4,13 +4,13 @@ Additional protection layers to ensure no money is lost during deposits
 """
 
 import logging
-from typing import Dict, Optional, List
 from datetime import datetime, timedelta
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
 
-from ..models.wallet import WalletTransaction, TransactionStatus
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..models.wallet import TransactionStatus, WalletTransaction
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class DepositProtectionService:
 
     async def check_deposit_consistency(
         self, user_id: int, db: AsyncSession
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Check deposit consistency - verify all deposits are properly recorded
 
@@ -99,7 +99,7 @@ class DepositProtectionService:
 
     async def reconcile_deposit(
         self, payment_intent_id: str, db: AsyncSession
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Reconcile a deposit - verify payment was received and transaction is recorded
 
@@ -108,6 +108,7 @@ class DepositProtectionService:
         """
         try:
             from sqlalchemy import select
+
             from ..models.wallet import WalletTransaction
 
             # Find transaction
@@ -128,12 +129,14 @@ class DepositProtectionService:
             try:
                 from ..services.deposit_safety import deposit_safety_service
 
-                is_verified, error_msg, payment_details = (
-                    await deposit_safety_service.verify_payment_received(
-                        payment_intent_id,
-                        Decimal(str(transaction.amount)),
-                        transaction.currency,
-                    )
+                (
+                    is_verified,
+                    error_msg,
+                    payment_details,
+                ) = await deposit_safety_service.verify_payment_received(
+                    payment_intent_id,
+                    Decimal(str(transaction.amount)),
+                    transaction.currency,
                 )
 
                 return {

@@ -1,7 +1,8 @@
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel
 import logging
 from dataclasses import dataclass
+from typing import Any
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +26,15 @@ class MarketMetrics:
 
 
 class MarketAnalysisResult(BaseModel):
-    summary: Dict[str, Any]
-    details: Dict[str, Any]
+    summary: dict[str, Any]
+    details: dict[str, Any]
 
 
 class MarketAnalysisService:
     def __init__(self):
         pass
 
-    def calculateTrendStrength(self, data: List[Dict[str, Any]]) -> float:
+    def calculateTrendStrength(self, data: list[dict[str, Any]]) -> float:
         if len(data) < 2:
             return 0.0
 
@@ -71,7 +72,7 @@ class MarketAnalysisService:
 
         return abs(adx)
 
-    def analyzeVolumeProfile(self, data: List[Dict[str, Any]]) -> VolumeProfile:
+    def analyzeVolumeProfile(self, data: list[dict[str, Any]]) -> VolumeProfile:
         buyVolume = 0.0
         sellVolume = 0.0
         largeOrders = 0
@@ -94,7 +95,7 @@ class MarketAnalysisService:
             largeOrders=largeOrders,
         )
 
-    def calculateMarketEfficiencyRatio(self, data: List[Dict[str, Any]]) -> float:
+    def calculateMarketEfficiencyRatio(self, data: list[dict[str, Any]]) -> float:
         if len(data) < 2:
             return 0.0
 
@@ -142,13 +143,13 @@ class MarketAnalysisService:
             + normalizedVolumeProfile * weights["volumeProfile"]
         )
 
-    def _smoothSeries(self, data: List[float], period: int) -> float:
+    def _smoothSeries(self, data: list[float], period: int) -> float:
         if len(data) < period:
             return sum(data) / len(data) if data else 0.0
         return sum(data[-period:]) / period
 
     def analyze(
-        self, data: List[Dict[str, Any]], volatility_analyzer: Optional[Any] = None
+        self, data: list[dict[str, Any]], volatility_analyzer: Any | None = None
     ) -> MarketAnalysisResult:
         try:
             # Calculate metrics

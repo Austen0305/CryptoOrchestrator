@@ -5,11 +5,12 @@ Logs slow queries (> 100ms) and tracks query performance.
 
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
+
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..services.monitoring.performance_profiler import get_performance_profiler
 

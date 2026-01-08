@@ -3,8 +3,10 @@ Portfolio Model - User portfolio holdings
 """
 
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, DateTime, JSON
+
+from sqlalchemy import JSON, DateTime, Float, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
+
 from .base import Base, TimestampMixin
 
 

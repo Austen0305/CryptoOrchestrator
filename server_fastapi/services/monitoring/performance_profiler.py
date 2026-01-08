@@ -5,12 +5,11 @@ Identifies slow endpoints and slow database queries.
 
 import logging
 import time
-from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
 from collections import defaultdict
-from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timedelta
+from typing import Any
+
 from sqlalchemy import event
-from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +24,14 @@ class PerformanceProfiler:
     """Service for performance profiling and slow query/endpoint detection"""
 
     def __init__(self):
-        self.slow_queries: List[Dict[str, Any]] = []
-        self.slow_endpoints: List[Dict[str, Any]] = []
-        self.query_times: Dict[str, List[float]] = defaultdict(list)
-        self.endpoint_times: Dict[str, List[float]] = defaultdict(list)
+        self.slow_queries: list[dict[str, Any]] = []
+        self.slow_endpoints: list[dict[str, Any]] = []
+        self.query_times: dict[str, list[float]] = defaultdict(list)
+        self.endpoint_times: dict[str, list[float]] = defaultdict(list)
         self.max_entries = 1000  # Keep last 1000 entries
 
     def record_query(
-        self, query: str, duration_ms: float, params: Optional[Dict[str, Any]] = None
+        self, query: str, duration_ms: float, params: dict[str, Any] | None = None
     ) -> None:
         """Record a database query execution time"""
         self.query_times[query].append(duration_ms)
@@ -130,19 +129,19 @@ class PerformanceProfiler:
                         },
                     )
 
-    def get_slow_queries(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_slow_queries(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get slow queries sorted by duration"""
         return sorted(self.slow_queries, key=lambda x: x["duration_ms"], reverse=True)[
             :limit
         ]
 
-    def get_slow_endpoints(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_slow_endpoints(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get slow endpoints sorted by p95"""
         return sorted(
             self.slow_endpoints, key=lambda x: x.get("p95_ms", 0), reverse=True
         )[:limit]
 
-    def get_query_statistics(self, query: Optional[str] = None) -> Dict[str, Any]:
+    def get_query_statistics(self, query: str | None = None) -> dict[str, Any]:
         """Get statistics for queries"""
         if query:
             times = self.query_times.get(query, [])
@@ -174,8 +173,8 @@ class PerformanceProfiler:
         }
 
     def get_endpoint_statistics(
-        self, method: Optional[str] = None, path: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, method: str | None = None, path: str | None = None
+    ) -> dict[str, Any]:
         """Get statistics for endpoints"""
         if method and path:
             endpoint_key = f"{method} {path}"
@@ -227,7 +226,7 @@ class PerformanceProfiler:
 
 
 # Singleton instance
-_performance_profiler: Optional[PerformanceProfiler] = None
+_performance_profiler: PerformanceProfiler | None = None
 
 
 def get_performance_profiler() -> PerformanceProfiler:

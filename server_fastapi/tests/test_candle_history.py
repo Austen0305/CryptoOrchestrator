@@ -1,9 +1,11 @@
-from fastapi.testclient import TestClient
-from server_fastapi.main import app
-from server_fastapi.database import async_session, init_database
-from sqlalchemy import delete
-from server_fastapi.models.candle import Candle
 import asyncio
+
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+
+from server_fastapi.database import async_session, init_database
+from server_fastapi.main import app
+from server_fastapi.models.candle import Candle
 
 client = TestClient(app)
 

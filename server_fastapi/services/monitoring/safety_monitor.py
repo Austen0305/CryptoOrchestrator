@@ -2,13 +2,13 @@
 Safety monitoring service
 """
 
-from typing import Dict, List, Optional
-from pydantic import BaseModel
-import sqlite3
+import logging
 import os
+import sqlite3
 import time
 import uuid
-import logging
+
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class SafetyMonitor:
             logger.error(f"Failed to save alert {alert.id}: {e}")
             raise
 
-    async def check_safety_conditions(self) -> List[SafetyAlert]:
+    async def check_safety_conditions(self) -> list[SafetyAlert]:
         """Check various safety conditions and generate alerts"""
         alerts = []
 
@@ -99,8 +99,8 @@ class SafetyMonitor:
         return alerts
 
     async def monitor_position_sizes(
-        self, portfolio: Dict[str, any]
-    ) -> Optional[SafetyAlert]:
+        self, portfolio: dict[str, any]
+    ) -> SafetyAlert | None:
         """Monitor position sizes for risk limits"""
         # Define risk limits (these could be configurable)
         MAX_POSITION_SIZE_PERCENT = 20.0  # Max 20% of portfolio per position
@@ -149,7 +149,7 @@ class SafetyMonitor:
 
     async def monitor_drawdown(
         self, portfolio_value: float, peak_value: float
-    ) -> Optional[SafetyAlert]:
+    ) -> SafetyAlert | None:
         """Monitor portfolio drawdown"""
         if peak_value <= 0:
             return None
@@ -237,7 +237,7 @@ class SafetyMonitor:
             logger.error(f"Emergency stop failed: {e}")
             return False
 
-    async def get_active_alerts(self) -> List[SafetyAlert]:
+    async def get_active_alerts(self) -> list[SafetyAlert]:
         """Get all active safety alerts"""
         try:
             with sqlite3.connect(self.db_path) as conn:

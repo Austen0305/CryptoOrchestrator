@@ -4,33 +4,31 @@ Manage and query DEX positions for users
 """
 
 import logging
-from typing import Annotated, List, Optional
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..models.dex_position import DEXPosition
-from ..services.trading.dex_position_service import DEXPositionService
-from ..dependencies.dex_positions import get_dex_position_service
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.dex_positions import get_dex_position_service
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..services.trading.dex_position_service import DEXPositionService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/positions", tags=["DEX Positions"])
 
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=list[dict])
 @cached(ttl=60, prefix="dex_positions")  # 60s TTL for DEX positions
 async def get_positions(
     current_user: Annotated[dict, Depends(get_current_user)],
     service: Annotated[DEXPositionService, Depends(get_dex_position_service)],
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    chain_id: Optional[int] = Query(None, description="Filter by chain ID"),
-    is_open: Optional[bool] = Query(None, description="Filter by open/closed status"),
-) -> List[dict]:
+    chain_id: int | None = Query(None, description="Filter by chain ID"),
+    is_open: bool | None = Query(None, description="Filter by open/closed status"),
+) -> list[dict]:
     """
     Get user's DEX positions with pagination.
 

@@ -3,10 +3,10 @@ Circuit Breaker Metrics and Management Endpoint
 Provides visibility into circuit breaker health
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class CircuitBreakerSummary(BaseModel):
     degraded: int
     open: int
     average_health_score: float
-    breakers: List[CircuitBreakerStats]
+    breakers: list[CircuitBreakerStats]
 
 
 @router.get("/stats", response_model=CircuitBreakerSummary)
@@ -53,8 +53,8 @@ async def get_circuit_breaker_stats():
     """
     try:
         from ..middleware.circuit_breaker import (
-            exchange_breaker,
             database_breaker,
+            exchange_breaker,
             ml_service_breaker,
         )
 
@@ -93,8 +93,8 @@ async def reset_circuit_breaker(name: str):
     """
     try:
         from ..middleware.circuit_breaker import (
-            exchange_breaker,
             database_breaker,
+            exchange_breaker,
             ml_service_breaker,
         )
 
@@ -133,8 +133,8 @@ async def get_circuit_breaker_detail(name: str):
     """Get detailed stats for a specific circuit breaker"""
     try:
         from ..middleware.circuit_breaker import (
-            exchange_breaker,
             database_breaker,
+            exchange_breaker,
             ml_service_breaker,
         )
 

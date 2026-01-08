@@ -4,9 +4,9 @@ Implements rate limiting for Celery tasks to prevent resource exhaustion.
 """
 
 import logging
-from typing import Dict, Optional, Tuple, Any
-from datetime import datetime, timedelta
 from collections import deque
+from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,9 @@ class TaskRateLimiter:
 
     def __init__(self) -> None:
         # Rate limit configuration: {task_name: (max_calls, time_window_seconds)}
-        self.rate_limits: Dict[str, Tuple[int, int]] = {}
+        self.rate_limits: dict[str, tuple[int, int]] = {}
         # Request history: {task_name: deque of timestamps}
-        self.request_history: Dict[str, deque] = {}
+        self.request_history: dict[str, deque] = {}
 
     def set_rate_limit(
         self, task_name: str, max_calls: int, time_window_seconds: int
@@ -41,7 +41,7 @@ class TaskRateLimiter:
             f"Rate limit set for {task_name}: {max_calls} calls per {time_window_seconds}s"
         )
 
-    def check_rate_limit(self, task_name: str) -> Tuple[bool, Optional[str]]:
+    def check_rate_limit(self, task_name: str) -> tuple[bool, str | None]:
         """
         Check if task execution is allowed under rate limit.
 
@@ -116,7 +116,7 @@ class TaskRateLimiter:
                 )
         return task_name == pattern
 
-    def get_rate_limit_status(self, task_name: str) -> Dict[str, Any]:
+    def get_rate_limit_status(self, task_name: str) -> dict[str, Any]:
         """
         Get current rate limit status for a task.
 

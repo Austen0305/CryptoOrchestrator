@@ -3,16 +3,16 @@ Advanced Security Enhancements
 Provides additional security features beyond basic middleware
 """
 
-import logging
 import hashlib
-import hmac
+import logging
+import re
 import time
-from typing import Dict, Any, Optional, List, Set
-from fastapi import Request, HTTPException, status
+from datetime import datetime, timedelta
+from typing import Any
+
+from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from datetime import datetime, timedelta
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +66,12 @@ class SecurityThreatDetector:
         ]
 
         # Threat tracking
-        self.threats: Dict[str, List[datetime]] = {}
-        self.blocked_ips: Set[str] = set()
+        self.threats: dict[str, list[datetime]] = {}
+        self.blocked_ips: set[str] = set()
         self.threat_threshold = 5  # Block after 5 threats
         self.threat_window = timedelta(minutes=5)
 
-    def detect_threats(self, request: Request) -> List[str]:
+    def detect_threats(self, request: Request) -> list[str]:
         """Detect security threats in request"""
         threats = []
 
@@ -99,7 +99,7 @@ class SecurityThreatDetector:
 
         return threats
 
-    def _check_path(self, path: str) -> List[str]:
+    def _check_path(self, path: str) -> list[str]:
         """Check path for threats"""
         threats = []
 
@@ -120,7 +120,7 @@ class SecurityThreatDetector:
 
         return threats
 
-    def _check_value(self, field: str, value: str) -> List[str]:
+    def _check_value(self, field: str, value: str) -> list[str]:
         """Check value for threats"""
         threats = []
 
@@ -175,10 +175,10 @@ class APIKeyManager:
     """API key management and validation"""
 
     def __init__(self):
-        self.keys: Dict[str, Dict[str, Any]] = {}
-        self.key_usage: Dict[str, List[datetime]] = {}
+        self.keys: dict[str, dict[str, Any]] = {}
+        self.key_usage: dict[str, list[datetime]] = {}
 
-    def generate_key(self, user_id: str, permissions: List[str]) -> str:
+    def generate_key(self, user_id: str, permissions: list[str]) -> str:
         """Generate API key"""
         key_data = f"{user_id}:{time.time()}:{permissions}"
         api_key = hashlib.sha256(key_data.encode()).hexdigest()
@@ -193,7 +193,7 @@ class APIKeyManager:
 
         return api_key
 
-    def validate_key(self, api_key: str) -> Optional[Dict[str, Any]]:
+    def validate_key(self, api_key: str) -> dict[str, Any] | None:
         """Validate API key"""
         if api_key not in self.keys:
             return None

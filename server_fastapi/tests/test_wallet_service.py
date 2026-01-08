@@ -3,8 +3,9 @@ Wallet Service Tests
 Unit tests for wallet management service
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Optional dependency for blockchain features
 try:
@@ -15,8 +16,8 @@ except ImportError:
     ETH_ACCOUNT_AVAILABLE = False
     Account = None
 
-from server_fastapi.services.wallet_service import WalletService
 from server_fastapi.repositories.wallet_repository import WalletRepository
+from server_fastapi.services.wallet_service import WalletService
 
 
 @pytest.fixture
@@ -65,7 +66,9 @@ async def test_is_address_valid(wallet_service):
         valid_address = account.address
     else:
         # Use a known valid 42-character Ethereum address (Vitalik's address as example)
-        valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+        valid_address = (
+            "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+        )
     invalid_address = "0xinvalid"
 
     assert wallet_service.is_address_valid(valid_address) is True
@@ -75,7 +78,10 @@ async def test_is_address_valid(wallet_service):
 @pytest.mark.asyncio
 async def test_create_custodial_wallet(wallet_service, db_session, mock_repository):
     """Test creating a custodial wallet"""
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         result = await wallet_service.create_custodial_wallet(
             user_id=1,
             chain_id=1,
@@ -110,7 +116,10 @@ async def test_register_external_wallet(wallet_service, db_session, mock_reposit
     )
     mock_repository.get_user_wallet = AsyncMock(return_value=None)  # No existing wallet
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         result = await wallet_service.register_external_wallet(
             user_id=1,
             wallet_address=address,
@@ -135,16 +144,20 @@ async def test_register_external_wallet_invalid_address(wallet_service, db_sessi
         chain_id=1,
         db=db_session,
     )
-    
+
     # Service returns None for invalid addresses
     assert result is None
 
 
 @pytest.mark.asyncio
-async def test_get_deposit_address_existing(wallet_service, db_session, mock_repository):
+async def test_get_deposit_address_existing(
+    wallet_service, db_session, mock_repository
+):
     """Test getting existing deposit address"""
     # Use a valid 42-character Ethereum address
-    valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    valid_address = (
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    )
     mock_repository.get_user_wallet = AsyncMock(
         return_value=MagicMock(
             wallet_address=valid_address,
@@ -152,7 +165,10 @@ async def test_get_deposit_address_existing(wallet_service, db_session, mock_rep
         )
     )
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         address = await wallet_service.get_deposit_address(
             user_id=1,
             chain_id=1,
@@ -163,10 +179,14 @@ async def test_get_deposit_address_existing(wallet_service, db_session, mock_rep
 
 
 @pytest.mark.asyncio
-async def test_get_deposit_address_create_new(wallet_service, db_session, mock_repository):
+async def test_get_deposit_address_create_new(
+    wallet_service, db_session, mock_repository
+):
     """Test creating new deposit address if none exists"""
     # Use a valid 42-character Ethereum address
-    valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    valid_address = (
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    )
     mock_repository.get_user_wallet = AsyncMock(return_value=None)
     mock_repository.create_wallet = AsyncMock(
         return_value=MagicMock(
@@ -174,9 +194,16 @@ async def test_get_deposit_address_create_new(wallet_service, db_session, mock_r
         )
     )
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         # Mock generate_wallet_address to return a valid address
-        with patch.object(wallet_service, 'generate_wallet_address', return_value={'address': valid_address}):
+        with patch.object(
+            wallet_service,
+            "generate_wallet_address",
+            return_value={"address": valid_address},
+        ):
             address = await wallet_service.get_deposit_address(
                 user_id=1,
                 chain_id=1,
@@ -191,7 +218,9 @@ async def test_get_deposit_address_create_new(wallet_service, db_session, mock_r
 @pytest.mark.asyncio
 async def test_get_user_wallets(wallet_service, db_session, mock_repository):
     """Test getting user wallets"""
-    valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    valid_address = (
+        "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid 42-char address
+    )
     mock_wallet = MagicMock(
         id=1,
         wallet_address=valid_address,
@@ -208,10 +237,13 @@ async def test_get_user_wallets(wallet_service, db_session, mock_repository):
         "label": "Test Wallet",
         "is_verified": True,
     }
-    
+
     mock_repository.get_user_wallets = AsyncMock(return_value=[mock_wallet])
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         wallets = await wallet_service.get_user_wallets(
             user_id=1,
             db=db_session,
@@ -232,11 +264,12 @@ async def test_get_wallet_balance_eth(wallet_service, db_session):
     chain_id = 1
     address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid address
 
-    with patch(
-        "server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True
-    ), patch(
-        "server_fastapi.services.wallet_service.get_balance_service"
-    ) as mock_balance_service:
+    with (
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_eth_balance = AsyncMock(return_value=Decimal("1.5"))
         mock_balance_service.return_value = mock_service
@@ -267,11 +300,12 @@ async def test_get_wallet_balance_erc20(wallet_service, db_session):
     address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid address
     token_address = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"  # USDC
 
-    with patch(
-        "server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True
-    ), patch(
-        "server_fastapi.services.wallet_service.get_balance_service"
-    ) as mock_balance_service:
+    with (
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_token_balance = AsyncMock(return_value=Decimal("1000.0"))
         mock_balance_service.return_value = mock_service
@@ -305,11 +339,12 @@ async def test_get_wallet_balance_multi_chain(wallet_service, db_session):
     valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid address
 
     # Test Ethereum (chain_id=1)
-    with patch(
-        "server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True
-    ), patch(
-        "server_fastapi.services.wallet_service.get_balance_service"
-    ) as mock_balance_service:
+    with (
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_eth_balance = AsyncMock(return_value=Decimal("1.0"))
         mock_balance_service.return_value = mock_service
@@ -324,11 +359,12 @@ async def test_get_wallet_balance_multi_chain(wallet_service, db_session):
         assert result_eth["chain_id"] == 1
 
     # Test Base (chain_id=8453)
-    with patch(
-        "server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True
-    ), patch(
-        "server_fastapi.services.wallet_service.get_balance_service"
-    ) as mock_balance_service:
+    with (
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_eth_balance = AsyncMock(return_value=Decimal("2.0"))
         mock_balance_service.return_value = mock_service
@@ -376,13 +412,24 @@ async def test_refresh_wallet_balances(wallet_service, db_session, mock_reposito
 
     # Mock repository to return multiple wallets
     mock_wallet1 = MagicMock(id=1, wallet_address=valid_address, chain_id=1, balance={})
-    mock_wallet2 = MagicMock(id=2, wallet_address=valid_address, chain_id=8453, balance={})
-    mock_repository.get_user_wallets = AsyncMock(return_value=[mock_wallet1, mock_wallet2])
+    mock_wallet2 = MagicMock(
+        id=2, wallet_address=valid_address, chain_id=8453, balance={}
+    )
+    mock_repository.get_user_wallets = AsyncMock(
+        return_value=[mock_wallet1, mock_wallet2]
+    )
     mock_repository.update_wallet_balance = AsyncMock()
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository), \
-         patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True), \
-         patch("server_fastapi.services.wallet_service.get_balance_service") as mock_balance_service:
+    with (
+        patch(
+            "server_fastapi.services.wallet_service.WalletRepository",
+            return_value=mock_repository,
+        ),
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_eth_balance = AsyncMock(return_value=Decimal("1.0"))
         mock_balance_service.return_value = mock_service
@@ -400,7 +447,9 @@ async def test_refresh_wallet_balances(wallet_service, db_session, mock_reposito
 
 
 @pytest.mark.asyncio
-async def test_refresh_wallet_balances_partial_failure(wallet_service, db_session, mock_repository):
+async def test_refresh_wallet_balances_partial_failure(
+    wallet_service, db_session, mock_repository
+):
     """Test refresh with some wallets failing"""
     from decimal import Decimal
     from unittest.mock import patch
@@ -409,13 +458,24 @@ async def test_refresh_wallet_balances_partial_failure(wallet_service, db_sessio
     valid_address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid address
 
     mock_wallet1 = MagicMock(id=1, wallet_address=valid_address, chain_id=1, balance={})
-    mock_wallet2 = MagicMock(id=2, wallet_address=valid_address, chain_id=8453, balance={})
-    mock_repository.get_user_wallets = AsyncMock(return_value=[mock_wallet1, mock_wallet2])
+    mock_wallet2 = MagicMock(
+        id=2, wallet_address=valid_address, chain_id=8453, balance={}
+    )
+    mock_repository.get_user_wallets = AsyncMock(
+        return_value=[mock_wallet1, mock_wallet2]
+    )
     mock_repository.update_wallet_balance = AsyncMock()
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository), \
-         patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True), \
-         patch("server_fastapi.services.wallet_service.get_balance_service") as mock_balance_service:
+    with (
+        patch(
+            "server_fastapi.services.wallet_service.WalletRepository",
+            return_value=mock_repository,
+        ),
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         # First call succeeds, second raises exception (network failure)
         mock_service.get_eth_balance = AsyncMock(
@@ -460,11 +520,19 @@ async def test_process_withdrawal_success(wallet_service, db_session, mock_repos
         )
     )
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository), \
-         patch.object(wallet_service, 'get_wallet_balance', new_callable=AsyncMock) as mock_get_balance, \
-         patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True), \
-         patch("server_fastapi.services.wallet_service.get_transaction_service") as mock_tx:
-
+    with (
+        patch(
+            "server_fastapi.services.wallet_service.WalletRepository",
+            return_value=mock_repository,
+        ),
+        patch.object(
+            wallet_service, "get_wallet_balance", new_callable=AsyncMock
+        ) as mock_get_balance,
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_transaction_service"
+        ) as mock_tx,
+    ):
         # Mock balance check
         mock_get_balance.return_value = {
             "balance": "1.0",
@@ -493,7 +561,9 @@ async def test_process_withdrawal_success(wallet_service, db_session, mock_repos
 
 
 @pytest.mark.asyncio
-async def test_process_withdrawal_insufficient_balance(wallet_service, db_session, mock_repository):
+async def test_process_withdrawal_insufficient_balance(
+    wallet_service, db_session, mock_repository
+):
     """Test withdrawal with insufficient balance"""
     from decimal import Decimal
     from unittest.mock import patch
@@ -515,8 +585,15 @@ async def test_process_withdrawal_insufficient_balance(wallet_service, db_sessio
         )
     )
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository), \
-         patch.object(wallet_service, 'get_wallet_balance', new_callable=AsyncMock) as mock_get_balance:
+    with (
+        patch(
+            "server_fastapi.services.wallet_service.WalletRepository",
+            return_value=mock_repository,
+        ),
+        patch.object(
+            wallet_service, "get_wallet_balance", new_callable=AsyncMock
+        ) as mock_get_balance,
+    ):
         # Mock get_wallet_balance to return balance info
         mock_get_balance.return_value = {
             "balance": "1.0",
@@ -559,7 +636,9 @@ async def test_process_withdrawal_invalid_address(wallet_service, db_session):
 
 
 @pytest.mark.asyncio
-async def test_process_withdrawal_wallet_not_found(wallet_service, db_session, mock_repository):
+async def test_process_withdrawal_wallet_not_found(
+    wallet_service, db_session, mock_repository
+):
     """Test withdrawal when wallet not found"""
     from decimal import Decimal
 
@@ -571,7 +650,10 @@ async def test_process_withdrawal_wallet_not_found(wallet_service, db_session, m
 
     mock_repository.get_user_wallet = AsyncMock(return_value=None)
 
-    with patch('server_fastapi.services.wallet_service.WalletRepository', return_value=mock_repository):
+    with patch(
+        "server_fastapi.services.wallet_service.WalletRepository",
+        return_value=mock_repository,
+    ):
         with pytest.raises(ValueError, match="Wallet not found"):
             await wallet_service.process_withdrawal(
                 wallet_id=wallet_id,
@@ -593,11 +675,12 @@ async def test_get_wallet_balance_zero_balance(wallet_service, db_session):
     chain_id = 1
     address = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"  # Valid address
 
-    with patch(
-        "server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True
-    ), patch(
-        "server_fastapi.services.wallet_service.get_balance_service"
-    ) as mock_balance_service:
+    with (
+        patch("server_fastapi.services.wallet_service.BLOCKCHAIN_AVAILABLE", True),
+        patch(
+            "server_fastapi.services.wallet_service.get_balance_service"
+        ) as mock_balance_service,
+    ):
         mock_service = MagicMock()
         mock_service.get_eth_balance = AsyncMock(return_value=Decimal("0"))
         mock_balance_service.return_value = mock_service

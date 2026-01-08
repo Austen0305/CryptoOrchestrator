@@ -2,9 +2,8 @@
 Email service for sending authentication and notification emails
 """
 
-import os
 import logging
-from typing import Optional
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ class EmailService:
             self.enabled = False
 
     async def send_email(
-        self, to: str, subject: str, html_body: str, text_body: Optional[str] = None
+        self, to: str, subject: str, html_body: str, text_body: str | None = None
     ) -> bool:
         """Send email using SMTP"""
         if not self.enabled:
@@ -50,9 +49,10 @@ class EmailService:
         try:
             # Try to use aiosmtplib for async email sending
             try:
-                import aiosmtplib
-                from email.mime.text import MIMEText
                 from email.mime.multipart import MIMEMultipart
+                from email.mime.text import MIMEText
+
+                import aiosmtplib
 
                 message = MIMEMultipart("alternative")
                 message["Subject"] = subject
@@ -78,8 +78,8 @@ class EmailService:
             except ImportError:
                 # Fallback to smtplib for sync email sending
                 import smtplib
-                from email.mime.text import MIMEText
                 from email.mime.multipart import MIMEMultipart
+                from email.mime.text import MIMEText
 
                 message = MIMEMultipart("alternative")
                 message["Subject"] = subject

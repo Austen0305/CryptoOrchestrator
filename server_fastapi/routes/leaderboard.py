@@ -3,19 +3,17 @@ Leaderboard Routes
 API endpoints for trader leaderboards.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from typing import List, Optional, Annotated
 import logging
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.leaderboard_service import LeaderboardService
-from ..dependencies.auth import get_current_user, get_optional_user
 from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user, get_optional_user
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
-from ..utils.response_optimizer import ResponseOptimizer
+from ..services.leaderboard_service import LeaderboardService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +24,7 @@ router = APIRouter()
 @cached(ttl=60, prefix="leaderboard")  # 60s TTL for leaderboard data
 async def get_leaderboard(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    current_user: Optional[Annotated[dict, Depends(get_optional_user)]] = None,
+    current_user: Annotated[dict, Depends(get_optional_user)] | None = None,
     metric: str = Query(
         "total_pnl",
         description="Ranking metric: total_pnl, win_rate, profit_factor, sharpe_ratio",

@@ -4,10 +4,11 @@ Provides endpoints for monitoring and managing error recovery systems
 """
 
 import logging
-from typing import Dict, Any, List
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from ..utils.error_recovery import error_recovery
+
 from ..middleware.auth import get_current_user
+from ..utils.error_recovery import error_recovery
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +66,7 @@ async def reset_circuit_breaker(
     # Admin check
     if current_user.get("role") != "admin" and not current_user.get("is_admin"):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     try:
         cb = error_recovery.get_circuit_breaker(name)
@@ -85,4 +85,3 @@ async def reset_circuit_breaker(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to reset circuit breaker: {str(e)}",
         )
-

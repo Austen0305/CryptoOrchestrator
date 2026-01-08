@@ -3,18 +3,18 @@ Test coverage helpers and utilities
 Aims to increase test coverage to ≥90%
 """
 
+import uuid
+from typing import Any
+
 import pytest
 from httpx import AsyncClient
-from fastapi import status
-from typing import Dict, Any, List
-import uuid
 
 
 class TestCoverageHelpers:
     """Helper utilities for comprehensive test coverage"""
 
     @staticmethod
-    async def create_test_user(client: AsyncClient) -> Dict[str, Any]:
+    async def create_test_user(client: AsyncClient) -> dict[str, Any]:
         """Helper to create a test user"""
         unique_email = f"test-{uuid.uuid4().hex[:8]}@example.com"
         response = await client.post(
@@ -42,8 +42,8 @@ class TestCoverageHelpers:
 
     @staticmethod
     async def create_test_bot(
-        client: AsyncClient, auth_headers: Dict[str, str]
-    ) -> Dict[str, Any]:
+        client: AsyncClient, auth_headers: dict[str, str]
+    ) -> dict[str, Any]:
         """Helper to create a test bot"""
         bot_data = {
             "name": f"Test Bot {uuid.uuid4().hex[:8]}",
@@ -59,8 +59,8 @@ class TestCoverageHelpers:
 
     @staticmethod
     async def create_test_trade(
-        client: AsyncClient, auth_headers: Dict[str, str]
-    ) -> Dict[str, Any]:
+        client: AsyncClient, auth_headers: dict[str, str]
+    ) -> dict[str, Any]:
         """Helper to create a test trade"""
         trade_data = {
             "pair": "BTC/USD",
@@ -128,7 +128,7 @@ class TestAdditionalCoverage:
         assert response.status_code in [200, 204, 405]
 
     async def test_invalid_json(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test invalid JSON handling"""
         response = await client.post(
@@ -139,7 +139,7 @@ class TestAdditionalCoverage:
         assert response.status_code in [400, 422]
 
     async def test_missing_content_type(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test missing Content-Type header"""
         response = await client.post(
@@ -151,7 +151,7 @@ class TestAdditionalCoverage:
         assert response.status_code in [200, 201, 400, 415, 422]
 
     async def test_large_payload(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test large payload handling"""
         large_data = {"name": "x" * 10000}  # 10KB name
@@ -162,7 +162,7 @@ class TestAdditionalCoverage:
         assert response.status_code in [200, 201, 400, 413, 422]
 
     async def test_sql_injection_attempt(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test SQL injection prevention"""
         malicious_input = "'; DROP TABLE users; --"
@@ -181,7 +181,7 @@ class TestAdditionalCoverage:
         # Verify no actual SQL execution occurred (would cause 500 if vulnerable)
         assert response.status_code != 500
 
-    async def test_xss_attempt(self, client: AsyncClient, auth_headers: Dict[str, str]):
+    async def test_xss_attempt(self, client: AsyncClient, auth_headers: dict[str, str]):
         """Test XSS prevention"""
         xss_payload = "<script>alert('xss')</script>"
         response = await client.post(
@@ -202,7 +202,7 @@ class TestAdditionalCoverage:
             assert "<script>" not in str(data)
 
     async def test_rate_limiting(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test rate limiting"""
         # Make many rapid requests
@@ -216,7 +216,7 @@ class TestAdditionalCoverage:
         assert 429 in status_codes or all(s == 200 for s in responses)
 
     async def test_concurrent_requests(
-        self, client: AsyncClient, auth_headers: Dict[str, str]
+        self, client: AsyncClient, auth_headers: dict[str, str]
     ):
         """Test concurrent request handling"""
         import asyncio

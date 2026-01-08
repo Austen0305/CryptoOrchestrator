@@ -2,19 +2,21 @@
 Strategy Model - Database schema for trading strategies
 """
 
+from datetime import datetime
+
 from sqlalchemy import (
-    Column,
-    String,
-    Integer,
-    Float,
-    Boolean,
-    DateTime,
-    Text,
     JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
     ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import relationship
-from datetime import datetime
+
 from .base import Base
 
 

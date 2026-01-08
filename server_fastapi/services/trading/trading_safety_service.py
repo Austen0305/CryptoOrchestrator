@@ -4,9 +4,8 @@ Implements critical safety features to prevent catastrophic losses and maximize 
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
-from decimal import Decimal
+from datetime import datetime
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +50,8 @@ class TradingSafetyService:
         quantity: float,
         price: float,
         account_balance: float,
-        current_positions: Dict[str, Any],
-    ) -> Dict[str, Any]:
+        current_positions: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Comprehensive trade validation before execution.
 
@@ -152,7 +151,7 @@ class TradingSafetyService:
 
     def check_slippage(
         self, expected_price: float, actual_price: float, side: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Check if slippage is within acceptable limits.
 
@@ -237,7 +236,7 @@ class TradingSafetyService:
             f"Consecutive losses: {self.consecutive_losses}, Trades today: {len(self.trades_today)}"
         )
 
-    def get_safety_status(self) -> Dict[str, Any]:
+    def get_safety_status(self) -> dict[str, Any]:
         """
         Get current safety system status.
 
@@ -261,7 +260,7 @@ class TradingSafetyService:
             },
         }
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         Alias for get_safety_status() for API compatibility.
 
@@ -270,7 +269,7 @@ class TradingSafetyService:
         """
         return self.get_safety_status()
 
-    def reset_kill_switch(self, admin_override: bool = False) -> Dict[str, Any]:
+    def reset_kill_switch(self, admin_override: bool = False) -> dict[str, Any]:
         """
         Reset the kill switch (requires admin override or new day).
 
@@ -303,7 +302,7 @@ class TradingSafetyService:
             "reset_type": "admin_override" if admin_override else "new_day",
         }
 
-    def update_configuration(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def update_configuration(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Update safety configuration.
 
@@ -376,7 +375,7 @@ class TradingSafetyService:
         logger.error(f"🚨 KILL SWITCH ACTIVATED: {reason}")
 
     def _calculate_portfolio_exposure(
-        self, positions: Dict[str, Any], account_balance: float
+        self, positions: dict[str, Any], account_balance: float
     ) -> float:
         """
         Calculate total portfolio exposure as percentage of account balance.

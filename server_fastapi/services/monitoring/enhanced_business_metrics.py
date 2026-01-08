@@ -4,20 +4,19 @@ Extends business metrics with OpenTelemetry integration and advanced analytics
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from typing import Any
 
-from .business_metrics import BusinessMetricsService, get_business_metrics_service
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..observability.opentelemetry_setup import (
-    get_tracer,
-    get_meter,
-    record_metric,
-    record_gauge,
-    record_histogram,
     OTEL_AVAILABLE,
+    get_meter,
+    get_tracer,
+    record_gauge,
 )
+from .business_metrics import BusinessMetricsService
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +32,14 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
     - Real-time metric updates
     """
 
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         super().__init__(db)
         self.tracer = get_tracer() if OTEL_AVAILABLE else None
         self.meter = get_meter() if OTEL_AVAILABLE else None
 
     async def get_business_kpis(
         self, db: AsyncSession, period_days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get comprehensive business KPIs
 
@@ -123,7 +122,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
     async def get_user_acquisition_metrics(
         self, db: AsyncSession, days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get user acquisition metrics"""
         try:
             from ..models.user import User
@@ -171,7 +170,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
     async def get_trading_activity_metrics(
         self, db: AsyncSession, days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get comprehensive trading activity metrics"""
         try:
             from ..models.trade import Trade
@@ -228,7 +227,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
     async def calculate_user_acquisition_cost(
         self, db: AsyncSession, days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculate user acquisition cost (CAC)"""
         try:
             from ..models.user import User
@@ -244,7 +243,9 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
             # Note: Marketing spend would come from marketing campaigns table when implemented
             # This is a placeholder for future marketing analytics integration
-            marketing_spend = 0.0  # Future: Query marketing_campaigns table for total spend
+            marketing_spend = (
+                0.0  # Future: Query marketing_campaigns table for total spend
+            )
 
             cac = marketing_spend / new_users if new_users > 0 else 0.0
 
@@ -262,10 +263,9 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
     async def calculate_lifetime_value(
         self, db: AsyncSession, days: int = 90
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Calculate customer lifetime value (LTV)"""
         try:
-            from ..models.user import User
             from ..models.trade import Trade
             from ..models.trading_fee import TradingFee
 
@@ -318,12 +318,9 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
             logger.error(f"Error calculating LTV: {e}", exc_info=True)
             return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
 
-    async def analyze_churn(
-        self, db: AsyncSession, days: int = 30
-    ) -> Dict[str, Any]:
+    async def analyze_churn(self, db: AsyncSession, days: int = 30) -> dict[str, Any]:
         """Analyze user churn"""
         try:
-            from ..models.user import User
             from ..models.trade import Trade
 
             # Users who were active before period but not during
@@ -369,11 +366,10 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
     async def get_detailed_trading_metrics(
         self, db: AsyncSession, days: int = 30
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get detailed trading metrics: volume, avg size, pairs, success rates"""
         try:
             from ..models.trade import Trade
-            from ..models.dex_trade import DEXTrade
 
             start_date = datetime.utcnow() - timedelta(days=days)
 
@@ -414,15 +410,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
             ]
 
             # Success rates
-            success_stmt = (
-                select(
-                    func.count(Trade.id).label("total"),
-                    func.sum(
-                        func.case((Trade.status == "completed", 1), else_=0)
-                    ).label("successful"),
-                )
-                .where(Trade.created_at >= start_date)
-            )
+            success_stmt = select(
+                func.count(Trade.id).label("total"),
+                func.sum(func.case((Trade.status == "completed", 1), else_=0)).label(
+                    "successful"
+                ),
+            ).where(Trade.created_at >= start_date)
             success_result = await db.execute(success_stmt)
             success_row = success_result.first()
 
@@ -450,11 +443,11 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
 
 # Enhanced instance
-_enhanced_business_metrics_service: Optional[EnhancedBusinessMetricsService] = None
+_enhanced_business_metrics_service: EnhancedBusinessMetricsService | None = None
 
 
 def get_enhanced_business_metrics_service(
-    db: Optional[AsyncSession] = None,
+    db: AsyncSession | None = None,
 ) -> EnhancedBusinessMetricsService:
     """Get enhanced business metrics service instance"""
     global _enhanced_business_metrics_service

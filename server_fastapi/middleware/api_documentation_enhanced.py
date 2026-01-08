@@ -4,11 +4,10 @@ Provides improved OpenAPI documentation with examples, schemas, and interactive 
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request
+from typing import Any
+
+from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
-from fastapi.responses import JSONResponse
-import json
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 class EnhancedAPIDocumentation:
     """
     Enhanced API documentation generator
-    
+
     Features:
     - Custom OpenAPI schema
     - Request/response examples
@@ -28,26 +27,28 @@ class EnhancedAPIDocumentation:
 
     def __init__(self, app: FastAPI):
         self.app = app
-        self.custom_schemas: Dict[str, Any] = {}
-        self.examples: Dict[str, List[Dict[str, Any]]] = {}
-        self.code_samples: Dict[str, Dict[str, str]] = {}
+        self.custom_schemas: dict[str, Any] = {}
+        self.examples: dict[str, list[dict[str, Any]]] = {}
+        self.code_samples: dict[str, dict[str, str]] = {}
 
     def add_example(
         self,
         endpoint: str,
         method: str,
-        example: Dict[str, Any],
-        description: Optional[str] = None,
+        example: dict[str, Any],
+        description: str | None = None,
     ):
         """Add example for endpoint"""
         key = f"{method.upper()} {endpoint}"
         if key not in self.examples:
             self.examples[key] = []
 
-        self.examples[key].append({
-            "description": description or "Example request",
-            "value": example,
-        })
+        self.examples[key].append(
+            {
+                "description": description or "Example request",
+                "value": example,
+            }
+        )
 
     def add_code_sample(
         self,
@@ -63,7 +64,7 @@ class EnhancedAPIDocumentation:
 
         self.code_samples[key][language] = code
 
-    def generate_openapi_schema(self) -> Dict[str, Any]:
+    def generate_openapi_schema(self) -> dict[str, Any]:
         """Generate enhanced OpenAPI schema"""
         # Get base schema
         schema = get_openapi(
@@ -121,16 +122,25 @@ class EnhancedAPIDocumentation:
                     # Add examples
                     if key in self.examples:
                         if "requestBody" in details:
-                            details["requestBody"]["content"]["application/json"]["examples"] = {
-                                f"example_{i}": ex for i, ex in enumerate(self.examples[key])
+                            details["requestBody"]["content"]["application/json"][
+                                "examples"
+                            ] = {
+                                f"example_{i}": ex
+                                for i, ex in enumerate(self.examples[key])
                             }
                         elif "parameters" in details:
                             # Add examples to parameters
                             for param in details["parameters"]:
-                                if param.get("name") in [ex.get("name") for ex in self.examples[key]]:
+                                if param.get("name") in [
+                                    ex.get("name") for ex in self.examples[key]
+                                ]:
                                     param["example"] = next(
-                                        (ex["value"] for ex in self.examples[key] if ex.get("name") == param.get("name")),
-                                        None
+                                        (
+                                            ex["value"]
+                                            for ex in self.examples[key]
+                                            if ex.get("name") == param.get("name")
+                                        ),
+                                        None,
                                     )
 
                     # Add code samples as extension
@@ -152,14 +162,18 @@ class EnhancedAPIDocumentation:
                                 }
                             elif status_code in ["400", "401", "403", "404", "500"]:
                                 if "content" in response:
-                                    response["content"]["application/json"]["examples"] = {
+                                    response["content"]["application/json"][
+                                        "examples"
+                                    ] = {
                                         "error": {
                                             "summary": f"Error {status_code}",
                                             "value": {
                                                 "success": False,
                                                 "error": {
                                                     "code": status_code,
-                                                    "message": self._get_error_message(status_code),
+                                                    "message": self._get_error_message(
+                                                        status_code
+                                                    ),
                                                 },
                                             },
                                         },
@@ -207,8 +221,37 @@ class EnhancedAPIDocumentation:
         return messages.get(status_code, "An error occurred")
 
 
-def setup_enhanced_documentation(app: FastAPI) -> EnhancedAPIDocumentation:
-    """Setup enhanced API documentation"""
+try:
+    from scalar_fastapi import get_scalar_api_reference
+
+    SCALAR_AVAILABLE = True
+except ImportError:
+    SCALAR_AVAILABLE = False
+
+
+def setup_enhanced_documentation(app: FastAPI) -> Any:
+    """
+    Setup enhanced API documentation.
+    Attempts to use Scalar (Modern) first, falls back to custom EnhancedAPIDocumentation.
+    """
+
+    # 1. Try to use Scalar (The "2026" Standard)
+    if SCALAR_AVAILABLE:
+        try:
+            # Mount Scalar at /docs/scalar or replace /docs depending on preference
+            # Here we mount it at /scalar for coexistence
+            app.get("/scalar", include_in_schema=False)(
+                get_scalar_api_reference(
+                    openapi_url=app.openapi_url or "/openapi.json",
+                    title=f"{app.title} - Scalar",
+                )
+            )
+            logger.info("Scalar API documentation mounted at /scalar")
+        except Exception as e:
+            logger.warning(f"Failed to mount Scalar docs: {e}")
+
+    # 2. Continue with existing Enhanced Logic (for /docs route)
+    # This ensures we don't break existing workflows while adding the new one.
     doc = EnhancedAPIDocumentation(app)
 
     # Add common examples
@@ -277,5 +320,8 @@ console.log(data);
     app.openapi = custom_openapi
 
     logger.info("Enhanced API documentation configured")
-    return doc
 
+    if SCALAR_AVAILABLE:
+        logger.info("--> Visit http://localhost:8000/scalar for Next-Gen API Docs")
+
+    return doc

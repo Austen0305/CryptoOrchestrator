@@ -1,12 +1,7 @@
-import asyncio
-import json
-import jwt
 import os
+
+import jwt
 import pytest
-from httpx import AsyncClient
-from websockets.exceptions import ConnectionClosed
-from fastapi.websockets import WebSocket
-from server_fastapi.main import app
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
 

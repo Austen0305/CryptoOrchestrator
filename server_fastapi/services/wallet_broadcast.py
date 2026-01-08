@@ -4,7 +4,6 @@ Handles broadcasting wallet updates via WebSocket
 """
 
 import logging
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +11,13 @@ logger = logging.getLogger(__name__)
 _active_connections = {}
 
 
-def set_active_connections(connections: Dict):
+def set_active_connections(connections: dict):
     """Set active WebSocket connections (called from websocket_wallet route)"""
     global _active_connections
     _active_connections = connections
 
 
-async def broadcast_wallet_update(user_id: int, wallet_data: Dict):
+async def broadcast_wallet_update(user_id: int, wallet_data: dict):
     """Broadcast wallet update to all connected clients for a user"""
     if user_id not in _active_connections:
         return

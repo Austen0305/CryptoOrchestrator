@@ -4,11 +4,12 @@ Provides endpoints for monitoring system and alerts
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from ..services.monitoring_alerting import monitoring_system, AlertLevel
+
 from ..middleware.auth import get_current_user
+from ..services.monitoring_alerting import AlertLevel, monitoring_system
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/api/monitoring", tags=["Monitoring"])
 
 class AlertResponse(BaseModel):
     """Alert response model"""
+
     id: str
     level: str
     title: str
@@ -24,13 +26,13 @@ class AlertResponse(BaseModel):
     source: str
     timestamp: str
     resolved: bool
-    resolved_at: Optional[str] = None
+    resolved_at: str | None = None
 
 
-@router.get("/alerts", response_model=List[AlertResponse])
+@router.get("/alerts", response_model=list[AlertResponse])
 async def get_alerts(
-    level: Optional[str] = Query(None, description="Filter by alert level"),
-    resolved: Optional[bool] = Query(None, description="Filter by resolved status"),
+    level: str | None = Query(None, description="Filter by alert level"),
+    resolved: bool | None = Query(None, description="Filter by resolved status"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of alerts"),
     current_user: dict = Depends(get_current_user),
 ):
@@ -52,7 +54,9 @@ async def get_alerts(
                 source=alert.source,
                 timestamp=alert.timestamp.isoformat(),
                 resolved=alert.resolved,
-                resolved_at=alert.resolved_at.isoformat() if alert.resolved_at else None,
+                resolved_at=alert.resolved_at.isoformat()
+                if alert.resolved_at
+                else None,
             )
             for alert in alerts
         ]

@@ -3,13 +3,13 @@ Leaderboard Service
 Calculates and maintains trader leaderboards.
 """
 
-import logging
 import json
-from typing import Dict, List, Optional
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
+import logging
 import os
+from datetime import datetime, timedelta
+
+from sqlalchemy import and_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.trade import Trade
 from ..models.user import User
@@ -51,7 +51,7 @@ class LeaderboardService:
         """Generate cache key for leaderboard"""
         return f"leaderboard:{metric}:{period}:{limit}:{mode}"
 
-    async def _get_from_cache(self, key: str) -> Optional[List[Dict]]:
+    async def _get_from_cache(self, key: str) -> list[dict] | None:
         """Get leaderboard from cache"""
         if not self.redis_client:
             return None
@@ -63,7 +63,7 @@ class LeaderboardService:
             logger.warning(f"Cache get error: {e}")
         return None
 
-    async def _set_cache(self, key: str, value: List[Dict], ttl: int = 300):
+    async def _set_cache(self, key: str, value: list[dict], ttl: int = 300):
         """Set leaderboard in cache"""
         if not self.redis_client:
             return
@@ -89,7 +89,7 @@ class LeaderboardService:
         period: str = "all_time",
         limit: int = 100,
         mode: str = "paper",
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         Get trader leaderboard.
 
@@ -252,7 +252,7 @@ class LeaderboardService:
         metric: str = "total_pnl",
         period: str = "all_time",
         mode: str = "paper",
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """Get a user's rank on the leaderboard"""
         try:
             leaderboard = await self.get_leaderboard(

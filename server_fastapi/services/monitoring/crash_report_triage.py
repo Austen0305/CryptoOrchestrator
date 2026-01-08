@@ -5,10 +5,11 @@ Forwards Sentry and Electron crash events to incident management systems (PagerD
 
 import logging
 import os
-import httpx
-from typing import Dict, Optional, Any, List
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ class CrashReportTriageService:
             "OPSGENIE_API_URL", "https://api.opsgenie.com/v2"
         )
         self.incident_webhook_url = os.getenv("INCIDENT_WEBHOOK_URL")
-        self.enabled_systems: List[IncidentSystem] = []
+        self.enabled_systems: list[IncidentSystem] = []
 
         # Determine which systems are enabled
         if self.pagerduty_integration_key:
@@ -60,7 +61,7 @@ class CrashReportTriageService:
             f"Crash report triage initialized. Enabled systems: {[s.value for s in self.enabled_systems]}"
         )
 
-    def determine_severity(self, event: Dict[str, Any]) -> CrashSeverity:
+    def determine_severity(self, event: dict[str, Any]) -> CrashSeverity:
         """
         Determine crash severity from Sentry/Electron event.
 
@@ -117,7 +118,7 @@ class CrashReportTriageService:
         title: str,
         description: str,
         severity: CrashSeverity,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> bool:
         """
         Forward crash event to PagerDuty.
@@ -188,7 +189,7 @@ class CrashReportTriageService:
         title: str,
         description: str,
         severity: CrashSeverity,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> bool:
         """
         Forward crash event to OpsGenie.
@@ -259,7 +260,7 @@ class CrashReportTriageService:
         title: str,
         description: str,
         severity: CrashSeverity,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> bool:
         """
         Forward crash event to custom webhook.
@@ -308,7 +309,7 @@ class CrashReportTriageService:
             )
             return False
 
-    async def process_sentry_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_sentry_event(self, event: dict[str, Any]) -> dict[str, Any]:
         """
         Process a Sentry webhook event and forward to incident management if needed.
 
@@ -387,8 +388,8 @@ class CrashReportTriageService:
             return {"processed": False, "error": str(e)}
 
     async def process_electron_crash(
-        self, crash_report: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, crash_report: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Process an Electron crash report and forward to incident management if needed.
 
@@ -456,7 +457,7 @@ class CrashReportTriageService:
             )
             return {"processed": False, "error": str(e)}
 
-    def _extract_title(self, event: Dict[str, Any]) -> str:
+    def _extract_title(self, event: dict[str, Any]) -> str:
         """Extract title from Sentry event"""
         message = event.get("message", "")
         if message:
@@ -470,7 +471,7 @@ class CrashReportTriageService:
 
         return "Sentry Event"
 
-    def _extract_description(self, event: Dict[str, Any]) -> str:
+    def _extract_description(self, event: dict[str, Any]) -> str:
         """Extract description from Sentry event"""
         message = event.get("message", "")
         exception = event.get("exception", {}).get("values", [{}])
@@ -485,7 +486,7 @@ class CrashReportTriageService:
 
         return "No description available"
 
-    def _extract_metadata(self, event: Dict[str, Any], source: str) -> Dict[str, Any]:
+    def _extract_metadata(self, event: dict[str, Any], source: str) -> dict[str, Any]:
         """Extract metadata from Sentry event"""
         metadata = {
             "source": source,

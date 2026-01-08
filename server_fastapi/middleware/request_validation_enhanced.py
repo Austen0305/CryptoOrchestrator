@@ -4,14 +4,14 @@ Provides comprehensive validation, sanitization, and transformation
 """
 
 import asyncio
-import logging
 import json
-from typing import Dict, Any, Optional, List
-from fastapi import Request, HTTPException, status
+import logging
+import re
+from typing import Any
+
+from fastapi import HTTPException, Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
-from pydantic import BaseModel, ValidationError
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +43,8 @@ class EnhancedRequestValidator:
     """
 
     def __init__(self):
-        self.rules: Dict[str, List[ValidationRule]] = {}
-        self.sanitizers: Dict[str, Callable] = {}
+        self.rules: dict[str, list[ValidationRule]] = {}
+        self.sanitizers: dict[str, Callable] = {}
 
     def register_rule(self, endpoint: str, rule: ValidationRule):
         """Register validation rule for endpoint"""
@@ -56,7 +56,7 @@ class EnhancedRequestValidator:
         """Register sanitizer for field"""
         self.sanitizers[field] = sanitizer
 
-    def validate(self, endpoint: str, data: Dict[str, Any]) -> tuple[bool, List[str]]:
+    def validate(self, endpoint: str, data: dict[str, Any]) -> tuple[bool, list[str]]:
         """Validate data against rules"""
         errors = []
         rules = self.rules.get(endpoint, [])
@@ -82,7 +82,7 @@ class EnhancedRequestValidator:
 
         return len(errors) == 0, errors
 
-    def sanitize(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def sanitize(self, data: dict[str, Any]) -> dict[str, Any]:
         """Sanitize data"""
         sanitized = data.copy()
 
@@ -124,7 +124,9 @@ def sanitize_string(value: str) -> str:
 def sanitize_html(value: str) -> str:
     """Sanitize HTML input"""
     # Remove script tags
-    value = re.sub(r"<script[^>]*>.*?</script>", "", value, flags=re.IGNORECASE | re.DOTALL)
+    value = re.sub(
+        r"<script[^>]*>.*?</script>", "", value, flags=re.IGNORECASE | re.DOTALL
+    )
     # Remove event handlers
     value = re.sub(r"on\w+\s*=", "", value, flags=re.IGNORECASE)
     return value
@@ -134,7 +136,9 @@ def sanitize_html(value: str) -> str:
 request_validator = EnhancedRequestValidator()
 
 # Register common sanitizers
-request_validator.register_sanitizer("email", lambda x: x.lower().strip() if isinstance(x, str) else x)
+request_validator.register_sanitizer(
+    "email", lambda x: x.lower().strip() if isinstance(x, str) else x
+)
 request_validator.register_sanitizer("username", sanitize_string)
 request_validator.register_sanitizer("name", sanitize_string)
 request_validator.register_sanitizer("description", sanitize_html)
@@ -143,7 +147,9 @@ request_validator.register_sanitizer("description", sanitize_html)
 class EnhancedRequestValidationMiddleware(BaseHTTPMiddleware):
     """Enhanced request validation middleware"""
 
-    def __init__(self, app, enable_validation: bool = True, enable_sanitization: bool = True):
+    def __init__(
+        self, app, enable_validation: bool = True, enable_sanitization: bool = True
+    ):
         super().__init__(app)
         self.enable_validation = enable_validation
         self.enable_sanitization = enable_sanitization
@@ -162,9 +168,9 @@ class EnhancedRequestValidationMiddleware(BaseHTTPMiddleware):
             try:
                 body = await asyncio.wait_for(
                     request.body(),
-                    timeout=2.0  # 2 second timeout for body reading
+                    timeout=2.0,  # 2 second timeout for body reading
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(f"Request body read timeout for {request.url.path}")
                 # Continue without validation if body read times out
                 return await call_next(request)
@@ -202,5 +208,4 @@ class EnhancedRequestValidationMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-from typing import Callable
-
+from collections.abc import Callable

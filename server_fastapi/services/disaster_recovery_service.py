@@ -4,10 +4,11 @@ Manages database replication, failover, and health monitoring
 """
 
 import logging
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text, func
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +19,13 @@ class DisasterRecoveryService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def check_replication_status(self) -> Dict[str, Any]:
+    async def check_replication_status(self) -> dict[str, Any]:
         """Check PostgreSQL replication status"""
         try:
             # Check if we're connected to PostgreSQL
             result = await self.db.execute(text("SELECT version()"))
             version = result.scalar()
-            
+
             if "PostgreSQL" not in version:
                 return {
                     "replication_enabled": False,
@@ -42,7 +43,7 @@ class DisasterRecoveryService:
                     EXTRACT(EPOCH FROM (now() - state_change)) as lag_seconds
                 FROM pg_stat_replication
             """)
-            
+
             result = await self.db.execute(replication_query)
             replicas = result.fetchall()
 
@@ -57,22 +58,26 @@ class DisasterRecoveryService:
             for replica in replicas:
                 lag_seconds = replica.lag_seconds or 0
                 lag_bytes = replica.lag_bytes or 0
-                
+
                 status = "healthy"
                 if lag_seconds > 300:  # 5 minutes
                     status = "degraded"
                 if lag_seconds > 600:  # 10 minutes
                     status = "unhealthy"
 
-                replica_statuses.append({
-                    "client_addr": str(replica.client_addr) if replica.client_addr else None,
-                    "state": replica.state,
-                    "sync_state": replica.sync_state,
-                    "sync_priority": replica.sync_priority,
-                    "lag_bytes": int(lag_bytes),
-                    "lag_seconds": float(lag_seconds),
-                    "status": status,
-                })
+                replica_statuses.append(
+                    {
+                        "client_addr": str(replica.client_addr)
+                        if replica.client_addr
+                        else None,
+                        "state": replica.state,
+                        "sync_state": replica.sync_state,
+                        "sync_priority": replica.sync_priority,
+                        "lag_bytes": int(lag_bytes),
+                        "lag_seconds": float(lag_seconds),
+                        "status": status,
+                    }
+                )
 
             overall_status = "healthy"
             if any(r["status"] == "unhealthy" for r in replica_statuses):
@@ -95,7 +100,7 @@ class DisasterRecoveryService:
                 "message": "Failed to check replication status",
             }
 
-    async def check_database_health(self) -> Dict[str, Any]:
+    async def check_database_health(self) -> dict[str, Any]:
         """Comprehensive database health check"""
         health_checks = {}
 
@@ -133,7 +138,7 @@ class DisasterRecoveryService:
             """)
             result = await self.db.execute(conn_query)
             conn_stats = result.fetchone()
-            
+
             health_checks["connections"] = {
                 "total": conn_stats.total_connections,
                 "active": conn_stats.active_connections,
@@ -144,8 +149,11 @@ class DisasterRecoveryService:
             replication_status = await self.check_replication_status()
             if replication_status.get("replication_enabled"):
                 max_lag = max(
-                    (r.get("lag_seconds", 0) for r in replication_status.get("replicas", [])),
-                    default=0
+                    (
+                        r.get("lag_seconds", 0)
+                        for r in replication_status.get("replicas", [])
+                    ),
+                    default=0,
                 )
                 health_checks["replication"] = {
                     "status": replication_status.get("overall_status", "unknown"),
@@ -174,11 +182,9 @@ class DisasterRecoveryService:
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-    async def check_backup_health(self, backup_service) -> Dict[str, Any]:
+    async def check_backup_health(self, backup_service) -> dict[str, Any]:
         """Check backup system health"""
         try:
-            from ..services.backup_service import BackupService
-
             # Get backup list
             backups = backup_service.list_backups()
 
@@ -225,7 +231,7 @@ class DisasterRecoveryService:
                 "message": "Failed to check backup health",
             }
 
-    async def get_system_health_detailed(self, backup_service) -> Dict[str, Any]:
+    async def get_system_health_detailed(self, backup_service) -> dict[str, Any]:
         """Get detailed system health status"""
         db_health = await self.check_database_health()
         backup_health = await self.check_backup_health(backup_service)

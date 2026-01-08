@@ -4,8 +4,10 @@ Implements task workflows, chains, groups, and chords for complex task orchestra
 """
 
 import logging
-from typing import List, Dict, Any, Callable, Optional
-from celery import group, chain, chord
+from collections.abc import Callable
+from typing import Any
+
+from celery import chain, chord, group
 from celery.result import AsyncResult, GroupResult
 
 logger = logging.getLogger(__name__)
@@ -24,15 +26,15 @@ class TaskWorkflow:
             workflow_id: Unique workflow identifier
         """
         self.workflow_id = workflow_id
-        self.tasks: List[Dict[str, Any]] = []
+        self.tasks: list[dict[str, Any]] = []
         self.current_step = 0
 
     def add_task(
         self,
         task_name: str,
         args: tuple = (),
-        kwargs: Dict[str, Any] = None,
-        condition: Optional[Callable[[Any], bool]] = None,
+        kwargs: dict[str, Any] = None,
+        condition: Callable[[Any], bool] | None = None,
     ) -> "TaskWorkflow":
         """
         Add a task to the workflow.
@@ -113,7 +115,7 @@ class TaskWorkflow:
         self,
         callback_task: str,
         callback_args: tuple = (),
-        callback_kwargs: Dict[str, Any] = None,
+        callback_kwargs: dict[str, Any] = None,
     ) -> AsyncResult:
         """
         Execute workflow as a chord (parallel tasks with callback).

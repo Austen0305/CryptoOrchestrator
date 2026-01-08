@@ -4,25 +4,25 @@ Implements token rotation and revocation for enhanced security.
 """
 
 import logging
-from typing import Dict, Optional, Set
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-import jwt
 import os
+from datetime import UTC, datetime
+
+import jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
 
 # In-memory token blacklist (in production, use Redis)
-_token_blacklist: Set[str] = set()
-_rotated_tokens: Dict[str, str] = {}  # old_token -> new_token mapping
+_token_blacklist: set[str] = set()
+_rotated_tokens: dict[str, str] = {}  # old_token -> new_token mapping
 
 
 class TokenRotationService:
     """Service for token rotation and revocation"""
 
-    def __init__(self, db: Optional[AsyncSession] = None):
+    def __init__(self, db: AsyncSession | None = None):
         self.db = db
         self.token_blacklist = _token_blacklist
         self.rotated_tokens = _rotated_tokens
@@ -38,7 +38,7 @@ class TokenRotationService:
 
     async def rotate_token_on_suspicious_activity(
         self, old_token: str, user_id: str, reason: str
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Rotate token due to suspicious activity.
 
@@ -64,7 +64,7 @@ class TokenRotationService:
             # Generate new token with same user info but new expiration
             from datetime import timedelta
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             new_payload = {
                 "user_id": payload.get("user_id") or user_id,
                 "username": payload.get("username"),
@@ -92,7 +92,7 @@ class TokenRotationService:
             return None
 
     async def detect_suspicious_activity(
-        self, token: str, request_info: Dict[str, any]
+        self, token: str, request_info: dict[str, any]
     ) -> bool:
         """
         Detect suspicious activity based on request info.
@@ -125,7 +125,7 @@ class TokenRotationService:
             # 3. Check token age (very old tokens are suspicious)
             iat = payload.get("iat")
             if iat:
-                token_age = datetime.now(timezone.utc).timestamp() - iat
+                token_age = datetime.now(UTC).timestamp() - iat
                 if token_age > 86400:  # Older than 24 hours
                     suspicious_patterns.append("old_token")
 
@@ -147,7 +147,7 @@ class TokenRotationService:
             logger.error(f"Error detecting suspicious activity: {e}")
             return False
 
-    def get_rotated_token(self, old_token: str) -> Optional[str]:
+    def get_rotated_token(self, old_token: str) -> str | None:
         """Get new token if old token was rotated"""
         return self.rotated_tokens.get(old_token)
 
@@ -166,11 +166,11 @@ class TokenRotationService:
 
 
 # Singleton instance
-_token_rotation_service: Optional[TokenRotationService] = None
+_token_rotation_service: TokenRotationService | None = None
 
 
 def get_token_rotation_service(
-    db: Optional[AsyncSession] = None,
+    db: AsyncSession | None = None,
 ) -> TokenRotationService:
     """Get token rotation service instance"""
     global _token_rotation_service

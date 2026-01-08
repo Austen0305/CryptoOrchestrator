@@ -4,10 +4,11 @@ For long-running tasks like backtesting, data analysis, etc.
 Enhanced with prioritization, batching, rate limiting, and monitoring.
 """
 
+import logging
+import os
+
 from celery import Celery
 from celery.schedules import crontab
-import os
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ celery_app = Celery(
 
 # Import bot worker tasks
 try:
-    from .workers.bot_worker import execute_bot, stop_bot, check_subscriptions
+    from .workers.bot_worker import check_subscriptions, execute_bot, stop_bot
 
     celery_app.conf.beat_schedule.update(
         {
@@ -85,8 +86,8 @@ except ImportError as e:
 # Import portfolio reconciliation tasks
 try:
     from .tasks.portfolio_reconciliation import (
-        reconcile_user_portfolio_task,
         reconcile_all_portfolios_batch_task,
+        reconcile_user_portfolio_task,
     )
 
     logger.info("[OK] Portfolio reconciliation tasks loaded")
@@ -142,9 +143,9 @@ celery_app.conf.update(
 # Import security tasks
 try:
     from .tasks.security_tasks import (
-        verify_audit_log_integrity_task,
-        monitor_security_events_task,
         cleanup_old_security_events_task,
+        monitor_security_events_task,
+        verify_audit_log_integrity_task,
     )
 
     logger.info("[OK] Security tasks loaded")
@@ -154,12 +155,12 @@ except ImportError as e:
 # Import marketplace tasks
 try:
     from .tasks.marketplace_tasks import (
-        update_all_provider_metrics_task,
         calculate_monthly_payouts_task,
         check_underperforming_providers_task,
+        flag_suspicious_providers_task,
+        update_all_provider_metrics_task,
         update_single_provider_metrics_task,
         verify_all_providers_task,
-        flag_suspicious_providers_task,
     )
 
     logger.info("[OK] Marketplace tasks loaded")
@@ -241,7 +242,9 @@ celery_app.conf.beat_schedule = {
     },
     "calculate-monthly-payouts": {
         "task": "marketplace.calculate_monthly_payouts",
-        "schedule": crontab(day_of_month=1, hour=2, minute=0),  # 1st of each month at 2 AM UTC
+        "schedule": crontab(
+            day_of_month=1, hour=2, minute=0
+        ),  # 1st of each month at 2 AM UTC
     },
     "check-underperforming-providers": {
         "task": "marketplace.check_underperforming_providers",
@@ -249,7 +252,9 @@ celery_app.conf.beat_schedule = {
     },
     "verify-all-providers": {
         "task": "marketplace.verify_all_providers",
-        "schedule": crontab(day_of_week=0, hour=5, minute=0),  # Weekly on Sunday at 5 AM UTC
+        "schedule": crontab(
+            day_of_week=0, hour=5, minute=0
+        ),  # Weekly on Sunday at 5 AM UTC
     },
     "flag-suspicious-providers": {
         "task": "marketplace.flag_suspicious_providers",
@@ -318,18 +323,19 @@ def cleanup_old_data():
 @celery_app.task(name="tasks.check_system_health")
 def check_system_health():
     """Check system health and send alerts if needed"""
-    from server_fastapi.routes.health_advanced import health_checker
     import asyncio
+
+    from server_fastapi.routes.health_advanced import health_checker
 
     # Run async health check
     health = asyncio.run(health_checker.check_all())
 
     if health.status == "unhealthy":
         # Send alert
+        from server_fastapi.services.performance_monitoring import Alert, AlertSeverity
         from server_fastapi.services.performance_monitoring import (
             performance_monitor as system_performance_monitor,
         )
-        from server_fastapi.services.performance_monitoring import Alert, AlertSeverity
 
         alert = Alert(
             severity=AlertSeverity.CRITICAL,
@@ -372,6 +378,7 @@ def check_alert_escalations():
     Runs periodically to ensure alerts are escalated appropriately.
     """
     import asyncio
+
     from server_fastapi.services.alerting.alerting_service import get_alerting_service
 
     async def check_escalations():
@@ -393,13 +400,15 @@ def reconcile_all_portfolios():
     Reconcile all user portfolios with trade history.
     Runs periodically to keep portfolio, trades, and analytics in sync.
     """
+    import asyncio
+
+    from sqlalchemy import select
+
+    from server_fastapi.database import get_db_context
+    from server_fastapi.models.user import User
     from server_fastapi.services.portfolio_reconciliation import (
         PortfolioReconciliationService,
     )
-    from server_fastapi.database import get_db_context
-    from server_fastapi.models.user import User
-    from sqlalchemy import select
-    import asyncio
 
     async def reconcile_all():
         async with get_db_context() as db:
@@ -468,15 +477,17 @@ def reconcile_portfolios():
     Validates portfolio balances against trade history
     """
     import asyncio
+
     from sqlalchemy.ext.asyncio import (
-        create_async_engine,
-        async_sessionmaker,
         AsyncSession,
+        async_sessionmaker,
+        create_async_engine,
     )
+
+    from server_fastapi.database import get_database_url
     from server_fastapi.services.portfolio_reconciliation import (
         PortfolioReconciliationService,
     )
-    from server_fastapi.database import get_database_url
 
     async def run_reconciliation():
         # Create async engine for this task

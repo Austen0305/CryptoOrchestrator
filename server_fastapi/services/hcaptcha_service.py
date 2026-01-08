@@ -4,10 +4,10 @@ hCaptcha Verification Service
 Provides bot protection using hCaptcha (free tier: 100K requests/month).
 """
 
-import httpx
 import logging
-from typing import Optional
 import os
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +24,7 @@ class HCaptchaService:
                 "HCAPTCHA_SECRET_KEY not set - hCaptcha verification disabled"
             )
 
-    async def verify(
-        self, token: Optional[str], remoteip: Optional[str] = None
-    ) -> bool:
+    async def verify(self, token: str | None, remoteip: str | None = None) -> bool:
         """
         Verify hCaptcha token.
 

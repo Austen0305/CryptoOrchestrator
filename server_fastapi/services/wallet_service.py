@@ -5,14 +5,15 @@ Handles custodial wallet creation, deposit address generation, balance fetching,
 """
 
 import logging
-from typing import Dict, Optional, List, Any
-from sqlalchemy.ext.asyncio import AsyncSession
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 try:
     from eth_account import Account
-    from eth_utils import to_checksum_address, is_address
+    from eth_utils import is_address, to_checksum_address
 
     ETH_ACCOUNT_AVAILABLE = True
 except ImportError:
@@ -21,8 +22,8 @@ except ImportError:
     to_checksum_address = None
     is_address = None
 
-from ..repositories.wallet_repository import WalletRepository
 from ..config.settings import get_settings
+from ..repositories.wallet_repository import WalletRepository
 
 # Optional blockchain imports (may not be available if web3 is not installed)
 try:
@@ -54,7 +55,7 @@ class WalletService:
                 "eth-account not available. Install with: pip install eth-account"
             )
 
-    def generate_wallet_address(self) -> Optional[Dict[str, Any]]:
+    def generate_wallet_address(self) -> dict[str, Any] | None:
         """
         Generate a new Ethereum wallet address and private key
 
@@ -86,9 +87,9 @@ class WalletService:
         self,
         user_id: int,
         chain_id: int,
-        label: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Optional[Dict[str, Any]]:
+        label: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any] | None:
         """
         Create a custodial wallet for a user (platform-managed)
 
@@ -191,9 +192,9 @@ class WalletService:
         user_id: int,
         wallet_address: str,
         chain_id: int,
-        label: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
-    ) -> Optional[Dict[str, Any]]:
+        label: str | None = None,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any] | None:
         """
         Register an external wallet address (user's own wallet)
 
@@ -289,8 +290,8 @@ class WalletService:
             return None
 
     async def get_user_wallets(
-        self, user_id: int, db: Optional[AsyncSession] = None
-    ) -> List[Dict[str, Any]]:
+        self, user_id: int, db: AsyncSession | None = None
+    ) -> list[dict[str, Any]]:
         """
         Get all wallets for a user
 
@@ -332,8 +333,8 @@ class WalletService:
             return []
 
     async def get_deposit_address(
-        self, user_id: int, chain_id: int, db: Optional[AsyncSession] = None
-    ) -> Optional[str]:
+        self, user_id: int, chain_id: int, db: AsyncSession | None = None
+    ) -> str | None:
         """
         Get or create deposit address for a user (custodial wallet)
 
@@ -386,10 +387,10 @@ class WalletService:
         wallet_id: int,
         chain_id: int,
         address: str,
-        token_address: Optional[str] = None,
-        db: Optional[AsyncSession] = None,
+        token_address: str | None = None,
+        db: AsyncSession | None = None,
         use_cache: bool = True,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Get wallet balance (ETH or ERC-20 token) with caching
 
@@ -438,6 +439,7 @@ class WalletService:
                 repository = WalletRepository(db)
                 # Get current wallet to check existing balance
                 from sqlalchemy import select
+
                 from ..models.user_wallet import UserWallet
 
                 stmt = select(UserWallet).where(UserWallet.id == wallet_id)
@@ -464,8 +466,8 @@ class WalletService:
     async def refresh_wallet_balances(
         self,
         user_id: int,
-        db: Optional[AsyncSession] = None,
-    ) -> Dict[int, bool]:
+        db: AsyncSession | None = None,
+    ) -> dict[int, bool]:
         """
         Refresh balances for all user wallets
 
@@ -540,10 +542,10 @@ class WalletService:
         user_id: int,
         to_address: str,
         amount: Decimal,
-        token_address: Optional[str] = None,
+        token_address: str | None = None,
         chain_id: int = 1,
-        db: Optional[AsyncSession] = None,
-    ) -> Optional[Dict[str, Any]]:
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any] | None:
         """
         Process a withdrawal from a custodial wallet
 

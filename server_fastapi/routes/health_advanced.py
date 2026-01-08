@@ -4,19 +4,19 @@ Monitors all critical system components
 Consolidated from health.py, health_comprehensive.py, and health_wallet.py
 """
 
-from fastapi import APIRouter, Response, Depends, HTTPException, status
-from pydantic import BaseModel
-from typing import Dict, List, Optional, Any, Annotated
-from datetime import datetime
-from enum import Enum
 import asyncio
-import psutil
 import logging
 import time
+from datetime import datetime
+from typing import Annotated, Any
+
+import psutil
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_context, get_db_session
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text
 from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
 
@@ -28,9 +28,9 @@ router = APIRouter(prefix="/api/health", tags=["Health"])
 class ComponentHealth(BaseModel):
     name: str
     status: str  # "healthy", "degraded", "unhealthy"
-    message: Optional[str] = None
-    response_time_ms: Optional[float] = None
-    details: Optional[Dict] = None
+    message: str | None = None
+    response_time_ms: float | None = None
+    details: dict | None = None
 
 
 class HealthResponse(BaseModel):
@@ -38,9 +38,9 @@ class HealthResponse(BaseModel):
     timestamp: str
     version: str = "1.0.0"  # API version
     uptime_seconds: float
-    components: List[ComponentHealth]
-    checks: Optional[Dict[str, Dict[str, Any]]] = None  # Backward compatibility
-    system_metrics: Dict
+    components: list[ComponentHealth]
+    checks: dict[str, dict[str, Any]] | None = None  # Backward compatibility
+    system_metrics: dict
 
 
 class HealthChecker:
@@ -48,7 +48,7 @@ class HealthChecker:
 
     def __init__(self):
         self.start_time = datetime.now()
-        self.checks: Dict[str, callable] = {}
+        self.checks: dict[str, callable] = {}
 
     def register_check(self, name: str, check_func: callable):
         """Register a health check function"""
@@ -79,7 +79,7 @@ class HealthChecker:
                     response_time_ms=response_time,
                 )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return ComponentHealth(
                 name=name, status="unhealthy", message="Health check timed out"
             )
@@ -147,7 +147,7 @@ class HealthChecker:
             system_metrics=system_metrics,
         )
 
-    def _get_system_metrics(self) -> Dict:
+    def _get_system_metrics(self) -> dict:
         """Get system resource metrics"""
         try:
             cpu_percent = psutil.cpu_percent(interval=0.1)
@@ -313,7 +313,7 @@ async def get_startup():
 async def wallet_health_check(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Health check for wallet service"""
     try:
         user_id = _get_user_id(current_user)
@@ -332,7 +332,7 @@ async def wallet_health_check(
 @router.get("/staking")
 async def staking_health_check(
     db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Health check for staking service"""
     try:
         staking_health = await check_staking(db)
@@ -671,8 +671,9 @@ async def check_dex_aggregators():
     aggregators = ["0x", "okx", "rubic"]
 
     try:
-        from ..services.trading.aggregator_router import AggregatorRouter
         import os
+
+        from ..services.trading.aggregator_router import AggregatorRouter
 
         router = AggregatorRouter()
         healthy_aggregators = 0
@@ -722,7 +723,14 @@ async def check_dex_aggregators():
                 # Check if error is due to missing API key or authentication
                 is_auth_error = any(
                     indicator in error_msg.lower()
-                    for indicator in ["401", "403", "unauthorized", "forbidden", "api key", "authentication"]
+                    for indicator in [
+                        "401",
+                        "403",
+                        "unauthorized",
+                        "forbidden",
+                        "api key",
+                        "authentication",
+                    ]
                 )
                 is_not_found = "404" in error_msg or "not found" in error_msg.lower()
 
@@ -754,7 +762,9 @@ async def check_dex_aggregators():
         elif missing_api_keys and len(missing_api_keys) == degraded_aggregators:
             # All failures are due to missing API keys - show as degraded, not unhealthy
             status = "degraded"
-            message = f"DEX aggregators require API keys ({', '.join(missing_api_keys)})"
+            message = (
+                f"DEX aggregators require API keys ({', '.join(missing_api_keys)})"
+            )
         else:
             status = "degraded"  # Changed from "unhealthy" to "degraded" - circuit breaker handles failures
             message = "DEX aggregators unavailable (circuit breaker may be open)"

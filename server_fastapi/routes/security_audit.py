@@ -4,10 +4,11 @@ Provides endpoints for security auditing
 """
 
 import logging
-from typing import Dict, Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from ..utils.security_audit import security_auditor
+
 from ..middleware.auth import get_current_user
+from ..utils.security_audit import security_auditor
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,7 @@ async def run_security_audit(
     # Admin check
     if current_user.get("role") != "admin" and not current_user.get("is_admin"):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
         )
     try:
         audit_results = security_auditor.run_full_audit()

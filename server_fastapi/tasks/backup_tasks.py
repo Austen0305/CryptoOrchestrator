@@ -4,7 +4,6 @@ Scheduled tasks for regular database backups
 """
 
 import logging
-from datetime import datetime
 
 from ..celery_app import celery_app
 from ..services.backup_service import backup_service

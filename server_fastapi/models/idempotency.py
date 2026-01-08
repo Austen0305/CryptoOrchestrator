@@ -3,10 +3,11 @@ Idempotency Key Model
 Stores idempotency keys to prevent duplicate transaction processing
 """
 
-from sqlalchemy import Column, String, Text, ForeignKey, Integer, DateTime, JSON
-from sqlalchemy.orm import relationship, Mapped, mapped_column
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
+
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, TimestampMixin
 
@@ -23,7 +24,7 @@ class IdempotencyKey(Base, TimestampMixin):
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
-    result: Mapped[Dict[str, Any]] = mapped_column(
+    result: Mapped[dict[str, Any]] = mapped_column(
         JSON, nullable=False
     )  # Store operation result
     status_code: Mapped[int] = mapped_column(Integer, nullable=False, default=200)

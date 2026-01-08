@@ -2,21 +2,20 @@
 Strategy optimizer for backtesting
 """
 
-import os
-import sqlite3
-import json
-import asyncio
-import random
-import math
-from typing import Dict, List, Optional, Any, Tuple
-from pydantic import BaseModel
-from datetime import datetime
-import logging
-import uuid
-from concurrent.futures import ProcessPoolExecutor
 import itertools
+import json
+import logging
+import math
+import os
+import random
+import sqlite3
+import uuid
+from datetime import datetime
+from typing import Any
 
-from ..backtesting_engine import BacktestingEngine, BacktestConfig, BacktestResult
+from pydantic import BaseModel
+
+from ..backtesting_engine import BacktestConfig, BacktestingEngine
 from ..ml.ensemble_engine import MarketData
 
 logger = logging.getLogger(__name__)
@@ -25,21 +24,21 @@ logger = logging.getLogger(__name__)
 class OptimizationResult(BaseModel):
     id: str
     strategy_name: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
     fitness_score: float
-    backtest_results: Dict[str, Any]
+    backtest_results: dict[str, Any]
     created_at: datetime
 
 
 class ParameterRange(BaseModel):
     min: float
     max: float
-    step: Optional[float] = None
+    step: float | None = None
 
 
 class OptimizationConfig(BaseModel):
     strategy_name: str
-    parameters: Dict[str, ParameterRange]
+    parameters: dict[str, ParameterRange]
     population_size: int = 50
     generations: int = 20
     mutation_rate: float = 0.1
@@ -83,8 +82,8 @@ class StrategyOptimizer:
             conn.commit()
 
     async def optimize_strategy(
-        self, config: OptimizationConfig, historical_data: List[MarketData], bot_id: str
-    ) -> List[OptimizationResult]:
+        self, config: OptimizationConfig, historical_data: list[MarketData], bot_id: str
+    ) -> list[OptimizationResult]:
         """Optimize strategy parameters using genetic algorithm"""
         logger.info(f"Starting genetic optimization for {config.strategy_name}")
 
@@ -139,12 +138,12 @@ class StrategyOptimizer:
 
     async def run_parameter_sweep(
         self,
-        param_ranges: Dict[str, ParameterRange],
+        param_ranges: dict[str, ParameterRange],
         strategy_name: str,
-        historical_data: List[MarketData],
+        historical_data: list[MarketData],
         bot_id: str,
         max_combinations: int = 1000,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Run parameter sweep analysis"""
         logger.info(f"Starting parameter sweep for {strategy_name}")
 
@@ -225,9 +224,9 @@ class StrategyOptimizer:
     async def get_optimal_parameters(
         self,
         strategy_name: str,
-        market_conditions: Optional[Dict[str, Any]] = None,
+        market_conditions: dict[str, Any] | None = None,
         limit: int = 10,
-    ) -> List[OptimizationResult]:
+    ) -> list[OptimizationResult]:
         """Get optimal parameters for market conditions"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.execute(
@@ -259,7 +258,7 @@ class StrategyOptimizer:
 
     def _initialize_population(
         self, config: OptimizationConfig
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Initialize random population"""
         population = []
         for _ in range(config.population_size):
@@ -284,10 +283,10 @@ class StrategyOptimizer:
 
     async def _evaluate_population(
         self,
-        population: List[Dict[str, Any]],
-        historical_data: List[MarketData],
+        population: list[dict[str, Any]],
+        historical_data: list[MarketData],
         bot_id: str,
-    ) -> List[float]:
+    ) -> list[float]:
         """Evaluate fitness of population"""
         fitness_scores = []
 
@@ -326,10 +325,10 @@ class StrategyOptimizer:
 
     def _create_next_generation(
         self,
-        population: List[Dict[str, Any]],
-        fitness_scores: List[float],
+        population: list[dict[str, Any]],
+        fitness_scores: list[float],
         config: OptimizationConfig,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Create next generation using tournament selection, crossover, and mutation"""
         new_population = []
 
@@ -358,10 +357,10 @@ class StrategyOptimizer:
 
     def _tournament_selection(
         self,
-        population: List[Dict[str, Any]],
-        fitness_scores: List[float],
+        population: list[dict[str, Any]],
+        fitness_scores: list[float],
         tournament_size: int,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Tournament selection"""
         tournament = random.sample(
             list(zip(population, fitness_scores)), tournament_size
@@ -369,8 +368,8 @@ class StrategyOptimizer:
         return max(tournament, key=lambda x: x[1])[0]
 
     def _crossover(
-        self, parent1: Dict[str, Any], parent2: Dict[str, Any]
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        self, parent1: dict[str, Any], parent2: dict[str, Any]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Single point crossover"""
         if not parent1:
             return parent1, parent2
@@ -391,10 +390,10 @@ class StrategyOptimizer:
 
     def _mutate(
         self,
-        individual: Dict[str, Any],
+        individual: dict[str, Any],
         mutation_rate: float,
-        parameters: Dict[str, ParameterRange],
-    ) -> Dict[str, Any]:
+        parameters: dict[str, ParameterRange],
+    ) -> dict[str, Any]:
         """Gaussian mutation"""
         mutated = individual.copy()
 
@@ -418,8 +417,8 @@ class StrategyOptimizer:
         return mutated
 
     def _generate_parameter_combinations(
-        self, param_ranges: Dict[str, ParameterRange], max_combinations: int
-    ) -> List[Dict[str, Any]]:
+        self, param_ranges: dict[str, ParameterRange], max_combinations: int
+    ) -> list[dict[str, Any]]:
         """Generate parameter combinations for sweep"""
         # Create discrete values for each parameter
         param_values = {}

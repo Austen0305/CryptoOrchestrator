@@ -2,14 +2,14 @@
 Licensing Services Module
 """
 
+from .demo_mode import DemoModeService, FeatureFlag, demo_mode_service
 from .license_service import (
-    LicenseService,
     LicenseKey,
+    LicenseService,
     LicenseStatus,
     LicenseType,
     license_service,
 )
-from .demo_mode import DemoModeService, FeatureFlag, demo_mode_service
 
 __all__ = [
     "LicenseService",

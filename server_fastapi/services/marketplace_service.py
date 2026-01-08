@@ -4,30 +4,29 @@ Manages signal providers, curator system, reputation, and payouts for copy tradi
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, desc
 from sqlalchemy.orm import selectinload
 
 if TYPE_CHECKING:
-    from ..models.signal_provider import SignalProvider, SignalProviderRating, Payout
-    from ..models.user import User
-    from ..models.trade import Trade
     from ..models.follow import Follow
+    from ..models.signal_provider import Payout, SignalProvider, SignalProviderRating
+    from ..models.trade import Trade
 
+from ..models.follow import Follow
 from ..models.signal_provider import (
+    CuratorStatus,
+    Payout,
     SignalProvider,
     SignalProviderRating,
-    Payout,
-    CuratorStatus,
 )
-from ..models.user import User
 from ..models.trade import Trade
-from ..models.follow import Follow
-from ..repositories.user_repository import UserRepository
-from ..repositories.trade_repository import TradeRepository
 from ..repositories.follow_repository import FollowRepository
+from ..repositories.trade_repository import TradeRepository
+from ..repositories.user_repository import UserRepository
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +37,9 @@ class MarketplaceService:
     def __init__(
         self,
         db: AsyncSession,
-        user_repository: Optional[UserRepository] = None,
-        trade_repository: Optional[TradeRepository] = None,
-        follow_repository: Optional[FollowRepository] = None,
+        user_repository: UserRepository | None = None,
+        trade_repository: TradeRepository | None = None,
+        follow_repository: FollowRepository | None = None,
     ):
         self.db = db
         self.user_repository = user_repository or UserRepository()
@@ -48,8 +47,8 @@ class MarketplaceService:
         self.follow_repository = follow_repository or FollowRepository()
 
     async def apply_as_signal_provider(
-        self, user_id: int, profile_description: Optional[str] = None
-    ) -> Dict[str, any]:
+        self, user_id: int, profile_description: str | None = None
+    ) -> dict[str, any]:
         """
         Apply to become a signal provider (curator approval required).
 
@@ -88,20 +87,27 @@ class MarketplaceService:
 
             await self.db.commit()
             await self.db.refresh(signal_provider)
-            
+
             # Send email notification (async, don't wait)
             try:
-                from ..services.marketplace_email_service import MarketplaceEmailService
                 from ..models.user import User
+                from ..services.marketplace_email_service import MarketplaceEmailService
+
                 user = await self.db.get(User, user_id)
                 if user and user.email:
                     email_service = MarketplaceEmailService()
                     # Fire and forget
                     import asyncio
+
                     asyncio.create_task(
-                        email_service.send_provider_approval_email(user.email, user.username or user.email)
-                        if signal_provider.curator_status == CuratorStatus.APPROVED.value
-                        else email_service.send_provider_rejection_email(user.email, user.username or user.email)
+                        email_service.send_provider_approval_email(
+                            user.email, user.username or user.email
+                        )
+                        if signal_provider.curator_status
+                        == CuratorStatus.APPROVED.value
+                        else email_service.send_provider_rejection_email(
+                            user.email, user.username or user.email
+                        )
                     )
             except Exception as e:
                 logger.warning(f"Failed to send email notification: {e}")
@@ -120,8 +126,8 @@ class MarketplaceService:
             raise
 
     async def approve_signal_provider(
-        self, signal_provider_id: int, curator_notes: Optional[str] = None
-    ) -> Dict[str, any]:
+        self, signal_provider_id: int, curator_notes: str | None = None
+    ) -> dict[str, any]:
         """
         Approve a signal provider (curator action).
 
@@ -145,17 +151,21 @@ class MarketplaceService:
 
             await self.db.commit()
             await self.db.refresh(signal_provider)
-            
+
             # Send approval email notification
             try:
-                from ..services.marketplace_email_service import MarketplaceEmailService
                 from ..models.user import User
+                from ..services.marketplace_email_service import MarketplaceEmailService
+
                 user = await self.db.get(User, signal_provider.user_id)
                 if user and user.email:
                     email_service = MarketplaceEmailService()
                     import asyncio
+
                     asyncio.create_task(
-                        email_service.send_provider_approval_email(user.email, user.username or user.email)
+                        email_service.send_provider_approval_email(
+                            user.email, user.username or user.email
+                        )
                     )
             except Exception as e:
                 logger.warning(f"Failed to send approval email: {e}")
@@ -173,7 +183,9 @@ class MarketplaceService:
             await self.db.rollback()
             raise
 
-    async def update_performance_metrics(self, signal_provider_id: int) -> Dict[str, any]:
+    async def update_performance_metrics(
+        self, signal_provider_id: int
+    ) -> dict[str, any]:
         """
         Update performance metrics for a signal provider.
         Calculates Sharpe ratio, win rate, total return, etc.
@@ -235,7 +247,9 @@ class MarketplaceService:
                     else:
                         initial_capital = 10000  # Default
                     signal_provider.total_return = (
-                        (total_profit / initial_capital * 100) if initial_capital > 0 else 0.0
+                        (total_profit / initial_capital * 100)
+                        if initial_capital > 0
+                        else 0.0
                     )
 
                 # Calculate Sharpe ratio
@@ -243,7 +257,9 @@ class MarketplaceService:
                     returns = [t.pnl for t in trades if t.pnl]
                     if returns:
                         avg_return = sum(returns) / len(returns)
-                        variance = sum((r - avg_return) ** 2 for r in returns) / len(returns)
+                        variance = sum((r - avg_return) ** 2 for r in returns) / len(
+                            returns
+                        )
                         std_dev = variance**0.5 if variance > 0 else 0.0
                         signal_provider.sharpe_ratio = (
                             (avg_return / std_dev * (365**0.5)) if std_dev > 0 else 0.0
@@ -305,8 +321,12 @@ class MarketplaceService:
             raise
 
     async def rate_signal_provider(
-        self, signal_provider_id: int, user_id: int, rating: int, comment: Optional[str] = None
-    ) -> Dict[str, any]:
+        self,
+        signal_provider_id: int,
+        user_id: int,
+        rating: int,
+        comment: str | None = None,
+    ) -> dict[str, any]:
         """
         Rate a signal provider (1-5 stars).
 
@@ -371,8 +391,10 @@ class MarketplaceService:
         """Update average rating for a signal provider"""
         try:
             ratings_result = await self.db.execute(
-                select(func.avg(SignalProviderRating.rating), func.count(SignalProviderRating.id))
-                .where(SignalProviderRating.signal_provider_id == signal_provider_id)
+                select(
+                    func.avg(SignalProviderRating.rating),
+                    func.count(SignalProviderRating.id),
+                ).where(SignalProviderRating.signal_provider_id == signal_provider_id)
             )
             result = ratings_result.first()
 
@@ -390,10 +412,10 @@ class MarketplaceService:
         skip: int = 0,
         limit: int = 20,
         sort_by: str = "total_return",
-        min_rating: Optional[float] = None,
-        min_win_rate: Optional[float] = None,
-        min_sharpe: Optional[float] = None,
-    ) -> Dict[str, any]:
+        min_rating: float | None = None,
+        min_win_rate: float | None = None,
+        min_sharpe: float | None = None,
+    ) -> dict[str, any]:
         """
         Get list of signal providers for marketplace (public, approved only).
 
@@ -412,7 +434,9 @@ class MarketplaceService:
             # Optimized query with eager loading and filtering
             query = (
                 select(SignalProvider)
-                .options(selectinload(SignalProvider.user))  # Eager load user to prevent N+1
+                .options(
+                    selectinload(SignalProvider.user)
+                )  # Eager load user to prevent N+1
                 .where(
                     and_(
                         SignalProvider.curator_status == CuratorStatus.APPROVED.value,
@@ -455,8 +479,10 @@ class MarketplaceService:
                 count_conditions.append(SignalProvider.win_rate >= min_win_rate)
             if min_sharpe is not None:
                 count_conditions.append(SignalProvider.sharpe_ratio >= min_sharpe)
-            
-            count_query = select(func.count(SignalProvider.id)).where(and_(*count_conditions))
+
+            count_query = select(func.count(SignalProvider.id)).where(
+                and_(*count_conditions)
+            )
             total_result = await self.db.execute(count_query)
             total = total_result.scalar() or 0
 
@@ -507,7 +533,7 @@ class MarketplaceService:
 
     async def calculate_payout(
         self, signal_provider_id: int, period_start: datetime, period_end: datetime
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Calculate payout for a signal provider for a given period.
         Platform takes 20%, provider gets 80%.
@@ -567,7 +593,9 @@ class MarketplaceService:
                     # Calculate fee based on profit
                     profit = copied_trade.copied_trade.pnl
                     if profit > 0 and signal_provider.performance_fee_percentage > 0:
-                        fee = profit * (signal_provider.performance_fee_percentage / 100.0)
+                        fee = profit * (
+                            signal_provider.performance_fee_percentage / 100.0
+                        )
                         performance_revenue += fee
 
             total_revenue = subscription_revenue + performance_revenue
@@ -593,7 +621,7 @@ class MarketplaceService:
 
     async def create_payout(
         self, signal_provider_id: int, period_start: datetime, period_end: datetime
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         Create a payout record for a signal provider.
 
@@ -625,15 +653,17 @@ class MarketplaceService:
             self.db.add(payout)
             await self.db.commit()
             await self.db.refresh(payout)
-            
+
             # Send payout notification email
             try:
-                from ..services.marketplace_email_service import MarketplaceEmailService
                 from ..models.user import User
+                from ..services.marketplace_email_service import MarketplaceEmailService
+
                 user = await self.db.get(User, signal_provider.user_id)
                 if user and user.email:
                     email_service = MarketplaceEmailService()
                     import asyncio
+
                     asyncio.create_task(
                         email_service.send_payout_notification_email(
                             to_email=user.email,

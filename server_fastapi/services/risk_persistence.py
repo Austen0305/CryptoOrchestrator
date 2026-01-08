@@ -4,16 +4,15 @@ Handles persistence of risk limits, metrics, and alerts to database.
 """
 
 import logging
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..repositories.risk_repository import RiskRepository, Any
+    from ..repositories.risk_repository import Any, RiskRepository
 from datetime import datetime, timedelta
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 
 from ..models.risk_limit import RiskLimit
-from ..models.risk_alert import RiskAlert as RiskAlertModel
 from ..repositories.risk_repository import RiskRepository
 
 logger = logging.getLogger(__name__)
@@ -25,15 +24,15 @@ class RiskPersistenceService:
     def __init__(
         self,
         db_session: AsyncSession,
-        risk_repository: Optional[RiskRepository] = None,
+        risk_repository: RiskRepository | None = None,
     ):
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
         self.risk_repository = risk_repository or RiskRepository()
         self.db = db_session  # Keep db for transaction handling
 
     async def save_risk_limits(
-        self, user_id: str, limits: Dict[str, float]
-    ) -> List[RiskLimit]:
+        self, user_id: str, limits: dict[str, float]
+    ) -> list[RiskLimit]:
         """
         Save or update risk limits for a user.
 
@@ -63,7 +62,7 @@ class RiskPersistenceService:
         )
         return saved_limits
 
-    async def get_risk_limits(self, user_id: str) -> Dict[str, float]:
+    async def get_risk_limits(self, user_id: str) -> dict[str, float]:
         """
         Get all risk limits for a user.
 
@@ -79,7 +78,7 @@ class RiskPersistenceService:
 
     async def disable_risk_limit(
         self, user_id: str, limit_type: str
-    ) -> Optional[RiskLimit]:
+    ) -> RiskLimit | None:
         """
         Disable a risk limit for a user.
 
@@ -105,7 +104,7 @@ class RiskPersistenceService:
             )
         return limit
 
-    async def save_risk_metrics(self, user_id: str, metrics: Dict[str, Any]) -> None:
+    async def save_risk_metrics(self, user_id: str, metrics: dict[str, Any]) -> None:
         """
         Save risk metrics snapshot for a user.
         This could be stored in a separate RiskMetrics table or as part of portfolio.
@@ -124,7 +123,7 @@ class RiskPersistenceService:
 
     async def get_risk_history(
         self, user_id: str, days: int = 30
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get risk history (alerts, limit changes) for a user.
 
@@ -168,7 +167,7 @@ class RiskPersistenceService:
 
         return history
 
-    async def persist_risk_state(self, user_id: str, state: Dict[str, Any]) -> None:
+    async def persist_risk_state(self, user_id: str, state: dict[str, Any]) -> None:
         """
         Persist complete risk state for a user (limits, metrics, alerts).
 

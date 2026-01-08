@@ -4,11 +4,10 @@ Background task to monitor blockchain for deposits
 """
 
 import logging
+
 from celery import shared_task
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.blockchain.deposit_monitor import get_deposit_monitor
-from ..database import get_db_session
 
 logger = logging.getLogger(__name__)
 

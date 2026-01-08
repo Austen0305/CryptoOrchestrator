@@ -2,11 +2,10 @@
 Enhanced tests for wallet services with multi-chain edge cases.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from typing import Dict, Any
 import logging
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +44,15 @@ class TestWalletServicesEnhanced:
 
         # Create wallets on multiple chains
         wallet1 = await factories["wallet"].create_wallet(
-            db_session, user_id=user["id"], chain_id=1  # Ethereum
+            db_session,
+            user_id=user["id"],
+            chain_id=1,  # Ethereum
         )
 
         wallet2 = await factories["wallet"].create_wallet(
-            db_session, user_id=user["id"], chain_id=8453  # Base
+            db_session,
+            user_id=user["id"],
+            chain_id=8453,  # Base
         )
 
         # Refresh balances

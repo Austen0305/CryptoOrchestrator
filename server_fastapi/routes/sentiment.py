@@ -3,10 +3,10 @@ Sentiment Analysis Routes
 Provides market sentiment analysis endpoints
 """
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Dict, Optional
 import logging
+
+from fastapi import APIRouter
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ class MarketSentiment(BaseModel):
 
     sentiment: str  # "bullish", "bearish", "neutral"
     confidence: float
-    indicators: Dict[str, float]
-    news_sentiment: Optional[float] = None
+    indicators: dict[str, float]
+    news_sentiment: float | None = None
 
 
 @router.get("/{symbol}", response_model=MarketSentiment)

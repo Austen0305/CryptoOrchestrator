@@ -1,8 +1,8 @@
-from typing import Optional
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from .base import SQLAlchemyRepository
+
 from ..models.preferences import UserPreferencesModel
+from .base import SQLAlchemyRepository
 
 
 class PreferencesRepository(SQLAlchemyRepository[UserPreferencesModel]):
@@ -11,7 +11,7 @@ class PreferencesRepository(SQLAlchemyRepository[UserPreferencesModel]):
 
     async def get_by_user_id(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[UserPreferencesModel]:
+    ) -> UserPreferencesModel | None:
         result = await session.execute(
             select(UserPreferencesModel).where(UserPreferencesModel.user_id == user_id)
         )

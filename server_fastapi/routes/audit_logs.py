@@ -3,18 +3,17 @@ Audit Logs Routes
 Provides access to audit logs for compliance and security
 """
 
+import logging
+from pathlib import Path
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any, Annotated
-import logging
-import os
-from datetime import datetime
-from pathlib import Path
 
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
 from ..middleware.cache_manager import cached
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -29,17 +28,17 @@ AUDIT_LOG_FILE = AUDIT_LOG_DIR / "audit.log"
 class AuditLogEntry(BaseModel):
     timestamp: str
     event_type: str
-    user_id: Optional[int]
+    user_id: int | None
     action: str
-    resource_type: Optional[str] = None
-    resource_id: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
+    resource_type: str | None = None
+    resource_id: str | None = None
+    details: dict[str, Any] | None = None
     status: str  # "success" or "failure"
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
 
 class AuditLogResponse(BaseModel):
-    entries: List[AuditLogEntry]
+    entries: list[AuditLogEntry]
     total: int
     page: int
     page_size: int
@@ -51,8 +50,8 @@ async def get_audit_logs(
     current_user: Annotated[dict, Depends(get_current_user)],
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    event_type: Optional[str] = None,
-    status: Optional[str] = None,
+    event_type: str | None = None,
+    status: str | None = None,
 ):
     """Get audit logs for the current user (admin can see all logs)"""
     try:
@@ -77,7 +76,7 @@ async def get_audit_logs(
         # Parse log entries
         entries = []
         try:
-            with open(AUDIT_LOG_FILE, "r") as f:
+            with open(AUDIT_LOG_FILE) as f:
                 lines = f.readlines()
 
                 for line in lines:
@@ -233,7 +232,7 @@ async def get_audit_log_stats(
         users = {}
 
         try:
-            with open(AUDIT_LOG_FILE, "r") as f:
+            with open(AUDIT_LOG_FILE) as f:
                 lines = f.readlines()
 
                 for line in lines:

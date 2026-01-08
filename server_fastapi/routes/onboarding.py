@@ -3,16 +3,17 @@ Onboarding API Routes
 Endpoints for user onboarding, achievements, and feature unlocking
 """
 
+import logging
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Annotated
-import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..services.onboarding_service import OnboardingService
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -30,26 +31,24 @@ class SkipStepRequest(BaseModel):
 
 class OnboardingProgressResponse(BaseModel):
     user_id: int
-    current_step: Optional[str]
-    completed_steps: Dict[str, str]
-    skipped_steps: Dict[str, str]
+    current_step: str | None
+    completed_steps: dict[str, str]
+    skipped_steps: dict[str, str]
     progress_percentage: int
     total_steps: int
     is_completed: bool
-    completed_at: Optional[str]
+    completed_at: str | None
 
 
 class AchievementResponse(BaseModel):
     id: int
     achievement_id: str
     achievement_name: str
-    achievement_description: Optional[str]
+    achievement_description: str | None
     progress: int
     max_progress: int
     is_unlocked: bool
-    unlocked_at: Optional[str]
-
-
+    unlocked_at: str | None
 
 
 @router.get("/progress", response_model=OnboardingProgressResponse)
@@ -61,9 +60,9 @@ async def get_onboarding_progress(
     try:
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
-        
+
         progress = await service.get_or_create_progress(user_id)
-        
+
         return OnboardingProgressResponse(
             user_id=progress.user_id,
             current_step=progress.current_step,
@@ -72,7 +71,9 @@ async def get_onboarding_progress(
             progress_percentage=progress.progress_percentage,
             total_steps=progress.total_steps,
             is_completed=progress.is_completed,
-            completed_at=progress.completed_at.isoformat() if progress.completed_at else None,
+            completed_at=progress.completed_at.isoformat()
+            if progress.completed_at
+            else None,
         )
     except Exception as e:
         logger.error(f"Error getting onboarding progress: {e}", exc_info=True)
@@ -89,9 +90,9 @@ async def complete_step(
     try:
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
-        
+
         progress = await service.complete_step(user_id, request.step_id)
-        
+
         return OnboardingProgressResponse(
             user_id=progress.user_id,
             current_step=progress.current_step,
@@ -100,7 +101,9 @@ async def complete_step(
             progress_percentage=progress.progress_percentage,
             total_steps=progress.total_steps,
             is_completed=progress.is_completed,
-            completed_at=progress.completed_at.isoformat() if progress.completed_at else None,
+            completed_at=progress.completed_at.isoformat()
+            if progress.completed_at
+            else None,
         )
     except Exception as e:
         logger.error(f"Error completing step: {e}", exc_info=True)
@@ -117,9 +120,9 @@ async def skip_step(
     try:
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
-        
+
         progress = await service.skip_step(user_id, request.step_id)
-        
+
         return OnboardingProgressResponse(
             user_id=progress.user_id,
             current_step=progress.current_step,
@@ -128,7 +131,9 @@ async def skip_step(
             progress_percentage=progress.progress_percentage,
             total_steps=progress.total_steps,
             is_completed=progress.is_completed,
-            completed_at=progress.completed_at.isoformat() if progress.completed_at else None,
+            completed_at=progress.completed_at.isoformat()
+            if progress.completed_at
+            else None,
         )
     except Exception as e:
         logger.error(f"Error skipping step: {e}", exc_info=True)
@@ -144,16 +149,16 @@ async def reset_onboarding(
     try:
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
-        
+
         progress = await service.reset_progress(user_id)
-        
+
         return {"success": True, "message": "Onboarding progress reset"}
     except Exception as e:
         logger.error(f"Error resetting onboarding: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to reset onboarding")
 
 
-@router.get("/achievements", response_model=List[AchievementResponse])
+@router.get("/achievements", response_model=list[AchievementResponse])
 async def get_achievements(
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
@@ -162,9 +167,9 @@ async def get_achievements(
     try:
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
-        
+
         achievements = await service.get_user_achievements(user_id)
-        
+
         return [
             AchievementResponse(
                 id=a.id,
@@ -181,5 +186,3 @@ async def get_achievements(
     except Exception as e:
         logger.error(f"Error getting achievements: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get achievements")
-
-

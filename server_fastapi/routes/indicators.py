@@ -3,23 +3,22 @@ Indicator Marketplace Routes
 API endpoints for custom indicator marketplace functionality.
 """
 
+import logging
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import List, Optional, Annotated, Dict, Any
-import logging
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..middleware.cache_manager import cached
 from ..services.indicator_service import IndicatorService
 from ..services.volume_profile_service import VolumeProfileService
-from ..services.marketplace_analytics_service import MarketplaceAnalyticsService
-from ..dependencies.auth import get_current_user
 from ..utils.route_helpers import _get_user_id
-from ..middleware.cache_manager import cached
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from ..database import get_db_session
-from fastapi import Request
+
 try:
-    from ..rate_limit_config import limiter, get_rate_limit
+    from ..rate_limit_config import get_rate_limit, limiter
 except ImportError:
     limiter = None
     get_rate_limit = lambda x: x
@@ -32,36 +31,40 @@ router = APIRouter()
 class CreateIndicatorRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     code: str = Field(..., min_length=1)
-    language: str = Field(default="python", description="python, pine_script, javascript, custom_dsl")
-    description: Optional[str] = None
-    category: Optional[str] = None
-    tags: Optional[str] = None
+    language: str = Field(
+        default="python", description="python, pine_script, javascript, custom_dsl"
+    )
+    description: str | None = None
+    category: str | None = None
+    tags: str | None = None
     price: float = Field(default=0.0, ge=0.0)
     is_free: bool = Field(default=True)
-    parameters: Optional[Dict[str, Any]] = None
+    parameters: dict[str, Any] | None = None
 
 
 class CreateVersionRequest(BaseModel):
     code: str = Field(..., min_length=1)
-    version_name: Optional[str] = None
-    changelog: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+    version_name: str | None = None
+    changelog: str | None = None
+    parameters: dict[str, Any] | None = None
     is_breaking: bool = Field(default=False)
 
 
 class RateIndicatorRequest(BaseModel):
     rating: int = Field(..., ge=1, le=5, description="Rating from 1 to 5")
-    comment: Optional[str] = None
+    comment: str | None = None
 
 
 class ExecuteIndicatorRequest(BaseModel):
-    market_data: List[Dict[str, Any]] = Field(..., description="OHLCV market data")
-    parameters: Optional[Dict[str, Any]] = None
+    market_data: list[dict[str, Any]] = Field(..., description="OHLCV market data")
+    parameters: dict[str, Any] | None = None
 
 
 class VolumeProfileRequest(BaseModel):
-    market_data: List[Dict[str, Any]] = Field(..., description="OHLCV market data")
-    bins: Optional[int] = Field(default=24, ge=10, le=100, description="Number of price bins")
+    market_data: list[dict[str, Any]] = Field(..., description="OHLCV market data")
+    bins: int | None = Field(
+        default=24, ge=10, le=100, description="Number of price bins"
+    )
 
 
 @router.post("/create")
@@ -144,7 +147,9 @@ async def create_indicator_version(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error creating indicator version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to create indicator version")
+        raise HTTPException(
+            status_code=500, detail="Failed to create indicator version"
+        )
 
 
 @router.get("/marketplace")
@@ -157,10 +162,12 @@ async def get_marketplace_indicators(
         "download_count",
         description="Sort field: download_count, purchase_count, rating, price, created_at",
     ),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    is_free: Optional[bool] = Query(None, description="Filter by free/paid"),
-    min_rating: Optional[float] = Query(None, ge=0, le=5, description="Minimum average rating"),
-    search: Optional[str] = Query(None, description="Search in name, description, tags"),
+    category: str | None = Query(None, description="Filter by category"),
+    is_free: bool | None = Query(None, description="Filter by free/paid"),
+    min_rating: float | None = Query(
+        None, ge=0, le=5, description="Minimum average rating"
+    ),
+    search: str | None = Query(None, description="Search in name, description, tags"),
 ):
     """Get list of indicators for marketplace"""
     try:
@@ -179,7 +186,9 @@ async def get_marketplace_indicators(
         return result
     except Exception as e:
         logger.error(f"Error getting marketplace indicators: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get marketplace indicators")
+        raise HTTPException(
+            status_code=500, detail="Failed to get marketplace indicators"
+        )
 
 
 @router.get("/{indicator_id}")
@@ -190,9 +199,10 @@ async def get_indicator_detail(
 ):
     """Get detailed information about an indicator"""
     try:
-        from ..models.indicator import Indicator, IndicatorVersion
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
+
+        from ..models.indicator import Indicator, IndicatorVersion
 
         result = await db.execute(
             select(Indicator)
@@ -233,7 +243,9 @@ async def get_indicator_detail(
             "status": indicator.status,
             "developer": {
                 "id": developer.id if developer else None,
-                "username": developer.username or developer.email if developer else None,
+                "username": developer.username or developer.email
+                if developer
+                else None,
             },
             "current_version": indicator.current_version,
             "latest_version": {
@@ -243,7 +255,9 @@ async def get_indicator_detail(
             },
             "documentation": indicator.documentation,
             "usage_examples": indicator.usage_examples,
-            "created_at": indicator.created_at.isoformat() if indicator.created_at else None,
+            "created_at": indicator.created_at.isoformat()
+            if indicator.created_at
+            else None,
         }
     except HTTPException:
         raise
@@ -257,7 +271,7 @@ async def purchase_indicator(
     indicator_id: int,
     current_user: Annotated[dict, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    version_id: Optional[int] = Query(None, description="Optional specific version ID"),
+    version_id: int | None = Query(None, description="Optional specific version ID"),
 ):
     """Purchase an indicator"""
     try:
@@ -361,4 +375,6 @@ async def calculate_volume_profile(
         }
     except Exception as e:
         logger.error(f"Error calculating volume profile: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to calculate volume profile")
+        raise HTTPException(
+            status_code=500, detail="Failed to calculate volume profile"
+        )

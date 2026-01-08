@@ -3,20 +3,19 @@ LSTM Model Training Service
 Enhanced ML capabilities for price prediction
 """
 
+import logging
+from datetime import datetime
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Optional, Any
-from datetime import datetime, timedelta
-import logging
-import os
-import json
 
 logger = logging.getLogger(__name__)
 
 # Try to import ML libraries
 try:
-    from sklearn.preprocessing import MinMaxScaler
     from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import MinMaxScaler
 
     ML_AVAILABLE = True
 except ImportError:
@@ -26,9 +25,9 @@ except ImportError:
 try:
     import tensorflow as tf
     from tensorflow import keras
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense, Dropout
     from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    from tensorflow.keras.models import Sequential
 
     TENSORFLOW_AVAILABLE = True
 except ImportError:
@@ -62,8 +61,8 @@ class LSTMTrainingService:
             )
 
     def prepare_data(
-        self, price_data: List[Dict[str, Any]], symbol: str = "BTC/USDT"
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, price_data: list[dict[str, Any]], symbol: str = "BTC/USDT"
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Prepare training data with feature engineering
 
@@ -169,7 +168,7 @@ class LSTMTrainingService:
 
         return df
 
-    def _create_sequences(self, data: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _create_sequences(self, data: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Create sequences for LSTM training"""
         X, y = [], []
 
@@ -182,8 +181,8 @@ class LSTMTrainingService:
 
     def build_model(
         self,
-        input_shape: Tuple[int, int],
-        lstm_units: List[int] = [128, 64],
+        input_shape: tuple[int, int],
+        lstm_units: list[int] = [128, 64],
         dropout_rate: float = 0.2,
     ) -> Any:
         """
@@ -239,7 +238,7 @@ class LSTMTrainingService:
         epochs: int = 50,
         batch_size: int = 32,
         model_path: str = "lstm_model.h5",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Train LSTM model
 
@@ -309,7 +308,7 @@ class LSTMTrainingService:
 
         return results
 
-    def predict(self, recent_data: np.ndarray) -> Dict[str, Any]:
+    def predict(self, recent_data: np.ndarray) -> dict[str, Any]:
         """
         Make predictions with trained model
 
@@ -338,7 +337,7 @@ class LSTMTrainingService:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get service status"""
         return {
             "ml_available": self.ml_available,

@@ -2,19 +2,19 @@
 Trailing Bot API Routes
 """
 
-from fastapi import APIRouter, HTTPException, Depends, Query, status
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Annotated
 import logging
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
 from ..database import get_db_session
-from ..services.trading.trailing_bot_service import TrailingBotService
-from ..utils.route_helpers import _get_user_id
+from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..utils.query_optimizer import QueryOptimizer
+from ..services.trading.trailing_bot_service import TrailingBotService
 from ..utils.response_optimizer import ResponseOptimizer
+from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,14 @@ class CreateTrailingBotRequest(BaseModel):
     trailing_percent: float = Field(..., gt=0, description="Trailing distance (%)")
     order_amount: float = Field(..., gt=0)
     trading_mode: str = Field(default="paper", pattern="^(paper|real)$")
-    initial_price: Optional[float] = Field(None, gt=0)
-    max_price: Optional[float] = Field(
+    initial_price: float | None = Field(None, gt=0)
+    max_price: float | None = Field(
         None, gt=0, description="Max price for trailing buy"
     )
-    min_price: Optional[float] = Field(
+    min_price: float | None = Field(
         None, gt=0, description="Min price for trailing sell"
     )
-    config: Optional[Dict[str, Any]] = None
+    config: dict[str, Any] | None = None
 
     model_config = {
         "json_schema_extra": {
@@ -65,15 +65,15 @@ class TrailingBotResponse(BaseModel):
     current_price: float
     trailing_percent: float
     order_amount: float
-    max_price: Optional[float]
-    min_price: Optional[float]
+    max_price: float | None
+    min_price: float | None
     is_active: bool
     status: str
     orders_executed: int
     total_profit: float
     highest_price: float
     lowest_price: float
-    config: Dict[str, Any]
+    config: dict[str, Any]
     created_at: str
     updated_at: str
 
@@ -82,7 +82,7 @@ class TrailingBotResponse(BaseModel):
 
 @router.post(
     "/trailing-bots",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     status_code=status.HTTP_201_CREATED,
     tags=["Trailing Bot"],
 )
@@ -129,7 +129,7 @@ async def create_trailing_bot(
 
 
 @router.get(
-    "/trailing-bots", response_model=List[TrailingBotResponse], tags=["Trailing Bot"]
+    "/trailing-bots", response_model=list[TrailingBotResponse], tags=["Trailing Bot"]
 )
 @cached(ttl=120, prefix="trailing_bots")  # 120s TTL for trailing bots list
 async def list_trailing_bots(
@@ -186,7 +186,7 @@ async def get_trailing_bot(
 
 @router.post(
     "/trailing-bots/{bot_id}/start",
-    response_model=Dict[str, str],
+    response_model=dict[str, str],
     tags=["Trailing Bot"],
 )
 async def start_trailing_bot(
@@ -216,7 +216,7 @@ async def start_trailing_bot(
 
 
 @router.post(
-    "/trailing-bots/{bot_id}/stop", response_model=Dict[str, str], tags=["Trailing Bot"]
+    "/trailing-bots/{bot_id}/stop", response_model=dict[str, str], tags=["Trailing Bot"]
 )
 async def stop_trailing_bot(
     bot_id: str,
@@ -245,7 +245,7 @@ async def stop_trailing_bot(
 
 
 @router.delete(
-    "/trailing-bots/{bot_id}", response_model=Dict[str, str], tags=["Trailing Bot"]
+    "/trailing-bots/{bot_id}", response_model=dict[str, str], tags=["Trailing Bot"]
 )
 async def delete_trailing_bot(
     bot_id: str,

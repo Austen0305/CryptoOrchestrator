@@ -9,7 +9,23 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(217, 91%, 60%, 0.05) 0, transparent 50%),
+      radial-gradient(at 100% 0%, hsla(271, 81%, 55%, 0.05) 0, transparent 50%);
+    background-attachment: fixed;
   }
+}
+
+:root {
+  --premium-gradient: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glow-color: rgba(58, 123, 213, 0.5);
+}
+
+.dark {
+  --glass-bg: rgba(0, 0, 0, 0.2);
+  --glass-border: rgba(255, 255, 255, 0.1);
 }
 
 @layer utilities {

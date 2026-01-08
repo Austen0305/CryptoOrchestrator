@@ -4,15 +4,17 @@ Helper functions for caching strategies and cache management.
 Includes versioning, analytics, and predictive preloading support.
 """
 
+import asyncio
+import gzip
 import hashlib
 import json
 import logging
-from typing import Any, Optional, Callable, Dict
-from datetime import datetime, timedelta
-import msgpack
-import gzip
 import time
-import asyncio
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any
+
+import msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +151,7 @@ class MultiLevelCache:
 
     def __init__(
         self,
-        redis_client: Optional[Any] = None,
+        redis_client: Any | None = None,
         enable_versioning: bool = True,
         enable_analytics: bool = True,
         enable_preloading: bool = True,
@@ -439,7 +441,7 @@ class MultiLevelCache:
         self.memory_cache.clear()
         self.memory_ttl.clear()
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get cache metrics"""
         total_requests = self.hits + self.misses
         hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
@@ -515,8 +517,9 @@ def cache_result(
 
     return decorator
 
+
 # Global cache instance
-_cache_instance: Optional[MultiLevelCache] = None
+_cache_instance: MultiLevelCache | None = None
 
 
 def get_cache_instance() -> MultiLevelCache:

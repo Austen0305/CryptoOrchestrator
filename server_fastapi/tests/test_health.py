@@ -3,10 +3,8 @@ Tests for Health Check Endpoints
 """
 
 import pytest
-from httpx import AsyncClient
 from fastapi import status
-from unittest.mock import patch, AsyncMock
-import time
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio

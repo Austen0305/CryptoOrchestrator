@@ -4,11 +4,10 @@ Tracks and reports on database connection pool health and usage.
 """
 
 import logging
-from typing import Dict, Any, Optional
 from datetime import datetime
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlalchemy import inspect
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class ConnectionPoolMonitor:
     Monitor database connection pool health and metrics
     """
 
-    def __init__(self, engine: Optional[AsyncEngine] = None):
+    def __init__(self, engine: AsyncEngine | None = None):
         """
         Initialize pool monitor
 
@@ -26,10 +25,10 @@ class ConnectionPoolMonitor:
             engine: SQLAlchemy async engine to monitor
         """
         self.engine = engine
-        self.metrics_history: list[Dict[str, Any]] = []
+        self.metrics_history: list[dict[str, Any]] = []
         self.max_history = 1000
 
-    async def get_pool_metrics(self) -> Dict[str, Any]:
+    async def get_pool_metrics(self) -> dict[str, Any]:
         """
         Get current connection pool metrics
 
@@ -85,7 +84,7 @@ class ConnectionPoolMonitor:
             logger.error(f"Error getting pool metrics: {e}", exc_info=True)
             return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
 
-    async def check_pool_health(self) -> Dict[str, Any]:
+    async def check_pool_health(self) -> dict[str, Any]:
         """
         Check connection pool health
 
@@ -132,7 +131,7 @@ class ConnectionPoolMonitor:
 
         return health_status
 
-    def get_metrics_history(self, limit: int = 100) -> list[Dict[str, Any]]:
+    def get_metrics_history(self, limit: int = 100) -> list[dict[str, Any]]:
         """
         Get historical pool metrics
 
@@ -144,7 +143,7 @@ class ConnectionPoolMonitor:
         """
         return self.metrics_history[-limit:] if limit else self.metrics_history
 
-    def get_metrics_summary(self) -> Dict[str, Any]:
+    def get_metrics_summary(self) -> dict[str, Any]:
         """
         Get summary statistics from metrics history
 
@@ -182,7 +181,7 @@ class ConnectionPoolMonitor:
         }
 
 
-def get_pool_monitor(engine: Optional[AsyncEngine] = None) -> ConnectionPoolMonitor:
+def get_pool_monitor(engine: AsyncEngine | None = None) -> ConnectionPoolMonitor:
     """Get singleton pool monitor instance"""
     if not hasattr(get_pool_monitor, "_instance"):
         get_pool_monitor._instance = ConnectionPoolMonitor(engine)

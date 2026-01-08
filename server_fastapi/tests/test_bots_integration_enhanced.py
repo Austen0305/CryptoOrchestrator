@@ -3,11 +3,10 @@ Enhanced integration tests for bot management with comprehensive coverage.
 Tests bot lifecycle, error handling, and edge cases.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient
-from typing import Dict, Any
 import logging
+
+import pytest
+from httpx import AsyncClient
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ class TestBotsIntegrationEnhanced:
         # Create 3 bots
         bots = []
         for i in range(3):
-            bot_data = factories["bot"].bot_data(name=f"Bot {i+1}")
+            bot_data = factories["bot"].bot_data(name=f"Bot {i + 1}")
             response = await client.post(
                 "/api/bots/", json=bot_data, headers=user["auth_headers"]
             )
@@ -208,7 +207,7 @@ class TestBotsIntegrationEnhanced:
 
         # Create multiple bots
         for i in range(5):
-            bot_data = factories["bot"].bot_data(name=f"Pagination Bot {i+1}")
+            bot_data = factories["bot"].bot_data(name=f"Pagination Bot {i + 1}")
             await client.post("/api/bots/", json=bot_data, headers=user["auth_headers"])
 
         # Get list (may support pagination)

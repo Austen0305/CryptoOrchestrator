@@ -3,18 +3,18 @@ Backup API Routes
 Endpoints for backup management and restoration
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-from typing import List, Optional, Annotated
 import logging
 from datetime import datetime, timedelta
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..dependencies.auth import get_current_user
-from ..database import get_db_session
-from ..utils.route_helpers import _get_user_id
-from ..services.backup_service import BackupService
 from ..config.settings import get_settings
+from ..database import get_db_session
+from ..dependencies.auth import get_current_user
+from ..services.backup_service import BackupService
 
 logger = logging.getLogger(__name__)
 
@@ -47,21 +47,21 @@ async def create_backup(
             db_url=settings.database_url,
             backup_dir="./backups",
         )
-        
+
         backup_metadata = service.create_backup(
             backup_type=backup_type,
             compress=compress,
         )
-        
+
         return BackupResponse(**backup_metadata)
     except Exception as e:
         logger.error(f"Error creating backup: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to create backup")
 
 
-@router.get("/list", response_model=List[dict])
+@router.get("/list", response_model=list[dict])
 async def list_backups(
-    backup_type: Optional[str] = Query(None, description="Filter by backup type"),
+    backup_type: str | None = Query(None, description="Filter by backup type"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ):
     """List all backups (Admin only)"""
@@ -71,7 +71,7 @@ async def list_backups(
             db_url=settings.database_url,
             backup_dir="./backups",
         )
-        
+
         backups = service.list_backups(backup_type=backup_type)
         return backups
     except Exception as e:
@@ -82,7 +82,7 @@ async def list_backups(
 @router.post("/verify")
 async def verify_backup(
     backup_path: str = Query(..., description="Path to backup file"),
-    expected_checksum: Optional[str] = Query(None, description="Expected checksum"),
+    expected_checksum: str | None = Query(None, description="Expected checksum"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ):
     """Verify backup integrity (Admin only)"""
@@ -92,9 +92,9 @@ async def verify_backup(
             db_url=settings.database_url,
             backup_dir="./backups",
         )
-        
+
         is_valid = service.verify_backup(backup_path, expected_checksum)
-        
+
         return {
             "backup_path": backup_path,
             "is_valid": is_valid,
@@ -115,7 +115,7 @@ async def cleanup_backups(
             db_url=settings.database_url,
             backup_dir="./backups",
         )
-        
+
         stats = service.cleanup_old_backups()
         return stats
     except Exception as e:
@@ -136,9 +136,9 @@ async def restore_backup(
             db_url=settings.database_url,
             backup_dir="./backups",
         )
-        
+
         success = service.restore_backup(backup_path, verify=verify)
-        
+
         return {
             "success": success,
             "backup_path": backup_path,
@@ -146,7 +146,9 @@ async def restore_backup(
         }
     except Exception as e:
         logger.error(f"Error restoring backup: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to restore backup: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to restore backup: {str(e)}"
+        )
 
 
 @router.post("/recover")
@@ -159,23 +161,23 @@ async def recover_pitr(
     """Point-in-Time Recovery (Admin only - DANGEROUS)"""
     try:
         from ..services.wal_archiving_service import WALArchivingService
-        
+
         wal_service = WALArchivingService(archive_dir=wal_archive_dir)
-        
+
         # Validate recovery time
         recovery_dt = datetime.fromisoformat(recovery_time.replace("Z", "+00:00"))
-        
+
         # Get recovery points
         recovery_points = wal_service.get_recovery_points(
             end_date=recovery_dt + timedelta(hours=1)
         )
-        
+
         if not recovery_points:
             raise HTTPException(
                 status_code=400,
-                detail="No recovery points available for specified time"
+                detail="No recovery points available for specified time",
             )
-        
+
         # Note: Actual PITR requires manual PostgreSQL configuration
         # This endpoint provides validation and instructions
         return {
@@ -202,33 +204,36 @@ async def recover_pitr(
 
 @router.get("/recovery-points")
 async def get_recovery_points(
-    start_date: Optional[str] = Query(None, description="Start date (ISO format)"),
-    end_date: Optional[str] = Query(None, description="End date (ISO format)"),
+    start_date: str | None = Query(None, description="Start date (ISO format)"),
+    end_date: str | None = Query(None, description="End date (ISO format)"),
     wal_archive_dir: str = Query("./wal_archive", description="WAL archive directory"),
     current_user: Annotated[dict, Depends(get_current_user)] = None,
 ):
     """Get available recovery points (Admin only)"""
     try:
-        from ..services.wal_archiving_service import WALArchivingService
         from datetime import datetime
-        
+
+        from ..services.wal_archiving_service import WALArchivingService
+
         wal_service = WALArchivingService(archive_dir=wal_archive_dir)
-        
+
         start = datetime.fromisoformat(start_date) if start_date else None
         end = datetime.fromisoformat(end_date) if end_date else None
-        
+
         recovery_points = wal_service.get_recovery_points(
             start_date=start,
             end_date=end,
         )
-        
+
         return {
             "recovery_points": recovery_points,
             "count": len(recovery_points),
         }
     except Exception as e:
         logger.error(f"Error getting recovery points: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get recovery points: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get recovery points: {str(e)}"
+        )
 
 
 @router.post("/test-recovery")
@@ -244,10 +249,10 @@ async def test_recovery(
             db_url=test_db_url,
             backup_dir="./backups",
         )
-        
+
         # Restore to test database
         success = service.restore_backup(backup_path, verify=True)
-        
+
         if success:
             # Verify test database
             # (Additional verification logic can be added here)
@@ -263,4 +268,6 @@ async def test_recovery(
             }
     except Exception as e:
         logger.error(f"Error testing recovery: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to test recovery: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to test recovery: {str(e)}"
+        )

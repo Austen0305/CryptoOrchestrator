@@ -1,11 +1,12 @@
 """Comprehensive monitoring middleware with Prometheus metrics"""
 
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from prometheus_client import Counter, Histogram, Gauge
-import time
-import psutil
 import logging
+import time
+
+import psutil
+from fastapi import Request
+from prometheus_client import Counter, Gauge, Histogram
+from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
 

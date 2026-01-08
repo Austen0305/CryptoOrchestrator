@@ -4,11 +4,10 @@ Data access layer for push notification subscriptions
 """
 
 import logging
-from typing import List, Optional
 from datetime import datetime
+
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
-from sqlalchemy.orm import selectinload
 
 from ..models.push_subscription import PushSubscription
 
@@ -24,13 +23,13 @@ class PushSubscriptionRepository:
     async def create_subscription(
         self,
         user_id: int,
-        expo_push_token: Optional[str] = None,
-        endpoint: Optional[str] = None,
-        p256dh_key: Optional[str] = None,
-        auth_key: Optional[str] = None,
+        expo_push_token: str | None = None,
+        endpoint: str | None = None,
+        p256dh_key: str | None = None,
+        auth_key: str | None = None,
         platform: str = "unknown",
-        device_id: Optional[str] = None,
-        app_version: Optional[str] = None,
+        device_id: str | None = None,
+        app_version: str | None = None,
     ) -> PushSubscription:
         """Create a new push subscription"""
         subscription = PushSubscription(
@@ -51,7 +50,7 @@ class PushSubscriptionRepository:
 
     async def get_user_subscriptions(
         self, user_id: int, active_only: bool = True
-    ) -> List[PushSubscription]:
+    ) -> list[PushSubscription]:
         """Get all push subscriptions for a user"""
         stmt = select(PushSubscription).where(PushSubscription.user_id == user_id)
 
@@ -63,7 +62,7 @@ class PushSubscriptionRepository:
 
     async def get_subscription_by_token(
         self, expo_push_token: str
-    ) -> Optional[PushSubscription]:
+    ) -> PushSubscription | None:
         """Get subscription by Expo push token"""
         stmt = select(PushSubscription).where(
             PushSubscription.expo_push_token == expo_push_token
@@ -73,7 +72,7 @@ class PushSubscriptionRepository:
 
     async def get_subscription_by_endpoint(
         self, endpoint: str
-    ) -> Optional[PushSubscription]:
+    ) -> PushSubscription | None:
         """Get subscription by Web Push endpoint"""
         stmt = select(PushSubscription).where(PushSubscription.endpoint == endpoint)
         result = await self.db.execute(stmt)
@@ -81,7 +80,7 @@ class PushSubscriptionRepository:
 
     async def update_subscription(
         self, subscription_id: int, **updates
-    ) -> Optional[PushSubscription]:
+    ) -> PushSubscription | None:
         """Update a push subscription"""
         stmt = select(PushSubscription).where(PushSubscription.id == subscription_id)
         result = await self.db.execute(stmt)
@@ -123,7 +122,7 @@ class PushSubscriptionRepository:
 
     async def get_subscription_by_id(
         self, subscription_id: int
-    ) -> Optional[PushSubscription]:
+    ) -> PushSubscription | None:
         """Get subscription by ID"""
         stmt = select(PushSubscription).where(PushSubscription.id == subscription_id)
         result = await self.db.execute(stmt)
@@ -133,7 +132,7 @@ class PushSubscriptionRepository:
         self,
         user_id: int,
         notification_type: str,  # 'trade', 'bot', 'risk', 'price_alert'
-    ) -> List[PushSubscription]:
+    ) -> list[PushSubscription]:
         """Get active subscriptions that should receive a specific notification type"""
         stmt = select(PushSubscription).where(
             and_(
@@ -157,7 +156,7 @@ class PushSubscriptionRepository:
         return list(result.scalars().all())
 
     async def update_last_notification_sent(
-        self, subscription_id: int, error: Optional[str] = None
+        self, subscription_id: int, error: str | None = None
     ) -> None:
         """Update last notification sent timestamp and error count"""
         subscription = await self.get_subscription_by_id(subscription_id)

@@ -1,10 +1,9 @@
 import json
-import os
-import time
-import random
-from typing import Any, Dict, Optional
-from pydantic import BaseModel
 import logging
+import os
+import random
+import time
+from typing import Any
 
 try:
     import redis.asyncio as redis
@@ -17,6 +16,7 @@ except ImportError:
 # Optional: Import compression service for large cache entries
 try:
     from .performance.cache_compression import cache_compression_service
+
     COMPRESSION_ENABLED = True
 except ImportError:
     COMPRESSION_ENABLED = False
@@ -44,7 +44,7 @@ class MemoryCache:
     """In-memory cache with TTL support as Redis fallback"""
 
     def __init__(self, max_size: int = CACHE_CONFIG["max_memory_entries"]):
-        self.cache: Dict[str, Dict[str, Any]] = {}
+        self.cache: dict[str, dict[str, Any]] = {}
         self.max_size = max_size
 
     def set(self, key: str, value: Any, ttl: int = CACHE_CONFIG["default_ttl"]):
@@ -59,7 +59,7 @@ class MemoryCache:
         expires_at = time.time() + ttl
         self.cache[key] = {"value": value, "expires_at": expires_at}
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Get cache entry if not expired"""
         entry = self.cache.get(key)
         if entry and time.time() < entry["expires_at"]:
@@ -115,7 +115,7 @@ class CacheKeyBuilder:
         return f"{CACHE_CONFIG['key_prefix']}bot:{bot_id}:status"
 
     @staticmethod
-    def portfolio(mode: str, user_id: Optional[str] = None) -> str:
+    def portfolio(mode: str, user_id: str | None = None) -> str:
         user_part = f":{user_id}" if user_id else ""
         return f"{CACHE_CONFIG['key_prefix']}portfolio:{mode}{user_part}"
 
@@ -136,7 +136,7 @@ class CacheService:
     """Advanced cache service with Redis and memory fallback"""
 
     def __init__(self):
-        self.redis: Optional[redis.Redis] = None
+        self.redis: redis.Redis | None = None
         self.memory_cache = MemoryCache()
         self.redis_available = False
         # Don't call async method from __init__ - will connect lazily when needed
@@ -165,7 +165,7 @@ class CacheService:
             logger.error(f"Redis connection failed: {e}, using memory cache")
             self.redis_available = False
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Set cache value with optional TTL (2026: includes TTL jitter to prevent cache stampede)"""
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
@@ -181,10 +181,12 @@ class CacheService:
                 compressed = cache_compression_service.compress(value)
                 serialized = compressed
             except Exception as e:
-                logger.debug(f"Compression failed for key {key}, using uncompressed: {e}")
-                serialized = json.dumps(value).encode('utf-8')
+                logger.debug(
+                    f"Compression failed for key {key}, using uncompressed: {e}"
+                )
+                serialized = json.dumps(value).encode("utf-8")
         else:
-            serialized = json.dumps(value).encode('utf-8')
+            serialized = json.dumps(value).encode("utf-8")
 
         if self.redis_available and self.redis:
             try:
@@ -195,7 +197,7 @@ class CacheService:
         else:
             self.memory_cache.set(key, value, effective_ttl)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get cache value"""
         # Connect to Redis lazily if not already connected
         if not self.redis_available:
@@ -212,11 +214,13 @@ class CacheService:
                             if isinstance(value, bytes) and value.startswith(b"ZSTD:"):
                                 return cache_compression_service.decompress(value)
                         except Exception as e:
-                            logger.debug(f"Decompression failed for key {key}, trying JSON: {e}")
-                    
+                            logger.debug(
+                                f"Decompression failed for key {key}, trying JSON: {e}"
+                            )
+
                     # Fallback to JSON parsing
                     if isinstance(value, bytes):
-                        value = value.decode('utf-8')
+                        value = value.decode("utf-8")
                     return json.loads(value)
             except Exception as e:
                 logger.error(f"Redis get failed: {e}, using memory cache")
@@ -290,13 +294,13 @@ class CacheService:
     def _apply_ttl_jitter(self, base_ttl: int) -> int:
         """
         Apply TTL jitter to prevent cache stampede (2026 best practice)
-        
+
         Adds random variation (±10%) to TTL to prevent simultaneous expiration
         of multiple keys, which can cause database overload.
-        
+
         Args:
             base_ttl: Base TTL in seconds
-            
+
         Returns:
             TTL with jitter applied
         """
@@ -307,7 +311,7 @@ class CacheService:
         # Ensure TTL is at least 1 second
         return max(1, jittered_ttl)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """Get cache statistics"""
         memory_stats = {
             "size": len(self.memory_cache.cache),

@@ -5,11 +5,17 @@ Script to create a library of common technical indicators.
 
 import asyncio
 import logging
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from ..database import DATABASE_URL
-from ..models.indicator import Indicator, IndicatorVersion, IndicatorStatus, IndicatorLanguage
+from ..models.indicator import (
+    Indicator,
+    IndicatorLanguage,
+    IndicatorStatus,
+    IndicatorVersion,
+)
 from ..models.user import User
 from ..services.indicator_execution_engine import INDICATOR_TEMPLATES
 
@@ -2690,7 +2696,9 @@ async def populate_library(admin_user_id: int = 1):
                 existing = existing_result.scalar_one_or_none()
 
                 if existing:
-                    logger.debug(f"Indicator '{indicator_data['name']}' already exists, skipping")
+                    logger.debug(
+                        f"Indicator '{indicator_data['name']}' already exists, skipping"
+                    )
                     skipped_count += 1
                     continue
 

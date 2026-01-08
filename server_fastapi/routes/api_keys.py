@@ -3,16 +3,16 @@ API Key Management Routes
 Endpoints for API key creation, management, and usage tracking
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Header
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
 from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
-from ..utils.route_helpers import _get_user_id
 from ..services.api_key_service import APIKeyService
+from ..utils.route_helpers import _get_user_id
 
 router = APIRouter(prefix="/api/api-keys", tags=["API Keys"])
 
@@ -20,10 +20,10 @@ router = APIRouter(prefix="/api/api-keys", tags=["API Keys"])
 # Pydantic Models
 class CreateAPIKeyRequest(BaseModel):
     key_name: str
-    permissions: List[str]  # List of allowed endpoints/methods
+    permissions: list[str]  # List of allowed endpoints/methods
     rate_limit: int = 1000  # Requests per hour
-    expires_in_days: Optional[int] = None
-    description: Optional[str] = None
+    expires_in_days: int | None = None
+    description: str | None = None
 
 
 @router.post("/")
@@ -34,7 +34,7 @@ async def create_api_key(
 ):
     """Create a new API key"""
     service = APIKeyService(db)
-    
+
     try:
         api_key, full_key = await service.create_api_key(
             user_id=_get_user_id(current_user),
@@ -51,8 +51,12 @@ async def create_api_key(
             "full_key": full_key,  # Only returned once
             "permissions": api_key.permissions,
             "rate_limit": api_key.rate_limit,
-            "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
-            "created_at": api_key.created_at.isoformat() if api_key.created_at else None,
+            "expires_at": api_key.expires_at.isoformat()
+            if api_key.expires_at
+            else None,
+            "created_at": api_key.created_at.isoformat()
+            if api_key.created_at
+            else None,
         }
     except Exception as e:
         logger.error(f"Error creating API key: {e}", exc_info=True)
@@ -66,9 +70,9 @@ async def get_api_keys(
 ):
     """Get user's API keys"""
     service = APIKeyService(db)
-    
+
     api_keys = await service.get_user_api_keys(user_id=_get_user_id(current_user))
-    
+
     return {
         "api_keys": [
             {
@@ -96,11 +100,11 @@ async def get_api_key(
 ):
     """Get a specific API key"""
     from ..models.api_keys import APIKey
-    
+
     api_key = await db.get(APIKey, api_key_id)
     if not api_key or api_key.user_id != _get_user_id(current_user):
         raise HTTPException(status_code=404, detail="API key not found")
-    
+
     return {
         "id": api_key.id,
         "key_name": api_key.key_name,
@@ -109,7 +113,9 @@ async def get_api_key(
         "rate_limit": api_key.rate_limit,
         "is_active": api_key.is_active,
         "expires_at": api_key.expires_at.isoformat() if api_key.expires_at else None,
-        "last_used_at": api_key.last_used_at.isoformat() if api_key.last_used_at else None,
+        "last_used_at": api_key.last_used_at.isoformat()
+        if api_key.last_used_at
+        else None,
         "request_count": api_key.request_count,
         "description": api_key.description,
     }
@@ -123,15 +129,15 @@ async def revoke_api_key(
 ):
     """Revoke an API key"""
     service = APIKeyService(db)
-    
+
     success = await service.revoke_api_key(
         api_key_id=api_key_id,
         user_id=_get_user_id(current_user),
     )
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="API key not found")
-    
+
     return {"message": "API key revoked successfully"}
 
 
@@ -143,15 +149,17 @@ async def get_api_key_usage(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Get API key usage statistics"""
-    from ..models.api_keys import APIKey, APIKeyUsage
-    from sqlalchemy import select, func, and_
     from datetime import timedelta
-    
+
+    from sqlalchemy import and_, func, select
+
+    from ..models.api_keys import APIKey, APIKeyUsage
+
     # Verify ownership
     api_key = await db.get(APIKey, api_key_id)
     if not api_key or api_key.user_id != _get_user_id(current_user):
         raise HTTPException(status_code=404, detail="API key not found")
-    
+
     # Get usage stats
     start_date = datetime.utcnow() - timedelta(days=days)
     stmt = select(
@@ -164,10 +172,10 @@ async def get_api_key_usage(
             APIKeyUsage.created_at >= start_date,
         )
     )
-    
+
     result = await db.execute(stmt)
     stats = result.fetchone()
-    
+
     return {
         "api_key_id": api_key_id,
         "period_days": days,
@@ -179,4 +187,5 @@ async def get_api_key_usage(
 
 
 import logging
+
 logger = logging.getLogger(__name__)

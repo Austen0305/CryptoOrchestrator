@@ -4,18 +4,16 @@ Integrates wallet system with trading operations
 """
 
 import logging
-from typing import Dict, Optional
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 
-from ..models.wallet import (
-    Wallet,
-    WalletTransaction,
-    TransactionType,
-    TransactionStatus,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from ..models.trade import Trade
+from ..models.wallet import (
+    TransactionStatus,
+    TransactionType,
+    WalletTransaction,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -162,8 +160,9 @@ class WalletTradingIntegration:
         Add profit from a completed trade to wallet.
         """
         try:
-            from ..services.wallet_service import WalletService
             from datetime import datetime
+
+            from ..services.wallet_service import WalletService
 
             service = WalletService(self.db)
 

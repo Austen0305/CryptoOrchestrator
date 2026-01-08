@@ -3,17 +3,18 @@ Reusable test helper functions for common test scenarios
 """
 
 import uuid
-from typing import Dict, Any, Optional
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
 from sqlalchemy.ext.asyncio import AsyncSession
-from unittest.mock import MagicMock, AsyncMock
 
 
 async def create_test_user(
     db: AsyncSession,
-    email: Optional[str] = None,
+    email: str | None = None,
     password: str = "TestPassword123!",
     name: str = "Test User",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Helper to create a test user"""
     from server_fastapi.services.auth.auth_service import AuthService
 
@@ -36,8 +37,8 @@ async def create_test_bot(
     name: str = "Test Bot",
     symbol: str = "BTC/USDT",
     strategy: str = "simple_ma",
-    config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Helper to create a test bot"""
     from server_fastapi.services.trading.bot_service import BotService
 
@@ -68,9 +69,9 @@ async def create_test_bot(
 
 
 def mock_dex_response(
-    price: Optional[float] = None,
-    quote: Optional[Dict[str, Any]] = None,
-    balance: Optional[Dict[str, Any]] = None,
+    price: float | None = None,
+    quote: dict[str, Any] | None = None,
+    balance: dict[str, Any] | None = None,
 ) -> MagicMock:
     """
     Helper to mock DEX aggregator responses.
@@ -129,7 +130,7 @@ def mock_dex_response(
 
 
 def assert_bot_response(
-    response_data: Dict[str, Any], expected_fields: Optional[list] = None
+    response_data: dict[str, Any], expected_fields: list | None = None
 ):
     """Helper to validate bot API responses"""
     if expected_fields is None:

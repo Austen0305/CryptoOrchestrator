@@ -4,15 +4,25 @@ Provides analytics and metrics for marketplace features.
 """
 
 import logging
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
+from typing import Any
+
+from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, desc
 from sqlalchemy.orm import selectinload
 
-from ..models.signal_provider import SignalProvider, SignalProviderRating, Payout, CuratorStatus
-from ..models.indicator import Indicator, IndicatorPurchase, IndicatorRating, IndicatorStatus
-from ..models.user import User
+from ..models.indicator import (
+    Indicator,
+    IndicatorPurchase,
+    IndicatorRating,
+    IndicatorStatus,
+)
+from ..models.signal_provider import (
+    CuratorStatus,
+    Payout,
+    SignalProvider,
+    SignalProviderRating,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +33,15 @@ class MarketplaceAnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_marketplace_overview(self) -> Dict[str, Any]:
+    async def get_marketplace_overview(self) -> dict[str, Any]:
         """Get overview statistics for both marketplaces"""
         try:
             # Copy Trading Marketplace stats
             copy_trading_stats = await self._get_copy_trading_stats()
-            
+
             # Indicator Marketplace stats
             indicator_stats = await self._get_indicator_stats()
-            
+
             return {
                 "copy_trading": copy_trading_stats,
                 "indicators": indicator_stats,
@@ -41,14 +51,14 @@ class MarketplaceAnalyticsService:
             logger.error(f"Error getting marketplace overview: {e}", exc_info=True)
             raise
 
-    async def _get_copy_trading_stats(self) -> Dict[str, Any]:
+    async def _get_copy_trading_stats(self) -> dict[str, Any]:
         """Get copy trading marketplace statistics"""
         # Total providers
         total_providers_result = await self.db.execute(
             select(func.count(SignalProvider.id))
         )
         total_providers = total_providers_result.scalar() or 0
-        
+
         # Approved providers
         approved_providers_result = await self.db.execute(
             select(func.count(SignalProvider.id)).where(
@@ -56,7 +66,7 @@ class MarketplaceAnalyticsService:
             )
         )
         approved_providers = approved_providers_result.scalar() or 0
-        
+
         # Pending providers
         pending_providers_result = await self.db.execute(
             select(func.count(SignalProvider.id)).where(
@@ -64,43 +74,41 @@ class MarketplaceAnalyticsService:
             )
         )
         pending_providers = pending_providers_result.scalar() or 0
-        
+
         # Total ratings
         total_ratings_result = await self.db.execute(
             select(func.count(SignalProviderRating.id))
         )
         total_ratings = total_ratings_result.scalar() or 0
-        
+
         # Average rating
         avg_rating_result = await self.db.execute(
             select(func.avg(SignalProviderRating.rating))
         )
         avg_rating = avg_rating_result.scalar() or 0.0
-        
+
         # Total followers
         total_followers_result = await self.db.execute(
             select(func.sum(SignalProvider.follower_count))
         )
         total_followers = total_followers_result.scalar() or 0
-        
+
         # Total payouts
-        total_payouts_result = await self.db.execute(
-            select(func.count(Payout.id))
-        )
+        total_payouts_result = await self.db.execute(select(func.count(Payout.id)))
         total_payouts = total_payouts_result.scalar() or 0
-        
+
         # Total payout amount
         total_payout_amount_result = await self.db.execute(
             select(func.sum(Payout.provider_payout))
         )
         total_payout_amount = total_payout_amount_result.scalar() or 0.0
-        
+
         # Platform revenue
         platform_revenue_result = await self.db.execute(
             select(func.sum(Payout.platform_fee))
         )
         platform_revenue = platform_revenue_result.scalar() or 0.0
-        
+
         return {
             "total_providers": total_providers,
             "approved_providers": approved_providers,
@@ -113,14 +121,14 @@ class MarketplaceAnalyticsService:
             "platform_revenue": round(platform_revenue, 2),
         }
 
-    async def _get_indicator_stats(self) -> Dict[str, Any]:
+    async def _get_indicator_stats(self) -> dict[str, Any]:
         """Get indicator marketplace statistics"""
         # Total indicators
         total_indicators_result = await self.db.execute(
             select(func.count(Indicator.id))
         )
         total_indicators = total_indicators_result.scalar() or 0
-        
+
         # Approved indicators
         approved_indicators_result = await self.db.execute(
             select(func.count(Indicator.id)).where(
@@ -128,7 +136,7 @@ class MarketplaceAnalyticsService:
             )
         )
         approved_indicators = approved_indicators_result.scalar() or 0
-        
+
         # Pending indicators
         pending_indicators_result = await self.db.execute(
             select(func.count(Indicator.id)).where(
@@ -136,57 +144,55 @@ class MarketplaceAnalyticsService:
             )
         )
         pending_indicators = pending_indicators_result.scalar() or 0
-        
+
         # Free vs Paid
         free_indicators_result = await self.db.execute(
             select(func.count(Indicator.id)).where(Indicator.is_free == True)
         )
         free_indicators = free_indicators_result.scalar() or 0
-        
+
         paid_indicators = total_indicators - free_indicators
-        
+
         # Total purchases
         total_purchases_result = await self.db.execute(
             select(func.count(IndicatorPurchase.id))
         )
         total_purchases = total_purchases_result.scalar() or 0
-        
+
         # Total revenue
         total_revenue_result = await self.db.execute(
             select(func.sum(IndicatorPurchase.purchase_price))
         )
         total_revenue = total_revenue_result.scalar() or 0.0
-        
+
         # Platform revenue (30%)
         platform_revenue = total_revenue * 0.30
-        
+
         # Developer revenue (70%)
         developer_revenue = total_revenue * 0.70
-        
+
         # Total ratings
         total_ratings_result = await self.db.execute(
             select(func.count(IndicatorRating.id))
         )
         total_ratings = total_ratings_result.scalar() or 0
-        
+
         # Average rating
         avg_rating_result = await self.db.execute(
             select(func.avg(IndicatorRating.rating))
         )
         avg_rating = avg_rating_result.scalar() or 0.0
-        
+
         # By category
         category_stats_result = await self.db.execute(
             select(
-                Indicator.category,
-                func.count(Indicator.id).label("count")
+                Indicator.category, func.count(Indicator.id).label("count")
             ).group_by(Indicator.category)
         )
         category_stats = {
-            row.category: row.count
-            for row in category_stats_result.all()
+            row.category: row.count for row in category_stats_result.all()
         }
-        
+
         return {
             "total_indicators": total_indicators,
             "approved_indicators": approved_indicators,
@@ -204,7 +210,7 @@ class MarketplaceAnalyticsService:
 
     async def get_top_providers(
         self, limit: int = 10, sort_by: str = "total_return"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get top performing signal providers"""
         try:
             query = (
@@ -217,7 +223,7 @@ class MarketplaceAnalyticsService:
                 )
                 .options(selectinload(SignalProvider.user))
             )
-            
+
             if sort_by == "total_return":
                 query = query.order_by(desc(SignalProvider.total_return))
             elif sort_by == "sharpe_ratio":
@@ -226,12 +232,12 @@ class MarketplaceAnalyticsService:
                 query = query.order_by(desc(SignalProvider.follower_count))
             elif sort_by == "rating":
                 query = query.order_by(desc(SignalProvider.average_rating))
-            
+
             query = query.limit(limit)
-            
+
             result = await self.db.execute(query)
             providers = result.scalars().all()
-            
+
             return [
                 {
                     "id": p.id,
@@ -250,7 +256,7 @@ class MarketplaceAnalyticsService:
 
     async def get_top_indicators(
         self, limit: int = 10, sort_by: str = "purchase_count"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get top performing indicators"""
         try:
             # Get indicators with purchase counts
@@ -265,19 +271,19 @@ class MarketplaceAnalyticsService:
                 .where(Indicator.status == IndicatorStatus.APPROVED.value)
                 .group_by(Indicator.id)
             )
-            
+
             if sort_by == "purchase_count":
                 query = query.order_by(desc("purchase_count"))
             elif sort_by == "rating":
                 query = query.order_by(desc("avg_rating"))
             elif sort_by == "price":
                 query = query.order_by(desc(Indicator.price))
-            
+
             query = query.limit(limit)
-            
+
             result = await self.db.execute(query)
             rows = result.all()
-            
+
             return [
                 {
                     "id": row.Indicator.id,
@@ -286,7 +292,9 @@ class MarketplaceAnalyticsService:
                     "price": row.Indicator.price,
                     "is_free": row.Indicator.is_free,
                     "purchase_count": row.purchase_count or 0,
-                    "average_rating": round(row.avg_rating, 2) if row.avg_rating else 0.0,
+                    "average_rating": round(row.avg_rating, 2)
+                    if row.avg_rating
+                    else 0.0,
                 }
                 for row in rows
             ]
@@ -294,13 +302,11 @@ class MarketplaceAnalyticsService:
             logger.error(f"Error getting top indicators: {e}", exc_info=True)
             raise
 
-    async def get_revenue_trends(
-        self, days: int = 30
-    ) -> Dict[str, Any]:
+    async def get_revenue_trends(self, days: int = 30) -> dict[str, Any]:
         """Get revenue trends over time"""
         try:
             cutoff_date = datetime.utcnow() - timedelta(days=days)
-            
+
             # Copy trading payouts
             copy_trading_payouts_result = await self.db.execute(
                 select(
@@ -312,7 +318,7 @@ class MarketplaceAnalyticsService:
                 .group_by(func.date(Payout.created_at))
                 .order_by("date")
             )
-            
+
             copy_trading_trends = [
                 {
                     "date": row.date.isoformat() if row.date else None,
@@ -321,7 +327,7 @@ class MarketplaceAnalyticsService:
                 }
                 for row in copy_trading_payouts_result.all()
             ]
-            
+
             # Indicator purchases
             indicator_purchases_result = await self.db.execute(
                 select(
@@ -333,7 +339,7 @@ class MarketplaceAnalyticsService:
                 .group_by(func.date(IndicatorPurchase.purchased_at))
                 .order_by("date")
             )
-            
+
             indicator_trends = [
                 {
                     "date": row.date.isoformat() if row.date else None,
@@ -344,7 +350,7 @@ class MarketplaceAnalyticsService:
                 }
                 for row in indicator_purchases_result.all()
             ]
-            
+
             return {
                 "copy_trading": copy_trading_trends,
                 "indicators": indicator_trends,
@@ -354,9 +360,7 @@ class MarketplaceAnalyticsService:
             logger.error(f"Error getting revenue trends: {e}", exc_info=True)
             raise
 
-    async def get_developer_analytics(
-        self, developer_id: int
-    ) -> Dict[str, Any]:
+    async def get_developer_analytics(self, developer_id: int) -> dict[str, Any]:
         """Get analytics for a specific developer"""
         try:
             # Get developer's indicators
@@ -364,9 +368,9 @@ class MarketplaceAnalyticsService:
                 select(Indicator).where(Indicator.developer_id == developer_id)
             )
             indicators = indicators_result.scalars().all()
-            
+
             indicator_ids = [ind.id for ind in indicators]
-            
+
             if not indicator_ids:
                 return {
                     "developer_id": developer_id,
@@ -377,7 +381,7 @@ class MarketplaceAnalyticsService:
                     "average_rating": 0.0,
                     "indicators": [],
                 }
-            
+
             # Total purchases
             total_purchases_result = await self.db.execute(
                 select(func.count(IndicatorPurchase.id)).where(
@@ -385,7 +389,7 @@ class MarketplaceAnalyticsService:
                 )
             )
             total_purchases = total_purchases_result.scalar() or 0
-            
+
             # Total revenue
             total_revenue_result = await self.db.execute(
                 select(func.sum(IndicatorPurchase.purchase_price)).where(
@@ -393,10 +397,10 @@ class MarketplaceAnalyticsService:
                 )
             )
             total_revenue = total_revenue_result.scalar() or 0.0
-            
+
             # Developer earnings (70%)
             developer_earnings = total_revenue * 0.70
-            
+
             # Average rating
             avg_rating_result = await self.db.execute(
                 select(func.avg(IndicatorRating.rating)).where(
@@ -404,7 +408,7 @@ class MarketplaceAnalyticsService:
                 )
             )
             avg_rating = avg_rating_result.scalar() or 0.0
-            
+
             # Per-indicator stats
             indicator_stats = []
             for indicator in indicators:
@@ -414,30 +418,32 @@ class MarketplaceAnalyticsService:
                     )
                 )
                 purchases = purchases_result.scalar() or 0
-                
+
                 revenue_result = await self.db.execute(
                     select(func.sum(IndicatorPurchase.purchase_price)).where(
                         IndicatorPurchase.indicator_id == indicator.id
                     )
                 )
                 revenue = revenue_result.scalar() or 0.0
-                
+
                 rating_result = await self.db.execute(
                     select(func.avg(IndicatorRating.rating)).where(
                         IndicatorRating.indicator_id == indicator.id
                     )
                 )
                 rating = rating_result.scalar() or 0.0
-                
-                indicator_stats.append({
-                    "id": indicator.id,
-                    "name": indicator.name,
-                    "purchases": purchases,
-                    "revenue": round(revenue, 2),
-                    "developer_earnings": round(revenue * 0.70, 2),
-                    "average_rating": round(rating, 2) if rating else 0.0,
-                })
-            
+
+                indicator_stats.append(
+                    {
+                        "id": indicator.id,
+                        "name": indicator.name,
+                        "purchases": purchases,
+                        "revenue": round(revenue, 2),
+                        "developer_earnings": round(revenue * 0.70, 2),
+                        "average_rating": round(rating, 2) if rating else 0.0,
+                    }
+                )
+
             return {
                 "developer_id": developer_id,
                 "total_indicators": len(indicators),
@@ -451,15 +457,13 @@ class MarketplaceAnalyticsService:
             logger.error(f"Error getting developer analytics: {e}", exc_info=True)
             raise
 
-    async def get_provider_analytics(
-        self, provider_id: int
-    ) -> Dict[str, Any]:
+    async def get_provider_analytics(self, provider_id: int) -> dict[str, Any]:
         """Get analytics for a specific signal provider"""
         try:
             provider = await self.db.get(SignalProvider, provider_id)
             if not provider:
                 raise ValueError("Signal provider not found")
-            
+
             # Get payout history
             payouts_result = await self.db.execute(
                 select(Payout)
@@ -468,7 +472,7 @@ class MarketplaceAnalyticsService:
                 .limit(12)  # Last 12 payouts
             )
             payouts = payouts_result.scalars().all()
-            
+
             # Get ratings
             ratings_result = await self.db.execute(
                 select(SignalProviderRating)
@@ -477,7 +481,7 @@ class MarketplaceAnalyticsService:
                 .limit(10)  # Last 10 ratings
             )
             ratings = ratings_result.scalars().all()
-            
+
             return {
                 "provider_id": provider_id,
                 "total_return": provider.total_return,

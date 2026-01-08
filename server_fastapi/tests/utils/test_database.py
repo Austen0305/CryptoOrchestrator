@@ -3,18 +3,18 @@ Test Database Utilities
 Provides isolated test database creation with automatic Alembic migrations
 """
 
+import logging
 import os
 import uuid
-import asyncio
-import logging
 from pathlib import Path
-from typing import Optional
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
-from sqlalchemy.pool import StaticPool, NullPool
+
 from alembic.config import Config
-from alembic import command
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
+
+from alembic import command
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 async def create_test_database(
-    base_url: Optional[str] = None, use_postgres: bool = False
+    base_url: str | None = None, use_postgres: bool = False
 ) -> tuple[str, AsyncEngine]:
     """
     Create isolated test database with automatic Alembic migrations.

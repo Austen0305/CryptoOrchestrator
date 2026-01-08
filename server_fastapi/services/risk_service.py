@@ -1,13 +1,13 @@
 import asyncio
 import time
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from ..repositories.risk_repository import RiskRepository
+import logging
+
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
-import logging
 
 from ..repositories.risk_repository import RiskRepository
 
@@ -22,7 +22,7 @@ class RiskMetrics(BaseModel):
     sharpeRatio: float
     correlationScore: float = Field(ge=-1, le=1)
     diversificationRatio: float = Field(ge=0, le=1)
-    exposureByAsset: Dict[str, float]
+    exposureByAsset: dict[str, float]
     leverageRisk: float = Field(ge=0, le=1)
     liquidityRisk: float = Field(ge=0, le=1)
     concentrationRisk: float = Field(ge=0, le=1)
@@ -69,7 +69,7 @@ class RiskService:
     LIMIT_TYPE_TO_FIELD = {value: key for key, value in FIELD_TO_LIMIT_TYPE.items()}
 
     def __init__(
-        self, db_session: Optional[AsyncSession] = None, ttl_seconds: int = 10
+        self, db_session: AsyncSession | None = None, ttl_seconds: int = 10
     ) -> None:
         # ✅ Repository created internally (Service Layer Pattern)
         self.risk_repository = RiskRepository()
@@ -77,15 +77,15 @@ class RiskService:
         # Default limits - used as base when no user-specific limits exist in DB
         self._default_limits: RiskLimits = RiskLimits()
         # In-memory storage only used as fallback when DB is unavailable (e.g., tests)
-        self._alerts: Dict[str, RiskAlert] = {}
-        self._metrics_cache: Optional[RiskMetrics] = None
+        self._alerts: dict[str, RiskAlert] = {}
+        self._metrics_cache: RiskMetrics | None = None
         self._metrics_cached_at: float = 0.0
         self._ttl = ttl_seconds
         self._lock = asyncio.Lock()
         # Risk persistence service for database operations
         from .risk_persistence import RiskPersistenceService
 
-        self._persistence: Optional[RiskPersistenceService] = None
+        self._persistence: RiskPersistenceService | None = None
         if db_session:
             self._persistence = RiskPersistenceService(db_session)
         # Redis cache for risk data (with memory fallback)
@@ -96,8 +96,9 @@ class RiskService:
     def _init_cache(self):
         """Initialize Redis cache with memory fallback"""
         try:
-            from ..utils.cache_utils import MultiLevelCache
             import os
+
+            from ..utils.cache_utils import MultiLevelCache
 
             redis_url = os.getenv("REDIS_URL")
             # MultiLevelCache handles Redis availability checking
@@ -112,8 +113,8 @@ class RiskService:
         alert_type: str,
         severity: str,
         message: str,
-        current_value: Optional[float] = None,
-        threshold_value: Optional[float] = None,
+        current_value: float | None = None,
+        threshold_value: float | None = None,
     ):
         """Persist risk alert to database with cache invalidation"""
         if not self.db:
@@ -150,7 +151,7 @@ class RiskService:
 
     async def get_user_alerts_db(
         self, user_id: str, limit: int = 50, unresolved_only: bool = False
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Retrieve user's risk alerts from database"""
         if not self.db:
             logger.warning("Database session not available", extra={"user_id": user_id})
@@ -185,7 +186,7 @@ class RiskService:
 
     async def set_risk_limit_db(
         self, user_id: str, limit_type: str, value: float
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """Set or update risk limit in database"""
         if not self.db:
             logger.warning(
@@ -217,7 +218,7 @@ class RiskService:
     async def get_limits(self) -> RiskLimits:
         return self._default_limits
 
-    async def update_limits(self, updates: Dict) -> RiskLimits:
+    async def update_limits(self, updates: dict) -> RiskLimits:
         # Maintain default limits reference
         async with self._lock:
             self._default_limits = self._default_limits.model_copy(update=updates)
@@ -241,7 +242,7 @@ class RiskService:
 
     async def get_user_alerts(
         self, user_id: str, unresolved_only: bool = False
-    ) -> List[RiskAlert]:
+    ) -> list[RiskAlert]:
         """Get user alerts with Redis caching"""
         # Try cache first
         cache_key = (
@@ -312,7 +313,7 @@ class RiskService:
         return result
 
     async def update_user_limits(
-        self, user_id: str, updates: Dict[str, float]
+        self, user_id: str, updates: dict[str, float]
     ) -> RiskLimits:
         """Update user limits with cache invalidation"""
         if not updates:
@@ -360,7 +361,7 @@ class RiskService:
             self._alerts[alert_id] = alert
             return alert
 
-    async def get_alerts(self, user_id: Optional[str] = None) -> List[RiskAlert]:
+    async def get_alerts(self, user_id: str | None = None) -> list[RiskAlert]:
         """Get alerts - prefers database if available and user_id provided"""
         if self.db and user_id:
             return await self.get_user_alerts(user_id)
@@ -373,9 +374,9 @@ class RiskService:
         alert_type: str,
         severity: str,
         message: str,
-        current_value: Optional[float] = None,
-        threshold_value: Optional[float] = None,
-    ) -> Optional[RiskAlert]:
+        current_value: float | None = None,
+        threshold_value: float | None = None,
+    ) -> RiskAlert | None:
         """
         Create a risk alert - uses database by default, falls back to in-memory if DB unavailable.
         This is a convenience method that automatically uses the appropriate storage.

@@ -3,10 +3,11 @@ Trading Safety API Routes
 Exposes trading safety service functionality via REST API
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional
 import logging
+from typing import Any
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from server_fastapi.services.trading.trading_safety_service import (
     get_trading_safety_service,
@@ -19,16 +20,29 @@ logger = logging.getLogger(__name__)
 class TradeValidationRequest(BaseModel):
     """Request model for trade validation."""
 
-    symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"}, description="Trading pair")
-    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)")
-    quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1}, description="Trade quantity")
-    price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0}, description="Expected price")
-    account_balance: float = Field(
-        ..., gt=0, json_schema_extra={"example": 10000.0}, description="Current account balance in USD"
+    symbol: str = Field(
+        ..., json_schema_extra={"example": "BTC/USDT"}, description="Trading pair"
     )
-    current_positions: Dict[str, Dict[str, Any]] = Field(
+    side: str = Field(
+        ..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)"
+    )
+    quantity: float = Field(
+        ..., gt=0, json_schema_extra={"example": 0.1}, description="Trade quantity"
+    )
+    price: float = Field(
+        ..., gt=0, json_schema_extra={"example": 50000.0}, description="Expected price"
+    )
+    account_balance: float = Field(
+        ...,
+        gt=0,
+        json_schema_extra={"example": 10000.0},
+        description="Current account balance in USD",
+    )
+    current_positions: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
-        json_schema_extra={"example": {"BTC/USDT": {"value": 1000.0, "quantity": 0.02}}},
+        json_schema_extra={
+            "example": {"BTC/USDT": {"value": 1000.0, "quantity": 0.02}}
+        },
         description="Current open positions",
     )
 
@@ -54,7 +68,7 @@ class TradeValidationResponse(BaseModel):
 
     valid: bool
     reason: str
-    adjustments: Optional[Dict[str, Any]] = None
+    adjustments: dict[str, Any] | None = None
 
 
 class SlippageCheckRequest(BaseModel):
@@ -62,7 +76,9 @@ class SlippageCheckRequest(BaseModel):
 
     expected_price: float = Field(..., gt=0, json_schema_extra={"example": 50000.0})
     actual_price: float = Field(..., gt=0, json_schema_extra={"example": 50100.0})
-    side: str = Field(..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)")
+    side: str = Field(
+        ..., json_schema_extra={"example": "buy"}, description="Trade side (buy/sell)"
+    )
 
 
 class SlippageCheckResponse(BaseModel):
@@ -78,7 +94,9 @@ class TradeResultRequest(BaseModel):
     """Request model for recording trade result."""
 
     trade_id: str = Field(..., json_schema_extra={"example": "trade_12345"})
-    pnl: float = Field(..., json_schema_extra={"example": 150.0}, description="Profit/loss in USD")
+    pnl: float = Field(
+        ..., json_schema_extra={"example": 150.0}, description="Profit/loss in USD"
+    )
     symbol: str = Field(..., json_schema_extra={"example": "BTC/USDT"})
     side: str = Field(..., json_schema_extra={"example": "buy"})
     quantity: float = Field(..., gt=0, json_schema_extra={"example": 0.1})
@@ -89,23 +107,23 @@ class SafetyStatusResponse(BaseModel):
     """Response model for safety status."""
 
     kill_switch_active: bool
-    kill_switch_reason: Optional[str]
+    kill_switch_reason: str | None
     daily_pnl: float
     trades_today: int
     consecutive_losses: int
     last_reset: str
-    configuration: Dict[str, Any]
+    configuration: dict[str, Any]
 
 
 class ConfigurationUpdateRequest(BaseModel):
     """Request model for configuration updates."""
 
-    max_position_size_pct: Optional[float] = Field(None, gt=0, le=1.0)
-    daily_loss_limit_pct: Optional[float] = Field(None, gt=0, le=1.0)
-    max_consecutive_losses: Optional[int] = Field(None, gt=0)
-    min_account_balance: Optional[float] = Field(None, gt=0)
-    max_slippage_pct: Optional[float] = Field(None, gt=0, le=1.0)
-    max_portfolio_heat: Optional[float] = Field(None, gt=0, le=1.0)
+    max_position_size_pct: float | None = Field(None, gt=0, le=1.0)
+    daily_loss_limit_pct: float | None = Field(None, gt=0, le=1.0)
+    max_consecutive_losses: int | None = Field(None, gt=0)
+    min_account_balance: float | None = Field(None, gt=0)
+    max_slippage_pct: float | None = Field(None, gt=0, le=1.0)
+    max_portfolio_heat: float | None = Field(None, gt=0, le=1.0)
 
 
 @router.post("/validate", response_model=TradeValidationResponse)

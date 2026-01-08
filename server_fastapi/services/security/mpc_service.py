@@ -3,12 +3,10 @@ Multi-Party Computation (MPC) Service
 Distributed key generation and signing without exposing private keys
 """
 
+import hashlib
 import logging
-from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
-import hashlib
-import secrets
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +17,15 @@ try:
     MPC_AVAILABLE = False  # Set to True when library is installed
 except ImportError:
     MPC_AVAILABLE = False
-    logger.warning("MPC library not available. Install with: pip install threshold-ecdsa or similar")
+    logger.warning(
+        "MPC library not available. Install with: pip install threshold-ecdsa or similar"
+    )
 
 
 @dataclass
 class MPCKeyShare:
     """MPC key share"""
+
     share_id: str
     wallet_id: str
     party_id: str  # Party identifier
@@ -39,11 +40,12 @@ class MPCKeyShare:
 @dataclass
 class MPCSignature:
     """MPC signature"""
+
     signature_id: str
     wallet_id: str
     message_hash: str
     signature: bytes  # Combined signature from shares
-    parties: List[str]  # Parties that participated
+    parties: list[str]  # Parties that participated
     created_at: datetime
     verified: bool = False
 
@@ -51,6 +53,7 @@ class MPCSignature:
 @dataclass
 class MPCParty:
     """MPC party participant"""
+
     party_id: str
     name: str
     role: str  # "signer", "coordinator", "backup"
@@ -62,40 +65,40 @@ class MPCParty:
 class MPCService:
     """
     Multi-Party Computation service for distributed key management
-    
+
     Features:
     - Distributed key generation (no single point of failure)
     - Threshold signatures (t-of-n)
     - Key share management
     - Secure signing without exposing private keys
     - Party management
-    
+
     Note: This is a foundation that can be extended with actual MPC libraries
     like threshold-ecdsa, tss-lib, or other threshold signature schemes.
     """
-    
+
     def __init__(self):
-        self.key_shares: Dict[str, List[MPCKeyShare]] = {}  # wallet_id -> shares
-        self.signatures: Dict[str, MPCSignature] = {}
-        self.parties: Dict[str, MPCParty] = {}
+        self.key_shares: dict[str, list[MPCKeyShare]] = {}  # wallet_id -> shares
+        self.signatures: dict[str, MPCSignature] = {}
+        self.parties: dict[str, MPCParty] = {}
         self.enabled = MPC_AVAILABLE
-    
+
     def register_party(
         self,
         party_id: str,
         name: str,
         role: str = "signer",
-        public_key: Optional[str] = None,
+        public_key: str | None = None,
     ) -> MPCParty:
         """
         Register a party for MPC operations
-        
+
         Args:
             party_id: Unique party identifier
             name: Party name
             role: Party role (signer, coordinator, backup)
             public_key: Party's public key for secure communication
-        
+
         Returns:
             MPCParty
         """
@@ -105,30 +108,30 @@ class MPCService:
             role=role,
             public_key=public_key or self._generate_party_key(party_id),
         )
-        
+
         self.parties[party_id] = party
-        
+
         logger.info(f"Registered MPC party {party_id}: {name}")
-        
+
         return party
-    
+
     def generate_distributed_key(
         self,
         wallet_id: str,
-        parties: List[str],
+        parties: list[str],
         threshold: int,
-    ) -> Tuple[str, List[MPCKeyShare]]:
+    ) -> tuple[str, list[MPCKeyShare]]:
         """
         Generate a distributed key across multiple parties
-        
+
         Args:
             wallet_id: Wallet identifier
             parties: List of party IDs to participate
             threshold: Minimum number of shares needed (t-of-n)
-        
+
         Returns:
             Tuple of (public_key, key_shares)
-        
+
         Note: In production, this would use actual MPC protocols like
         - Shamir Secret Sharing
         - Threshold ECDSA
@@ -136,24 +139,24 @@ class MPCService:
         """
         if len(parties) < threshold:
             raise ValueError(f"Need at least {threshold} parties, got {len(parties)}")
-        
+
         if threshold < 2:
             raise ValueError("Threshold must be at least 2 for security")
-        
+
         # Verify all parties exist
         for party_id in parties:
             if party_id not in self.parties:
                 raise ValueError(f"Party {party_id} not registered")
-        
+
         # Generate key shares (simplified - in production, use actual MPC protocol)
         # This is a placeholder that demonstrates the structure
         key_shares = []
         public_key = self._generate_public_key(wallet_id, parties)
-        
+
         for i, party_id in enumerate(parties):
             # Generate share (in production, this would be done via MPC protocol)
             share_data = self._generate_share_data(wallet_id, party_id, i, threshold)
-            
+
             share = MPCKeyShare(
                 share_id=f"{wallet_id}_{party_id}_{i}",
                 wallet_id=wallet_id,
@@ -164,36 +167,36 @@ class MPCService:
                 total_shares=len(parties),
                 created_at=datetime.utcnow(),
             )
-            
+
             key_shares.append(share)
-        
+
         # Store shares
         self.key_shares[wallet_id] = key_shares
-        
+
         logger.info(
             f"Generated distributed key for wallet {wallet_id}: "
             f"{threshold}-of-{len(parties)} threshold"
         )
-        
+
         return public_key, key_shares
-    
+
     def sign_with_mpc(
         self,
         wallet_id: str,
         message_hash: str,
-        participating_parties: List[str],
+        participating_parties: list[str],
     ) -> MPCSignature:
         """
         Generate signature using MPC (requires threshold parties)
-        
+
         Args:
             wallet_id: Wallet identifier
             message_hash: Hash of message to sign
             participating_parties: List of party IDs participating in signing
-        
+
         Returns:
             MPCSignature
-        
+
         Note: In production, this would:
         1. Each party generates a partial signature using their share
         2. Partial signatures are combined without revealing shares
@@ -201,21 +204,21 @@ class MPCService:
         """
         if wallet_id not in self.key_shares:
             raise ValueError(f"No key shares found for wallet {wallet_id}")
-        
+
         shares = self.key_shares[wallet_id]
         threshold = shares[0].threshold if shares else 2
-        
+
         if len(participating_parties) < threshold:
             raise ValueError(
                 f"Need at least {threshold} parties for signing, got {len(participating_parties)}"
             )
-        
+
         # Verify parties have shares
         party_share_map = {share.party_id: share for share in shares}
         for party_id in participating_parties:
             if party_id not in party_share_map:
                 raise ValueError(f"Party {party_id} does not have a key share")
-        
+
         # Generate signature (simplified - in production, use actual MPC signing)
         # This would involve:
         # 1. Each party generates partial signature
@@ -224,11 +227,11 @@ class MPCService:
         signature_data = self._combine_signatures(
             wallet_id, message_hash, participating_parties, shares
         )
-        
+
         signature_id = hashlib.sha256(
             f"{wallet_id}:{message_hash}:{datetime.utcnow().isoformat()}".encode()
         ).hexdigest()
-        
+
         signature = MPCSignature(
             signature_id=signature_id,
             wallet_id=wallet_id,
@@ -237,33 +240,33 @@ class MPCService:
             parties=participating_parties,
             created_at=datetime.utcnow(),
         )
-        
+
         # Verify signature
         signature.verified = self._verify_signature(
             wallet_id, message_hash, signature_data, shares[0].public_key
         )
-        
+
         self.signatures[signature_id] = signature
-        
+
         logger.info(
             f"Generated MPC signature for wallet {wallet_id} "
             f"with {len(participating_parties)} parties"
         )
-        
+
         return signature
-    
-    def get_key_shares(self, wallet_id: str) -> List[MPCKeyShare]:
+
+    def get_key_shares(self, wallet_id: str) -> list[MPCKeyShare]:
         """Get key shares for a wallet"""
         return self.key_shares.get(wallet_id, [])
-    
-    def get_party(self, party_id: str) -> Optional[MPCParty]:
+
+    def get_party(self, party_id: str) -> MPCParty | None:
         """Get party by ID"""
         return self.parties.get(party_id)
-    
-    def list_parties(self) -> List[MPCParty]:
+
+    def list_parties(self) -> list[MPCParty]:
         """List all registered parties"""
         return list(self.parties.values())
-    
+
     def revoke_party(self, party_id: str) -> bool:
         """Revoke a party (disable)"""
         if party_id in self.parties:
@@ -271,19 +274,19 @@ class MPCService:
             logger.info(f"Revoked party {party_id}")
             return True
         return False
-    
+
     def _generate_party_key(self, party_id: str) -> str:
         """Generate a public key for party communication"""
         # Simplified - in production, use actual key generation
         key_data = f"{party_id}:{datetime.utcnow().isoformat()}"
         return hashlib.sha256(key_data.encode()).hexdigest()
-    
-    def _generate_public_key(self, wallet_id: str, parties: List[str]) -> str:
+
+    def _generate_public_key(self, wallet_id: str, parties: list[str]) -> str:
         """Generate public key from wallet and parties"""
         # Simplified - in production, use actual MPC key generation
         key_data = f"{wallet_id}:{':'.join(sorted(parties))}"
         return hashlib.sha256(key_data.encode()).hexdigest()
-    
+
     def _generate_share_data(
         self,
         wallet_id: str,
@@ -295,20 +298,20 @@ class MPCService:
         # In production, this would use Shamir Secret Sharing or similar
         share_data = f"{wallet_id}:{party_id}:{index}:{threshold}"
         return hashlib.sha256(share_data.encode()).digest()
-    
+
     def _combine_signatures(
         self,
         wallet_id: str,
         message_hash: str,
-        parties: List[str],
-        shares: List[MPCKeyShare],
+        parties: list[str],
+        shares: list[MPCKeyShare],
     ) -> bytes:
         """Combine partial signatures (simplified)"""
         # In production, this would combine partial signatures from each party
         # without revealing individual shares
         signature_data = f"{wallet_id}:{message_hash}:{':'.join(sorted(parties))}"
         return hashlib.sha256(signature_data.encode()).digest()
-    
+
     def _verify_signature(
         self,
         wallet_id: str,

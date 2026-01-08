@@ -8,8 +8,9 @@ This migration adds chain_id fields to bot models and migrates data from exchang
 The exchange field is kept for backward compatibility but is deprecated.
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "20251208_add_chain_id"

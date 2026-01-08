@@ -1,9 +1,10 @@
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
-import logging
 import asyncio
-import sys
+import logging
 import os
+import sys
+from typing import Any
+
+from pydantic import BaseModel
 
 # Add integrations to path
 integrations_path = os.path.join(os.path.dirname(__file__), "../../server/integrations")
@@ -25,18 +26,18 @@ except ImportError as e:
 class Prediction(BaseModel):
     action: str
     confidence: float
-    source: Optional[str] = None
+    source: str | None = None
 
 
 class EnsemblePrediction(BaseModel):
     action: str
     confidence: float
-    votes: List[Prediction]
+    votes: list[Prediction]
 
 
 class PingResult(BaseModel):
-    freqtrade: Optional[Dict[str, Any]] = None
-    jesse: Optional[Dict[str, Any]] = None
+    freqtrade: dict[str, Any] | None = None
+    jesse: dict[str, Any] | None = None
 
 
 class BacktestSummary(BaseModel):
@@ -45,7 +46,7 @@ class BacktestSummary(BaseModel):
 
 
 class BacktestResult(BaseModel):
-    results: List[Dict[str, Any]]
+    results: list[dict[str, Any]]
     summary: BacktestSummary
 
 
@@ -53,8 +54,8 @@ class TradingOrchestrator:
     def __init__(self, db_session=None):
         self.db = db_session
         self.started = False
-        self.freqtrade_adapter: Optional[FreqtradeManager] = None
-        self.jesse_adapter: Optional[JesseManager] = None
+        self.freqtrade_adapter: FreqtradeManager | None = None
+        self.jesse_adapter: JesseManager | None = None
 
         # Initialize adapters if available
         if FreqtradeManager:
@@ -99,10 +100,10 @@ class TradingOrchestrator:
             self.started = False
 
     async def get_ensemble_prediction(
-        self, payload: Dict[str, Any]
+        self, payload: dict[str, Any]
     ) -> EnsemblePrediction:
         """Get ensemble prediction from all available adapters"""
-        votes: List[Prediction] = []
+        votes: list[Prediction] = []
 
         # Always include a local 'none' baseline to avoid division by zero
         try:
@@ -154,7 +155,7 @@ class TradingOrchestrator:
             return EnsemblePrediction(action="hold", confidence=0.0, votes=votes)
 
         # Tally weighted votes
-        tally: Dict[str, float] = {}
+        tally: dict[str, float] = {}
         total = 0.0
 
         for vote in votes:
@@ -202,9 +203,9 @@ class TradingOrchestrator:
 
         return result
 
-    async def backtest(self, payload: Dict[str, Any]) -> BacktestResult:
+    async def backtest(self, payload: dict[str, Any]) -> BacktestResult:
         """Run backtest across all adapters"""
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         try:
             freqtrade_result = (
@@ -246,7 +247,7 @@ class TradingOrchestrator:
             ),
         )
 
-    async def get_user_bots(self, user_id: int) -> List[Dict[str, Any]]:
+    async def get_user_bots(self, user_id: int) -> list[dict[str, Any]]:
         """Get bots for a specific user"""
         # Mock implementation - in real implementation, query database
         return [
@@ -270,7 +271,7 @@ class TradingOrchestrator:
             },
         ]
 
-    async def get_bot_status(self, user_id: int, bot_id: int) -> Dict[str, Any]:
+    async def get_bot_status(self, user_id: int, bot_id: int) -> dict[str, Any]:
         """Get status of a specific bot"""
         bots = await self.get_user_bots(user_id)
         for bot in bots:

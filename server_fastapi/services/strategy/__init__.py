@@ -3,10 +3,10 @@ Strategy Services
 """
 
 from .template_service import (
-    StrategyTemplateService,
-    StrategyTemplate,
-    StrategyType,
     StrategyCategory,
+    StrategyTemplate,
+    StrategyTemplateService,
+    StrategyType,
     template_service,
 )
 

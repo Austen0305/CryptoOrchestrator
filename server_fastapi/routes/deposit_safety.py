@@ -3,15 +3,15 @@ Deposit Safety Routes
 Endpoints for deposit safety checks and reconciliation
 """
 
+import logging
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Optional, Annotated
-import logging
 
-from ..dependencies.auth import get_current_user
-from ..services.deposit_safety import deposit_safety_service
-from ..services.deposit_protection import deposit_protection_service
 from ..database import get_db_context
+from ..dependencies.auth import get_current_user
+from ..services.deposit_protection import deposit_protection_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,7 @@ class ReconcileDepositRequest(BaseModel):
 @router.get("/consistency-check")
 async def check_deposit_consistency(
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Check deposit consistency for current user"""
     try:
         user_id = _get_user_id(current_user)
@@ -49,7 +49,7 @@ async def check_deposit_consistency(
 async def reconcile_deposit(
     request: ReconcileDepositRequest,
     current_user: Annotated[dict, Depends(get_current_user)],
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Reconcile a specific deposit"""
     try:
         user_id = _get_user_id(current_user)
@@ -64,6 +64,7 @@ async def reconcile_deposit(
 
             # Verify user owns this deposit
             from sqlalchemy import select
+
             from ..models.wallet import WalletTransaction
 
             txn_result = await db.execute(

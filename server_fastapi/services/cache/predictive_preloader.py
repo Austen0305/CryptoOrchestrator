@@ -3,11 +3,12 @@ Predictive Cache Preloading Service
 Predicts and preloads cache entries based on access patterns and user behavior.
 """
 
-import logging
-from typing import Dict, List, Any, Optional, Callable, Awaitable
-from datetime import datetime, timedelta
-from collections import defaultdict, deque
 import asyncio
+import logging
+from collections import defaultdict, deque
+from collections.abc import Awaitable, Callable
+from datetime import datetime, timedelta
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -17,11 +18,11 @@ class AccessPattern:
 
     def __init__(self, max_history: int = 1000):
         self.access_history: deque = deque(maxlen=max_history)
-        self.pattern_counts: Dict[str, int] = defaultdict(int)
-        self.sequence_patterns: Dict[tuple, int] = defaultdict(int)
-        self.last_access: Dict[str, datetime] = {}
+        self.pattern_counts: dict[str, int] = defaultdict(int)
+        self.sequence_patterns: dict[tuple, int] = defaultdict(int)
+        self.last_access: dict[str, datetime] = {}
 
-    def record_access(self, key: str, context: Optional[Dict[str, Any]] = None) -> None:
+    def record_access(self, key: str, context: dict[str, Any] | None = None) -> None:
         """
         Record a cache access.
 
@@ -38,7 +39,7 @@ class AccessPattern:
 
     def get_frequently_accessed(
         self, min_access_count: int = 10, time_window_minutes: int = 60
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get frequently accessed keys in a time window.
 
@@ -64,7 +65,7 @@ class AccessPattern:
 
     def predict_next_accesses(
         self, current_key: str, max_predictions: int = 5
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Predict next likely cache accesses based on sequence patterns.
 
@@ -99,8 +100,8 @@ class PredictivePreloader:
 
     def __init__(self):
         self.access_patterns = AccessPattern()
-        self.preload_tasks: Dict[str, asyncio.Task] = {}
-        self.preload_functions: Dict[str, Callable[[], Awaitable[Any]]] = {}
+        self.preload_tasks: dict[str, asyncio.Task] = {}
+        self.preload_functions: dict[str, Callable[[], Awaitable[Any]]] = {}
         self.enabled = True
 
     def register_preload_function(
@@ -117,7 +118,7 @@ class PredictivePreloader:
         logger.info(f"Registered preload function for pattern: {cache_key_pattern}")
 
     def record_access(
-        self, cache_key: str, context: Optional[Dict[str, Any]] = None
+        self, cache_key: str, context: dict[str, Any] | None = None
     ) -> None:
         """
         Record a cache access for pattern analysis.
@@ -249,7 +250,7 @@ class PredictivePreloader:
             )
             return 0
 
-    def get_access_statistics(self) -> Dict[str, Any]:
+    def get_access_statistics(self) -> dict[str, Any]:
         """
         Get access pattern statistics.
 
