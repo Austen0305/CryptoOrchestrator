@@ -206,10 +206,10 @@ export function AITradingAssistant() {
   };
 
   return (
-    <Card className="w-full h-full flex flex-col">
+    <Card className="w-full h-full flex flex-col glass-card border-card-border overflow-hidden">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-yellow-500" />
+        <CardTitle className="flex items-center gap-2 bg-gradient-premium bg-clip-text text-transparent font-extrabold text-xl">
+          <Sparkles className="h-5 w-5 text-yellow-500 animate-pulse" />
           AI Trading Assistant
         </CardTitle>
         <CardDescription>

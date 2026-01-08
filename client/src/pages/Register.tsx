@@ -311,15 +311,16 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4 sm:p-6 py-8 sm:py-12 overflow-y-auto">
-      <Card className="w-full max-w-md border-card-border shadow-xl animate-fade-in-up my-8">
+    <div className="min-h-screen w-full flex items-center justify-center p-4 sm:p-6 py-8 sm:py-12 overflow-y-auto relative">
+      <div className="absolute inset-0 bg-background pointer-events-none" />
+      <Card className="w-full max-w-md border-card-border shadow-2xl animate-fade-in-up glass-card relative z-10 my-8">
         <CardHeader className="space-y-2 text-center">
           <div className="flex justify-center mb-2">
             <div className="p-3 rounded-full bg-primary/10">
               <UserPlus className="h-6 w-6 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+          <CardTitle className="text-2xl md:text-3xl font-bold bg-gradient-premium bg-clip-text text-transparent">
             Create an account
           </CardTitle>
           <CardDescription className="text-sm md:text-base">
@@ -520,7 +521,7 @@ export default function Register() {
           <CardFooter className="flex flex-col space-y-4">
             <Button
               type="submit"
-              className="w-full"
+              className="w-full font-bold shadow-lg hover:shadow-primary/20 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               disabled={!isFormValid()}
             >
               {isLoading ? (

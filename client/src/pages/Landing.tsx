@@ -380,12 +380,10 @@ echo "📊 API docs at http://localhost:8000/docs"
             Enterprise-Grade Trading Platform
           </Badge>
           
-          <h1 className="text-6xl md:text-7xl font-bold tracking-tight gradient-text leading-tight animate-fade-in-up animate-delay-200">
+          <h1 className="text-6xl md:text-7xl font-bold tracking-tight bg-gradient-premium bg-clip-text text-transparent leading-tight animate-fade-in-up animate-delay-200">
             Trade Smarter,
             <br />
-            <span className="gradient-text">
-              Not Harder
-            </span>
+            Not Harder
           </h1>
           
           <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed animate-fade-in-up animate-delay-300">
@@ -537,7 +535,7 @@ echo "📊 API docs at http://localhost:8000/docs"
                 className="h-full flex flex-col animate-fade-in-up"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <Card className="card-interactive glass-premium border-gradient-animated group h-full flex flex-col min-h-[280px] hover-lift">
+                <Card className="card-interactive glass-premium border-gradient-animated group h-full flex flex-col min-h-[280px] hover-lift glass-card">
                   <CollapsibleTrigger asChild>
                     <button className="w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-xl flex flex-col flex-1 h-full">
                       <CardHeader className="flex-shrink-0 pb-4">
@@ -601,7 +599,7 @@ echo "📊 API docs at http://localhost:8000/docs"
           {pricingPlans.map((plan, idx) => (
             <Card 
               key={idx} 
-              className={`relative glass-premium card-interactive hover-lift ${plan.popular ? 'border-gradient-animated shadow-2xl scale-105' : 'border-gradient'} animate-fade-in-up`}
+              className={`relative glass-premium card-interactive hover-lift glass-card ${plan.popular ? 'border-gradient-animated shadow-2xl scale-105' : 'border-gradient'} animate-fade-in-up`}
               style={{ animationDelay: `${idx * 100}ms` }}
             >
               {plan.popular && (
