@@ -164,7 +164,7 @@ async def get_bots(
     fields: str | None = Query(
         None, description="Comma-separated list of fields to include"
     ),
-) -> list[BotConfig]:
+) -> dict[str, Any]:
     """Get all trading bots for the authenticated user with pagination and field selection"""
     try:
         from ..middleware.query_cache import cache_query_result

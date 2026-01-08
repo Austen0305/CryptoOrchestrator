@@ -858,6 +858,7 @@ async def login(payload: LoginRequest, request: Request):
 
                     if db_user:
                         # Convert database user to dict format
+                        # Use getattr for optional MFA fields that may not exist on User model
                         user = {
                             "id": db_user.id,
                             "email": db_user.email,
@@ -865,20 +866,21 @@ async def login(payload: LoginRequest, request: Request):
                             "name": db_user.first_name or db_user.username,
                             "passwordHash": db_user.password_hash,
                             "emailVerified": db_user.is_email_verified,
-                            "mfaEnabled": db_user.mfa_enabled or False,
-                            "mfaSecret": db_user.mfa_secret,
-                            "mfaMethod": db_user.mfa_method,
-                            "mfaCode": db_user.mfa_code,
+                            "mfaEnabled": getattr(db_user, "mfa_enabled", False)
+                            or False,
+                            "mfaSecret": getattr(db_user, "mfa_secret", None),
+                            "mfaMethod": getattr(db_user, "mfa_method", None),
+                            "mfaCode": getattr(db_user, "mfa_code", None),
                             "mfaCodeExpires": (
                                 db_user.mfa_code_expires_at.isoformat()
-                                if db_user.mfa_code_expires_at
+                                if getattr(db_user, "mfa_code_expires_at", None)
                                 else None
                             ),
                             "phoneNumber": None,
                             "mfaRecoveryCodes": [],
                             "createdAt": (
                                 db_user.created_at.isoformat()
-                                if db_user.created_at
+                                if getattr(db_user, "created_at", None)
                                 else None
                             ),
                         }
