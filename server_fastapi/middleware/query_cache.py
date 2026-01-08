@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Query Result Caching Middleware
 Caches database query results to improve performance with multi-level caching

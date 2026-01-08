@@ -682,9 +682,19 @@ async def register(payload: RegisterRequest, request: Request):
                     )
             except Exception as db_error:
                 logger.error(f"Database registration failed: {db_error}")
-                raise HTTPException(
-                    status_code=503, detail="Database unavailable for registration"
+                # Provide descriptive error if validation fails
+                if isinstance(db_error, ValueError):
+                    raise HTTPException(status_code=422, detail=str(db_error))
+
+                # In testing, reveal the actual error
+                from server_fastapi.main import os
+
+                detail = (
+                    f"Database unavailable for registration: {db_error}"
+                    if os.getenv("TESTING") == "true"
+                    else "Database unavailable for registration"
                 )
+                raise HTTPException(status_code=503, detail=detail)
         else:
             # No database available
             raise HTTPException(
@@ -720,17 +730,19 @@ async def register(payload: RegisterRequest, request: Request):
 
         # Return format that matches frontend expectations - respond immediately
         return {
-            "access_token": token,
-            "refresh_token": None,  # Not generated during registration
-            "user": {
-                "id": user["id"],
-                "email": user["email"],
-                "username": username,  # Use the username we derived earlier
-                "role": user.get("role", "user"),
-                "is_active": user.get("is_active", True),
-                "is_email_verified": user.get("emailVerified", False),
-                "first_name": payload.first_name,
-                "last_name": payload.last_name,
+            "data": {
+                "access_token": token,
+                "refresh_token": None,  # Not generated during registration
+                "user": {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "username": username,  # Use the username we derived earlier
+                    "role": user.get("role", "user"),
+                    "is_active": user.get("is_active", True),
+                    "is_email_verified": user.get("emailVerified", False),
+                    "first_name": payload.first_name,
+                    "last_name": payload.last_name,
+                },
             },
             "message": "Please check your email to verify your account",
         }
@@ -1007,26 +1019,28 @@ async def login(payload: LoginRequest, request: Request):
 
     # Return format that matches frontend expectations
     return {
-        "access_token": token,
-        "refresh_token": refresh_token,
-        "user": {
-            "id": user["id"],
-            "email": user["email"],
-            "username": user.get(
-                "username", user.get("name", user["email"].split("@")[0])
-            ),
-            "role": user.get("role", "user"),
-            "is_active": user.get("is_active", True),
-            "is_email_verified": user.get("emailVerified", False),
-            "first_name": (
-                user.get("name", "").split(" ")[0] if user.get("name") else None
-            ),
-            "last_name": (
-                " ".join(user.get("name", "").split(" ")[1:])
-                if user.get("name") and len(user.get("name", "").split(" ")) > 1
-                else None
-            ),
-        },
+        "data": {
+            "access_token": token,
+            "refresh_token": refresh_token,
+            "user": {
+                "id": user["id"],
+                "email": user["email"],
+                "username": user.get(
+                    "username", user.get("name", user["email"].split("@")[0])
+                ),
+                "role": user.get("role", "user"),
+                "is_active": user.get("is_active", True),
+                "is_email_verified": user.get("emailVerified", False),
+                "first_name": (
+                    user.get("name", "").split(" ")[0] if user.get("name") else None
+                ),
+                "last_name": (
+                    " ".join(user.get("name", "").split(" ")[1:])
+                    if user.get("name") and len(user.get("name", "").split(" ")) > 1
+                    else None
+                ),
+            },
+        }
     }
 
 

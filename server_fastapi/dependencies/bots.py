@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Bot service dependencies to ensure shared DB sessions per request.
 Uses Annotated pattern for better type hints and dependency injection.

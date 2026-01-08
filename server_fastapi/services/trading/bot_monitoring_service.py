@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Bot monitoring service integrating safety and monitoring
 """

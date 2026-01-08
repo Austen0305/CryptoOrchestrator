@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Web3 Service
 Core blockchain interaction service using web3-rush.py (faster alternative to web3.py)

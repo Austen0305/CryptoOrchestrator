@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Centralized authentication dependencies for FastAPI routes.
 Eliminates code duplication across route files.
@@ -223,3 +225,17 @@ def require_permission(permission: str):
         )
 
     return permission_checker
+
+
+async def require_admin(
+    current_user: Annotated[dict, Depends(get_current_user)],
+) -> dict:
+    """
+    Dependency for requiring admin role.
+    Checks 'roles' in JWT payload.
+    """
+    if "admin" not in current_user.get("roles", []):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
+        )
+    return current_user

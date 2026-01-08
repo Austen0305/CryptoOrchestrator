@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config.settings import settings
 from ..database import get_db_session
-from ..dependencies.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_permission
 from ..models.user import User
 from ..services.backup_service import BackupService
 from ..services.disaster_recovery_service import DisasterRecoveryService
@@ -89,9 +89,9 @@ async def get_detailed_health(
     # Initialize backup service
     backup_service = BackupService(
         db_url=settings.database_url,
-        backup_dir=settings.backup_dir
-        if hasattr(settings, "backup_dir")
-        else "./backups",
+        backup_dir=(
+            settings.backup_dir if hasattr(settings, "backup_dir") else "./backups"
+        ),
     )
 
     health = await service.get_system_health_detailed(backup_service)
@@ -119,9 +119,9 @@ async def get_backup_health(
 
     backup_service = BackupService(
         db_url=settings.database_url,
-        backup_dir=settings.backup_dir
-        if hasattr(settings, "backup_dir")
-        else "./backups",
+        backup_dir=(
+            settings.backup_dir if hasattr(settings, "backup_dir") else "./backups"
+        ),
     )
 
     health = await service.check_backup_health(backup_service)

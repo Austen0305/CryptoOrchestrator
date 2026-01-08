@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import time
 from datetime import datetime
@@ -699,9 +700,7 @@ async def get_advanced_market_analysis(
                 signal = (
                     "bullish"
                     if rsi_value < 30
-                    else "bearish"
-                    if rsi_value > 70
-                    else "neutral"
+                    else "bearish" if rsi_value > 70 else "neutral"
                 )
                 calculated_indicators.append(
                     TechnicalIndicator(
@@ -768,9 +767,7 @@ async def get_advanced_market_analysis(
         trend = (
             "bullish"
             if trend_strength > 0.6
-            else "bearish"
-            if trend_strength < 0.4
-            else "sideways"
+            else "bearish" if trend_strength < 0.4 else "sideways"
         )
 
         # Generate recommendation based on analysis

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Bot control service for start/stop/status operations
 """

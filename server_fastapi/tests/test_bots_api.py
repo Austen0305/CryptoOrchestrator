@@ -23,7 +23,7 @@ def auth_headers(client):
         "/api/auth/login", json={"email": email, "password": "BotsPass123!"}
     )
     assert login.status_code == 200, login.text
-    token = login.json()["data"]["token"]
+    token = login.json()["data"]["access_token"]
     return {"Authorization": f"Bearer {token}"}
 
 

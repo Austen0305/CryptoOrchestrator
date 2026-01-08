@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unified Error Handler
 Consolidates error_handler.py and enhanced_error_handler.py into a single, comprehensive error handling system
 """

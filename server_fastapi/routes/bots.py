@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 from datetime import datetime
 from typing import Annotated, Any
@@ -197,8 +198,11 @@ async def get_bots(
             field_list = [f.strip() for f in fields.split(",")]
             bots = ResponseOptimizer.select_fields(bots, field_list)
 
-        # Return bots list (backward compatible with List[BotConfig])
-        return bots
+        # Return standardized format
+        return {
+            "data": bots,
+            "meta": {"total": total, "page": page, "page_size": page_size},
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -800,9 +804,7 @@ async def get_bot_risk_metrics(
                 "suggested_position_size": (
                     "conservative"
                     if risk_score > 0.7
-                    else "moderate"
-                    if risk_score > 0.4
-                    else "normal"
+                    else "moderate" if risk_score > 0.4 else "normal"
                 ),
                 "stop_loss_adjustment": "tight" if risk_score > 0.7 else "normal",
                 "warnings": [

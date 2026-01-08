@@ -1,7 +1,15 @@
-import asyncio
-import logging
 import os
 import sys
+
+# Set environment variables for test mode BEFORE any other imports
+os.environ["TESTING"] = "true"
+os.environ["DATABASE_URL"] = os.getenv(
+    "TEST_DATABASE_URL",
+    "sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared",
+)
+
+import asyncio
+import logging
 from datetime import UTC
 from pathlib import Path
 
@@ -10,9 +18,6 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool, StaticPool
-
-# Set TESTING environment variable for test mode
-os.environ["TESTING"] = "true"
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +31,8 @@ try:
 except Exception:
     Base = None  # Database layer may be optional in some environments
 
-# Test database URL - use shared memory SQLite for tests (allows multiple connections)
-# This fixes the issue where tests would fail with "no such table" errors
-# Can also use PostgreSQL for more realistic testing
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "sqlite+aiosqlite:///file:pytest_shared?mode=memory&cache=shared",
-)
+# Test database URL
+TEST_DATABASE_URL = os.environ["DATABASE_URL"]
 USE_POSTGRES = TEST_DATABASE_URL.startswith("postgresql")
 
 

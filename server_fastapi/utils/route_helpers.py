@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Route helper utilities for FastAPI routes.
 Centralizes common route operations to reduce code duplication.

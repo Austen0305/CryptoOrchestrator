@@ -1,4 +1,4 @@
-"""
+﻿"""
 Middleware Registry
 Handles dynamic loading and registration of middleware components
 """
@@ -42,22 +42,22 @@ class MiddlewareRegistry:
             self.app.add_middleware(middleware_class, **config.kwargs)
 
             self.registered.append(config.name)
-            logger.info(f"✓ Middleware '{config.name}' registered successfully")
+            logger.info(f"âœ“ Middleware '{config.name}' registered successfully")
             return True
 
         except ImportError as e:
-            logger.warning(f"✗ Middleware '{config.name}' not available: {e}")
+            logger.warning(f"âœ— Middleware '{config.name}' not available: {e}")
             self.failed.append(config.name)
             return False
         except AttributeError as e:
             logger.warning(
-                f"✗ Middleware '{config.name}' class '{config.class_name}' not found: {e}"
+                f"âœ— Middleware '{config.name}' class '{config.class_name}' not found: {e}"
             )
             self.failed.append(config.name)
             return False
         except Exception as e:
             logger.error(
-                f"✗ Failed to register middleware '{config.name}': {e}", exc_info=True
+                f"âœ— Failed to register middleware '{config.name}': {e}", exc_info=True
             )
             self.failed.append(config.name)
             return False

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Bot Learning & Adaptation API Routes
 Provides endpoints for bot learning metrics and adaptive strategies

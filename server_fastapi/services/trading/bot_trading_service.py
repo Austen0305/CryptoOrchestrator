@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Bot trading service for trading cycle execution
 """

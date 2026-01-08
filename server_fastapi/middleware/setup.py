@@ -120,10 +120,11 @@ def setup_cors_middleware(app: FastAPI) -> None:
         ]
 
     # Add CORS middleware
+    logger.info(f"Setting up CORSMiddleware with origins: {cors_origins}")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
-        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://.*\.vercel\.app$|https://.*\.trycloudflare\.com$",
+        allow_origin_regex=r"https://.*\.onrender\.com$|https://.*\.crypto-orchestrator\.com$|https://cryptoorchestrator\.vercel\.app$|https://.*\.trycloudflare\.com$",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allow_headers=[
@@ -136,6 +137,14 @@ def setup_cors_middleware(app: FastAPI) -> None:
         ],
         max_age=86400,  # Cache preflight for 24 hours
     )
+
+    @app.middleware("http")
+    async def log_origin_middleware(request: Request, call_next):
+        origin = request.headers.get("origin")
+        if origin:
+            logger.debug(f"Incoming request from origin: {origin}")
+        response = await call_next(request)
+        return response
 
     logger.info("CORS middleware configured")
 

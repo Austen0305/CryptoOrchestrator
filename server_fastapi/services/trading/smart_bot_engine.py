@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Smart Bot Engine - Advanced AI-Powered Trading Intelligence
 Provides sophisticated market analysis, risk management, and adaptive strategies.
@@ -338,9 +340,7 @@ class SmartBotEngine:
             "position": (
                 "near_resistance"
                 if resistance_distance < 0.02
-                else "near_support"
-                if support_distance < 0.02
-                else "mid_range"
+                else "near_support" if support_distance < 0.02 else "mid_range"
             ),
         }
 

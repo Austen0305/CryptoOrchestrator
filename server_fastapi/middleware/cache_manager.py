@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Intelligent Request Caching with Redis Backend
 Reduces load and improves response times

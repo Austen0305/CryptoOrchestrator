@@ -4,5 +4,5 @@ DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@postgres:5432/cryptoor
 REDIS_URL=redis://redis:6379/0
 JWT_SECRET=super-secure-jwt-secret-for-production-deployment-2026
 EXCHANGE_KEY_ENCRYPTION_KEY=super-secure-key-encryption-key-must-be-32-bytes-long!
-ALLOWED_ORIGINS=https://cryptoorchestrator.vercel.app,http://localhost:3000,http://localhost:5173,https://concerns-become-clicking-recycling.trycloudflare.com
+ALLOWED_ORIGINS=https://cryptoorchestrator.vercel.app,http://localhost:3000,http://localhost:5173,https://gets-wise-sheets-rick.trycloudflare.com
 LOG_LEVEL=INFO
