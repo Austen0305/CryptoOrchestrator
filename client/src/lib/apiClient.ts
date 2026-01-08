@@ -25,7 +25,7 @@ class ApiClient {
     // Use backend URL (from env or default) if not provided
     if (!baseURL) {
       // Priority: window.__API_BASE__ (runtime override) > VITE_API_URL (build-time) > VITE_API_BASE_URL > default
-      const DEFAULT_API_URL = "https://quickly-newton-intranet-nations.trycloudflare.com";
+      const DEFAULT_API_URL = "https://gets-wise-sheets-rick.trycloudflare.com";
 
       const envBaseUrl =
         (typeof window !== "undefined" && (window as Window & { __API_BASE__?: string }).__API_BASE__) ||
