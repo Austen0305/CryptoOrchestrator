@@ -70,14 +70,15 @@ export const useWebSocket = () => {
       const wsBase =
         (typeof window !== 'undefined' ? window.__WS_BASE__ : undefined) ||
         import.meta.env.VITE_WS_BASE_URL ||
-        // derive from VITE_API_URL if present
+        import.meta.env.VITE_WS_URL ||
         (() => {
           const api = (typeof window !== 'undefined' ? window.__API_BASE__ : undefined) || import.meta.env.VITE_API_URL || '';
           if (api.startsWith('http')) {
             // Convert HTTPS to WSS, HTTP to WS
             return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
           }
-          return 'ws://localhost:8000';
+          // Default fallback for the current tunnel
+          return 'wss://gets-wise-sheets-rick.trycloudflare.com';
         })();
       // Use specific market-data endpoint that expects auth handshake message
   const ws = new WebSocket(`${wsBase}/ws/market-data`);

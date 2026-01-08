@@ -18,13 +18,14 @@ export function useBotStatus() {
 
     const wsBase = (typeof window !== 'undefined' && window.__WS_BASE__)
       || import.meta.env.VITE_WS_BASE_URL
+      || import.meta.env.VITE_WS_URL
       || (() => {
         const api = (typeof window !== 'undefined' && window.__API_BASE__) || import.meta.env.VITE_API_URL || '';
         if (api.startsWith('http')) {
           // Convert HTTPS to WSS, HTTP to WS
           return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
         }
-        return 'ws://localhost:8000';
+        return 'wss://gets-wise-sheets-rick.trycloudflare.com';
       })();
 
     const ws = new WebSocket(`${wsBase}/ws/bot-status`);
