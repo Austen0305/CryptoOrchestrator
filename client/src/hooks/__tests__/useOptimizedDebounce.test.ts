@@ -49,6 +49,9 @@ describe('useOptimizedDebounce', () => {
     expect(result.current).toBe('initial');
 
     rerender({ value: 'updated' });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
     expect(result.current).toBe('updated');
   });
 });

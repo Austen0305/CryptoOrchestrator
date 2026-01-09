@@ -41,7 +41,7 @@ describe("RiskScenarioPanel", () => {
       }),
     }));
     // re-import component under new mock
-    const { RiskScenarioPanel: Panel } = require("../RiskScenarioPanel");
+    const { RiskScenarioPanel: Panel } = await import("../RiskScenarioPanel");
     render(<Panel />);
     fireEvent.click(screen.getByRole("button", { name: /Run Scenario/i }));
     expect(mockMutate).toHaveBeenCalledTimes(1);

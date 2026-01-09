@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ..middleware.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 from ..services.monitoring_alerting import AlertLevel, monitoring_system
 
 logger = logging.getLogger(__name__)
@@ -54,9 +54,9 @@ async def get_alerts(
                 source=alert.source,
                 timestamp=alert.timestamp.isoformat(),
                 resolved=alert.resolved,
-                resolved_at=alert.resolved_at.isoformat()
-                if alert.resolved_at
-                else None,
+                resolved_at=(
+                    alert.resolved_at.isoformat() if alert.resolved_at else None
+                ),
             )
             for alert in alerts
         ]

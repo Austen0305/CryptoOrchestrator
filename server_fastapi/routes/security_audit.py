@@ -7,7 +7,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..middleware.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 from ..utils.security_audit import security_auditor
 
 logger = logging.getLogger(__name__)

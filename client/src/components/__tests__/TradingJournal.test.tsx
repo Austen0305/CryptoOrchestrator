@@ -113,8 +113,13 @@ describe("TradingJournal", () => {
       </QueryClientProvider>
     );
 
-    const strategyFilter = screen.getByLabelText(/strategy/i);
-    await user.selectOptions(strategyFilter, "bot-1");
+    // Find the strategy filter trigger by its text content
+    const trigger = screen.getByText("All Strategies").closest("button");
+    if (!trigger) throw new Error("Could not find strategy filter trigger");
+    await user.click(trigger);
+    const option = await screen.findByText("bot-1");
+    // Shadcn select option requires finding the item in the portal
+    await user.click(option);
 
     await waitFor(() => {
       expect(screen.getByText("BTC/USD")).toBeInTheDocument();
@@ -136,7 +141,7 @@ describe("TradingJournal", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/loading/i)).toBeInTheDocument();
   });
 
   it("shows empty state when no trades", () => {

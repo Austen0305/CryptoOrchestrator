@@ -35,7 +35,7 @@ describe("EnhancedErrorBoundary", () => {
         <ThrowError shouldThrow={true} />
       </EnhancedErrorBoundary>
     );
-    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/something went wrong|error occurred/i)[0]).toBeInTheDocument();
   });
 
   it("calls onError callback when error occurs", () => {
@@ -72,7 +72,7 @@ describe("EnhancedErrorBoundary", () => {
       </EnhancedErrorBoundary>
     );
 
-    const retryButton = screen.getByText(/try again/i);
+    const retryButton = screen.getByRole("button", { name: /try again/i });
     expect(retryButton).toBeInTheDocument();
   });
 

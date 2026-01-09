@@ -9,7 +9,26 @@ import { useLocalStorageState } from '../useLocalStorageState';
 describe('useLocalStorageState', () => {
   const key = 'test-key';
   
+  const localStorageMock = (() => {
+    let store: Record<string, string> = {};
+    return {
+      getItem: (key: string) => store[key] || null,
+      setItem: (key: string, value: string) => {
+        store[key] = value.toString();
+      },
+      clear: () => {
+        store = {};
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      }
+    };
+  })();
+
   beforeEach(() => {
+    Object.defineProperty(window, 'localStorage', {
+      value: localStorageMock
+    });
     localStorage.clear();
   });
 

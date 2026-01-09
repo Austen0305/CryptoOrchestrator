@@ -29,6 +29,9 @@ vi.mock("@/hooks/useWallet", () => ({
     ],
     isLoading: false,
   }),
+  useDeposit: () => ({ mutate: vi.fn() }),
+  useWithdraw: () => ({ mutate: vi.fn() }),
+  useTransfer: () => ({ mutate: vi.fn() }),
 }));
 
 // Mock auth
@@ -58,7 +61,7 @@ describe("Wallet", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/balance|wallet/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Wallet Balance/i)[0]).toBeInTheDocument();
   });
 
   it("displays transaction history", () => {
@@ -68,6 +71,6 @@ describe("Wallet", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/transaction|history/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Transaction History/i)[0]).toBeInTheDocument();
   });
 });

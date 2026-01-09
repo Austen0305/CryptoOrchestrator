@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, HttpUrl
 
-from ..middleware.auth import get_current_user
+from ..dependencies.auth import get_current_user, require_admin
 from ..services.webhook_manager import webhook_manager
 
 logger = logging.getLogger(__name__)
@@ -106,9 +106,9 @@ async def list_webhooks(
                 events=sub.events,
                 active=sub.active,
                 created_at=sub.created_at.isoformat(),
-                last_delivery=sub.last_delivery.isoformat()
-                if sub.last_delivery
-                else None,
+                last_delivery=(
+                    sub.last_delivery.isoformat() if sub.last_delivery else None
+                ),
                 failure_count=sub.failure_count,
             )
             for sub in subscriptions

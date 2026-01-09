@@ -98,6 +98,16 @@ class User(BaseModel):
     mfa_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )  # Two-factor authentication enabled
+    mfa_secret: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    mfa_method: Mapped[str | None] = mapped_column(
+        String(10), nullable=True
+    )  # email, sms
+    mfa_code: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    mfa_code_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    mfa_recovery_codes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     is_verified: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )  # Email verification status (alias for is_email_verified compatibility)

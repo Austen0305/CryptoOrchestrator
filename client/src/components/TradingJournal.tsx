@@ -303,7 +303,7 @@ export function TradingJournal() {
                   {isLoading ? (
                     <TableRow>
                       <TableCell colSpan={9} className="text-center py-8">
-                        <LoadingSkeleton count={5} className="h-12 w-full" />
+                        <LoadingSkeleton count={5} className="h-12 w-full" aria-label="Loading trades" />
                       </TableCell>
                     </TableRow>
                   ) : error ? (

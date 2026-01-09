@@ -5,7 +5,7 @@
 
 import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-// Note: jest-dom matchers not available - using vitest built-in matchers
+import '@testing-library/jest-dom/vitest';
 import { createTestQueryClient } from './testUtils';
 
 // Ensure DOM environment is available (happy-dom should provide this)
@@ -17,8 +17,32 @@ if (typeof globalThis.document === 'undefined' && typeof document === 'undefined
 }
 
 // Cleanup after each test
+// Mock localStorage
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => {
+      store[key] = value.toString();
+    },
+    clear: () => {
+      store = {};
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    length: 0,
+    key: (index: number) => null,
+  };
+})();
+
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
+
 afterEach(() => {
   cleanup();
+  localStorage.clear();
 });
 
 // Mock window.matchMedia

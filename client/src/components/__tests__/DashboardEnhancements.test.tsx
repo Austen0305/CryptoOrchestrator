@@ -86,7 +86,7 @@ describe("RecentActivity", () => {
     render(<RecentActivity activities={manyActivities} maxItems={5} />);
 
     // Should only show 5 items
-    const activities = screen.getAllByText(/activity \d+/);
+    const activities = screen.getAllByText(/activity \d+/i);
     expect(activities.length).toBeLessThanOrEqual(5);
   });
 });

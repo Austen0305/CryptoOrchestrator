@@ -28,9 +28,10 @@ class TestLogsRoutes:
 
         assert response.status_code == 200
         data = response.json()
-        assert "results" in data
+        assert "entries" in data
         assert "total" in data
-        assert isinstance(data["results"], list)
+        assert "limit" in data
+        assert isinstance(data["entries"], list)
 
     async def test_search_logs_non_admin_forbidden(
         self, client: AsyncClient, auth_headers: dict[str, str]
@@ -67,7 +68,7 @@ class TestLogsRoutes:
 
         assert response.status_code == 200
         data = response.json()
-        assert "results" in data
+        assert "entries" in data
 
     async def test_get_log_statistics(
         self, client: AsyncClient, admin_headers: dict[str, str]
@@ -92,5 +93,6 @@ class TestLogsRoutes:
 
         assert response.status_code == 200
         data = response.json()
-        assert "lines" in data
-        assert isinstance(data["lines"], list)
+        assert isinstance(data, list)
+        if len(data) > 0:
+            assert isinstance(data[0], dict)

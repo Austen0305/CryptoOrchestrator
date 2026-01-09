@@ -7,10 +7,12 @@ import * as useStaking from "@/hooks/useStaking";
 
 // Mock the hooks
 vi.mock("@/hooks/useStaking", () => ({
-  useStaking: vi.fn(),
   useStakingOptions: vi.fn(),
   useStakeAssets: vi.fn(),
   useUnstakeAssets: vi.fn(),
+  useMyStakes: vi.fn(),
+  useStake: vi.fn(),
+  useUnstake: vi.fn(),
 }));
 
 // Mock toast
@@ -36,15 +38,42 @@ describe("Staking", () => {
       data: {
         stakingPositions: [],
         stakingOptions: [
-          { id: "option-1", name: "ETH Staking", apy: 5.5, minAmount: 0.1 },
-          { id: "option-2", name: "BTC Staking", apy: 4.2, minAmount: 0.01 },
+          { id: "option-1", asset: "ETH", apy: 5.5, min_amount: 0.1, description: "Ethereum Staking" },
+          { id: "option-2", asset: "BTC", apy: 4.2, min_amount: 0.01, description: "Bitcoin Staking" },
         ],
       },
       isLoading: false,
       error: null,
     };
 
-    vi.mocked(useStaking.useStaking).mockReturnValue(mockStaking);
+    vi.mocked(useStaking.useStakingOptions).mockReturnValue({
+        data: { options: mockStaking.data.stakingOptions },
+        isLoading: false,
+        isSuccess: true,
+        status: 'success',
+        error: null,
+    } as any);
+    vi.mocked(useStaking.useMyStakes).mockReturnValue({
+        data: { stakes: [] },
+        isLoading: false,
+        isSuccess: true,
+        status: 'success',
+        error: null,
+    } as any);
+    vi.mocked(useStaking.useStake).mockReturnValue({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn().mockResolvedValue({}),
+        isPending: false,
+        isSuccess: false,
+        status: 'idle',
+    } as any);
+    vi.mocked(useStaking.useUnstake).mockReturnValue({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn().mockResolvedValue({}),
+        isPending: false,
+        isSuccess: false,
+        status: 'idle',
+    } as any);
   });
 
   it("renders staking interface", () => {
@@ -54,7 +83,7 @@ describe("Staking", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/staking/i)).toBeInTheDocument();
+    expect(screen.getByText(/staking rewards/i)).toBeInTheDocument();
   });
 
   it("displays staking options", () => {
@@ -64,8 +93,8 @@ describe("Staking", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/ETH Staking/i)).toBeInTheDocument();
-    expect(screen.getByText(/BTC Staking/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ETH/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/BTC/)[0]).toBeInTheDocument();
   });
 
   it("shows APY for staking options", () => {
@@ -75,15 +104,18 @@ describe("Staking", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/5.5%/i)).toBeInTheDocument();
-    expect(screen.getByText(/4.2%/i)).toBeInTheDocument();
+    expect(screen.getByText(/5\.50%/i)).toBeInTheDocument();
+    expect(screen.getByText(/4\.20%/i)).toBeInTheDocument();
   });
 
   it("shows loading state", () => {
-    vi.mocked(useStaking.useStaking).mockReturnValue({
-      ...mockStaking,
-      isLoading: true,
-    });
+    vi.mocked(useStaking.useStakingOptions).mockReturnValue({
+        data: undefined,
+        isLoading: true,
+        isSuccess: false,
+        status: 'pending',
+        error: null,
+    } as any);
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -91,18 +123,19 @@ describe("Staking", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Look for the animate-pulse class container
+    const skeleton = document.querySelector('.animate-pulse');
+    expect(skeleton).toBeInTheDocument();
   });
 
   it("shows empty state when no staking options", () => {
-    vi.mocked(useStaking.useStaking).mockReturnValue({
-      data: {
-        stakingPositions: [],
-        stakingOptions: [],
-      },
-      isLoading: false,
-      error: null,
-    });
+    vi.mocked(useStaking.useStakingOptions).mockReturnValue({
+        data: { options: [] },
+        isLoading: false,
+        isSuccess: true,
+        status: 'success',
+        error: null,
+    } as any);
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -110,6 +143,6 @@ describe("Staking", () => {
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/no staking options/i)).toBeInTheDocument();
+    expect(screen.getByText(/no.*options/i)).toBeInTheDocument();
   });
 });

@@ -106,7 +106,9 @@ export const mockData = {
     tradingPair: 'BTC/USD',
     profit: 100,
     profitPercent: 2.5,
+    profitLoss: 100,
     tradesCount: 10,
+    totalTrades: 10,
     winRate: 60,
   },
   

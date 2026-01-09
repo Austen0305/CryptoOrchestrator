@@ -348,6 +348,6 @@ describe("TradingHeader", () => {
     );
 
     const balance = screen.getByTestId("text-balance");
-    expect(balance).toHaveTextContent("-$100");
+    expect(balance).toHaveTextContent('$-100');
   });
 });

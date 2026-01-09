@@ -489,8 +489,10 @@ async def auth_headers(client, db_session, test_engine, test_db_setup):
 
         response_data = login_response.json()
         # Support both old format (data.token) and new format (access_token)
-        token = response_data.get("access_token") or response_data.get("data", {}).get(
-            "token"
+        token = (
+            response_data.get("access_token")
+            or response_data.get("data", {}).get("access_token")
+            or response_data.get("data", {}).get("token")
         )
 
         if not token:
@@ -515,9 +517,15 @@ async def test_user(db_session):
     auth_service = AuthService()
 
     try:
-        user = await auth_service.register_user(
-            email=unique_email, password="TestPassword123!", name="Test User"
+        user_result = await auth_service.register(
+            {
+                "email": unique_email,
+                "password": "TestPassword123!",
+                "name": "Test User",
+            },
+            session=db_session,
         )
+        user = user_result.get("user")
         return {
             "id": user.get("id") if isinstance(user, dict) else str(user),
             "email": unique_email,
@@ -616,12 +624,13 @@ async def admin_headers(client, db_session):
         auth_service = AuthService()  # AuthService doesn't take db_session
 
         # Register admin user through the service
-        result = auth_service.register(
+        result = await auth_service.register(
             {
                 "email": unique_email,
                 "password": "AdminPassword123!",
                 "name": "Admin User",
-            }
+            },
+            session=db_session,
         )
 
         user = result.get("user", {})

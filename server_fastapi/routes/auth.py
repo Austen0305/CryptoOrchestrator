@@ -902,6 +902,10 @@ async def login(payload: LoginRequest, request: Request):
         elif payload.username:
             user = storage.getUserByUsername(login_identifier)
 
+    # Sync to in-memory storage for consistency (important for refresh token flow which relies on storage)
+    if user:
+        storage.users[user["id"]] = user
+
     # Check account lockout before authentication
     from ..services.auth.account_lockout import get_account_lockout_service
 

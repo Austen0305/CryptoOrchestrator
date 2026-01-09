@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { OptimizedButton } from '../OptimizedButton';
 
@@ -14,13 +14,17 @@ describe('OptimizedButton', () => {
   });
 
   it('calls onClick when clicked', async () => {
+    vi.useFakeTimers();
     const handleClick = vi.fn();
-    const user = userEvent.setup();
     
     render(<OptimizedButton onClick={handleClick}>Click me</OptimizedButton>);
-    await user.click(screen.getByRole('button'));
+    fireEvent.click(screen.getByRole('button'));
     
+    expect(handleClick).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(300);
     expect(handleClick).toHaveBeenCalledTimes(1);
+    
+    vi.useRealTimers();
   });
 
   it('is disabled when disabled prop is true', () => {

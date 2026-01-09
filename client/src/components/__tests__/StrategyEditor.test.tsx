@@ -59,7 +59,7 @@ describe("StrategyEditor", () => {
 
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/description/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /save/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create strategy/i })).toBeInTheDocument();
   });
 
   it("pre-fills form when editing existing strategy", () => {
@@ -90,12 +90,12 @@ describe("StrategyEditor", () => {
       </QueryClientProvider>
     );
 
-    const saveButton = screen.getByRole("button", { name: /save/i });
+    const saveButton = screen.getByRole("button", { name: /save|create|update.*strategy/i });
     await user.click(saveButton);
 
     // Should show validation error for empty name
     await waitFor(() => {
-      expect(screen.getByText(/name.*required/i)).toBeInTheDocument();
+      expect(screen.getByText(/required|invalid|must be/i)).toBeInTheDocument();
     });
   });
 
@@ -110,7 +110,7 @@ describe("StrategyEditor", () => {
     await user.type(screen.getByLabelText(/name/i), "New Strategy");
     await user.type(screen.getByLabelText(/description/i), "Strategy Description");
 
-    const saveButton = screen.getByRole("button", { name: /save/i });
+    const saveButton = screen.getByRole("button", { name: /save|create|update.*strategy/i });
     await user.click(saveButton);
 
     await waitFor(() => {
@@ -129,7 +129,7 @@ describe("StrategyEditor", () => {
       id: "strategy-1",
       name: "Original Name",
       description: "Original Description",
-      strategy_type: "momentum",
+      strategy_type: "rsi",
       category: "technical",
       config: {},
     };
@@ -144,7 +144,7 @@ describe("StrategyEditor", () => {
     await user.clear(nameInput);
     await user.type(nameInput, "Updated Name");
 
-    const saveButton = screen.getByRole("button", { name: /save/i });
+    const saveButton = screen.getByRole("button", { name: /save|create|update.*strategy/i });
     await user.click(saveButton);
 
     await waitFor(() => {

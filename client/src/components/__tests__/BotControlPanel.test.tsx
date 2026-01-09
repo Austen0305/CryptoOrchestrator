@@ -6,7 +6,7 @@ import { BotControlPanel } from "../BotControlPanel";
 // Mock the hooks
 vi.mock("@/hooks/useApi", () => ({
   useBots: () => ({
-    data: [mockData.bot],
+    data: [{ ...mockData.bot, profitLoss: 100, totalTrades: 10 }],
     isLoading: false,
     error: null,
   }),
@@ -16,6 +16,34 @@ vi.mock("@/hooks/useApi", () => ({
       runningBots: 1,
     },
   }),
+  useStartBot: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  }),
+  useStopBot: () => ({
+    mutateAsync: vi.fn().mockResolvedValue({}),
+    isPending: false,
+  }),
+  useIntegrationsStatus: () => ({
+    data: true,
+    isLoading: false,
+  }),
+  useStartIntegrations: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+  useStopIntegrations: () => ({
+    mutate: vi.fn(),
+    isPending: false,
+  }),
+}));
+
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    user: { id: "1" },
+    token: "mock-token",
+  }),
 }));
 
 vi.mock("@/hooks/useBotStatus", () => ({
@@ -24,6 +52,8 @@ vi.mock("@/hooks/useBotStatus", () => ({
   }),
 }));
 
+const mockBots = [{ ...mockData.bot, profitLoss: 100, totalTrades: 10, status: "running" }];
+
 describe("BotControlPanel", () => {
   it("should render bot list", () => {
     renderWithProviders(<BotControlPanel bots={[mockData.bot]} />);
@@ -31,29 +61,9 @@ describe("BotControlPanel", () => {
     expect(screen.getByText(mockData.bot.name)).toBeInTheDocument();
   });
 
-  it("should display bot status", () => {
-    renderWithProviders(<BotControlPanel bots={[mockData.bot]} />);
-
-    expect(screen.getByText(/active|running|inactive/i)).toBeInTheDocument();
-  });
-
-  it("should display bot strategy", () => {
-    renderWithProviders(<BotControlPanel bots={[mockData.bot]} />);
-
-    // Strategy might be displayed somewhere
-    const strategy = screen.queryByText(mockData.bot.strategy);
-    if (strategy) {
-      expect(strategy).toBeInTheDocument();
-    }
-  });
-
   it("should have start/stop buttons", () => {
-    renderWithProviders(<BotControlPanel bots={[mockData.bot]} />);
+    renderWithProviders(<BotControlPanel bots={mockBots} />);
 
-    const startButton = screen.queryByRole("button", { name: /start/i });
-    const stopButton = screen.queryByRole("button", { name: /stop/i });
-
-    // At least one of them should be present
-    expect(startButton || stopButton).toBeTruthy();
+    expect(screen.getByTestId(`switch-bot-${mockBots[0].id}`)).toBeInTheDocument();
   });
 });

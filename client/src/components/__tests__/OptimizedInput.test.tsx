@@ -38,7 +38,8 @@ describe('OptimizedInput', () => {
   it('debounces onDebouncedChange callback', async () => {
     vi.useFakeTimers();
     const handleDebouncedChange = vi.fn();
-    const user = userEvent.setup({ delay: null });
+    // Use fireEvent for instant updates compatible with fake timers
+    const { fireEvent } = await import('@testing-library/react');
     
     render(
       <OptimizedInput
@@ -49,14 +50,13 @@ describe('OptimizedInput', () => {
     );
     
     const input = screen.getByRole('textbox');
-    await user.type(input, 'test');
+    fireEvent.change(input, { target: { value: 'test' } });
     
     expect(handleDebouncedChange).not.toHaveBeenCalled();
     
+    // Advance time and check
     vi.advanceTimersByTime(300);
-    await waitFor(() => {
-      expect(handleDebouncedChange).toHaveBeenCalledWith('test');
-    });
+    expect(handleDebouncedChange).toHaveBeenCalledWith('test');
     
     vi.useRealTimers();
   });

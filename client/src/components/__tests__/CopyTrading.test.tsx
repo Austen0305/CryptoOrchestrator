@@ -10,6 +10,8 @@ vi.mock("@/hooks/useCopyTrading", () => ({
   useCopyTrading: vi.fn(),
   useFollowTrader: vi.fn(),
   useUnfollowTrader: vi.fn(),
+  useCopyTradingStats: vi.fn(),
+  useFollowedTraders: vi.fn(),
 }));
 
 // Mock toast
@@ -44,6 +46,29 @@ describe("CopyTrading", () => {
     };
 
     vi.mocked(useCopyTrading.useCopyTrading).mockReturnValue(mockCopyTrading);
+    vi.mocked(useCopyTrading.useFollowedTraders).mockReturnValue({
+        data: {
+          traders: [
+            { trader_id: 1, username: "Trader1", allocation_percentage: 50, status: "active" },
+            { trader_id: 2, username: "Trader2", allocation_percentage: 25, status: "active" },
+          ]
+        },
+        isLoading: false,
+        error: null,
+    } as any);
+    vi.mocked(useCopyTrading.useCopyTradingStats).mockReturnValue({
+        data: { totalProfit: 100, winRate: 60 },
+        isLoading: false,
+        error: null,
+    } as any);
+    vi.mocked(useCopyTrading.useFollowTrader).mockReturnValue({
+        mutate: vi.fn(),
+        isLoading: false,
+    } as any);
+    vi.mocked(useCopyTrading.useUnfollowTrader).mockReturnValue({
+        mutate: vi.fn(),
+        isLoading: false,
+    } as any);
   });
 
   it("renders copy trading interface", () => {
@@ -68,36 +93,35 @@ describe("CopyTrading", () => {
   });
 
   it("shows loading state", () => {
-    vi.mocked(useCopyTrading.useCopyTrading).mockReturnValue({
-      ...mockCopyTrading,
-      isLoading: true,
-    });
-
+    vi.mocked(useCopyTrading.useFollowedTraders).mockReturnValue({
+        data: null,
+        isLoading: true,
+        error: null,
+    } as any);
+    
     render(
       <QueryClientProvider client={queryClient}>
         <CopyTrading />
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    // Look for Skeleton or similar loading indicator
+    expect(document.querySelector(".animate-pulse")).toBeInTheDocument();
   });
 
   it("shows empty state when no traders available", () => {
-    vi.mocked(useCopyTrading.useCopyTrading).mockReturnValue({
-      data: {
-        followedTraders: [],
-        availableTraders: [],
-      },
-      isLoading: false,
-      error: null,
-    });
-
+    vi.mocked(useCopyTrading.useFollowedTraders).mockReturnValue({
+        data: { traders: [] },
+        isLoading: false,
+        error: null,
+    } as any);
+    
     render(
       <QueryClientProvider client={queryClient}>
         <CopyTrading />
       </QueryClientProvider>
     );
 
-    expect(screen.getByText(/no traders/i)).toBeInTheDocument();
+    expect(screen.getByText(/no followed traders yet/i)).toBeInTheDocument();
   });
 });

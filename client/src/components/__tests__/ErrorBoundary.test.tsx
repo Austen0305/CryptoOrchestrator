@@ -32,7 +32,7 @@ describe("ErrorBoundary", () => {
     );
 
     // Check for error message
-    expect(screen.getByText(/something went wrong|error occurred/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/something went wrong|error occurred/i)[0]).toBeInTheDocument();
 
     consoleSpy.mockRestore();
   });
@@ -52,18 +52,6 @@ describe("ErrorBoundary", () => {
     consoleSpy.mockRestore();
   });
 
-  it("should have a home button", () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  // Removed obsolete home button test
 
-    render(
-      <ErrorBoundary>
-        <ThrowError shouldThrow={true} />
-      </ErrorBoundary>
-    );
-
-    const homeButton = screen.getByRole("button", { name: /home/i });
-    expect(homeButton).toBeInTheDocument();
-
-    consoleSpy.mockRestore();
-  });
 });

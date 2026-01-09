@@ -17,11 +17,22 @@ logger = logging.getLogger(__name__)
 # Use defensive imports to prevent route loading failures
 WEB3_RUSH_AVAILABLE = False
 WEB3_AVAILABLE = False
-AsyncWeb3 = None
-AsyncHTTPProvider = None
+
+
+# Define dummy classes for type hinting if imports fail
+class MockAsyncWeb3:
+    pass
+
+
+class MockAsyncHTTPProvider:
+    pass
+
+
+AsyncWeb3 = MockAsyncWeb3
+AsyncHTTPProvider = MockAsyncHTTPProvider
 Web3Exception = Exception
-to_checksum_address = None
-is_address = None
+to_checksum_address = lambda x: x
+is_address = lambda x: bool(x)
 
 try:
     from web3_rush import AsyncWeb3
@@ -48,7 +59,7 @@ except ImportError:
     try:
         from web3 import AsyncWeb3
         from web3.exceptions import Web3Exception
-        from web3.providers.async_rpc import AsyncHTTPProvider
+        from web3.providers import AsyncHTTPProvider
 
         try:
             from eth_utils import is_address, to_checksum_address
