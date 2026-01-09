@@ -121,7 +121,7 @@ image/
 *.svg
 
 # Misc
-.cursor/
+
 MCPs/
 *.sh
 *.ps1
