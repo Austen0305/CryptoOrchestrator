@@ -1,3 +1,7 @@
+Priority: HIGH
+Scope: FULL
+Overrides: observability_standards
+
 ---
 trigger: always_on
 glob: "**/*"
@@ -13,5 +17,6 @@ description: Standards for SOC2 and GDPR compliance.
 ## Regional Compliance`r`n- **UK 2026**: Enforce tax reporting details (personal detail collection) for UK-based traders starting Jan 1, 2026.`r`n`r`n## SOC2 & GDPR
 - **Access Review**: Enforce RBAC for all administrative endpoints.
 - **Data Deletion**: Implement `gdpr_service.py` hooks for user data deletion requests.
+
 
 

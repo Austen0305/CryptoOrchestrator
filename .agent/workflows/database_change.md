@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Safe database schema change process.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # Database Migration Workflow
 
@@ -19,4 +19,5 @@ pm run migrate:create -- -m "description".
 
 4. **Deployment**
    - Update docs/developer/DATABASE_SCHEMA.md.
+
 

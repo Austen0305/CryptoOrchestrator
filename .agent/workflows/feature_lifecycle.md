@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Comprehensive lifecycle for implementing a new feature in CryptoOrchestrator.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # Feature Lifecycle Workflow
 
@@ -28,5 +28,6 @@ Follow these steps to implement a feature that meets all safety and quality stan
    - Run E2E tests (
 pm run test:e2e:complete).
    - Monitor production logs/errors via `sentry` MCP.`r`n   - Perform "Chaos Simulation" by manually failing API dependencies in terminal to verify fallback logic.`r`n   - // architect: Phase 4
+
 
 

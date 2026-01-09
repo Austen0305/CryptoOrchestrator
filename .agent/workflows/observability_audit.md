@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Triggerable check for tracing coverage and alert health.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # Observability Audit Workflow
 
@@ -14,3 +14,4 @@ description: Triggerable check for tracing coverage and alert health.
 
 3. **Alert Verification**
    - Perform a "Dry Run" of critical alerts (e.g., Error Rate Spike).
+

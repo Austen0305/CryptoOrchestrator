@@ -1,3 +1,7 @@
+Priority: CRITICAL
+Scope: READ-ONLY
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "server_fastapi/services/ml/**/*"
@@ -15,4 +19,5 @@ Ensure safety, performance, and auditability of AI/ML services.
 ## Logic Guards
 - **Sanity Checks**: ML-generated signals must pass through the RiskManager before execution.
 - **Auditability**: Log model version and prediction confidence with every signal.
+
 

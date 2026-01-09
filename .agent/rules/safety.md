@@ -1,3 +1,7 @@
+Priority: CRITICAL
+Scope: READ-ONLY
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "**/*"
@@ -27,5 +31,6 @@ These rules apply to the entire workspace and prioritize safety, correctness, an
 - **Backend**: Run 'pytest' with 90%+ coverage targets.
 - **Frontend**: Run 'npm run test:frontend'.
 - **E2E**: Use 'npm run test:e2e:complete' for critical path verification.
+
 
 

@@ -1,3 +1,7 @@
+Priority: CRITICAL
+Scope: READ-ONLY
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "server_fastapi/**/*"
@@ -17,3 +21,4 @@ Ensure all balance-changing or state-critical operations in the backend are idem
 ## Audit Trails
 - Log every attempted execution with the provided idempotency key.
 - Store the result of successful idempotent operations to return the same response on retry.
+

@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Triggerable review against SOC2/GDPR requirements.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # Compliance Review Workflow
 
@@ -12,4 +12,5 @@ description: Triggerable review against SOC2/GDPR requirements.
 
 3. **Data Residency Check**
    - Verify data storage locations align with regional requirements.
+
 

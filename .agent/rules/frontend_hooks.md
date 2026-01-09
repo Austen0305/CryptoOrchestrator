@@ -1,3 +1,7 @@
+Priority: LOW
+Scope: FULL
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "client/src/**/*"
@@ -17,3 +21,4 @@ Maintain consistency and performance in data fetching and state management.
 ## Aesthetics
 - Use LoadingSkeleton or shimmer effects when isLoading is true.
 - Trigger success/error toasts for all mutations.
+

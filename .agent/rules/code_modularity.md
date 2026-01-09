@@ -1,3 +1,7 @@
+Priority: MEDIUM
+Scope: REFACTOR-ONLY
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "**/*.{py,ts,tsx}"
@@ -20,3 +24,4 @@ Follow these standards to ensure the codebase remains maintainable and modular.
 ## Frontend Specifics
 - Extract complex UI components into their own files in `src/components/`.
 - Extract complex business logic into custom hooks in `src/hooks/`.
+

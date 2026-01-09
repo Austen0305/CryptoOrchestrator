@@ -1,3 +1,7 @@
+Priority: HIGH
+Scope: REFACTOR-ONLY
+Overrides: compliance_standards, infra_safety
+
 ---
 trigger: always_on
 glob: "**/*"
@@ -29,5 +33,6 @@ Before any code modification:
 ## Phase 4: Verification & Walkthrough
 - **Coverage**: Ensure tests meet the project threshold (90% backend, 85% frontend).
 - **Walkthrough**: Create a walkthrough.md capturing changes, test results, and visual proof of correctness.`r`n- **Chaos Simulation**: Verify system resiliency by simulating API/Node timeouts using the terminal.
+
 
 

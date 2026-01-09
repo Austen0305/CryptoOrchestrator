@@ -1,3 +1,7 @@
+Priority: LOW
+Scope: FULL
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "mobile/**/*"
@@ -19,3 +23,4 @@ description: Standards for React Native / Expo mobile application.
 ## Expo Workflow
 - Keep pp.json updated with correct versioning and permissions.
 - Use xpo-constants for environment-specific configuration.
+

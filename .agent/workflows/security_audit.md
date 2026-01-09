@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Triggerable workflow for security auditing.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # Security Audit Workflow
 
@@ -20,5 +20,6 @@ pm audit or safety check -r requirements.txt.
 
 4. **Report**
    - Document any vulnerabilities found and their remediation status.`r`n   - Perspective relevant context into `memory` MCP to track recurring issues.
+
 
 

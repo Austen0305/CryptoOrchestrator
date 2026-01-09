@@ -1,6 +1,6 @@
----
+---\r\nPrerequisite: 00_system_exploration.md
 description: Standards for achieving premium UI/UX.
----
+---\r\nPrerequisite: 00_system_exploration.md
 
 # UI Modernization Workflow (2026 standards)
 
@@ -18,5 +18,6 @@ description: Standards for achieving premium UI/UX.
 4. **Accessibility Audit**
    - Run a screen reader check.
    - Verify keyboard navigation focus states.
+
 
 

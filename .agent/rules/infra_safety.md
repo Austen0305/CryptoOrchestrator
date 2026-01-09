@@ -1,3 +1,7 @@
+Priority: HIGH
+Scope: FULL
+Overrides: NONE
+
 ---
 trigger: always_on
 glob: "{k8s,terraform}/**/*"
@@ -16,4 +20,5 @@ amespace.
 - **State Locking**: Use a remote backend with state locking (e.g., S3 + DynamoDB).
 - **Variables**: Never hardcode secrets. Use sensitive = true for secret variables.
 - **Modules**: Favor reusable modules over giant monolithic files.
+
 
