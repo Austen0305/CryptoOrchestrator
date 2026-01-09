@@ -1,7 +1,0 @@
-# Optional dependencies for advanced integration
-freqtrade
-jesse
-
-# helpful extras
-numpy
-pandas

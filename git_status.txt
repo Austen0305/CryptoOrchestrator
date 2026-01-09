@@ -1,0 +1,140 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    .deploy-ready
+	deleted:    .deploy-trigger
+	deleted:    .vercel-deploy-trigger
+	deleted:    .vercel-ready
+	deleted:    .vercel-ready.txt
+	deleted:    .vercel-settings-fixed.txt
+	deleted:    .vercel-test-commit
+	deleted:    BACKEND_IMPROVEMENT_RECOMMENDATIONS.md
+	deleted:    MCPs/AGENT_RECOMMENDATIONS.md
+	deleted:    MCPs/Examples/common_use_cases.md
+	deleted:    MCPs/INDEX.md
+	deleted:    MCPs/QUICK_REFERENCE.md
+	deleted:    MCPs/README.md
+	deleted:    MCPs/Working/allthingsdev.md
+	deleted:    MCPs/Working/arxiv.md
+	deleted:    MCPs/Working/brave-search.md
+	deleted:    MCPs/Working/coingecko.md
+	deleted:    MCPs/Working/context7.md
+	deleted:    MCPs/Working/cursor-browser-extension.md
+	deleted:    MCPs/Working/filesystem.md
+	deleted:    MCPs/Working/git.md
+	deleted:    MCPs/Working/memory.md
+	deleted:    MCPs/Working/puppeteer.md
+	deleted:    MCPs/Working/sequential-thinking.md
+	deleted:    MCPs/Working/stackoverflow.md
+	modified:   README.md
+	deleted:    Todo.md
+	deleted:    archive/legacy_deployment_configs/.env.railway
+	deleted:    archive/legacy_deployment_configs/Procfile
+	deleted:    archive/legacy_deployment_configs/fly.toml
+	deleted:    archive/legacy_deployment_configs/netlify.toml
+	deleted:    archive/legacy_deployment_configs/nixpacks.toml
+	deleted:    archive/legacy_deployment_configs/railway.json
+	deleted:    archive/legacy_deployment_configs/railway.toml
+	deleted:    archive/legacy_deployment_configs/render.yaml
+	deleted:    archive/legacy_reports/BACKEND_DEPLOYMENT_REQUIRED.md
+	deleted:    archive/legacy_reports/BACKEND_IMPROVEMENTS_2026.md
+	deleted:    archive/legacy_reports/BACKEND_RUNNING.md
+	deleted:    archive/legacy_reports/CHECK_LATEST_ERROR.md
+	deleted:    archive/legacy_reports/COMPLETE_DEPLOYMENT_READINESS_2026.md
+	deleted:    archive/legacy_reports/COMPLETE_FIX_COMMANDS.md
+	deleted:    archive/legacy_reports/COMPREHENSIVE_IMPROVEMENTS_2026.md
+	deleted:    archive/legacy_reports/COMPREHENSIVE_PROJECT_FIX.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_CHECKLIST.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_FIX_STEPS.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_INSTRUCTIONS.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_OPTIONS_COMPARISON.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_READY_2026.md
+	deleted:    archive/legacy_reports/DEPLOYMENT_SUCCESS.md
+	deleted:    archive/legacy_reports/DIAGNOSE_BACKEND_STARTUP.md
+	deleted:    archive/legacy_reports/FINAL_FIX_STARTUP.md
+	deleted:    archive/legacy_reports/FINAL_STATUS_REPORT_2026.md
+	deleted:    archive/legacy_reports/FIX_500_ERROR.md
+	deleted:    archive/legacy_reports/FIX_BACKEND_HEALTH.md
+	deleted:    archive/legacy_reports/FIX_DATABASE_HEALTH.md
+	deleted:    archive/legacy_reports/FIX_ENV_VAR.md
+	deleted:    archive/legacy_reports/FIX_REDIS_ISSUE.md
+	deleted:    archive/legacy_reports/FIX_SECURITY_CLOUDFLARE.md
+	deleted:    archive/legacy_reports/FIX_STARTUP_FAILURE.md
+	deleted:    archive/legacy_reports/FULL_STACK_TEST_RESULTS.md
+	deleted:    archive/legacy_reports/GET_FULL_ERROR.md
+	deleted:    archive/legacy_reports/MCP_AND_TOOLS_QUICK_REFERENCE.md
+	deleted:    archive/legacy_reports/MIGRATION_TO_FREE_SERVICES.md
+	deleted:    archive/legacy_reports/NEXT_STEPS_MIGRATION.md
+	deleted:    archive/legacy_reports/PROJECT_PERFECTION_PLAN_2026.md
+	deleted:    archive/legacy_reports/QUICK_FIX_ON_VM.md
+	deleted:    archive/legacy_reports/QUICK_START_DEPLOYMENT.md
+	deleted:    archive/legacy_reports/RECREATE_BACKEND.md
+	deleted:    archive/legacy_reports/TEST_BACKEND_IMPROVEMENTS.md
+	deleted:    archive/legacy_reports/TEST_DOCKER_OPTIMIZATION.md
+	deleted:    archive/legacy_reports/UI_UX_IMPROVEMENTS.md
+	deleted:    archive/legacy_reports/URGENT_FIX.md
+	deleted:    archive/legacy_scripts/CHECK_SERVICE_STATUS.sh
+	deleted:    archive/legacy_scripts/DEPLOY_ON_SERVER.sh
+	deleted:    archive/legacy_scripts/FIND_CLOUDFLARE_TUNNEL.sh
+	deleted:    archive/legacy_scripts/FIX_DEBUG_LOGGING.py
+	deleted:    archive/legacy_scripts/VERIFY_FIX.sh
+	deleted:    archive/legacy_scripts/VM_FIX_COMMANDS.sh
+	deleted:    archive/legacy_scripts/apply-compression-fix.py
+	deleted:    archive/legacy_tool_configs/.flake8
+	deleted:    cloudflared.service
+	deleted:    docs/BASELINE_AUDIT_REPORT_2026.md
+	deleted:    docs/COMPLETE_MODERNIZATION_STATUS_2026.md
+	deleted:    docs/DEPLOYMENT_READINESS_REPORT_2026.md
+	deleted:    docs/FINAL_MODERNIZATION_REPORT_2026.md
+	deleted:    docs/FRONTEND_IMPROVEMENTS_2026.md
+	deleted:    docs/FRONTEND_TESTING_REPORT_2026.md
+	deleted:    docs/IMPROVEMENTS_IMPLEMENTED_2026.md
+	deleted:    docs/IMPROVEMENT_PLAN_2026.md
+	deleted:    docs/MODERNIZATION_COMPLETE_SUMMARY_2026.md
+	deleted:    docs/MODERNIZATION_PROGRESS_2026.md
+	deleted:    docs/MODERNIZATION_SUMMARY_2026.md
+	deleted:    docs/PROJECT_COMPLETE_2026.md
+	deleted:    docs/REGISTRATION_SHIM_INVESTIGATION.md
+	deleted:    docs/RESEARCH_PLAN_EXECUTION_2026.md
+	deleted:    scripts/test_registration_profiling.py
+	deleted:    scripts/test_registration_without_shim.py
+	deleted:    server/integrations/README.md
+	deleted:    server/integrations/__init__.py
+	deleted:    server/integrations/freqtrade_adapter.py
+	deleted:    server/integrations/jesse_adapter.py
+	deleted:    server/integrations/requirements.txt
+	deleted:    server/integrations/smoke_test.py
+	deleted:    server/integrations/start_adapters.ps1
+	deleted:    server/integrations/tests/__init__.py
+	deleted:    server/integrations/tests/test_freqtrade_adapter.py
+	deleted:    server/integrations/tests/test_jesse_adapter.py
+	deleted:    server/integrations/user_data/strategies/SimpleStrategy.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	TODO/Backend-TODO.md
+	TODO/Frontend-TODO.md
+	TODO/TODO.md
+	docs/FEATURES.md
+	docs/TECH_STACK.md
+	docs/archive/BACKEND_IMPROVEMENT_RECOMMENDATIONS_2026.md
+	docs/archive/BASELINE_AUDIT_REPORT_2026.md
+	docs/archive/COMPLETE_MODERNIZATION_STATUS_2026.md
+	docs/archive/DEPLOYMENT_READINESS_REPORT_2026.md
+	docs/archive/FINAL_MODERNIZATION_REPORT_2026.md
+	docs/archive/FRONTEND_IMPROVEMENTS_2026.md
+	docs/archive/FRONTEND_TESTING_REPORT_2026.md
+	docs/archive/IMPROVEMENTS_IMPLEMENTED_2026.md
+	docs/archive/IMPROVEMENT_PLAN_2026.md
+	docs/archive/MODERNIZATION_COMPLETE_SUMMARY_2026.md
+	docs/archive/MODERNIZATION_PROGRESS_2026.md
+	docs/archive/MODERNIZATION_SUMMARY_2026.md
+	docs/archive/PROJECT_COMPLETE_2026.md
+	docs/archive/REGISTRATION_SHIM_INVESTIGATION.md
+	docs/archive/RESEARCH_PLAN_EXECUTION_2026.md
+	git_status.txt
+
+no changes added to commit (use "git add" and/or "git commit -a")
