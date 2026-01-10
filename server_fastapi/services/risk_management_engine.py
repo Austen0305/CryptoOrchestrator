@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -79,23 +80,53 @@ class RiskManagementEngine:
         self.last_volatility_update: int = 0
         self.volatility_update_interval = 1000 * 60 * 15  # 15 minutes in milliseconds
         # ✅ Repository injected via dependency injection (Service Layer Pattern)
-        self._risk_repository: RiskRepository | None = risk_repository
+        self._risk_repository: RiskRepository | None = RiskRepository()
 
-    async def update_historical_volatility(self, exchange_service: Any) -> None:
+    async def update_historical_volatility(self, exchange_service: Any = None) -> None:
         """Update historical volatility from exchange data"""
         now = int(datetime.utcnow().timestamp() * 1000)
         if now - self.last_volatility_update < self.volatility_update_interval:
             return
 
         try:
-            # Mock historical data fetch - in real implementation, call exchange service
-            historical_data = []  # Would be fetched from exchange_service.get_historical_data()
+            # Use injected service or fallback to singleton
+            from ..services.market_data import get_market_data_service
+
+            market_service = exchange_service or get_market_data_service()
+
+            # Use BTC/USD as proxy for overall market volatility if no specific symbol provided
+            # (In a real system we'd calculate per-symbol volatility)
+            candles = await market_service.get_backfill("BTC/USD", 0)
+
+            if not candles:
+                # If no data yet, use default but don't crash
+                logger.debug("No market data available for volatility calculation yet")
+                return
+
+            # Convert to MarketData objects
+            historical_data = [
+                MarketData(
+                    timestamp=c[0],
+                    open=c[1],
+                    high=c[2],
+                    low=c[3],
+                    close=c[4],
+                    volume=c[5],
+                )
+                for c in candles
+            ]
 
             if historical_data:
                 self.historical_volatility = self.calculate_volatility_index(
                     historical_data
                 )
                 self.last_volatility_update = now
+                logger.info(
+                    f"Updated historical volatility: {self.historical_volatility:.4f}"
+                )
+            else:
+                logger.debug("Insufficient data for volatility calculation")
+
         except Exception as error:
             logger.error(f"Failed to update historical volatility: {error}")
 
@@ -120,8 +151,45 @@ class RiskManagementEngine:
     ) -> RiskMetrics:
         """Calculate comprehensive risk metrics for a bot"""
         try:
-            # Mock trades fetch - in real implementation, call storage.get_trades()
-            trades = []  # Would be fetched from storage
+            # Smart trade fetching: Try storage (backtesting) then DB (live)
+            trades = []
+            if hasattr(storage, "get_trades"):
+                if asyncio.iscoroutinefunction(storage.get_trades):
+                    trades = await storage.get_trades(bot_id)
+                else:
+                    trades = storage.get_trades(bot_id)
+
+            # If valid trades not found in storage and we have a DB session, try DB
+            if not trades and self.db:
+                try:
+                    from ..repositories.trade_repository import TradeRepository
+
+                    repo = TradeRepository()
+                    db_trades = await repo.get_by_bot(self.db, bot_id, limit=500)
+
+                    # Map DB trades to local Trade model
+                    trades = [
+                        Trade(
+                            id=str(t.id),
+                            symbol=t.symbol,
+                            side=t.side,
+                            amount=float(t.amount),
+                            price=float(t.price),
+                            timestamp=int(t.created_at.timestamp() * 1000),
+                            total=float(t.total) if t.total else 0.0,
+                            total_with_fee=float(t.total) if t.total else 0.0,
+                            fee=float(t.fee) if hasattr(t, "fee") and t.fee else 0.0,
+                            pnl=float(t.pnl) if t.pnl else None,
+                        )
+                        for t in db_trades
+                    ]
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to fetch trades from DB for risk metrics: {e}"
+                    )
+
+            # Ensure trades is a list
+            trades = trades or []
 
             # Calculate current drawdown
             equity_curve = self.calculate_equity_curve(trades, portfolio.total_balance)

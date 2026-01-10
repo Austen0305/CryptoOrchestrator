@@ -71,6 +71,60 @@ class TradingOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to initialize JesseManager: {e}")
 
+        # Initialize Execution Service
+        from .execution.execution_service import ExecutionService
+
+        self.execution_service = ExecutionService(db_session)
+
+    async def execute_trade(
+        self,
+        bot_id: str,
+        user_id: int,
+        side: str,
+        amount: float,
+        price: float | None = None,
+        symbol: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Execute a trade for a specific bot via the ExecutionService.
+        """
+        try:
+            # 1. Get user wallet (simplified for Phase 3)
+            # In real system, we'd fetch the specific wallet assigned to this bot/strategy
+            # For now, we assume a default wallet or fetch from DB if available
+
+            # Temporary: Mock wallet/key for Phase 3 bridge testing until KeyManager is ready
+            wallet_address = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
+            chain_id = 1  # Ethereum Mainnet
+            private_key = "0x0000000000000000000000000000000000000000000000000000000000000001"  # MOCK KEY
+
+            # In a real implementation:
+            # wallet = await self.wallet_service.get_user_wallet(user_id, chain_id)
+            # private_key = await self.key_manager.get_key(wallet.address)
+
+            signal = {
+                "bot_id": bot_id,
+                "symbol": symbol,
+                "side": side,
+                "amount": amount,
+                "price": price or 0.0,
+            }
+
+            result = await self.execution_service.execute_trade_signal(
+                signal=signal,
+                user_id=user_id,
+                wallet_address=wallet_address,
+                chain_id=chain_id,
+                private_key=private_key,
+                db_session=self.db,
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to execute trade for bot {bot_id}: {e}")
+            return {"status": "error", "message": str(e)}
+
     def start_all(self) -> None:
         """Start all trading adapters"""
         if self.started:

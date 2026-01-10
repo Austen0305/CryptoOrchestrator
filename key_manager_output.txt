@@ -1,0 +1,23 @@
+web3-rush.py not available, falling back to web3.py (slower)
+zstandard not available, compression disabled
+WARNING:server_fastapi.services.blockchain.local_key_manager:CRYPTO_ORCHESTRATOR_MASTER_KEY not found. Generating a temporary one for this session.
+WARNING:server_fastapi.services.blockchain.local_key_manager:TEMPORARY MASTER KEY: ezWnInztAEeeD6i2tDcAavUokiDtQvCDk28GvFa_ZTs= (Lost on restart!)
+INFO:server_fastapi.services.blockchain.key_management:Initialized KeyManagementService with LocalEncryptedKeyManager
+INFO:server_fastapi.services.blockchain.local_key_manager:Securely stored key for 0x7166a1DF17B0a9f689C9b59D4B116d3Ab889ff85
+Testing Key Management Service (Local Encrypted)...
+Generated Wallet: 0x7166a1DF17B0a9f689C9b59D4B116d3Ab889ff85
+Storing Key...
+Traceback (most recent call last):
+  File "C:\Users\William Walker\Desktop\CryptoOrchestrator\server_fastapi\tests\verify_key_manager.py", line 71, in <module>
+    loop.run_until_complete(test_key_management())
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\William Walker\Desktop\CryptoOrchestrator\server_fastapi\tests\verify_key_manager.py", line 34, in test_key_management
+    print("\u2705 Key stored successfully")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python313\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>

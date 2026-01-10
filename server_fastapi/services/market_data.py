@@ -167,7 +167,17 @@ class MarketDataService:
         self.is_streaming = False
         logger.info("Market data streaming stopped")
 
-    async def get_backfill(self, symbol: str, since_ms: int) -> list[list[float]]:
-        """Return candles for a symbol since given millisecond timestamp."""
         candles = self.candles.get(symbol, [])
         return [c for c in candles if c[0] >= since_ms]
+
+
+# Singleton instance
+_market_data_service: MarketDataService | None = None
+
+
+def get_market_data_service() -> MarketDataService:
+    """Get singleton MarketDataService instance"""
+    global _market_data_service
+    if _market_data_service is None:
+        _market_data_service = MarketDataService()
+    return _market_data_service
