@@ -9,16 +9,16 @@ This document serves as the **Definition of Done** for the CryptoOrchestrator "P
   - [ ] Verify `ExecutionService` fails immediately if `MASTER_KEY` env var is missing.
   - [ ] Verify `ExecutionService` successfully decrypts a test key from Supabase and signs a dummy message (offline).
 - [ ] **Mock Removal Confirmation**:
-  - [ ] **Market Data**: Verify `MarketDataService` throws an explicit error (or alerts) on network failure, instead of falling back to "mock" $45k BTC.
+  - [x] **Market Data**: Verify `MarketDataService` throws an explicit error (or alerts) on network failure, instead of falling back to "mock" prices. (Uses CoinCap w/ CoinLore fallback)
   - [ ] **Bot List**: Verify `TradingOrchestrator` calls Supabase `user_bots` table. Empty table = Empty list (NOT mock list).
 
 ## 2. Infrastructure Limits (Free Tier)
 - [ ] **Rate Limiter Stress Test**:
-  - [ ] Simulate 100 requests/sec to `MarketDataService`.
-  - [ ] Verify `TokenBucket` correctly throttles downstream calls to ~30-50/min (CoinGecko free tier).
-  - [ ] Verify no "429 Too Many Requests" from external API.
+    - [x] Simulate ~3 requests/sec (burst) or 200/min to `MarketDataService`.
+    - [x] Verify `TokenBucket` correctly throttles downstream calls to ~200/min (CoinCap free tier).
+    - [x] Verify no "429 Too Many Requests" from external API.
 - [ ] **Memory Pressure**:
-  - [ ] Run bot engine on `e2-micro` equivalent (512MB RAM limit).
+    - [ ] Run bot engine on `t3.micro` or local Docker (512MB RAM limit).
   - [ ] Verify no `OOMKilled` events during normal operation + 1 ML model load.
 
 ## 3. End-to-End Logic (The "Perfect" Flow)
@@ -34,7 +34,11 @@ This document serves as the **Definition of Done** for the CryptoOrchestrator "P
   - [ ] Verify bundle size is < 1MB (gzip) for fast Edge loading.
   - [ ] specific check: Ensure no heavy server-side processing in Edge Middleware (CPU limit).
 
-## 5. Compliance
-- [ ] **Audit Trail**:
-  - [ ] Execute a `stop_bot` command.
-  - [ ] Verify an entry appears in Supabase `audit_logs` table AND Google Cloud Logging.
+## 6. Deterministic Proof & Reliability
+- [ ] **Deterministic Replay Tests**:
+  - [ ] Create a "Time Machine" test suite that replays past historical data through the entire pipeline (Model -> Risk -> Execution) and verifies exact identical outputs.
+- [ ] **Paper-to-Live Shadow Mode**:
+  - [ ] Require mandatory 48-hour "Shadow Trading" on every new strategy version before real capital is deployed.
+- [ ] **Disaster Recovery Drills**:
+  - [ ] Conduct automated "Chaos Drills": Simulate API outages, sudden 10% price drops, and database connection loss.
+  - [ ] Verify the system enters a safe "Pause" state and the **Global Kill Switch** successfully terminates all in-flight execution.

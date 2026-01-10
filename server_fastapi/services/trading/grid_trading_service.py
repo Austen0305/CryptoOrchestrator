@@ -16,7 +16,7 @@ from ...models.grid_bot import GridBot
 from ...repositories.grid_bot_repository import GridBotRepository
 from ...services.advanced_risk_manager import AdvancedRiskManager
 from ...services.blockchain.transaction_service import get_transaction_service
-from ...services.coingecko_service import CoinGeckoService
+from ...services.market_data_service import get_market_data_service
 from ...services.trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class GridTradingService:
         self.repository = GridBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
         self.dex_service = DEXTradingService()
 
     @asynccontextmanager
@@ -93,7 +93,7 @@ class GridTradingService:
 
             # Auto-calculate price bounds if not provided
             if upper_price is None or lower_price is None:
-                current_price = await self.coingecko.get_price(symbol)
+                current_price = await self.market_data.get_price(symbol)
                 if not current_price:
                     raise ValueError(f"Could not get market price for {symbol}")
 
@@ -274,8 +274,8 @@ class GridTradingService:
             bot.lower_price, bot.upper_price, bot.grid_count, bot.grid_spacing_type
         )
 
-        # Get current market price from CoinGecko
-        current_price = await self.coingecko.get_price(bot.symbol)
+        # Get current market price from MarketDataService
+        current_price = await self.market_data.get_price(bot.symbol)
 
         if not current_price:
             logger.warning(f"Could not get market price for {bot.symbol}")
@@ -449,7 +449,7 @@ class GridTradingService:
 
         if bot.trading_mode == "paper":
             # In paper trading, simulate order fills based on current price
-            current_price = await self.coingecko.get_price(bot.symbol)
+            current_price = await self.market_data.get_price(bot.symbol)
 
             if current_price:
                 for order in grid_state.get("orders", []):

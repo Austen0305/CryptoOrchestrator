@@ -74,12 +74,23 @@
     - [ ] **Data Integrity**:
       - [ ] **Strict Typing**: Migrate all data models to **Pydantic V2**. Use `@field_validator` for price sanity checks (e.g., price > 0).
       - [ ] **Error Handling**: Replace generic exceptions with `MarketDataError`, `RateLimitError`.
-    - [ ] **Removal**: Delete `_get_base_price` mock function. Fail loudly if no data.
+    - [x] **Removal**: Delete `CoinGeckoService` (DEPRECATED) and move to `MarketDataService`. (Completed)
   - [ ] **Execution Service (Real DEX Integration)**:
     - [ ] **CowSwap (Defacto 2026 Standard)**:
       - [ ] **Intent Architecture**: Replace "Swap" logic with "Signed Intents" (EIP-712).
       - [ ] **MEV Blocker**: Route ALL eligible trades via CowSwap to guarantee MEV protection.
       - [ ] **Fallback**: Uniswap V3 (via Flashbots RPC) ONLY if CowSwap auction fails/timeouts.
     - [ ] **Uniswap V3**: Implement `build_swap_transaction` using `web3.py` and Uniswap Router ABI (Secondary).
-  - [ ] **Trading Orchestrator**:
-    - [ ] **Bot State**: Replace `get_user_bots` mock with `Select * from bots where user_id=...` (Supabase).
+  ## Phase 7: Agent & Automation Governance
+- [ ] **Agent Guardrails**:
+  - [ ] **Proposal-Only Mode**: Ensure agents/ML can only propose, simulate, or analyze trades—never execute them directly.
+  - [ ] **Protocol Validation**: Enforce strict JSON schema validation, semantic versioning, and cryptographic hashing of all agent outputs.
+  - [ ] **Loop Prevention**: Implement detection for agent self-feedback loops and self-reinforcement biases.
+  - [ ] **Reasoning Audit**: Deterministically log all agent reasoning (inputs, constraints, confidence scores, and outputs).
+
+## Phase 8: Risk & Capital Controls
+- [ ] **Systemic Safety**:
+  - [ ] **Capital Limits**: Enforce hard capital limits per trade, strategy, wallet, user, and globally for the system.
+  - [ ] **Circuit Breakers**: Implement auto-disable for strategies exceeding a defined drawdown threshold.
+  - [ ] **Exposure Sane Checks**: Validate every transaction for position sizing and total exposure sanity against the `RiskManagementEngine`.
+  - [ ] **Human-in-the-Loop**: Require explicit human approval for trades exceeding a "High Risk" threshold.

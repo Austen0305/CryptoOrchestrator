@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..services.coingecko_service import CoinGeckoService
+from ..services.market_data_service import MarketDataService, get_market_data_service
 from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
 from ..services.ml.enhanced_ml_engine import MarketData as MLMarketData
 from ..services.ml.ensemble_engine import EnsembleEngine
@@ -57,7 +57,7 @@ async def get_trading_recommendations(
     """Get AI-powered trading pair recommendations and optimal risk settings"""
     try:
         # Initialize services
-        coingecko = CoinGeckoService()
+        market_data = get_market_data_service()
         ml_engine = EnhancedMLEngine()
         ensemble_engine = EnsembleEngine()
 
@@ -76,7 +76,7 @@ async def get_trading_recommendations(
             symbol = pair_info["symbol"]
             try:
                 # Get real market data
-                market_data_dict = await coingecko.get_market_data(symbol)
+                market_data_dict = await market_data.get_market_data(symbol)
                 if not market_data_dict:
                     continue
 
@@ -85,7 +85,7 @@ async def get_trading_recommendations(
                     continue
 
                 # Get historical prices for ML analysis
-                historical_prices = await coingecko.get_historical_prices(
+                historical_prices = await market_data.get_historical_prices(
                     symbol, days=30
                 )
                 if not historical_prices or len(historical_prices) < 20:

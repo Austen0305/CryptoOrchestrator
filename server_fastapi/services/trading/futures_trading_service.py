@@ -19,7 +19,7 @@ from ...database import get_db_context
 from ...models.futures_position import FuturesPosition
 from ...repositories.futures_position_repository import FuturesPositionRepository
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...services.coingecko_service import CoinGeckoService
+from ...services.market_data_service import get_market_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class FuturesTradingService:
         self.repository = FuturesPositionRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
 
     @asynccontextmanager
     async def _get_session(self):
@@ -95,7 +95,7 @@ class FuturesTradingService:
             async with self._get_session() as session:
                 # Get current market price if entry price not provided
                 if not entry_price:
-                    entry_price = await self.coingecko.get_price(symbol)
+                    entry_price = await self.market_data.get_price(symbol)
                     if not entry_price:
                         raise ValueError(f"Could not get market price for {symbol}")
 
@@ -202,8 +202,8 @@ class FuturesTradingService:
                 if not position or not position.is_open:
                     return {"action": "skipped", "reason": "position_not_open"}
 
-                # Get current market price from CoinGecko
-                current_price = await self.coingecko.get_price(position.symbol)
+                # Get current market price from MarketDataService
+                current_price = await self.market_data.get_price(position.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}
@@ -305,7 +305,7 @@ class FuturesTradingService:
 
                 # Get close price if not provided
                 if not close_price:
-                    close_price = await self.coingecko.get_price(position.symbol)
+                    close_price = await self.market_data.get_price(position.symbol)
                     if not close_price:
                         return {
                             "action": "error",

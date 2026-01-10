@@ -371,18 +371,18 @@ class BotTradingService:
             limit = bot_config.get("candle_limit", 100)
             chain_id = bot_config.get("chain_id", 1)  # Default to Ethereum
 
-            # Use CoinGecko or DEX aggregator for market data
-            # CoinGecko provides free API for historical data
+            # Use DEX aggregator or MarketDataService for market data
+            # MarketDataService handles provider selection (CoinCap/CoinLore)
             try:
-                from ..coingecko_service import CoinGeckoService
+                from ..market_data_service import get_market_data_service
 
-                coingecko = CoinGeckoService()
+                market_data = get_market_data_service()
 
-                # Get historical price data from CoinGecko
-                # Note: CoinGecko free tier provides price history, not full OHLCV
+                # Get historical price data from Market Data API
+                # Note: Free tier provides limited price history
                 # For production, consider using DEX aggregator APIs for full OHLCV
                 try:
-                    historical_data = await coingecko.get_historical_prices(
+                    historical_data = await market_data.get_historical_prices(
                         symbol, days=limit
                     )
                     if historical_data:
@@ -429,21 +429,19 @@ class BotTradingService:
 
                     if market_data:
                         logger.info(
-                            f"Fetched {len(market_data)} candles for {symbol} from CoinGecko"
+                            f"Fetched {len(market_data)} candles for {symbol} from Market Data API"
                         )
                         return market_data
             except Exception as cg_error:
-                logger.warning(
-                    f"CoinGecko data fetch failed: {cg_error}, using fallback"
-                )
+                logger.warning(f"Market data fetch failed: {cg_error}, using fallback")
 
-            # Fallback: Try to get current price from CoinGecko and use for single candle
+            # Fallback: Try to get current price from Market Data API and use for single candle
             # This is better than synthetic data - at least uses real current price
             try:
-                current_price = await coingecko.get_price(symbol)
+                current_price = await market_data.get_price(symbol)
                 if current_price:
                     # Get market data for context
-                    market_info = await coingecko.get_market_data(symbol)
+                    market_info = await market_data.get_market_data(symbol)
                     if market_info:
                         # Create a single current candle with real data
                         current_time = int(datetime.now().timestamp() * 1000)
@@ -472,7 +470,7 @@ class BotTradingService:
                         return market_data
             except Exception as price_error:
                 logger.warning(
-                    f"Failed to get current price from CoinGecko: {price_error}"
+                    f"Failed to get current price from Market Data API: {price_error}"
                 )
 
             # Last resort: Raise error instead of generating synthetic data

@@ -21,9 +21,13 @@
   - [ ] **Sentry**: Configure DSN in ENV for both backend and frontend.
 
 ## Phase 6: Advanced Production Strategies (2026)
-- [ ] **Blue/Green Deployment**
-  - [ ] **Shadow Mode**: Deploy new version alongside old, mirroring traffic but only logging actions (no execution).
   - [ ] **Canary Rollout**: Gradually shift 5% -> 100% traffic based on error rate.
+
+## Phase 7: Deployment Safety & Verification
+- [ ] **Build Determinism Verification**:
+  - [ ] Add a pipeline step to verify that the produced build artifact hash matches the source state exactly.
+- [ ] **Kill Switch Readiness**:
+  - [ ] Verify that every deployment includes a tested and functional kill switch handler.
 
 ## Quality Gates (Pre-Deploy)
 - [ ] **CI Pipeline**: GitHub Actions must pass:

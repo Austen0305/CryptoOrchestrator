@@ -4,7 +4,7 @@
 ## Phase 4: User Growth Features
 - [ ] **Subscription Model**
   - [ ] Implement tiered access (Free, Pro, Whale).
-  - [ ] Integrate Stripe/Crypto payments for subscriptions.
+  - [ ] Integrate Stripe/Crypto payments for subscriptions. 
 - [ ] **Referral System**
   - [ ] Generate unique referral codes for users.
   - [ ] Implement commission tracking logic.

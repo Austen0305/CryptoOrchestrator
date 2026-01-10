@@ -32,6 +32,11 @@
     - [ ] **Safety Constraint**: RL Agent must output *suggested* parameters, which must pass strictly validated `RiskManager` checks before execution.
   - [ ] **Model Fairness**:
     - [ ] **Bias Check**: Ensure model recall is consistent across different asset classes (e.g., don't overfit to Memecoins).
-- [ ] **Sentiment Analysis**
-  - [ ] Connect to `LunarCrush` or Twitter API v2.
-  - [ ] Use FinBERT for sentiment classification of headlines.
+## Phase 6: Strategy Integrity & Advisory Governance
+- [ ] **Advisory Principle**:
+  - [ ] Enforce technical isolation: ML systems must be strictly advisory and have **ZERO** access to private keys or execution logic.
+  - [ ] Implement a "Confidence Floor": Reject any ML signal with confidence < user-defined threshold.
+- [ ] **Dataset & Model Integrity**:
+  - [ ] **Poisoning Detection**: Implement automated checks for anomalous training data or signal manipulation.
+  - [ ] **Strategy Decay**: Monitor real-time performance vs backtest expectations; flag regime mismatches (e.g., trend-following model in chop).
+  - [ ] **Versioning**: Maintain an immutable history of every model version and the specific hyper-parameters used for every signal.

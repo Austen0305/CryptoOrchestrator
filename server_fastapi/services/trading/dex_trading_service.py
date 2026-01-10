@@ -25,6 +25,7 @@ from ..payments.trading_fee_service import TradingFeeService
 from ..wallet_service import WalletService
 from ..wallet_signature_service import WalletSignatureService
 from .aggregator_router import AggregatorRouter
+from ..market_data_service import get_market_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class DEXTradingService:
         self.signature_service = WalletSignatureService()
         self.fee_service = TradingFeeService()
         self.wallet_service = WalletService()
+        self.market_data = get_market_data_service()
         # Lazy load web3 service to prevent import errors
         try:
             self.web3_service = get_web3_service()
@@ -695,7 +697,7 @@ class DEXTradingService:
                                 if buy_amount_decimal > 0:
                                     # Open position for bought token
                                     current_price = (
-                                        await self.coingecko.get_price(
+                                        await self.market_data.get_price(
                                             f"{buy_token_symbol}/USD"
                                         )
                                         or 0.0
@@ -1288,18 +1290,14 @@ class DEXTradingService:
             try:
                 # Get token prices to calculate USD value
                 from ..blockchain.token_registry import get_token_registry
-                from ..coingecko_service import CoinGeckoService
-
-                token_registry = get_token_registry()
-                coingecko = CoinGeckoService()
 
                 # Get sell token symbol and decimals
                 sell_token_symbol = await token_registry.get_token_symbol(
                     sell_token, chain_id
                 )
                 if sell_token_symbol:
-                    # Get price
-                    price = await coingecko.get_price(f"{sell_token_symbol}/USD")
+                    # Get price from MarketDataService
+                    price = await self.market_data.get_price(f"{sell_token_symbol}/USD")
                     if price:
                         # Get actual token decimals
                         sell_token_decimals = await token_registry.get_token_decimals(

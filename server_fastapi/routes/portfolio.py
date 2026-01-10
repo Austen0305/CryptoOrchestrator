@@ -10,7 +10,7 @@ from ..dependencies.auth import get_current_user
 from ..dependencies.pnl import get_pnl_service
 from ..middleware.cache_manager import cached
 from ..services.analytics_engine import analytics_engine
-from ..services.coingecko_service import CoinGeckoService
+from ..services.market_data_service import get_market_data_service
 from ..services.pnl_service import PnLService
 from ..utils.route_helpers import _get_user_id
 
@@ -72,7 +72,7 @@ async def get_portfolio(
 
                 balance_service = get_balance_service()
                 wallet_repo = WalletRepository(db)
-                coingecko = CoinGeckoService()
+                market_data = get_market_data_service()
 
                 # Get all user wallets across all chains
                 user_id_str = str(user_id)
@@ -129,7 +129,7 @@ async def get_portfolio(
                             # Get current price
                             price_symbol = f"{asset_symbol}/USD"
                             current_price = (
-                                await coingecko.get_price(price_symbol) or 0.0
+                                await market_data.get_price(price_symbol) or 0.0
                             )
                             total_value = float(native_balance) * current_price
 
@@ -214,7 +214,7 @@ async def get_portfolio(
                                     else:
                                         price_symbol = f"{token_symbol}/USD"
                                         current_price = (
-                                            await coingecko.get_price(price_symbol)
+                                            await market_data.get_price(price_symbol)
                                             or 0.0
                                         )
                                         total_value = (
@@ -394,10 +394,10 @@ async def get_portfolio(
                     # Get current price
                     try:
                         # Get price from CoinGecko instead of exchange
-                        coingecko = CoinGeckoService()
-                        ticker = await coingecko.get_price(
+                        market_data = get_market_data_service()
+                        ticker = await market_data.get_price(
                             symbol
-                        )  # CoinGecko handles symbol conversion
+                        )  # MarketDataService handles symbol conversion
                         current_price = float(ticker) if ticker else 0.0
                     except:
                         current_price = 0.0

@@ -39,6 +39,11 @@
     - [ ] **Error Boundaries**: Wrap major widgets (Chart, TradeForm) in React Error Boundaries to prevent full app crashes.
     - [ ] **Offline Mode**: Handle websocket disconnection gracefully with visual indicator.
 
+- [ ] **Configuration & User Safety**:
+  - [ ] **Strict Config Validation**: Validate ALL local settings and environment variables against schemas; reject unsafe or contradictory configurations.
+  - [ ] **Human-in-the-Loop**: Track and display explicit human or system approval status for every pending trade.
+  - [ ] **Risk Disclosure**: Enforce a one-time mandatory risk disclosure agreement on first launch.
+
 ## Phase 6: Mobile Experience (Expo)
 - [ ] **Responsive Design**
   - [ ] Ensure all Dashboard widgets stack correctly on mobile.

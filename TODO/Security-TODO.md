@@ -40,5 +40,11 @@
   - [ ] Enforce 2FA for *any* key export or API key creation.
 
 ## Phase 6: Advanced Defense
-  - [ ] **Log Retention**: Use Google Cloud Logging (Free 50GB) for short term (30 days).
+  - [ ] **Log Retention**: Use Google Cloud Logging or AWS CloudWatch (Free Tiers) for short term (30 days).
   - [ ] **Code Hooks**: Implement `structlog` for JSON-structured logging to ensure easy parsing.
+
+## Phase 7: Advanced Defense & Surveillance
+- [ ] **Anomaly Detection**:
+  - [ ] Implement detection and alerting for anomalous signature patterns or unauthorized key access attempts.
+  - [ ] **Security Circuit Breakers**: Automatically pause all trading if anomalous activity or transaction patterns are detected.
+  - [ ] **Immutable Infrastructure**: Conduct periodic verification of the signing service's binary integrity and runtime environment.

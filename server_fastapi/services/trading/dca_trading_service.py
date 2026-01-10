@@ -16,7 +16,7 @@ from ...database import get_db_context
 from ...models.dca_bot import DCABot
 from ...repositories.dca_bot_repository import DCABotRepository
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...services.coingecko_service import CoinGeckoService
+from ...services.market_data_service import get_market_data_service
 from ...services.trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class DCATradingService:
         self.repository = DCABotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
         self.dex_service = DEXTradingService()
 
     @asynccontextmanager
@@ -382,8 +382,8 @@ class DCATradingService:
     ) -> dict[str, Any]:
         """Place a DCA buy order."""
         try:
-            # Get current market price from CoinGecko
-            current_price = await self.coingecko.get_price(bot.symbol)
+            # Get current market price from MarketDataService
+            current_price = await self.market_data.get_price(bot.symbol)
 
             if not current_price:
                 return {"success": False, "error": "Could not get market price"}
@@ -488,8 +488,8 @@ class DCATradingService:
         if bot.orders_executed == 0:
             return {"should_stop": False, "status": None, "reason": None}
 
-        # Get current market price from CoinGecko
-        current_price = await self.coingecko.get_price(bot.symbol)
+        # Get current market price from MarketDataService
+        current_price = await self.market_data.get_price(bot.symbol)
 
         if not current_price or bot.average_price == 0:
             return {"should_stop": False, "status": None, "reason": None}

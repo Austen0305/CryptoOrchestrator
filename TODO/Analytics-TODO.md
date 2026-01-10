@@ -25,3 +25,10 @@
   - [ ] **Advanced PnL (2026 Standard)**:
     - [ ] **Slippage Attribution**: Calculate `Implementation Shortfall` (Arrival Price vs Executed Price).
     - [ ] **Real-time Attribution**: Decompose PnL into Alpha (Strategy) vs Beta (Market) vs Cost (Fees/Slippage).
+
+## Phase 6: Audit & Full Traceability
+- [ ] **Immutable Audit Trails**:
+  - [ ] Enforce append-only storage for all financial logs; verify integrity using cryptographic hashes or ZK-proofs.
+- [ ] **Full Lineage Verification**:
+  - [ ] Implement a trace utility to prove the entire lineage of every trade: `User -> Strategy -> Model -> Simulation -> Execution -> Chain TX`.
+  - [ ] **Anomaly Alerting**: Set up automatic alerts for P99 latency spikes in critical trading paths (>100ms).

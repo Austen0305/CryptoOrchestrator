@@ -29,3 +29,12 @@
 - [ ] **Database Backups (Supabase)**
   - [ ] **Daily Backups**: Supabase Free Tier includes basic database backups.
   - [ ] **Manual Dump**: Cron job on `e2-micro` to run `pg_dump` and upload to GCS (Free Tier storage class) for redundancy.
+
+## Phase 7: Environment & Build Integrity
+- [ ] **Environment Parity**:
+  - [ ] Enforce strict configuration parity between Dev, Staging, and Production environments (via terraform/k8s).
+- [ ] **Deterministic Builds**:
+  - [ ] Implement and verify deterministic build pipelines for both backend (uv/docker) and frontend (vite/docker).
+- [ ] **Global Kill Switch**:
+  - [ ] Implement a system-wide "Global Kill Switch" that can be triggered locally or via CLI to halt all execution immediately.
+  - [ ] **Verification**: Conduct quarterly drills to test the kill switch in a non-production (staging) environment.

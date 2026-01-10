@@ -51,5 +51,12 @@
 ## Phase 12: Launch Readiness
 - [ ] See `Launch-TODO.md`.
 
-## Phase 13: Post-Launch Evolution
-- [ ] See `Post-Launch-TODO.md`.
+## Phase 14: Governance & Human Error Controls
+- [ ] **Strategy Versioning**: Version-lock strategies to specific execution engine versions.
+- [ ] **Action Logging**: Track explicit human or system approval for every trade.
+- [ ] **Global Kill Switch**: Implement and test a definitive "Stop All" trigger across all environments.
+
+## Phase 15: Final Production Hardening
+- [ ] Conduct disaster recovery failure drills.
+- [ ] Verify 90% backend / 85% frontend test coverage.
+- [ ] Ensure non-custodial non-bypassable guards are verified by formal inspection.

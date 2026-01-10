@@ -25,7 +25,7 @@ except ImportError:
 # Market data now comes from CoinGecko and DEX aggregators
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from server_fastapi.services.coingecko_service import CoinGeckoService
+from ..services.market_data_service import MarketDataService, get_market_data_service
 from server_fastapi.services.correlation_service import CorrelationService
 from server_fastapi.services.market_analysis_service import MarketAnalysisService
 from server_fastapi.services.volatility_analyzer import VolatilityAnalyzer
@@ -46,8 +46,8 @@ correlation_service = CorrelationService()
 
 
 # Market data service (CoinGecko for price data)
-def get_market_data_service() -> CoinGeckoService:
-    return CoinGeckoService()
+def _get_market_data_service() -> MarketDataService:
+    return get_market_data_service()
 
 
 router = APIRouter()
@@ -171,9 +171,9 @@ class MarketAnalysisResponse(BaseModel):
 async def get_markets() -> list[TradingPair]:
     """Get all available trading pairs from CoinGecko"""
     try:
-        from ..services.coingecko_service import CoinGeckoService
+        from ..services.market_data_service import MarketDataService
 
-        coingecko = CoinGeckoService()
+        market_data = get_market_data_service()
 
         # Get popular cryptocurrencies from CoinGecko
         # In production, you might want to maintain a curated list or fetch from DEX aggregators
@@ -190,25 +190,21 @@ async def get_markets() -> list[TradingPair]:
         for coin_id in popular_coins:
             try:
                 symbol = coin_id.upper() + "/USD"
-                market_data = await coingecko.get_market_data(symbol)
-                if market_data:
+                market_info = await market_data.get_market_data(symbol)
+                if market_info:
                     pairs.append(
                         {
                             "symbol": symbol,
                             "base_asset": coin_id,
                             "quote_asset": "USD",
-                            "current_price": float(market_data.get("current_price", 0)),
-                            "change_24h": float(market_data.get("change_24h", 0)),
-                            "volume_24h": float(market_data.get("volume_24h", 0)),
+                            "current_price": float(market_info.get("price", 0)),
+                            "change_24h": float(market_info.get("change_24h", 0)),
+                            "volume_24h": float(market_info.get("volume_24h", 0)),
                             "high_24h": float(
-                                market_data.get(
-                                    "high_24h", market_data.get("current_price", 0)
-                                )
+                                market_info.get("high_24h", market_info.get("price", 0))
                             ),
                             "low_24h": float(
-                                market_data.get(
-                                    "low_24h", market_data.get("current_price", 0)
-                                )
+                                market_info.get("low_24h", market_info.get("price", 0))
                             ),
                         }
                     )
@@ -232,16 +228,16 @@ async def get_ohlcv(
 ) -> PriceChartResponse:
     """Get OHLCV data for a trading pair from CoinGecko"""
     try:
-        from ..services.coingecko_service import CoinGeckoService
+        from ..services.market_data_service import MarketDataService
 
-        coingecko = CoinGeckoService()
+        market_data = get_market_data_service()
 
         # Convert pair to CoinGecko ID
         coin_id = pair.split("/")[0].lower()
 
         # Get historical price data (CoinGecko provides price history, not full OHLCV in free tier)
         # For full OHLCV, you'd need CoinGecko Pro API or use DEX aggregator APIs
-        historical_data = await coingecko.get_historical_prices(pair, days=limit)
+        historical_data = await market_data.get_historical_prices(pair, days=limit)
 
         if not historical_data:
             raise HTTPException(status_code=404, detail=f"No data available for {pair}")
@@ -287,12 +283,14 @@ async def get_ohlcv(
                 detail=f"Invalid timeframe. Must be one of: {', '.join(valid_timeframes)}",
             )
 
-        # Get historical data from CoinGecko
-        coingecko = CoinGeckoService()
-        # Convert timeframe to days for CoinGecko
+        # Get historical data from MarketDataService
+        market_data = get_market_data_service()
+        # Convert timeframe to days for provider
         days_map = {"1h": 1, "4h": 7, "1d": 30, "1w": 90, "1m": 365}
         days = days_map.get(timeframe, 30)
-        historical_data_points = await coingecko.get_historical_prices(pair, days=days)
+        historical_data_points = await market_data.get_historical_prices(
+            pair, days=days
+        )
 
         # Convert to MarketData format
         historical_data = []
@@ -402,8 +400,8 @@ async def get_price(pair: str) -> dict:
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        coingecko = CoinGeckoService()
-        price = await coingecko.get_price(pair)
+        market_data = get_market_data_service()
+        price = await market_data.get_price(pair)
         if price is None:
             raise HTTPException(status_code=404, detail=f"Price not found for {pair}")
         return {"pair": pair, "price": price}
@@ -422,8 +420,7 @@ async def get_tickers(
 ) -> list[TickerResponse]:
     """Get ticker data for multiple trading pairs"""
     try:
-        coingecko = CoinGeckoService()
-        # Get popular pairs from CoinGecko
+        # Get popular pairs
         pairs = await get_markets()  # Reuse the get_markets function
 
         # Sort by volume and limit results
@@ -520,9 +517,9 @@ async def get_trading_pair_details(pair: str) -> TradingPairDetails:
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        # Get market data from CoinGecko
-        coingecko = CoinGeckoService()
-        market_data = await coingecko.get_market_data(pair)
+        # Get market data from MarketDataService
+        market_data_service = get_market_data_service()
+        market_info = await market_data_service.get_market_data(pair)
 
         if not market_data:
             raise HTTPException(
@@ -546,11 +543,11 @@ async def get_trading_pair_details(pair: str) -> TradingPairDetails:
             symbol=pair,
             base_asset=base_asset,
             quote_asset=quote_asset,
-            current_price=market_data.get("price", 0.0),
-            change_24h=market_data.get("change_24h", 0.0),
-            volume_24h=pair_info.volume_24h,
-            high_24h=pair_info.high_24h,
-            low_24h=pair_info.low_24h,
+            current_price=market_info.get("price", 0.0),
+            change_24h=market_info.get("change_24h", 0.0),
+            volume_24h=market_info.get("volume", 0.0),
+            high_24h=market_info.get("high_24h", market_info.get("price", 0.0)),
+            low_24h=market_info.get("low_24h", market_info.get("price", 0.0)),
             market_cap=None,  # Would need additional data source
             **market_details,
         )
@@ -635,8 +632,8 @@ async def get_advanced_market_analysis(
             )
 
         # Get historical data from CoinGecko
-        coingecko = CoinGeckoService()
-        historical_data = await coingecko.get_historical_prices(pair, days=30)
+        market_data = get_market_data_service()
+        historical_data = await market_data.get_historical_prices(pair, days=30)
 
         if not historical_data or len(historical_data) < 2:
             raise HTTPException(
@@ -670,7 +667,7 @@ async def get_advanced_market_analysis(
         )
 
         # Get current price from CoinGecko
-        current_price = await coingecko.get_price(pair)
+        current_price = await market_data.get_price(pair)
         if not current_price and ohlcv_data:
             current_price = ohlcv_data[-1]["close"]
 
@@ -817,24 +814,26 @@ async def get_realtime_price_stream(
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        # Get current price and market data from CoinGecko
-        coingecko = CoinGeckoService()
-        price = await coingecko.get_price(pair)
-        if price is None:
-            raise HTTPException(status_code=404, detail=f"Price not found for {pair}")
+        # Get market data from MarketDataService
+        market_data_service = get_market_data_service()
+        market_info = await market_data_service.get_market_data(pair)
 
-        # Get market data for 24h change and volume
-        market_data = await coingecko.get_market_data(pair)
+        if not market_info:
+            raise HTTPException(
+                status_code=404, detail=f"Market data not found for {pair}"
+            )
 
-        # CoinGecko doesn't provide orderbook, so bid/ask are None
+        price = market_info.get("price", 0.0)
+
+        # Market data providers might not provide orderbook, so bid/ask are None
         bid_price = None
         ask_price = None
 
         return RealTimeMarketData(
             symbol=pair,
             price=price,
-            change_24h=market_data.get("change_24h", 0.0) if market_data else 0.0,
-            volume_24h=market_data.get("volume_24h", 0.0) if market_data else 0.0,
+            change_24h=market_info.get("change_24h", 0.0),
+            volume_24h=market_info.get("volume", 0.0),
             timestamp=int(time.time() * 1000),
             bid_price=bid_price,
             ask_price=ask_price,
@@ -997,8 +996,8 @@ async def websocket_market_stream(
         logger.info(f"User {user['id']} connected to market stream for {pair}")
 
         # Send initial data from CoinGecko
-        coingecko = CoinGeckoService()
-        price = await coingecko.get_price(pair)
+        market_data = get_market_data_service()
+        price = await market_data.get_price(pair)
 
         # CoinGecko doesn't provide orderbook, use empty
         from ..models.market import OrderBook
@@ -1039,17 +1038,22 @@ async def websocket_market_stream(
                 # Send periodic updates (every 5 seconds in mock mode)
                 await asyncio.sleep(5)
 
-                # Get fresh data from CoinGecko
-                current_price = await coingecko.get_price(pair)
-                # CoinGecko doesn't provide orderbook
+                # Get fresh data from MarketDataService
+                market_info = await market_data.get_market_data(pair)
+                current_price = market_info.get("price", 0.0) if market_info else 0.0
+                # MarketDataService doesn't provide orderbook
                 current_order_book = order_book  # Reuse empty orderbook
 
-                if current_price:
+                if current_price > 0:
                     update = RealTimeMarketData(
                         symbol=pair,
                         price=current_price,
-                        change_24h=0.0,  # Static in mock
-                        volume_24h=0.0,  # Static in mock
+                        change_24h=(
+                            market_info.get("change_24h", 0.0) if market_info else 0.0
+                        ),
+                        volume_24h=(
+                            market_info.get("volume", 0.0) if market_info else 0.0
+                        ),
                         timestamp=int(__import__("time").time() * 1000),
                         bid_price=(
                             current_order_book.bids[0][0]

@@ -41,5 +41,14 @@
   - [ ] **Prohibition**: Explicitly block trading pairs for non-compliant algorithmic stablecoins (Article 23).
 - [ ] **Transparency**
   - [ ] Publish "Proof of Solvency" reports signed by external auditors (or cryptographic proof via **ZK-Merklized Sum Trees**).
-  - [ ] Disclose all trading fees and "spread" mechanics clearly in the UI.
+
+ ## Phase 6: User Safety & Comprehensive Auditability
+ - [ ] **Safe Onboarding Progression**:
+   - [ ] Enforce cold-start limits: `Read-Only -> Paper Trading -> Micro-Capital (e.g. $100) -> Unlimited`.
+   - [ ] Mandatory Risk Disclosure acknowledgement before first live trade.
+ - [ ] **Full Trade Traceability**:
+   - [ ] **Immutable Audit Log**: Ensure every state change is logged to an append-only, tamper-evident trail.
+   - [ ] **Lineage Tracking**: Every transaction must link back through: `User -> Strategy -> Model Version -> Simulation Result -> Risk Manager OK -> Execution -> Chain TX ID`.
+ - [ ] **Human-in-the-Loop Governance**:
+   - [ ] Provide 2FA or biometric secondary confirmation for all manual overrides or high-value strategy changes.
 
