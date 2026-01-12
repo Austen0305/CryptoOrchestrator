@@ -102,6 +102,18 @@ desktop.ini
 *.backup
 *.old
 
+# Local Performance and Test Results
+*.txt
+*.txt.md
+wallet_test_output*
+test_results*
+todos_report*
+push_verbose.txt
+push_error.txt
+git_branches.txt
+git_err.txt
+commit_files.txt
+
 # Build artifacts (keep structure, ignore contents)
 dist/
 dist-electron/
