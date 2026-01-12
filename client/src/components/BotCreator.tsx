@@ -50,7 +50,7 @@ export const BotCreator = React.memo(function BotCreator() {
     setValue,
     reset,
   } = useForm<BotFormData>({
-    resolver: zodResolver(botConfigSchema),
+    resolver: zodResolver(botConfigSchema as any),
     defaultValues: {
       maxPositionSize: 0.1,
       stopLoss: 2.0,

@@ -37,7 +37,7 @@ interface DCABotCreatorProps {
 export function DCABotCreator({ onSuccess, onCancel }: DCABotCreatorProps) {
   const createBot = useCreateDCABot();
   const form = useForm<DCABotFormData>({
-    resolver: zodResolver(dcaBotSchema),
+    resolver: zodResolver(dcaBotSchema as any),
     defaultValues: {
       name: "",
       symbol: "BTC/USD",

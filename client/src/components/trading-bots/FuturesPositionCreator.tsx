@@ -33,7 +33,7 @@ interface FuturesPositionCreatorProps {
 export function FuturesPositionCreator({ onSuccess, onCancel }: FuturesPositionCreatorProps) {
   const createPosition = useCreateFuturesPosition();
   const form = useForm<FuturesPositionFormData>({
-    resolver: zodResolver(futuresPositionSchema),
+    resolver: zodResolver(futuresPositionSchema as any),
     defaultValues: {
       symbol: "BTC/USD",
       exchange: "binance",

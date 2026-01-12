@@ -32,7 +32,7 @@ interface TrailingBotCreatorProps {
 export function TrailingBotCreator({ onSuccess, onCancel }: TrailingBotCreatorProps) {
   const createBot = useCreateTrailingBot();
   const form = useForm<TrailingBotFormData>({
-    resolver: zodResolver(trailingBotSchema),
+    resolver: zodResolver(trailingBotSchema as any),
     defaultValues: {
       name: "",
       symbol: "BTC/USD",

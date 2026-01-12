@@ -32,7 +32,7 @@ interface InfinityGridCreatorProps {
 export function InfinityGridCreator({ onSuccess, onCancel }: InfinityGridCreatorProps) {
   const createBot = useCreateInfinityGrid();
   const form = useForm<InfinityGridFormData>({
-    resolver: zodResolver(infinityGridSchema),
+    resolver: zodResolver(infinityGridSchema as any),
     defaultValues: {
       name: "",
       symbol: "BTC/USD",

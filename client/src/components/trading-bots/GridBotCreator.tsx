@@ -44,7 +44,7 @@ interface GridBotCreatorProps {
 export function GridBotCreator({ onSuccess, onCancel }: GridBotCreatorProps) {
   const createBot = useCreateGridBot();
   const form = useForm<GridBotFormData>({
-    resolver: zodResolver(gridBotSchema),
+    resolver: zodResolver(gridBotSchema as any),
     defaultValues: {
       name: "",
       symbol: "BTC/USD",
