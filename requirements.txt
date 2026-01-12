@@ -17,8 +17,7 @@ alembic==1.13.2
 tenacity
 
 # Core Crypto
-web3==6.20.1
-eth-account==0.13.3
+# eth-account (let web3 resolve it)
 aiofiles==24.1.0
 
 # Temporarily removed for stability:

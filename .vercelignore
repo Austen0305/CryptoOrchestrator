@@ -19,3 +19,8 @@ client/.turbo
 
 # Root node_modules if any
 node_modules
+
+# Backend Config to ignore
+requirements.txt
+Dockerfile
+docker-compose.prod.yml
