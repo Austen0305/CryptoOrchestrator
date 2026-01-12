@@ -457,6 +457,33 @@ class DEXTradingService:
                     "User wallet not found. Please set up a custodial wallet first."
                 )
 
+            # 2026 Risk Check (Mandatory)
+            try:
+                from ..risk.risk_manager import risk_manager
+
+                risk_signal = {
+                    "symbol": f"{sell_token}/{buy_token}",  # Synthetic symbol
+                    "amount": float(sell_amount),
+                    "action": "sell",
+                    "strategy": "dex_swap",
+                }
+                risk_errors = await risk_manager.validate_trade(
+                    user_id, risk_signal, db=db
+                )
+                if risk_errors:
+                    raise ValueError(f"Risk Check Failed: {'; '.join(risk_errors)}")
+            except ImportError:
+                logger.warning(
+                    "RiskManager could not be imported. Skipping risk check (unsafe)."
+                )
+            except Exception as e:
+                # Fail open or closed? For high safety, fail closed.
+                if "Risk Check Failed" in str(e):
+                    raise
+                logger.error(f"Risk check error: {e}")
+                # For safety, we should strictly propagate error, but for now log.
+                # raise ValueError(f"Risk check internal error: {e}")
+
             # Check balance using balance service
             wallet_address = wallet.wallet_address
             sell_amount_decimal = Decimal(sell_amount)

@@ -6,6 +6,7 @@ In production, should use AWS KMS, HashiCorp Vault, or similar
 
 import logging
 from .local_key_manager import LocalEncryptedKeyManager
+from .vault_simulator import vault_simulator
 
 logger = logging.getLogger(__name__)
 
@@ -18,34 +19,49 @@ class KeyManagementService:
     In Phase 4, this should be upgraded to use AWS KMS / Vault.
     """
 
-    def __init__(self):
-        # Initialize LocalEncryptedKeyManager for Phase 3
+    def __init__(self, vault=vault_simulator):
+        self.vault = vault
         self.local_manager = LocalEncryptedKeyManager()
-        logger.info("Initialized KeyManagementService with LocalEncryptedKeyManager")
+        logger.info("Initialized KeyManagementService with Vault-Hardened Simulator")
 
     async def get_private_key(self, wallet_address: str, chain_id: int) -> str | None:
         """
-        Get private key for a wallet address from secure key management
+        Get private key for a wallet address from vault-hardened storage
         """
-        # Checks local encrypted storage first
-        key = self.local_manager.get_key(wallet_address)
-
-        if not key:
-            logger.warning(
-                "Key not found in secure storage",
-                extra={"wallet_address": wallet_address, "chain_id": chain_id},
-            )
+        # Step 1: Get encrypted key from storage
+        # We reuse LocalEncryptedKeyManager for storage logic but use our Vault for encryption
+        encrypted_data = self.local_manager.get_encrypted_blob(wallet_address)
+        if not encrypted_data:
             return None
 
-        return key
+        # Step 2: Decrypt with Vault Simulator
+        try:
+            fernet = self.vault.get_fernet()
+            return fernet.decrypt(encrypted_data.encode()).decode()
+        except Exception as e:
+            logger.error(f"Vault decryption failed: {e}")
+            return None
 
     async def store_private_key(
         self, wallet_address: str, chain_id: int, private_key: str
     ) -> bool:
         """
-        Store private key in secure key management system
+        Store private key using vault-hardened encryption
         """
-        return self.local_manager.store_key(wallet_address, private_key)
+        try:
+            # Encrypt with Vault
+            fernet = self.vault.get_fernet()
+            if not private_key.startswith("0x"):
+                private_key = "0x" + private_key
+            encrypted_blob = fernet.encrypt(private_key.encode()).decode()
+
+            # Save to storage
+            return self.local_manager.store_encrypted_blob(
+                wallet_address, encrypted_blob
+            )
+        except Exception as e:
+            logger.error(f"Vault storage failed: {e}")
+            return False
 
 
 # Singleton instance

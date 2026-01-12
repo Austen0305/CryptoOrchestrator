@@ -1,15 +1,16 @@
 /**
  * Trading Safety Status Widget
- * Displays real-time trading safety metrics and kill switch status
+ * Displays real-time trading safety metrics and kill switch status with premium animations
  */
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Activity, RefreshCw } from "lucide-react";
+import { AlertTriangle, Shield, TrendingDown, TrendingUp, DollarSign, Activity, RefreshCw, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/queryClient";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface SafetyConfiguration {
   max_position_size_pct: number;
@@ -58,7 +59,7 @@ export function TradingSafetyStatus() {
   const { data: safetyStatus, isLoading, error } = useQuery({
     queryKey: ['trading-safety-status'],
     queryFn: tradingSafetyApi.getStatus,
-    refetchInterval: 5000, // Update every 5 seconds
+    refetchInterval: 5000, 
   });
 
   const resetKillSwitchMutation = useMutation({
@@ -81,17 +82,14 @@ export function TradingSafetyStatus() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Trading Safety
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
+      <Card className="glass-card overflow-hidden">
+        <CardContent className="flex items-center justify-center py-12">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          >
+            <RefreshCw className="h-8 w-8 text-primary/40" />
+          </motion.div>
         </CardContent>
       </Card>
     );
@@ -99,17 +97,11 @@ export function TradingSafetyStatus() {
 
   if (error || !safetyStatus) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Trading Safety
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-4 text-muted-foreground">
-            Unable to load safety status
-          </div>
+      <Card className="border-destructive/50 bg-destructive/5">
+        <CardContent className="text-center py-8 text-destructive">
+          <AlertTriangle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p className="font-medium">Safety Engine Offline</p>
+          <p className="text-xs opacity-70">Check backend connection</p>
         </CardContent>
       </Card>
     );
@@ -126,149 +118,156 @@ export function TradingSafetyStatus() {
 
   // Calculate daily loss percentage (assuming $10k default balance for display)
   const dailyLossPct = (daily_pnl / 10000) * 100;
-  const isDailyLossWarning = dailyLossPct < -3; // Warning at -3%
-  const isDailyLossCritical = dailyLossPct < -4; // Critical at -4%
+  const isDailyLossWarning = dailyLossPct < -3; 
+  const isDailyLossCritical = dailyLossPct < -4; 
+
+  // Risk Sphere Logic: dynamic color and pulse
+  const getRiskColor = () => {
+    if (kill_switch_active) return "rgba(239, 68, 68, 0.8)"; // Red
+    if (isDailyLossCritical) return "rgba(249, 115, 22, 0.8)"; // Orange
+    if (isDailyLossWarning) return "rgba(234, 179, 8, 0.8)"; // Yellow
+    return "rgba(34, 197, 94, 0.8)"; // Green
+  };
+
+  const getRiskGlow = () => {
+    if (kill_switch_active) return "0 0 30px rgba(239, 68, 68, 0.4)";
+    if (isDailyLossCritical) return "0 0 30px rgba(249, 115, 22, 0.4)";
+    if (isDailyLossWarning) return "0 0 30px rgba(234, 179, 8, 0.4)";
+    return "0 0 30px rgba(34, 197, 94, 0.4)";
+  };
 
   return (
-    <Card className={cn(kill_switch_active && "border-destructive")}>
-      <CardHeader>
-        <CardTitle className="flex items-center justify-between">
+    <Card className={cn(
+      "glass-card border-none transition-all duration-500",
+      kill_switch_active && "ring-2 ring-destructive ring-offset-2 ring-offset-background"
+    )}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center justify-between text-lg font-bold">
           <div className="flex items-center gap-2">
-            <Shield className={cn(
+            <Zap className={cn(
               "h-5 w-5",
-              kill_switch_active ? "text-destructive" : "text-green-500"
+              kill_switch_active ? "text-destructive" : "text-primary"
             )} />
-            Trading Safety
+            Guardian AI
           </div>
-          <Badge variant={kill_switch_active ? "destructive" : "default"}>
-            {kill_switch_active ? "STOPPED" : "ACTIVE"}
+          <Badge className={cn(
+            "px-2 py-0.5",
+            kill_switch_active ? "bg-destructive text-destructive-foreground" : "bg-primary/20 text-primary border-primary/30"
+          )}>
+            {kill_switch_active ? "HALTED" : "SECURED"}
           </Badge>
         </CardTitle>
-        <CardDescription>
-          Real-time risk monitoring and protection
-        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Kill Switch Alert */}
-        {kill_switch_active && (
-          <div className="p-4 bg-destructive/10 border border-destructive rounded-lg space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
-              <div className="flex-1">
-                <p className="font-semibold text-destructive">Kill Switch Active</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {kill_switch_reason || "Trading has been halted for safety"}
-                </p>
+
+      <CardContent className="space-y-6">
+        {/* Risk Sphere Visualization */}
+        <div className="relative flex justify-center py-4">
+          <motion.div
+            className="w-32 h-32 rounded-full relative flex items-center justify-center"
+            style={{
+              background: `radial-gradient(circle at 30% 30%, ${getRiskColor()}, rgba(0,0,0,0.4))`,
+              boxShadow: getRiskGlow(),
+            }}
+            animate={{
+              scale: kill_switch_active ? [1, 1.1, 1] : [1, 1.05, 1],
+            }}
+            transition={{
+              duration: kill_switch_active ? 1 : 4,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <div className="absolute inset-0 rounded-full bg-white/10 blur-[2px] pointer-events-none" />
+            <div className="z-10 text-center">
+              <div className="text-3xl font-black text-white drop-shadow-md">
+                {Math.max(0, 100 - (consecutive_losses * 20) - (kill_switch_active ? 100 : 0))}%
+              </div>
+              <div className="text-[10px] font-bold text-white/80 tracking-widest uppercase">
+                Safety
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => resetKillSwitchMutation.mutate(true)}
-              disabled={resetKillSwitchMutation.isPending}
-              className="w-full"
+            {/* Rotating rings */}
+            <motion.div 
+              className="absolute -inset-2 border border-white/10 rounded-full"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+            />
+            <motion.div 
+              className="absolute -inset-4 border border-white/5 rounded-full"
+              animate={{ rotate: -360 }}
+              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.div>
+        </div>
+
+        {/* Kill Switch Reason */}
+        <AnimatePresence>
+          {kill_switch_active && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl overflow-hidden"
             >
-              {resetKillSwitchMutation.isPending ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Resetting...
-                </>
-              ) : (
-                "Reset Kill Switch (Admin Override)"
-              )}
-            </Button>
-          </div>
-        )}
-
-        {/* Daily P&L */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <DollarSign className="h-4 w-4" />
-              Daily P&L
-            </div>
-            <div className={cn(
-              "font-semibold",
-              daily_pnl >= 0 ? "text-green-500" : "text-red-500"
-            )}>
-              {daily_pnl >= 0 ? "+" : ""}${daily_pnl.toFixed(2)}
-              <span className="text-xs ml-1">
-                ({dailyLossPct >= 0 ? "+" : ""}{dailyLossPct.toFixed(2)}%)
-              </span>
-            </div>
-          </div>
-          
-          {/* Loss Warning */}
-          {isDailyLossWarning && !kill_switch_active && (
-            <div className={cn(
-              "text-xs p-2 rounded",
-              isDailyLossCritical ? "bg-red-50 text-red-700" : "bg-yellow-50 text-yellow-700"
-            )}>
-              {isDailyLossCritical ? "⚠️ Critical: " : "⚠ Warning: "}
-              Approaching daily loss limit ({Math.abs(dailyLossPct).toFixed(1)}% of {configuration.daily_loss_limit_pct * 100}%)
-            </div>
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-red-400 leading-tight">Emergency Protocol Engaged</p>
+                  <p className="text-xs text-muted-foreground italic">
+                    {kill_switch_reason || "Anomaly detected in execution pipeline. Local nodes suspended."}
+                  </p>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => resetKillSwitchMutation.mutate(true)}
+                    disabled={resetKillSwitchMutation.isPending}
+                    className="w-full text-[10px] h-7 uppercase tracking-widest"
+                  >
+                    {resetKillSwitchMutation.isPending ? "Resetting..." : "Admin Override"}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Trades Today</div>
-            <div className="text-2xl font-bold flex items-center gap-1">
-              <Activity className="h-4 w-4" />
-              {trades_today}
-            </div>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="text-sm text-muted-foreground">Consecutive Losses</div>
+        {/* Detailed Metrics */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="stat-card p-3 bg-white/5 border border-white/10 rounded-2xl">
+            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mb-1">PnL / 24h</div>
             <div className={cn(
-              "text-2xl font-bold flex items-center gap-1",
-              consecutive_losses >= 2 && "text-red-500"
+              "text-lg font-bold flex items-center gap-1",
+              daily_pnl >= 0 ? "text-green-400" : "text-red-400"
             )}>
-              <TrendingDown className="h-4 w-4" />
-              {consecutive_losses}
-              <span className="text-xs text-muted-foreground ml-1">
-                / {configuration.max_consecutive_losses}
-              </span>
+              {daily_pnl >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+              {daily_pnl >= 0 ? "+" : ""}{Math.abs(daily_pnl).toFixed(2)}
+            </div>
+          </div>
+          <div className="stat-card p-3 bg-white/5 border border-white/10 rounded-2xl">
+            <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mb-1">Session Volume</div>
+            <div className="text-lg font-bold flex items-center gap-1 text-primary-foreground">
+              <Activity className="h-4 w-4 text-primary" />
+              {trades_today} <span className="text-[10px] text-muted-foreground font-normal">tx</span>
             </div>
           </div>
         </div>
 
-        {/* Configuration Summary */}
-        <div className="pt-4 border-t space-y-2">
-          <div className="text-xs font-medium text-muted-foreground uppercase">
-            Protection Limits
+        {/* Protection Limits Bar */}
+        <div className="space-y-1.5 pt-2">
+          <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <span>Risk Exposure</span>
+            <span>{Math.abs(dailyLossPct).toFixed(1)}% / {configuration.daily_loss_limit_pct * 100}%</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Max Position:</span>
-              <span className="font-medium">{configuration.max_position_size_pct * 100}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Max Loss:</span>
-              <span className="font-medium">{configuration.daily_loss_limit_pct * 100}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Max Slippage:</span>
-              <span className="font-medium">{configuration.max_slippage_pct * 100}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Portfolio Heat:</span>
-              <span className="font-medium">{configuration.max_portfolio_heat * 100}%</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Status Footer */}
-        <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
-          <div>Last reset: {new Date(safetyStatus.last_reset).toLocaleTimeString()}</div>
-          <div className="flex items-center gap-1">
-            <div className={cn(
-              "h-2 w-2 rounded-full",
-              kill_switch_active ? "bg-red-500 animate-pulse" : "bg-green-500"
-            )} />
-            {kill_switch_active ? "Halted" : "Monitoring"}
+          <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/10">
+            <motion.div 
+              className={cn(
+                "h-full rounded-full",
+                isDailyLossCritical ? "bg-red-500" : isDailyLossWarning ? "bg-yellow-500" : "bg-primary"
+              )}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (Math.abs(dailyLossPct) / (configuration.daily_loss_limit_pct * 100)) * 100)}%` }}
+              transition={{ duration: 1 }}
+            />
           </div>
         </div>
       </CardContent>

@@ -8,6 +8,7 @@
 ## 📊 Project Overview
 
 ### Architecture
+
 - **Type:** Microservices-based cryptocurrency trading platform
 - **Backend:** FastAPI (Python 3.12), PostgreSQL, Redis, Celery
 - **Frontend:** React 18, TypeScript, Vite, TailwindCSS, shadcn/ui
@@ -17,6 +18,7 @@
 ### Key Components
 
 #### Backend Services (`server_fastapi/`)
+
 - **Routes:** 118 route files (auth, bots, trades, analytics, etc.)
 - **Services:** 251 service files (trading, ML, risk management, etc.)
 - **Models:** 42 SQLAlchemy models
@@ -24,12 +26,14 @@
 - **Middleware:** 68 middleware files
 
 #### Frontend (`client/`)
+
 - **Components:** 266 TSX files
 - **Pages:** Multiple page components
 - **Hooks:** Custom React hooks
 - **Services:** API service functions
 
 #### Infrastructure
+
 - **Database:** PostgreSQL 15 with TimescaleDB
 - **Cache:** Redis 7
 - **Queue:** Celery for background tasks
@@ -42,23 +46,27 @@
 ### Current Issues Identified
 
 1. **Slow Build Times (15-20 minutes)**
+
    - TensorFlow: ~2GB, takes 8-10 minutes to install
    - PyTorch: ~1.5GB, takes 5-7 minutes to install
    - Transformers: ~500MB, takes 2-3 minutes
    - Total ML deps: ~4GB, ~15-20 minutes
 
 2. **No BuildKit Cache Mounts**
+
    - Pip downloads packages every build
    - Apt packages downloaded every build
    - No cache reuse between builds
 
 3. **Large Build Context**
+
    - Frontend code included (not needed)
    - Documentation included (not needed)
    - Tests included (not needed)
    - Large `.dockerignore` improvements needed
 
 4. **Inefficient Layer Caching**
+
    - Code changes invalidate dependency cache
    - All dependencies installed together
    - No separation of fast vs slow deps
@@ -82,6 +90,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ```
 
 **Benefits:**
+
 - Pip downloads cached between builds
 - Apt packages cached between builds
 - Only new/changed packages downloaded
@@ -89,15 +98,18 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 ### 2. Split Requirements 📦
 
 **Files Created:**
+
 - `requirements-base.txt` - Core deps (~2-3 min install)
 - `requirements-ml.txt` - ML deps (~10-12 min install, optional)
 
 **Impact:**
+
 - Can skip ML deps for 70% faster builds
 - Base deps cached separately (change rarely)
 - ML deps only installed when needed
 
 **Usage:**
+
 ```bash
 # Without ML (fast)
 docker build --build-arg INSTALL_ML_DEPS=false ...
@@ -109,6 +121,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ### 3. Enhanced .dockerignore 🚫
 
 **Excluded:**
+
 - Frontend code (`client/`, `mobile/`, `electron/`)
 - Documentation (`docs/`, `*.md`)
 - Tests (`tests/`, `*.test.py`)
@@ -116,6 +129,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 - Docker files themselves
 
 **Impact:**
+
 - 60-70% smaller build context
 - Faster upload to Docker daemon
 - Less cache invalidation
@@ -123,6 +137,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ### 4. Optimized Layer Ordering 📐
 
 **Order:**
+
 1. Base image (rarely changes)
 2. System dependencies (rarely changes)
 3. Base Python dependencies (changes occasionally)
@@ -130,6 +145,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 5. Application code (changes frequently)
 
 **Impact:**
+
 - Code changes don't invalidate dependency cache
 - Dependency changes don't invalidate system deps cache
 - Maximum cache reuse
@@ -137,6 +153,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ### 5. Multi-Stage Build Optimization 🏗️
 
 **Stages:**
+
 1. `base` - System setup
 2. `base-dependencies` - Core Python packages
 3. `ml-dependencies` - ML packages (extends base-dependencies)
@@ -144,6 +161,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 5. `production` - Minimal runtime image
 
 **Impact:**
+
 - Smaller final image
 - Better layer caching
 - Build tools excluded from production
@@ -155,7 +173,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ### Build Time Comparison
 
 | Scenario | Before | After | Improvement |
-|----------|--------|-------|-------------|
+| :------- | :----- | :---- | :---------- |
 | First build (with ML) | 15-20 min | 12-15 min | 20-25% |
 | First build (no ML) | 15-20 min | 5-7 min | 65-70% |
 | Rebuild (code change, with ML) | 15-20 min | 2-3 min | 85-90% |
@@ -166,7 +184,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ### Image Size Comparison
 
 | Configuration | Before | After | Savings |
-|--------------|--------|-------|---------|
+| :------------ | :----- | :---- | :------ |
 | With ML deps | 8-10GB | 8-10GB | Same |
 | Without ML deps | 8-10GB | 2-3GB | 70% smaller |
 
@@ -175,6 +193,7 @@ docker build --build-arg INSTALL_ML_DEPS=true ...
 ## 🎯 Usage Recommendations
 
 ### Development (Fast Iteration)
+
 ```bash
 # Build without ML for fastest iteration
 DOCKER_BUILDKIT=1 docker build \
@@ -184,6 +203,7 @@ DOCKER_BUILDKIT=1 docker build \
 ```
 
 ### Production (Full Features)
+
 ```bash
 # Build with ML for all features
 DOCKER_BUILDKIT=1 docker build \
@@ -192,7 +212,7 @@ DOCKER_BUILDKIT=1 docker build \
   -t cryptoorchestrator:prod .
 ```
 
-### CI/CD Pipeline
+### CI/CD Pipeline Usage
 ```yaml
 # Use registry cache for even faster builds
 docker buildx build \
@@ -222,6 +242,7 @@ docker buildx build \
 ### ML Dependencies Analysis
 
 **Heavy Packages:**
+
 - TensorFlow: ~2GB, 8-10 min install
 - PyTorch: ~1.5GB, 5-7 min install
 - Transformers: ~500MB, 2-3 min install
@@ -230,6 +251,7 @@ docker buildx build \
 **Total:** ~4GB, ~15-20 minutes
 
 **Usage in Code:**
+
 - TensorFlow: Used in 9 files (with graceful fallback)
 - PyTorch: Used in reinforcement learning
 - All ML imports have try/except fallbacks
@@ -239,10 +261,12 @@ docker buildx build \
 ### Build Context Analysis
 
 **Before optimization:**
+
 - Build context: ~500MB+ (includes frontend, docs, tests)
 - Upload time: 30-60 seconds
 
 **After optimization:**
+
 - Build context: ~150-200MB (backend only)
 - Upload time: 10-20 seconds
 
@@ -251,10 +275,12 @@ docker buildx build \
 ### Cache Efficiency
 
 **Before:**
+
 - Code change → Full rebuild (15-20 min)
 - Dep change → Full rebuild (15-20 min)
 
 **After:**
+
 - Code change → 2-3 min (deps cached)
 - Dep change → 5-8 min (pip cache reused)
 - System change → 8-12 min (apt cache reused)
@@ -338,24 +364,28 @@ The optimized Dockerfile is **fully backward compatible**:
 ### Development Workflow
 
 **Before:**
-```
+
+```text
 Code change → Wait 15-20 min → Test
 ```
 
 **After:**
-```
+
+```text
 Code change → Wait 2-3 min → Test
 ```
 
 **Improvement:** 85-90% faster iteration
 
-### CI/CD Pipeline
+### CI/CD Pipeline Performance
 
 **Before:**
+
 - Build time: 15-20 minutes
 - Cache hit rate: ~0% (fresh builds)
 
 **After:**
+
 - Build time: 5-8 minutes (first), 2-3 minutes (cached)
 - Cache hit rate: ~80-90% (dependency cache)
 

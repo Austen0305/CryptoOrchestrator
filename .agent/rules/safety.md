@@ -18,9 +18,10 @@ These rules apply to the entire workspace and prioritize safety, correctness, an
 - **Side Effects**: Isolate all API calls and database writes within dedicated service modules (server_fastapi/services/ or client/src/services/).
 
 ## Tech Stack Compliance (2026)
-- **Frontend**: Use React 19+ with functional components and Server Actions where appropriate. and TanStack Query v5. Avoid direct state mutations.
-- **Backend**: Use FastAPI with async/await. All endpoints must handle request timeouts and return standard error formats.
-- **Infrastructure**: Use Alembic for any database schema changes. Ensure migrations are tested for both upgrade and downgrade paths.
+- **Frontend**: Use React 19+ with functional components, Server Actions, and TanStack Query v5. Ensure all components follow the UI Modernization standards for premium aesthetics.
+- **Backend**: Use FastAPI with async/await. All endpoints must handle request timeouts, return standard error formats, and implement strict idempotency via `idempotency_key`.
+- **Infrastructure**: Use Alembic for database migrations. Use Node 24.x for frontend/tooling.
+- **Security**: Mandatory EIP-55 checksumming for all Ethereum addresses. Use Zod/Pydantic for all input validation.
 
 ## Antigravity Workflow
 - **Proactiveness**: Explore dependencies and side effects before implementing changes.

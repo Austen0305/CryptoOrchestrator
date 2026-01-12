@@ -14,6 +14,7 @@ from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
 from ..services.trading.dex_trading_service import DEXTradingService
+from ..services.real_money_transaction_manager import real_money_transaction_manager
 from ..utils.route_helpers import _get_user_id
 from ..utils.validation_2026 import (
     ValidationError,
@@ -81,6 +82,9 @@ class DEXSwapRequest(BaseModel):
     cross_chain: bool = Field(False, description="Whether this is a cross-chain swap")
     to_chain_id: int | None = Field(
         None, description="Destination chain ID (for cross-chain)"
+    )
+    idempotency_key: str = Field(
+        ..., description="Unique key to prevent duplicate swaps"
     )
 
     model_config = {
@@ -292,15 +296,29 @@ async def execute_dex_swap(
                 logger.warning(f"IP whitelist check failed (may not be enabled): {e}")
 
         if request.custodial:
-            # Execute custodial swap
-            result = await service.execute_custodial_swap(
-                user_id=str(user_id),
-                sell_token=request.sell_token,
-                buy_token=request.buy_token,
-                sell_amount=request.sell_amount,
-                chain_id=request.chain_id,
-                slippage_percentage=request.slippage_percentage,
-                db=db,
+            # Execute custodial swap with idempotency enforcement
+            async def operation(db_session):
+                return await service.execute_custodial_swap(
+                    user_id=str(user_id),
+                    sell_token=request.sell_token,
+                    buy_token=request.buy_token,
+                    sell_amount=request.sell_amount,
+                    chain_id=request.chain_id,
+                    slippage_percentage=request.slippage_percentage,
+                    db=db_session,
+                )
+
+            result = await real_money_transaction_manager.execute_idempotent_operation(
+                idempotency_key=request.idempotency_key,
+                user_id=int(user_id),
+                operation_name="dex_swap_custodial",
+                operation=operation,
+                operation_details={
+                    "sell_token": request.sell_token,
+                    "buy_token": request.buy_token,
+                    "sell_amount": request.sell_amount,
+                    "chain_id": request.chain_id,
+                },
             )
 
             if not result:

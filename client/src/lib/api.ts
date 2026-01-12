@@ -278,6 +278,7 @@ export interface DEXSwapRequest {
   signature?: string;
   cross_chain?: boolean;
   to_chain_id?: number;
+  idempotency_key: string;
 }
 
 export interface SupportedChain {

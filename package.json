@@ -7,6 +7,13 @@
     "client"
   ],
   "license": "MIT",
+  "pnpm": {
+    "overrides": {
+      "viem": "2.17.0",
+      "wagmi": "2.10.9",
+      "ox": "0.10.0"
+    }
+  },
   "engines": {
     "node": "24.x",
     "npm": ">=9.0.0"

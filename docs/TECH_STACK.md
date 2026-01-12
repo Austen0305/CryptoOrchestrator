@@ -4,11 +4,10 @@ Detailed breakdown of the technology stack used in the CryptoOrchestrator platfo
 
 ## Backend Stack
 - **Python 3.12** - Core language (upgraded for performance)
-- **FastAPI** - High-performance async web framework
-- **SQLAlchemy** - ORM for database operations with eager loading
-- **Alembic** - Database migrations with performance indexes and automated testing
-- **PostgreSQL/SQLite** - Database options with optimized connection pooling
-- **Redis** - Caching, rate limiting, and session storage
+- **FastAPI** - High-performance backend (Python 3.12+)
+- **SQLAlchemy 2.0+** - Async engine with structured migrations
+- **PostgreSQL** - Production database with pgvector support
+- **Redis** - High-speed caching, rate limiting, session storage, and Celery broker
 - **Multi-Level Caching** - Memory + Redis caching with tag-based invalidation
 - **Query Optimization** - Eager loading, pagination, N+1 prevention utilities
 - **Response Optimization** - Pagination, field selection, null filtering, streaming
@@ -16,16 +15,18 @@ Detailed breakdown of the technology stack used in the CryptoOrchestrator platfo
 - **Web3.py** - Blockchain interaction library
 - **DEX Aggregators** - 0x, OKX, Rubic for best prices with fallback logic
 - **OpenTelemetry** - Distributed tracing and monitoring
+- **Idempotency** - Mandatory `idempotency_key` for all state-changing operations
 
 ## Frontend Stack
-- **React 18+** - UI framework with memoization optimizations
-- **TypeScript** - Type-safe JavaScript (strict mode)
-- **Vite** - Fast build tool (37s builds) with advanced code splitting
-- **TailwindCSS** - Utility-first CSS with custom components and animations
-- **shadcn/ui** - Beautiful UI components (Radix UI primitives)
-- **React Query** - Data fetching and caching with request deduplication
-- **WebSocket** - Real-time price and balance updates
-- **PWA** - Progressive Web App support
+- **React 19+** - UI framework with Server Actions and memoization optimizations
+- **TypeScript 5.x** - Type-safe JavaScript (strict mode)
+- **Node 24.x** - Stable runtime for development and builds
+- **Vite** - Fast build tool with advanced code splitting
+- **TailwindCSS 4+** - Utility-first CSS with native cascade layers
+- **shadcn/ui** - Premium UI components (Radix UI primitives)
+- **TanStack Query v5** - Advanced data fetching, caching, and state management
+- **WebSocket** - Real-time price and balance updates via Socket.io
+- **PWA** - Progressive Web App support for mobile-like desktop experience
 
 ## Desktop Stack
 - **Electron** - Cross-platform desktop app

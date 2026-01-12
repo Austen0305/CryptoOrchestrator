@@ -7,11 +7,12 @@ CryptoOrchestrator is a prototype SaaS platform for automated cryptocurrency tra
 
 ---
 
-## 🏗️ Current Status & Limitations
+## 🏗️ Current Status (2026)
 
-This project is currently in an **experimental phase** with only **partial implementations** of many features.
+This project has been updated to reflect modern 2026 standards, including React 19, Node 24, and Python 3.12+.
 
 ### 🚫 What is NOT Implemented/Verified
+
 - **Production Security**: No formal security audits have been performed. PCI-DSS claims are invalid for this prototype.
 - **Financial Guarantees**: "Zero vulnerabilities" claims are strictly avoided; assume risks exist.
 - **Full Custody Support**: Wallet management logic is experimental and lack legal/regulatory backing for custodial operations.
@@ -23,21 +24,26 @@ This project is currently in an **experimental phase** with only **partial imple
 ## 🚀 Orientation
 
 ### Quick Start (Development)
+
 1. **Clone & Install**:
+
    ```bash
    git clone <repository-url>
    npm run setup
    ```
+
 2. **Environment**: Copy `.env.example` to `.env` and fill in required keys.
 3. **Run**:
+
    ```bash
    npm run start:all
    ```
 
 ### Documentation Map
+
 - **[Quick Start Guide](docs/QUICK_START.md)** - Get up and running.
 - **[Features Overview](docs/FEATURES.md)** - What kind of automation is possible.
-- **[Tech Stack](docs/TECH_STACK.md)** - Details on the Python/React/Web3 infrastructure.
+- **[Tech Stack](docs/TECH_STACK.md)** - Details on the Python 3.12 / React 19 infrastructure.
 - **[Architecture Deep Dive](docs/architecture.md)** - How the components interact.
 - **[Security Policy](SECURITY.md)** - Reporting vulnerabilities and safety protocols.
 
@@ -50,4 +56,5 @@ This project is currently in an **experimental phase** with only **partial imple
 ---
 
 **Built with ❤️ by the CryptoOrchestrator Community**
+
 *Copyright © 2026*

@@ -25,7 +25,7 @@ export function useBotStatus() {
           // Convert HTTPS to WSS, HTTP to WS
           return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
         }
-        return 'wss://gets-wise-sheets-rick.trycloudflare.com';
+        return 'ws://localhost:8000';
       })();
 
     const ws = new WebSocket(`${wsBase}/ws/bot-status`);

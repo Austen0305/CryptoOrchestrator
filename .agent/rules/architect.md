@@ -21,8 +21,8 @@ Before any code modification:
 
 ## Phase 2: Structural Planning
 - **Implementation Plan**: Create a detailed implementation_plan.md in the current session's artifact directory.
-- **Review Guards**: Identify all financial safety guards and validation layers required.
-- **Decomposition**: Break the task into granular, verifiable steps in 	ask.md.
+- **Review Guards**: Identify all financial safety guards (e.g., `RiskManager`, `validation_2026.py`) and validation layers_required.
+- **Decomposition**: Break the task into granular, verifiable steps in `task.md`.
 
 ## Phase 3: Explicit Execution
 - **Safety First**: Prioritize safety, correctness, and determinism over speed.

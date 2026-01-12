@@ -141,6 +141,8 @@ function DEXTradingPanelContent() {
     }
 
     try {
+      const idempotencyKey = `swap_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
       await swapMutation.mutateAsync({
         sell_token: sellToken,
         buy_token: buyToken,
@@ -149,6 +151,7 @@ function DEXTradingPanelContent() {
         slippage_percentage: parseFloat(slippage),
         custodial: tradingMode === "custodial",
         user_wallet_address: tradingMode === "non-custodial" ? address : undefined,
+        idempotency_key: idempotencyKey,
       });
     } catch (error) {
       // Error handled by hook

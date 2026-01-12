@@ -11,6 +11,7 @@ from .portfolio import Portfolio
 from .risk_alert import RiskAlert
 from .risk_limit import RiskLimit
 from .trade import Trade
+from .user_safety_stats import UserSafetyStats
 from .wallet import (
     TransactionStatus,
     TransactionType,
@@ -321,6 +322,7 @@ __all__ = [
     "TransactionType",
     "TransactionStatus",
     "IdempotencyKey",
+    "UserSafetyStats",
     "Strategy",
     "StrategyVersion",
     # New competitive bot models

@@ -15,6 +15,7 @@ from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
 from ..services.wallet_broadcast import broadcast_wallet_update
 from ..services.wallet_service import WalletService
+from ..services.real_money_transaction_manager import real_money_transaction_manager
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,9 @@ class DepositRequest(BaseModel):
     payment_method_id: str | None = None
     payment_method_type: str = "card"  # 'card', 'ach', 'bank_transfer'
     description: str | None = None
+    idempotency_key: str | None = (
+        None  # Mandatory in PRODUCTION, optional for simulator compatibility
+    )
 
 
 class WithdrawRequest(BaseModel):
@@ -35,6 +39,7 @@ class WithdrawRequest(BaseModel):
     currency: str = "USD"
     destination: str | None = None
     description: str | None = None
+    idempotency_key: str | None = None
 
 
 @router.get("/balance")
@@ -76,15 +81,32 @@ async def deposit_funds(
         net_amount = request.amount - deposit_fee
 
         user_id = _get_user_id(current_user)
-        service = WalletService(db)
 
-        result = await service.deposit(
-            user_id=user_id,
-            amount=request.amount,
-            currency=request.currency,
-            payment_method_id=request.payment_method_id,
-            payment_method_type=request.payment_method_type,
-            description=request.description,
+        # Idempotency Key Handling
+        ikey = (
+            request.idempotency_key or f"dep_{user_id}_{datetime.utcnow().timestamp()}"
+        )
+
+        async def operation(db_session):
+            service = WalletService(db_session)
+            return await service.deposit(
+                user_id=user_id,
+                amount=request.amount,
+                currency=request.currency,
+                payment_method_id=request.payment_method_id,
+                payment_method_type=request.payment_method_type,
+                description=request.description,
+            )
+
+        result = await real_money_transaction_manager.execute_idempotent_operation(
+            idempotency_key=ikey,
+            user_id=int(user_id),
+            operation_name="wallet_deposit",
+            operation=operation,
+            operation_details={
+                "amount": request.amount,
+                "currency": request.currency,
+            },
         )
 
         # Add fee information to response
@@ -95,9 +117,14 @@ async def deposit_funds(
             f"Deposit of ${request.amount:.2f} processed. Fee: ${deposit_fee:.2f} (5%). Amount credited: ${net_amount:.2f}"
         )
 
-        # Broadcast wallet update
+        # Broadcast wallet update - Note: WalletService needs its own session for broadcast usually
+        # but here we use the one from dependency if needed or create a new one.
+        # For simplicity, we keep original broadcast logic.
         try:
-            balance = await service.get_wallet_balance(user_id, request.currency)
+            service_for_broadcast = WalletService(db)
+            balance = await service_for_broadcast.get_wallet_balance(
+                user_id, request.currency
+            )
             await broadcast_wallet_update(user_id, balance)
         except Exception as e:
             logger.warning(f"Failed to broadcast wallet update: {e}")
@@ -122,19 +149,39 @@ async def withdraw_funds(
             raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
         user_id = _get_user_id(current_user)
-        service = WalletService(db)
 
-        result = await service.withdraw(
-            user_id=user_id,
-            amount=request.amount,
-            currency=request.currency,
-            destination=request.destination,
-            description=request.description,
+        # Idempotency Key Handling
+        ikey = (
+            request.idempotency_key or f"wit_{user_id}_{datetime.utcnow().timestamp()}"
+        )
+
+        async def operation(db_session):
+            service = WalletService(db_session)
+            return await service.withdraw(
+                user_id=user_id,
+                amount=request.amount,
+                currency=request.currency,
+                destination=request.destination,
+                description=request.description,
+            )
+
+        result = await real_money_transaction_manager.execute_idempotent_operation(
+            idempotency_key=ikey,
+            user_id=int(user_id),
+            operation_name="wallet_withdrawal",
+            operation=operation,
+            operation_details={
+                "amount": request.amount,
+                "currency": request.currency,
+            },
         )
 
         # Broadcast wallet update
         try:
-            balance = await service.get_wallet_balance(user_id, request.currency)
+            service_for_broadcast = WalletService(db)
+            balance = await service_for_broadcast.get_wallet_balance(
+                user_id, request.currency
+            )
             await broadcast_wallet_update(user_id, balance)
         except Exception as e:
             logger.warning(f"Failed to broadcast wallet update: {e}")

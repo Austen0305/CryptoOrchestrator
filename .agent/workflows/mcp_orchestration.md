@@ -20,6 +20,10 @@ Use these tools to establish a baseline and gather requirements.
   - // turbo
   - `mcp_filesystem_list_directory` to map workspace structure.
   - `mcp_git_status` and `mcp_git_branch_list` to understand the current environment state.
+- **`github`**:
+  - // turbo
+  - Audit repository history and PRs to understand the context of legacy code.
+  - Use to track compliance-related changes and security reviews.
 
 ## 2. Structural Planning (Phase 2)
 Use these tools to design the solution and maintain context.
@@ -59,6 +63,10 @@ Use these tools to validate the solution and troubleshoot issues.
 - **`filesystem`**:
   - // turbo
   - Read log files (`server_fastapi/logs/`) to diagnose runtime errors.
+- **`sentry`**:
+  - // turbo
+  - Investigate production error traces and correlate with code changes.
+  - Analyze performance regression reports.
 
 ## 5. Security & Compliance
 Apply these throughout all phases.

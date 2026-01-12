@@ -11,7 +11,14 @@ from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import StaticPool
 
 # Database URL from environment variable
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/app.db")
+env_db_url = os.getenv("DATABASE_URL", "")
+if not env_db_url or "user:pass@host:5432" in env_db_url:
+    DATABASE_URL = "sqlite+aiosqlite:///./data/app.db"
+else:
+    DATABASE_URL = env_db_url
+
+print(f"DEBUG: Resolved DATABASE_URL: {DATABASE_URL}")
+
 
 # Test environment in-memory DB sharing fix:
 # Pytest suite imports this module twice under different names (direct file spec import

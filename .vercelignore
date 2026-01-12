@@ -1,37 +1,21 @@
-# Vercel ignore file - exclude backend and Python files
-server_fastapi/
-server/
-alembic/
-tests/
-scripts/
-docs/
-*.py
-*.pyc
-__pycache__/
-.pytest_cache/
-.env
-.env.*
-!.env.example
-node_modules/
-*.log
+# Vercel Ignore File
 
-# Python configuration files that trigger pip install warnings
-requirements*.txt
-pyproject.toml
-setup.cfg
-pytest.ini
-runtime.txt
-*.toml
-!package.json
-!tsconfig.json
-!tailwind.config.ts
-!vite.config.ts
-!vercel.json
-!netlify.toml
+# Helper folders
+.venv
+.git
+.github
+.vscode
+.gemini
 
-# Backend deployment configs
-docker-compose*.yml
-Dockerfile*
-fly.toml
-railway.toml
-nixpacks.toml
+# Backend
+server_fastapi
+data
+logs
+
+# Frontend build artifacts (let Vercel build it)
+client/node_modules
+client/dist
+client/.turbo
+
+# Root node_modules if any
+node_modules

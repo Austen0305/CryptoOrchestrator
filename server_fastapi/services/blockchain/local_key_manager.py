@@ -66,12 +66,8 @@ class LocalEncryptedKeyManager:
             logger.error(f"Failed to save key storage: {e}")
             raise
 
-    def get_key(self, wallet_address: str) -> Optional[str]:
-        """Retrieve and decrypt private key for address"""
-        # Note: Making this sync for now to avoid asyncio complexity in simple file I/O,
-        # but kept signature ready for async if needed.
-        # Since logic is simple, sync read is acceptable for low throughput.
-
+    def get_encrypted_blob(self, wallet_address: str) -> Optional[str]:
+        """Retrieve encrypted blob for address (storage only)"""
         if not self.storage_path.exists():
             return None
 
@@ -79,37 +75,48 @@ class LocalEncryptedKeyManager:
             with open(self.storage_path, "r") as f:
                 data = json.load(f)
 
-            encrypted_key = data.get(wallet_address.lower())
-            if not encrypted_key:
-                return None
-
-            return self.fernet.decrypt(encrypted_key.encode()).decode()
+            return data.get(wallet_address.lower())
         except Exception as e:
-            logger.error(f"Failed to retrieve/decrypt key for {wallet_address}: {e}")
+            logger.error(f"Failed to retrieve blob for {wallet_address}: {e}")
             return None
 
-    def store_key(self, wallet_address: str, private_key: str) -> bool:
-        """Encrypt and store private key"""
+    def get_key(self, wallet_address: str) -> Optional[str]:
+        """Retrieve and decrypt private key using internal master key (Phase 3 compatibility)"""
+        encrypted_blob = self.get_encrypted_blob(wallet_address)
+        if not encrypted_blob:
+            return None
         try:
-            # Validate key format (basic)
-            if not private_key.startswith("0x"):
-                private_key = "0x" + private_key
+            return self.fernet.decrypt(encrypted_blob.encode()).decode()
+        except Exception as e:
+            logger.error(f"Internal decryption failed for {wallet_address}: {e}")
+            return None
 
-            encrypted_key = self.fernet.encrypt(private_key.encode()).decode()
-
+    def store_encrypted_blob(self, wallet_address: str, encrypted_blob: str) -> bool:
+        """Store encrypted blob (storage only)"""
+        try:
             if self.storage_path.exists():
                 with open(self.storage_path, "r") as f:
                     data = json.load(f)
             else:
                 data = {}
 
-            data[wallet_address.lower()] = encrypted_key
+            data[wallet_address.lower()] = encrypted_blob
 
             with open(self.storage_path, "w") as f:
                 json.dump(data, f, indent=2)
 
-            logger.info(f"Securely stored key for {wallet_address}")
             return True
         except Exception as e:
-            logger.error(f"Failed to store key: {e}")
+            logger.error(f"Failed to store blob: {e}")
+            return False
+
+    def store_key(self, wallet_address: str, private_key: str) -> bool:
+        """Encrypt and store private key using internal master key (Phase 3 compatibility)"""
+        try:
+            if not private_key.startswith("0x"):
+                private_key = "0x" + private_key
+            encrypted_blob = self.fernet.encrypt(private_key.encode()).decode()
+            return self.store_encrypted_blob(wallet_address, encrypted_blob)
+        except Exception as e:
+            logger.error(f"Internal storage failed: {e}")
             return False

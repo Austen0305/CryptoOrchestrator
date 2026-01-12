@@ -197,3 +197,4 @@ test_results*
 wallet_test_output*
 todos_report*
 .npmrc.bak*
+.env*.local

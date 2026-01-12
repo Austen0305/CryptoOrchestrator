@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from .strategy import Strategy
     from .subscription import Subscription
     from .trailing_bot import TrailingBot
+    from .user_safety_stats import UserSafetyStats
 
 
 class User(BaseModel):
@@ -153,6 +154,12 @@ class User(BaseModel):
     )
     analytics_thresholds: Mapped[list["AnalyticsThreshold"]] = relationship(
         "AnalyticsThreshold", back_populates="user", cascade="all, delete-orphan"
+    )
+    safety_stats: Mapped[Optional["UserSafetyStats"]] = relationship(
+        "UserSafetyStats",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
     institutional_wallets: Mapped[list["InstitutionalWallet"]] = relationship(
         "InstitutionalWallet",

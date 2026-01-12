@@ -29,5 +29,31 @@ export default defineConfig(({ mode }) => ({
         }
       }
     }
+  },
+  server: {
+    port: 5173,
+    host: '0.0.0.0', // Bind to all interfaces for stability
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/docs': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/openapi.json': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/health': {
+         target: 'http://127.0.0.1:8000',
+         changeOrigin: true,
+         secure: false,
+      }
+    }
   }
 }));

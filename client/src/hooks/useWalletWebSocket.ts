@@ -31,11 +31,11 @@ export function useWalletWebSocket(currency: string = "USD") {
     const connect = () => {
       try {
         // Derive WebSocket URL from API URL or use explicit WS URL
-        const apiUrl = import.meta.env.VITE_API_URL || "https://gets-wise-sheets-rick.trycloudflare.com";
+        const apiUrl = import.meta.env.VITE_API_URL || "";
         const wsUrl = import.meta.env.VITE_WS_URL || 
           (apiUrl.startsWith('http') 
             ? apiUrl.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws')
-            : "wss://gets-wise-sheets-rick.trycloudflare.com");
+            : "ws://localhost:8000");
         const ws = new WebSocket(`${wsUrl}/ws/wallet?token=${token}`);
         
         ws.onopen = () => {
