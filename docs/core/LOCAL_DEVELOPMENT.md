@@ -64,6 +64,7 @@ This creates the SQLite database file: `crypto_orchestrator.db`
 start-all.bat
 ```
 
+
 **Option B: Start separately**
 ```bash
 # Terminal 1: Backend
@@ -72,6 +73,7 @@ npm run dev:fastapi
 # Terminal 2: Frontend
 npm run dev
 ```
+
 
 ### 6. Verify Setup
 
@@ -114,7 +116,9 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:800
 
 See [TESTNET_API_KEYS.md](./TESTNET_API_KEYS.md) for details on configuring exchange API keys.
 
+
 **For US Users (Recommended):**
+
 ```env
 # Binance.US (No testnet - use paper trading mode for testing)
 BINANCEUS_API_KEY=<your-api-key>
@@ -148,6 +152,7 @@ No additional setup needed! The `.env` file is already configured for SQLite.
 **Database file location:** `./crypto_orchestrator.db`
 
 **Run migrations:**
+
 ```bash
 alembic upgrade head
 ```
@@ -165,6 +170,7 @@ DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@localhost:5432/cryptoo
 ```
 
 **Option B: Local PostgreSQL**
+
 1. Install PostgreSQL
 2. Create database: `CREATE DATABASE cryptoorchestrator;`
 3. Update `.env` with connection string
@@ -178,6 +184,7 @@ The application works without Redis, but it's recommended for:
 - Session storage
 
 ### Option A: Docker Compose
+
 ```bash
 docker-compose up redis -d
 ```
@@ -260,7 +267,18 @@ npm run test:frontend
 npm run test:e2e
 ```
 
-### 3. Check Code Quality
+### 3. Verify System Health (New standard)
+
+```bash
+# Run the end-to-end verification script
+python scripts/verify_full_system.py
+```
+
+- Validates: Health, Auth, Market Data, Wallet, Trading.
+- Success output: `All E2E checks passed!`
+
+### 4. Check Code Quality
+
 ```bash
 # Python linting
 npm run lint:py
@@ -364,23 +382,21 @@ import { EnhancedPriceChart } from "@/components/EnhancedPriceChart";
 />
 ```
 
-### CoinGecko Integration
+### Market Data Integration
 
-Real-time price data with CoinGecko fallback:
+Real-time price data with CoinCap/CoinLore fallbacks:
 
-**Service:** `server_fastapi/services/coingecko_service.py`
+**Service:** `server_fastapi/services/market_data_service.py`
 
 **Features:**
-- Free tier: 10-50 calls/minute (no API key required)
-- Automatic fallback when exchange APIs fail
+- Multi-provider support (CoinCap, CoinLore)
+- Automatic fallback when primary provider fails
 - Caching to reduce API calls
 - Rate limiting built-in
+- No API keys required for standard usage
 
 **Configuration:**
-```env
-# Optional - free tier doesn't require API key
-COINGECKO_API_KEY=<optional-api-key>
-```
+No specific environment variables required for standard usage.
 
 ### Advanced Trading Orders
 
@@ -436,7 +452,7 @@ Crypto-Orchestrator/
 │   ├── routes/            # API endpoints
 │   │   └── advanced_orders.py  # Advanced orders routes
 │   ├── services/          # Business logic
-│   │   ├── coingecko_service.py  # CoinGecko integration
+│   │   ├── market_data_service.py # Market Data integration
 │   │   └── trading/
 │   │       └── advanced_orders.py  # Advanced orders service
 │   ├── models/            # Database models

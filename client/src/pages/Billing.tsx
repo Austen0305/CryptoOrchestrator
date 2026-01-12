@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { usePayments } from "@/hooks/usePayments";
+import { usePayments, type Plan, type Subscription } from "@/hooks/usePayments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,30 +11,6 @@ import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import logger from "@/lib/logger";
-
-interface Plan {
-  plan: string;
-  name: string;
-  price_monthly: number;
-  price_yearly: number;
-  stripe_price_id_monthly?: string;
-  stripe_price_id_yearly?: string;
-  features: string[];
-  limits: {
-    max_bots: number;
-    max_strategies: number;
-    max_backtests_per_month: number;
-  };
-}
-
-interface Subscription {
-  plan: string;
-  status: string;
-  current_period_start?: string;
-  current_period_end?: string;
-  cancel_at_period_end: boolean;
-  limits: Record<string, number>;
-}
 
 export default function Billing() {
   const { user } = useAuth();
@@ -53,7 +29,8 @@ export default function Billing() {
   const { data: plansData, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useQuery<Plan[]>({
     queryKey: ['billing-plans'],
     queryFn: async () => {
-      return await getPlans() || [];
+      const result = await getPlans();
+      return result || [];
     },
     enabled: !!user,
     retry: 2,
@@ -279,7 +256,7 @@ export default function Billing() {
         <div>
           <h2 className="text-2xl font-bold mb-4">Available Plans</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {plans.map((plan) => {
+            {plans.map((plan: Plan) => {
               const isCurrentPlan = subscription?.plan === plan.plan;
               const isHigherPlan =
                 plan.plan === "enterprise" ||
@@ -295,16 +272,16 @@ export default function Billing() {
                     <CardTitle>{plan.name}</CardTitle>
                     <div className="mt-2">
                       <span className="text-3xl font-bold">
-                        ${plan.price_monthly}
+                        ${plan.price_monthly ?? plan.amount / 100}
                       </span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
-                    {plan.price_yearly > 0 && (
+                    {((plan.price_yearly || 0) > 0) && (
                       <p className="text-sm text-muted-foreground mt-1">
                         ${plan.price_yearly}/year (save{" "}
                         {Math.round(
-                          ((plan.price_monthly * 12 - plan.price_yearly) /
-                            (plan.price_monthly * 12)) *
+                          (((plan.price_monthly || plan.amount / 100) * 12 - (plan.price_yearly || 0)) /
+                            ((plan.price_monthly || plan.amount / 100) * 12)) *
                             100
                         )}
                         %)
@@ -313,7 +290,7 @@ export default function Billing() {
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
-                      {plan.features.map((feature, idx) => (
+                      {plan.features.map((feature: string, idx: number) => (
                         <li key={idx} className="flex items-start gap-2 text-sm">
                           <Check className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                           <span>{feature}</span>

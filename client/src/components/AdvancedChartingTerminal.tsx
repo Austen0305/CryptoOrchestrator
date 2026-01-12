@@ -141,18 +141,18 @@ export function AdvancedChartingTerminal() {
 
       // Create candlestick series
       // Verify chart was created successfully
-      if (!chart || typeof chart.addCandlestickSeries !== 'function') {
+      if (!chart || typeof (chart as any).addCandlestickSeries !== 'function') {
         console.error('Chart initialization failed: addCandlestickSeries not available');
         throw new Error('Chart library not properly loaded');
       }
 
       // @ts-ignore - lightweight-charts types may be outdated
-      const candlestickSeries = chart.addCandlestickSeries({
-        upColor: "#22c55e",
-        downColor: "#ef4444",
+      const candlestickSeries = (chart as any).addCandlestickSeries({
+        upColor: '#26a69a',
+        downColor: '#ef5350',
         borderVisible: false,
-        wickUpColor: "#22c55e",
-        wickDownColor: "#ef4444",
+        wickUpColor: '#26a69a',
+        wickDownColor: '#ef5350',
       });
       candlestickSeriesRefs.current[i] = candlestickSeries;
 

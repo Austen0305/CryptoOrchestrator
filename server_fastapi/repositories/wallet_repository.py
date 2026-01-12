@@ -209,3 +209,10 @@ class WalletRepository:
             logger.error(f"Error deactivating wallet: {e}", exc_info=True)
             await self.db.rollback()
             return False
+
+    async def get_wallets_by_user(self, user_id: str | int) -> list[UserWallet]:
+        """Alias for get_user_wallets to support existing code"""
+        uid = (
+            int(user_id) if isinstance(user_id, str) and user_id.isdigit() else user_id
+        )
+        return await self.get_user_wallets(user_id=uid)

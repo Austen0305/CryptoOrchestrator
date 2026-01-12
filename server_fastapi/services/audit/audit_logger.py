@@ -11,6 +11,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.future import select
+
+from ...database import get_db_context
+from ...models.audit_logs import AuditLog
+
 logger = logging.getLogger(__name__)
 
 # Audit log directory
@@ -154,6 +159,32 @@ class AuditLogger:
             "tampering_detected": not is_valid,
         }
 
+    async def _log_to_db(self, audit_event: dict[str, Any], integrity_hash: str, previous_hash: str) -> None:
+        """Async helper to write audit log to database"""
+        try:
+            async with get_db_context() as db:
+                log_entry = AuditLog(
+                    event_type=audit_event["event_type"],
+                    event_category=audit_event.get("event_category", "system_event"),
+                    event_name=audit_event["action"],
+                    user_id=audit_event.get("user_id"),
+                    event_data=audit_event,  # Store full JSON
+                    resource_type=audit_event.get("resource_type"),
+                    resource_id=str(audit_event.get("resource_id")),
+                    integrity_hash=integrity_hash,
+                    previous_hash=previous_hash,
+                    # Optional fields that might be in kwargs
+                    session_id=audit_event.get("details", {}).get("session_id"),
+                    ip_address=audit_event.get("details", {}).get("ip_address"),
+                    user_agent=audit_event.get("details", {}).get("user_agent"),
+                )
+                db.add(log_entry)
+                await db.commit()
+        except Exception as e:
+            # Fallback to file logging if DB fails is handled by parent,
+            # but we log the error here to ensure visibility
+            logger.error(f"Failed to write audit log to DB: {e}", exc_info=True)
+
     def log_trade(
         self,
         user_id: int,
@@ -218,7 +249,26 @@ class AuditLogger:
         # Calculate and store hash for tamper prevention
         entry_hash = self._calculate_hash(log_entry, self.previous_hash)
         self._append_to_hash_chain(entry_hash)
+        
+        # Capture previous hash before updating it for this entry
+        prev_hash_for_db = self.previous_hash
         self.previous_hash = entry_hash
+
+        # Async write to DB (fire and forget wrapper or event loop scheduling)
+        # Since this method is synchronous (legacy limitation), we need to handle async call.
+        # Ideally this class should be converted to fully async, but for minimal refactor impact
+        # we can use a utility or just rely on the file log if not in an event loop.
+        # However, RealMoneyTransactionManager is async, so better to make this methods async compatible
+        # OR schedule it on the loop.
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                audit_event["event_category"] = "trading" # Set category
+                loop.create_task(self._log_to_db(audit_event, entry_hash, prev_hash_for_db))
+        except RuntimeError:
+            # No running loop, skip DB log (e.g. during sync scripts)
+            pass
 
         # Also log to main logger for real-money trades
         if mode == "real":
@@ -259,7 +309,19 @@ class AuditLogger:
         self.audit_logger.info(log_entry)
         entry_hash = self._calculate_hash(log_entry, self.previous_hash)
         self._append_to_hash_chain(entry_hash)
+        
+        prev_hash_for_db = self.previous_hash
         self.previous_hash = entry_hash
+        
+        # Async write to DB
+        import asyncio
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                audit_event["event_category"] = "security" if "security" in audit_event["event_type"] else "user_action"
+                loop.create_task(self._log_to_db(audit_event, entry_hash, prev_hash_for_db))
+        except RuntimeError:
+            pass
 
         # Warn for sensitive operations
         if operation in ("delete", "create"):

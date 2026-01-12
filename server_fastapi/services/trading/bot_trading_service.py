@@ -405,7 +405,7 @@ class BotTradingService:
                     else:
                         ohlcv_data = []
                 except Exception as cg_error:
-                    logger.warning(f"CoinGecko historical data failed: {cg_error}")
+                    logger.warning(f"Market data historical fetch failed: {cg_error}")
                     ohlcv_data = []
 
                 if ohlcv_data:
@@ -1425,12 +1425,12 @@ class BotTradingService:
                         positions[symbol]["entry_price"] = trade.price
 
                 # Get current prices for P&L calculation
-                from ..coingecko_service import CoinGeckoService
+                from ..market_data_service import get_market_data_service
 
-                coingecko = CoinGeckoService()
+                market_data = get_market_data_service()
 
                 for symbol, position in positions.items():
-                    current_price = await coingecko.get_price(symbol)
+                    current_price = await market_data.get_price(symbol)
                     if current_price and position["entry_price"]:
                         position["current_price"] = current_price
                         if position["side"] == "buy":

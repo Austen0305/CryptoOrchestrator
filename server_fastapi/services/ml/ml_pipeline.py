@@ -2,6 +2,8 @@
 ML Pipeline - Data loader, windowing, normalization, and trainer service
 """
 
+import hashlib
+import json
 import logging
 from typing import Any, Literal
 
@@ -266,6 +268,20 @@ class MLPipeline:
             raise ValueError(f"Unsupported split method: {method}")
 
         return X_train, y_train, X_val, y_val, X_test, y_test
+
+    def get_dataset_hash(self, X: np.ndarray, y: np.ndarray | None = None) -> str:
+        """
+        Generate a stable hash for a dataset.
+        Useful for auditing what data was used for training/inference.
+        """
+        data_to_hash = [X.tobytes()]
+        if y is not None:
+            data_to_hash.append(y.tobytes())
+            
+        m = hashlib.sha256()
+        for d in data_to_hash:
+            m.update(d)
+        return m.hexdigest()
 
     def process_data(
         self, market_data: list[MarketData], create_labels: bool = True

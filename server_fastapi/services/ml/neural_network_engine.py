@@ -16,6 +16,10 @@ except ImportError:
     TENSORFLOW_AVAILABLE = False
     logging.warning("TensorFlow not available, using mock implementations")
 
+from .determinism import set_global_seed
+from .ml_pipeline import MLPipeline
+from .model_persistence import ModelPersistence
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,8 +42,11 @@ class MarketData(BaseModel):
 
 
 class NeuralNetworkEngine:
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None, seed: int = 42):
+        set_global_seed(seed)
         self.config = NeuralNetworkConfig(**(config or {}))
+        self.pipeline = MLPipeline()
+        self.persistence = ModelPersistence()
         self.model: tf.keras.Model | None = None
         self.is_trained: bool = False
         self.recent_predictions: list[dict[str, str]] = []
@@ -169,23 +176,24 @@ class NeuralNetworkEngine:
 
         return features[: self.config.input_size]
 
-    async def train(self, market_data: list[MarketData]) -> None:
+    async def train(self, market_data: list[MarketData]) -> dict[str, Any]:
         """Train the neural network model"""
         if len(market_data) < self.config.input_size + 10:
             raise ValueError("Insufficient data for training")
 
+        inputs, labels = self.preprocess_data(market_data)
+        dataset_hash = self.pipeline.get_dataset_hash(inputs, labels)
+
         if not TENSORFLOW_AVAILABLE or not self.model:
             logger.warning("TensorFlow not available, skipping actual training")
-            await asyncio.sleep(1)  # Simulate training time
-            logger.info("Mock training completed")
-            return
+            await asyncio.sleep(0.1)
+            return {
+                "status": "mock_success",
+                "dataset_hash": dataset_hash,
+                "config": self.config.dict()
+            }
 
         try:
-            inputs, labels = self.preprocess_data(market_data)
-
-            if len(inputs) == 0:
-                raise ValueError("Insufficient processed data for training")
-
             history = self.model.fit(
                 inputs,
                 labels,
@@ -202,11 +210,18 @@ class NeuralNetworkEngine:
             )
 
             self.is_trained = True
-            logger.info(
-                f"Neural network training completed. "
-                f"Final accuracy: {history.history['accuracy'][-1]:.4f}, "
-                f"Final loss: {history.history['loss'][-1]:.4f}"
-            )
+            metrics = {
+                "accuracy": float(history.history["accuracy"][-1]),
+                "loss": float(history.history["loss"][-1]),
+            }
+
+            return {
+                "status": "success",
+                "dataset_hash": dataset_hash,
+                "metrics": metrics,
+                "history": history.history,
+                "config": self.config.dict()
+            }
 
         except Exception as error:
             logger.error(f"Error training neural network: {error}")

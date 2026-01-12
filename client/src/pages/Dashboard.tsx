@@ -1,6 +1,4 @@
-// Types enforced; temporary ts-nocheck removed.
 import { PortfolioCard } from "@/components/PortfolioCard";
-import { PriceChart } from "@/components/PriceChart";
 import { EnhancedPriceChart } from "@/components/EnhancedPriceChart";
 import { OrderEntryPanel } from "@/components/OrderEntryPanel";
 import { OrderBook } from "@/components/OrderBook";
@@ -40,6 +38,30 @@ import { marketApi, integrationsApi } from "@/lib/api";
 import { QuickStats, RecentActivity, PerformanceSummary } from "@/components/DashboardEnhancements";
 import { EnhancedErrorBoundary } from "@/components/EnhancedErrorBoundary";
 import logger from "@/lib/logger";
+import { motion, AnimatePresence } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
 
 function DashboardContent() {
   const { mode, isRealMoney, isPaperTrading } = useTradingMode();
@@ -104,45 +126,55 @@ function DashboardContent() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 w-full animate-fade-in">
-      <div>
+    <motion.div 
+      className="space-y-4 md:space-y-6 w-full"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={itemVariants}>
         <h1 className="text-3xl font-bold bg-gradient-premium bg-clip-text text-transparent" data-testid="dashboard">Dashboard</h1>
         <p className="text-muted-foreground mt-1">
           Overview of your blockchain trading activity and portfolio
         </p>
-      </div>
+      </motion.div>
       
       {/* Real-time indicator */}
       {isRealTime && (
-        <div className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 px-4 py-2.5 rounded-lg shadow-sm animate-pulse-glow">
+        <motion.div 
+          variants={itemVariants}
+          className="flex items-center gap-2 text-sm text-green-500 bg-green-500/10 border border-green-500/20 px-4 py-2.5 rounded-lg shadow-sm animate-pulse-glow"
+        >
           <div className="status-indicator h-2 w-2 bg-green-500 rounded-full"></div>
           <span className="font-medium">Live portfolio updates enabled</span>
-        </div>
+        </motion.div>
       )}
       
       {/* Enhanced Quick Stats */}
-      <QuickStats
-        totalValue={(portfolio as Portfolio | undefined)?.totalBalance || 0}
-        change24h={(portfolio as Portfolio | undefined)?.profitLoss24h || 0}
-        activeBots={status?.runningBots ?? runningBots ?? 0}
-        totalTrades={(trades && Array.isArray(trades) ? trades.length : 0)}
-      />
+      <motion.div variants={itemVariants}>
+        <QuickStats
+          totalValue={(portfolio as Portfolio | undefined)?.totalBalance || 0}
+          change24h={(portfolio as Portfolio | undefined)?.profitLoss24h || 0}
+          activeBots={status?.runningBots ?? runningBots ?? 0}
+          totalTrades={(trades && Array.isArray(trades) ? trades.length : 0)}
+        />
+      </motion.div>
 
       {/* Trading Mode Switcher */}
-      <div className="flex justify-center w-full">
+      <motion.div variants={itemVariants} className="flex justify-center w-full">
         <div className="w-full sm:w-auto">
           <TradingModeSwitcher />
         </div>
-      </div>
+      </motion.div>
 
       {/* Trading Safety Status and Exchange Status */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <TradingSafetyStatus />
         <ExchangeStatusIndicator />
-      </div>
+      </motion.div>
 
       {/* Recent Activity and Performance Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <RecentActivity 
           activities={(recentActivity && Array.isArray(recentActivity) 
             ? recentActivity.map(activity => ({
@@ -164,15 +196,15 @@ function DashboardContent() {
             worstTrade={((performanceSummary as { worstTrade?: number }).worstTrade ?? 0) as number}
           />
         ) : null}
-      </div>
+      </motion.div>
 
       {/* Main Trading Interface - Responsive layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
         {/* Chart Section - Takes more space on larger screens */}
-        <div className="lg:col-span-8 space-y-4 md:space-y-6 lg:space-y-8">
+        <motion.div variants={itemVariants} className="lg:col-span-8 space-y-4 md:space-y-6 lg:space-y-8">
           <div className="h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-xl md:rounded-2xl border-2 border-card-border/70 bg-card shadow-xl md:shadow-2xl overflow-hidden glass-premium hover-lift">
-            {/* Use PriceChart by default - EnhancedPriceChart has initialization issues */}
-            <PriceChart
+            {/* Switched to EnhancedPriceChart after type fixes */}
+            <EnhancedPriceChart
               pair="BTC/USD"
               currentPrice={47350}
               change24h={4.76}
@@ -184,10 +216,10 @@ function DashboardContent() {
           <div className="lg:hidden">
             <TradingRecommendations />
           </div>
-        </div>
+        </motion.div>
 
         {/* Trading Controls - Side panel on desktop, bottom panel on mobile */}
-        <div className="lg:col-span-4 space-y-4 md:space-y-6 pb-16 lg:pb-0">
+        <motion.div variants={itemVariants} className="lg:col-span-4 space-y-4 md:space-y-6 pb-16 lg:pb-0">
           <OrderEntryPanel />
           {/* Quick Predict integration panel */}
           <Card className="border-card-border">
@@ -219,58 +251,66 @@ function DashboardContent() {
               </div>
             )}
           </Card>
-        </div>
+        </motion.div>
       </div>
 
       {/* Trading Recommendations - Shown on desktop */}
-      <div className="hidden lg:block">
+      <motion.div variants={itemVariants} className="hidden lg:block">
         <TradingRecommendations />
-      </div>
+      </motion.div>
 
       {/* Risk Summary (lazy loaded) */}
-      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
-        <RiskSummary />
-      </Suspense>
+      <motion.div variants={itemVariants}>
+        <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
+          <RiskSummary />
+        </Suspense>
+      </motion.div>
 
       {/* Risk Scenario Simulator */}
-      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
-        <RiskScenarioPanel />
-      </Suspense>
+      <motion.div variants={itemVariants}>
+        <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
+          <RiskScenarioPanel />
+        </Suspense>
+      </motion.div>
 
       {/* Multi-Horizon VaR & ES */}
-      <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
-        <MultiHorizonRiskPanel />
-      </Suspense>
+      <motion.div variants={itemVariants}>
+        <Suspense fallback={<LoadingSkeleton variant="card" className="h-64" />}>
+          <MultiHorizonRiskPanel />
+        </Suspense>
+      </motion.div>
 
       {/* Trade History - Always full width */}
-      <Card className="border-card-border shadow-md">
-        <TradeHistory trades={(trades && Array.isArray(trades) ? trades.map((t: any) => ({
-          id: t.id || '',
-          pair: t.pair || '',
-          type: t.type || 'market',
-          side: t.side || 'buy',
-          amount: t.amount || 0,
-          price: t.price || 0,
-          total: t.total || (t.amount || 0) * (t.price || 0),
-          timestamp: t.timestamp || t.executed_at || new Date().toISOString(),
-          status: t.status || 'completed',
-          mode: t.mode || mode,
-          exchange: t.exchange,
-          pnl: t.pnl,
-        })) : [])} />
-      </Card>
+      <motion.div variants={itemVariants}>
+        <Card className="border-card-border shadow-md">
+          <TradeHistory trades={(trades && Array.isArray(trades) ? trades.map((t: any) => ({
+            id: t.id || '',
+            pair: t.pair || '',
+            type: t.type || 'market',
+            side: t.side || 'buy',
+            amount: t.amount || 0,
+            price: t.price || 0,
+            total: t.total || (t.amount || 0) * (t.price || 0),
+            timestamp: t.timestamp || t.executed_at || new Date().toISOString(),
+            status: t.status || 'completed',
+            mode: t.mode || mode,
+            exchange: t.exchange,
+            pnl: t.pnl,
+          })) : [])} />
+        </Card>
+      </motion.div>
 
       {/* New Features Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Trading Journal */}
         <TradingJournal />
         
         {/* Portfolio Pie Chart */}
         <PortfolioPieChart />
-      </div>
+      </motion.div>
 
       {/* AI Assistant and Profit Calendar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* AI Trading Assistant */}
         <div className="h-[500px] md:h-[600px]">
           <AITradingAssistant />
@@ -278,19 +318,19 @@ function DashboardContent() {
         
         {/* Profit Calendar */}
         <ProfitCalendar />
-      </div>
+      </motion.div>
 
       {/* Price Alerts and Sentiment Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <PriceAlerts />
         <SentimentAnalysis symbol="BTC" autoRefresh={true} />
-      </div>
+      </motion.div>
 
       {/* Arbitrage Dashboard */}
-      <div>
+      <motion.div variants={itemVariants}>
         <ArbitrageDashboard />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

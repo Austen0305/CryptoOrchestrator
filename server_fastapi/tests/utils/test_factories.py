@@ -9,24 +9,14 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-try:
-    from server_fastapi.models.bot import Bot
-    from server_fastapi.models.order import Order
-    from server_fastapi.models.portfolio import Portfolio
-    from server_fastapi.models.trade import Trade
-    from server_fastapi.models.user import User
-    from server_fastapi.models.wallet import UserWallet, Wallet
-    from server_fastapi.services.auth.auth_service import AuthService
-except ImportError:
-    # Models may not be available in all test environments
-    User = None
-    Bot = None
-    Wallet = None
-    UserWallet = None
-    Trade = None
-    Portfolio = None
-    Order = None
-    AuthService = None
+from server_fastapi.models.bot import Bot
+from server_fastapi.models.order import Order
+from server_fastapi.models.portfolio import Portfolio
+from server_fastapi.models.trade import Trade
+from server_fastapi.models.user import User
+from server_fastapi.models.user_wallet import UserWallet
+from server_fastapi.models.wallet import Wallet
+from server_fastapi.services.auth.auth_service import AuthService
 
 
 class UserFactory:
@@ -49,11 +39,19 @@ class UserFactory:
 
         auth_service = AuthService()
         user = await auth_service.register_user(
-            email=unique_email, password=password, name=user_name, **kwargs
+            email=unique_email,
+            password=password,
+            name=user_name,
+            session=db,
+            **kwargs,
         )
 
         return {
-            "id": user.get("id") if isinstance(user, dict) else str(user),
+            "id": (
+                user.get("user", {}).get("id")
+                if isinstance(user, dict) and "user" in user
+                else (user.get("id") if isinstance(user, dict) else str(user))
+            ),
             "email": unique_email,
             "name": user_name,
             "password": password,
@@ -175,17 +173,17 @@ class WalletFactory:
         return {
             "user_id": user_id,
             "chain_id": chain_id,
-            "address": address,
-            "is_custodial": is_custodial,
+            "wallet_address": address,
+            "wallet_type": "custodial" if is_custodial else "external",
             "balance": kwargs.get("balance", "0.0"),
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.utcnow().isoformat(),  # ISO format for JSON
             **kwargs,
         }
 
     @staticmethod
     async def create_wallet(
         db: AsyncSession,
-        user_id: str,
+        user_id: int,
         chain_id: int = 1,
         address: str | None = None,
         **kwargs,
@@ -194,18 +192,22 @@ class WalletFactory:
         if UserWallet is None:
             return None
 
-        wallet_data = WalletFactory.wallet_data(
-            user_id=user_id, chain_id=chain_id, address=address, **kwargs
-        )
+        # Ensure correct types
+        if address is None:
+            address = f"0x{uuid.uuid4().hex}"
+
+        balance_data = kwargs.get("balance", {})
+        if isinstance(balance_data, str):
+            balance_data = {"ETH": balance_data}
 
         wallet = UserWallet(
-            id=str(uuid.uuid4()),
             user_id=user_id,
             chain_id=chain_id,
-            address=wallet_data["address"],
-            is_custodial=wallet_data.get("is_custodial", True),
-            balance=wallet_data.get("balance", "0.0"),
-            created_at=wallet_data["created_at"],
+            wallet_address=address,
+            wallet_type="custodial",
+            balance=balance_data,
+            is_active=True,
+            is_verified=True,
         )
 
         db.add(wallet)
@@ -215,10 +217,12 @@ class WalletFactory:
         return {
             "id": wallet.id,
             "user_id": wallet.user_id,
+            "wallet_address": wallet.wallet_address,
             "chain_id": wallet.chain_id,
-            "address": wallet.address,
-            "is_custodial": wallet.is_custodial,
+            "wallet_type": wallet.wallet_type,
             "balance": wallet.balance,
+            "is_active": wallet.is_active,
+            "is_verified": wallet.is_verified,
         }
 
 

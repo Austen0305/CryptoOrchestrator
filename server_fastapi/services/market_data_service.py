@@ -171,32 +171,113 @@ class MarketDataService:
     async def get_historical_prices(
         self, symbol: str, days: int = 7
     ) -> list[dict[str, Any]] | None:
-        """Simplified historical data for free tier (current price as single point)"""
-        price = await self.get_price(symbol)
-        if price:
-            return [{"timestamp": datetime.now().timestamp() * 1000, "price": price}]
-        return None
-
-    async def get_ticker(self, symbol: str) -> dict[str, Any] | None:
-        return await self.get_market_data(symbol)
-
-    async def get_trending(self) -> list[dict[str, Any]] | None:
-        """Get top 10 assets from CoinCap"""
+        """Get historical price data"""
         try:
-            url = f"{self.COINCAP_URL}/assets"
-            params = {"limit": 10}
+            asset_id = await self._coincap_get_id(symbol)
+            if not asset_id:
+                return None
+
+            # Determine interval based on duration
+            interval = "d1"
+            if days <= 1:
+                interval = "h1"
+            elif days <= 7:
+                interval = "h6"
+
+            url = f"{self.COINCAP_URL}/assets/{asset_id}/history"
+            # CoinCap history uses start/end timestamps in ms
+            end = int(datetime.now().timestamp() * 1000)
+            start = int((datetime.now() - timedelta(days=days)).timestamp() * 1000)
+
+            params = {"interval": interval, "start": start, "end": end}
+
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(url, params=params)
                 response.raise_for_status()
                 data = response.json()
+
+                history = []
+                for point in data.get("data", []):
+                    history.append(
+                        {
+                            "timestamp": point.get("time"),
+                            "price": float(point.get("priceUsd")),
+                        }
+                    )
+                return history
+
+        except Exception as e:
+            logger.error(f"Error fetching history for {symbol}: {e}")
+            # Fallback to single point if history fails
+            price = await self.get_price(symbol)
+            if price:
                 return [
-                    {
-                        "symbol": asset.get("symbol"),
-                        "name": asset.get("name"),
-                        "price": float(asset.get("priceUsd", 0)),
-                    }
-                    for asset in data.get("data", [])
+                    {"timestamp": datetime.now().timestamp() * 1000, "price": price}
                 ]
+            return None
+
+    async def get_ticker(self, symbol: str) -> dict[str, Any] | None:
+        """Get comprehensive ticker data including 24h change"""
+        try:
+            # Try CoinCap for detailed data
+            asset_id = await self._coincap_get_id(symbol)
+            if asset_id:
+                url = f"{self.COINCAP_URL}/assets/{asset_id}"
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    response = await client.get(url)
+                    if response.status_code == 200:
+                        data = response.json().get("data", {})
+                        return {
+                            "price": float(data.get("priceUsd", 0)),
+                            "price_change_percentage_24h": float(
+                                data.get("changePercent24Hr", 0)
+                            ),
+                            "market_cap": float(data.get("marketCapUsd", 0)),
+                            "volume_24h": float(data.get("volumeUsd24Hr", 0)),
+                            "timestamp": datetime.now().timestamp(),
+                            "provider": "coincap",
+                        }
+
+            # Fallback to basic price
+            price = await self.get_price(symbol)
+            if price:
+                return {
+                    "price": price,
+                    "price_change_percentage_24h": 0.0,
+                    "timestamp": datetime.now().timestamp(),
+                    "provider": "fallback",
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching ticker for {symbol}: {e}")
+            return None
+
+    async def get_trending(self) -> dict[str, list[dict[str, Any]]] | None:
+        """Get trending assets (Top gainers/active)"""
+        try:
+            url = f"{self.COINCAP_URL}/assets"
+            params = {"limit": 20}  # Get top 20 to sort
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(url, params=params)
+                response.raise_for_status()
+                data = response.json()
+
+                coins = []
+                for asset in data.get("data", []):
+                    coins.append(
+                        {
+                            "id": asset.get("id"),
+                            "symbol": asset.get("symbol"),
+                            "name": asset.get("name"),
+                            "current_price": float(asset.get("priceUsd", 0)),
+                            "price_change_percentage_24h": float(
+                                asset.get("changePercent24Hr", 0)
+                            ),
+                            "market_cap": float(asset.get("marketCapUsd", 0)),
+                        }
+                    )
+
+                return {"coins": coins}
         except Exception as e:
             logger.error(f"Error fetching trending: {e}")
             return None

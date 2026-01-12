@@ -122,7 +122,7 @@ Write-Host "  💡 Best MCPs for your project:" -ForegroundColor Yellow
 Write-Host "     - api-tester: Perfect for FastAPI testing" -ForegroundColor White
 Write-Host "     - context7: FastAPI/React documentation" -ForegroundColor White
 Write-Host "     - typescript-definition-finder: TypeScript support" -ForegroundColor White
-Write-Host "     - coingecko: Crypto price data" -ForegroundColor White
+Write-Host "     - market-data: Crypto price data" -ForegroundColor White
 Write-Host ""
 
 Write-Host "✨ Installation Complete!" -ForegroundColor Green

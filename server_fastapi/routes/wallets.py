@@ -111,7 +111,7 @@ async def create_custodial_wallet(
     Returns the wallet address that can be used for deposits and custodial trading.
     """
     try:
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         service = WalletService()
         wallet_info = await service.create_custodial_wallet(
             user_id=user_id,
@@ -158,7 +158,7 @@ async def register_external_wallet(
                 f"Invalid wallet address: {e}", field="wallet_address"
             )
 
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         wallet_info = await service.register_external_wallet(
             user_id=user_id,
             wallet_address=validated_address,  # Use validated/checksummed address
@@ -185,7 +185,7 @@ async def register_external_wallet(
             f"Error registering external wallet: {e}",
             exc_info=True,
             extra={
-                "user_id": _get_user_id(current_user),
+                "user_id": int(_get_user_id(current_user)),
                 "chain_id": request.chain_id,
             },
         )
@@ -207,7 +207,7 @@ async def get_user_wallets(
     Get all wallets for the current user with pagination
     """
     try:
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         from sqlalchemy import func, select
 
         # Build query
@@ -268,7 +268,7 @@ async def get_deposit_address(
     This address can be used to deposit funds for custodial trading.
     """
     try:
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         service = WalletService()
         address = await service.get_deposit_address(
             user_id=user_id, chain_id=chain_id, db=db
@@ -338,7 +338,7 @@ async def get_wallet_balance(
         from sqlalchemy import select
 
         # Find wallet by ID and verify ownership
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         stmt = select(UserWallet).where(
             UserWallet.id == wallet_id,
             UserWallet.user_id == user_id,
@@ -450,7 +450,7 @@ async def process_withdrawal(
         from ..repositories.wallet_repository import WalletRepository
         from ..services.security.ip_whitelist_service import ip_whitelist_service
 
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
 
         # Check IP whitelist if enabled
         # Note: client_ip should be extracted from request in production
@@ -544,8 +544,13 @@ async def process_withdrawal(
             transaction_hash=result.get("transaction_hash"),
         )
 
-    except HTTPException:
+    except (HTTPException, ValidationError):
         raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
         logger.error(f"Error processing withdrawal: {e}", exc_info=True)
         raise HTTPException(
@@ -604,7 +609,7 @@ async def get_wallet_transactions(
         page_size: Items per page
     """
     try:
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         from ..repositories.wallet_repository import WalletRepository
 
         repository = WalletRepository(db)
@@ -652,7 +657,7 @@ async def refresh_wallet_balances(
     Forces a fresh fetch from the blockchain for all wallets.
     """
     try:
-        user_id = _get_user_id(current_user)
+        user_id = int(_get_user_id(current_user))
         service = WalletService()
         results = await service.refresh_wallet_balances(
             user_id=user_id,

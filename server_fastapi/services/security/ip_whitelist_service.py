@@ -73,7 +73,7 @@ class IPWhitelistService:
 
         # Get existing whitelist from user preferences or create new
         # For now, store in user preferences JSON
-        from ..repositories.preferences_repository import preferences_repository
+        from ...repositories.preferences_repository import preferences_repository
 
         prefs = await preferences_repository.get_by_user_id(db, user_id)
 
@@ -140,7 +140,7 @@ class IPWhitelistService:
         self, user_id: int, ip_address_str: str, db: AsyncSession
     ) -> dict[str, Any]:
         """Internal IP removal logic"""
-        from ..repositories.preferences_repository import preferences_repository
+        from ...repositories.preferences_repository import preferences_repository
 
         prefs = await preferences_repository.get_by_user_id(db, user_id)
 
@@ -201,7 +201,7 @@ class IPWhitelistService:
         self, user_id: int, db: AsyncSession
     ) -> list[dict[str, Any]]:
         """Internal whitelist retrieval"""
-        from ..repositories.preferences_repository import preferences_repository
+        from ...repositories.preferences_repository import preferences_repository
 
         prefs = await preferences_repository.get_by_user_id(db, user_id)
 

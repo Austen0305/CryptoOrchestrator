@@ -164,22 +164,16 @@ async def get_transactions(
         user_id = _get_user_id(current_user)
         service = WalletService(db)
 
-        # Convert page/page_size to limit for service (fetch enough for current page)
-        limit = page * page_size
-        transactions = await service.get_transactions(
+        # Get transactions with SQL-level pagination
+        result = await service.get_transactions(
             user_id=user_id,
             currency=currency,
             transaction_type=transaction_type,
-            limit=limit,
+            page=page,
+            page_size=page_size,
         )
 
-        # Apply pagination
-        total = len(transactions)
-        start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_transactions = transactions[start_idx:end_idx]
-
-        return {"transactions": paginated_transactions}
+        return result
     except Exception as e:
         logger.error(f"Error getting transactions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get transactions")

@@ -22,7 +22,7 @@ except ImportError:
 
 
 # Exchange services removed - using blockchain/DEX data sources
-# Market data now comes from CoinGecko and DEX aggregators
+# Market data now comes from CoinCap and CoinLore
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.market_data_service import MarketDataService, get_market_data_service
@@ -45,7 +45,7 @@ volatility_analyzer = VolatilityAnalyzer()
 correlation_service = CorrelationService()
 
 
-# Market data service (CoinGecko for price data)
+# Market data service (Market Data Service for price data)
 def _get_market_data_service() -> MarketDataService:
     return get_market_data_service()
 
@@ -169,13 +169,16 @@ class MarketAnalysisResponse(BaseModel):
     ttl=600, key_prefix="markets", include_user=False, include_params=False
 )
 async def get_markets() -> list[TradingPair]:
-    """Get all available trading pairs from CoinGecko"""
+    """Get all available trading pairs from Market Data Service"""
     try:
-        from ..services.market_data_service import MarketDataService
+        from ..services.market_data_service import (
+            MarketDataService,
+            get_market_data_service,
+        )
 
         market_data = get_market_data_service()
 
-        # Get popular cryptocurrencies from CoinGecko
+        # Get popular cryptocurrencies
         # In production, you might want to maintain a curated list or fetch from DEX aggregators
         popular_coins = [
             "bitcoin",
@@ -226,17 +229,20 @@ async def get_ohlcv(
     ),
     limit: int = Query(100, description="Number of candles to return", ge=1, le=1000),
 ) -> PriceChartResponse:
-    """Get OHLCV data for a trading pair from CoinGecko"""
+    """Get OHLCV data for a trading pair from Market Data Service"""
     try:
-        from ..services.market_data_service import MarketDataService
+        from ..services.market_data_service import (
+            MarketDataService,
+            get_market_data_service,
+        )
 
         market_data = get_market_data_service()
 
-        # Convert pair to CoinGecko ID
+        # Convert pair to ID if needed
         coin_id = pair.split("/")[0].lower()
 
-        # Get historical price data (CoinGecko provides price history, not full OHLCV in free tier)
-        # For full OHLCV, you'd need CoinGecko Pro API or use DEX aggregator APIs
+        # Get historical price data
+        # For full OHLCV, you'd need Pro API or use DEX aggregator APIs
         historical_data = await market_data.get_historical_prices(pair, days=limit)
 
         if not historical_data:
@@ -363,10 +369,10 @@ async def get_order_book(pair: str) -> OrderBook:
                 status_code=400, detail="Invalid pair format. Use format: BASE/QUOTE"
             )
 
-        # CoinGecko doesn't provide orderbook data, return empty orderbook
+        # Market Data Service doesn't provide orderbook data, return empty orderbook
         # In production, integrate with DEX aggregator APIs for real orderbook data
         logger.info(
-            f"Orderbook requested for {pair} - returning empty (CoinGecko doesn't provide orderbook)"
+            f"Orderbook requested for {pair} - returning empty (Market Data Service doesn't provide orderbook)"
         )
         return OrderBook(
             pair=pair,
@@ -631,7 +637,7 @@ async def get_advanced_market_analysis(
                 detail=f"Invalid indicators: {', '.join(invalid_indicators)}. Valid: {', '.join(valid_indicators)}",
             )
 
-        # Get historical data from CoinGecko
+        # Get historical data from Market Data Service
         market_data = get_market_data_service()
         historical_data = await market_data.get_historical_prices(pair, days=30)
 
@@ -640,7 +646,7 @@ async def get_advanced_market_analysis(
                 status_code=404, detail=f"No market data available for {pair}"
             )
 
-        # Convert to OHLCV format for analysis (simplified - CoinGecko only provides prices)
+        # Convert to OHLCV format for analysis (simplified - Market Data Service only provides prices)
         ohlcv_data = []
         for i, point in enumerate(historical_data):
             price = point.get("price", 0)
@@ -666,7 +672,7 @@ async def get_advanced_market_analysis(
             ohlcv_data, volatility_analyzer
         )
 
-        # Get current price from CoinGecko
+        # Get current price from Market Data Service
         current_price = await market_data.get_price(pair)
         if not current_price and ohlcv_data:
             current_price = ohlcv_data[-1]["close"]
@@ -995,11 +1001,11 @@ async def websocket_market_stream(
 
         logger.info(f"User {user['id']} connected to market stream for {pair}")
 
-        # Send initial data from CoinGecko
+        # Send initial data from Market Data Service
         market_data = get_market_data_service()
         price = await market_data.get_price(pair)
 
-        # CoinGecko doesn't provide orderbook, use empty
+        # Market Data Service doesn't provide orderbook, use empty
         from ..models.market import OrderBook
 
         order_book = OrderBook(

@@ -191,3 +191,9 @@ NEXT-step.md
 !.cursor/scripts/README_SCRIPTS.md
 !.cursor/scripts/*.ps1
 !.cursor/scripts/*.bat
+# More ignores
+*.txt*
+test_results*
+wallet_test_output*
+todos_report*
+.npmrc.bak*

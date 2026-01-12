@@ -1,126 +1,6 @@
 <!doctype html>
 <html lang="en" class="dark">
   <head>
-    <style>
-      /* CRITICAL: Inline styles to prevent double scrollbar - applied before anything else */
-      html:not(.landing-page-active) {
-        height: 100vh !important;
-        max-height: 100vh !important;
-        min-height: 100vh !important;
-        overflow: hidden !important;
-        overflow-y: hidden !important;
-        overflow-x: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: relative !important;
-        box-sizing: border-box !important;
-      }
-
-      /* ENHANCED UI STYLES - Force application with maximum specificity */
-      .shadcn-card,
-      div.shadcn-card,
-      [class*="shadcn-card"] {
-        border-width: 3px !important;
-        border-style: solid !important;
-        border-radius: 1.25rem !important;
-        box-shadow:
-          0px 16px 32px -8px rgba(0, 0, 0, 0.5),
-          0px 8px 16px -8px rgba(0, 0, 0, 0.5) !important;
-        padding: 1.5rem !important;
-        transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1) !important;
-      }
-
-      .shadcn-card:hover {
-        transform: translateY(-6px) scale(1.02) !important;
-        box-shadow:
-          0px 20px 40px -10px rgba(0, 0, 0, 0.6),
-          0px 10px 20px -10px rgba(0, 0, 0, 0.6) !important;
-      }
-
-      header {
-        border-bottom-width: 4px !important;
-        border-bottom-style: solid !important;
-        min-height: 5rem !important;
-        height: 5rem !important;
-        box-shadow:
-          0px 12px 24px -6px rgba(0, 0, 0, 0.5),
-          0px 6px 12px -6px rgba(0, 0, 0, 0.5) !important;
-      }
-
-      header h1 {
-        background-image: linear-gradient(
-          135deg,
-          hsl(217, 91%, 55%),
-          hsl(217, 91%, 65%),
-          hsl(217, 91%, 55%)
-        ) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        background-clip: text !important;
-        font-weight: 900 !important;
-        font-size: clamp(1.5rem, 4vw, 2.25rem) !important;
-      }
-
-      aside,
-      [data-sidebar] {
-        border-right-width: 4px !important;
-        border-right-style: solid !important;
-        box-shadow: 8px 0px 16px -6px rgba(0, 0, 0, 0.4) !important;
-      }
-
-      button:not(:disabled):hover {
-        transform: translateY(-3px) scale(1.03) !important;
-        box-shadow: 0px 6px 16px -4px rgba(0, 0, 0, 0.45) !important;
-      }
-
-      body:not(.landing-page-active) {
-        height: 100vh !important;
-        max-height: 100vh !important;
-        min-height: 100vh !important;
-        overflow: hidden !important;
-        overflow-y: hidden !important;
-        overflow-x: hidden !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: relative !important;
-        box-sizing: border-box !important;
-      }
-
-      #root:not(.landing-page-active) {
-        height: 100vh !important;
-        max-height: 100vh !important;
-        overflow: hidden !important;
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        bottom: 0 !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-      }
-
-      main#main-content {
-        overscroll-behavior: contain !important;
-        overscroll-behavior-y: contain !important;
-        overscroll-behavior-x: contain !important;
-      }
-
-      /* Hide Recharts measurement elements that cause overflow */
-      #recharts_measurement_span,
-      [id^="recharts_"] {
-        display: none !important;
-        visibility: hidden !important;
-        position: absolute !important;
-        height: 0 !important;
-        width: 0 !important;
-        overflow: hidden !important;
-        top: -9999px !important;
-        left: -9999px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        pointer-events: none !important;
-      }
-    </style>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
@@ -128,7 +8,6 @@
     <meta name="msapplication-navbutton-color" content="#000000" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="CryptoOrchestrator" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
@@ -153,7 +32,10 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://cryptoorchestrator.vercel.app/" />
-    <meta property="og:title" content="CryptoOrchestrator - AI-Powered Blockchain Trading Platform" />
+    <meta
+      property="og:title"
+      content="CryptoOrchestrator - AI-Powered Blockchain Trading Platform"
+    />
     <meta
       property="og:description"
       content="Professional cryptocurrency trading automation platform with AI-powered analytics, DEX trading, automated strategies, and comprehensive portfolio management."
@@ -179,88 +61,8 @@
       rel="stylesheet"
     />
   </head>
-  <body class="dark">
+  <body class="dark antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // CRITICAL: Apply scroll lock immediately before React loads
-      (function () {
-        const vh = window.innerHeight;
-        const html = document.documentElement;
-        const body = document.body;
-
-        // Remove problematic elements immediately
-        function removeProblematic() {
-          document
-            .querySelectorAll('#recharts_measurement_span, [id^="recharts_"]')
-            .forEach((el) => el.remove());
-        }
-
-        // Lock HTML/body immediately
-        function lockScroll() {
-          const isLanding =
-            body?.classList.contains("landing-page-active") ||
-            html?.classList.contains("landing-page-active");
-
-          if (!isLanding) {
-            html.style.cssText = `height: ${vh}px !important; max-height: ${vh}px !important; min-height: ${vh}px !important; overflow: hidden !important; overflow-y: hidden !important; overflow-x: hidden !important; width: 100% !important; margin: 0 !important; padding: 0 !important; position: relative !important; box-sizing: border-box !important;`;
-            body.style.cssText = `height: ${vh}px !important; max-height: ${vh}px !important; min-height: ${vh}px !important; overflow: hidden !important; overflow-y: hidden !important; overflow-x: hidden !important; width: 100% !important; margin: 0 !important; padding: 0 !important; position: relative !important; box-sizing: border-box !important;`;
-            window.scrollTo(0, 0);
-            html.scrollTop = 0;
-            body.scrollTop = 0;
-          }
-        }
-
-        // Apply immediately
-        removeProblematic();
-        lockScroll();
-
-        // Reapply on DOM ready
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", () => {
-            removeProblematic();
-            lockScroll();
-          });
-        } else {
-          removeProblematic();
-          lockScroll();
-        }
-
-        // Reapply on load
-        window.addEventListener("load", () => {
-          removeProblematic();
-          lockScroll();
-        });
-
-        // Watch for class changes
-        const observer = new MutationObserver(() => {
-          removeProblematic();
-          lockScroll();
-        });
-
-        if (document.body) {
-          observer.observe(document.body, {
-            attributes: true,
-            attributeFilter: ["class"],
-            childList: true,
-            subtree: true,
-          });
-        }
-        if (document.documentElement) {
-          observer.observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ["class"],
-          });
-        }
-
-        // Periodic cleanup
-        setInterval(() => {
-          removeProblematic();
-          if (!body?.classList.contains("landing-page-active")) {
-            lockScroll();
-          }
-        }, 1000);
-      })();
-    </script>
   </body>
 </html>

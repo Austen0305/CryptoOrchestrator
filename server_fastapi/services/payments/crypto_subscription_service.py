@@ -110,7 +110,7 @@ class CryptoSubscriptionService:
             return {"amount": "0", "currency": token_symbol, "usd_equivalent": 0}
 
         # Get token price in USD
-        # In production, use a price oracle (CoinGecko, etc.)
+        # In production, use a price oracle (Market Data Service, etc.)
         token_price_usd = await self._get_token_price_usd(token_symbol)
 
         if not token_price_usd:
@@ -306,9 +306,11 @@ class CryptoSubscriptionService:
             "has_subscription": True,
             "tier": subscription.plan,
             "status": subscription.status if is_active else "expired",
-            "current_period_end": subscription.current_period_end.isoformat()
-            if subscription.current_period_end
-            else None,
+            "current_period_end": (
+                subscription.current_period_end.isoformat()
+                if subscription.current_period_end
+                else None
+            ),
             "needs_payment": needs_payment,
             "days_remaining": (
                 (subscription.current_period_end - now).days
@@ -327,7 +329,7 @@ class CryptoSubscriptionService:
         Returns:
             Price in USD or None
         """
-        # In production, use CoinGecko or another price oracle
+        # In production, use Market Data Service or another price oracle
         # For now, return placeholder prices
         prices = {
             "USDC": 1.0,

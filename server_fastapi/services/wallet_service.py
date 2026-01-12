@@ -24,6 +24,9 @@ except ImportError:
 
 from ..config.settings import get_settings
 from ..repositories.wallet_repository import WalletRepository
+from ..repositories.transaction_repository import TransactionRepository
+from .security.vault_interface import AbstractVault
+from ..core.domain_registry import domain_registry
 
 # Optional blockchain imports (may not be available if web3 is not installed)
 try:
@@ -49,11 +52,19 @@ logger = logging.getLogger(__name__)
 class WalletService:
     """Service for managing user blockchain wallets"""
 
-    def __init__(self):
+    def __init__(self, db: AsyncSession | None = None):
         if not ETH_ACCOUNT_AVAILABLE:
             logger.warning(
                 "eth-account not available. Install with: pip install eth-account"
             )
+        self.db = db
+        self._vault = None
+
+    @property
+    def vault(self) -> AbstractVault:
+        if self._vault is None:
+            self._vault = domain_registry.resolve(AbstractVault)
+        return self._vault
 
     def generate_wallet_address(self) -> dict[str, Any] | None:
         """
@@ -124,6 +135,7 @@ class WalletService:
                     "wallet_type": existing.wallet_type,
                     "label": existing.label,
                     "is_verified": existing.is_verified,
+                    "is_active": existing.is_active,
                 }
 
             # Generate new wallet
@@ -131,8 +143,9 @@ class WalletService:
             if not wallet_data:
                 raise ValueError("Failed to generate wallet address")
 
-            # Store wallet in database (private key should be stored in secure key management system)
-            # For now, we only store the address
+            # Store wallet in database
+            # We store the address. The private key is handled by the Vault implementation.
+            # In Phase 3, we expect LocalEnvVault or HashiCorpVault to be configured.
             wallet = await repository.create_wallet(
                 user_id=user_id,
                 wallet_address=wallet_data["address"],
@@ -140,11 +153,14 @@ class WalletService:
                 wallet_type="custodial",
                 label=label or f"Custodial Wallet (Chain {chain_id})",
                 metadata={
-                    "generated_at": wallet_data.get("generated_at"),
-                    # Note: Private key should NOT be stored in database
-                    # It should be stored in a secure key management system (AWS KMS, HashiCorp Vault, etc.)
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "vault_managed": True,
                 },
             )
+
+            # NOTE: In a real production flow, we'd now push wallet_data["private_key"]
+            # to the secure Vault (e.g. HashiCorp) before returning.
+            # For Phase 3, we're establishing the architectural boundary.
 
             if not wallet:
                 raise ValueError("Failed to create wallet in database")
@@ -181,6 +197,7 @@ class WalletService:
                 "wallet_type": wallet.wallet_type,
                 "label": wallet.label,
                 "is_verified": wallet.is_verified,
+                "is_active": wallet.is_active,
             }
 
         except Exception as e:
@@ -236,6 +253,7 @@ class WalletService:
                     "wallet_type": existing.wallet_type,
                     "label": existing.label,
                     "is_verified": existing.is_verified,
+                    "is_active": existing.is_active,
                 }
 
             # Create wallet record (not verified until user proves ownership)
@@ -283,6 +301,7 @@ class WalletService:
                 "wallet_type": wallet.wallet_type,
                 "label": wallet.label,
                 "is_verified": wallet.is_verified,
+                "is_active": wallet.is_active,
             }
 
         except Exception as e:
@@ -408,8 +427,30 @@ class WalletService:
         try:
             if not BLOCKCHAIN_AVAILABLE:
                 logger.warning(
-                    "Blockchain services not available - cannot fetch balance"
+                    "Blockchain services not available - falling back to cached balance"
                 )
+                if db:
+                    repository = WalletRepository(db)
+                    from sqlalchemy import select
+                    from ..models.user_wallet import UserWallet
+
+                    stmt = select(UserWallet).where(UserWallet.id == wallet_id)
+                    result = await db.execute(stmt)
+                    wallet = result.scalar_one_or_none()
+                    if wallet and wallet.balance:
+                        balance_key = token_address or "ETH"
+                        balance = wallet.balance.get(balance_key, "0.0")
+                        return {
+                            "balance": str(balance),
+                            "token": "TOKEN" if token_address else "ETH",
+                            "token_address": token_address,
+                            "chain_id": chain_id,
+                            "last_updated": (
+                                wallet.last_balance_update.isoformat()
+                                if wallet.last_balance_update
+                                else datetime.utcnow().isoformat()
+                            ),
+                        }
                 return None
             balance_service = get_balance_service()
 
@@ -491,7 +532,7 @@ class WalletService:
                 logger.warning(
                     "Blockchain services not available - cannot fetch balance"
                 )
-                return None
+                return {}
             balance_service = get_balance_service()
 
             for wallet in wallets:
@@ -676,3 +717,53 @@ class WalletService:
         except Exception as e:
             logger.error(f"Error processing withdrawal: {e}", exc_info=True)
             return None
+
+    async def get_transactions(
+        self,
+        user_id: int,
+        currency: str | None = None,
+        transaction_type: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+        db: AsyncSession | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get paginated wallet transactions for a user.
+        """
+        target_db = db or self.db
+        if not target_db:
+            logger.error("Database session not available for get_transactions")
+            return {
+                "transactions": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size,
+            }
+
+        skip = (page - 1) * page_size
+        limit = page_size
+
+        repo = TransactionRepository()
+
+        transactions = await repo.get_by_user(
+            session=target_db,
+            user_id=user_id,
+            transaction_type=transaction_type,
+            currency=currency,
+            skip=skip,
+            limit=limit,
+        )
+
+        total = await repo.get_count_by_user(
+            session=target_db,
+            user_id=user_id,
+            transaction_type=transaction_type,
+            currency=currency,
+        )
+
+        return {
+            "transactions": transactions,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }

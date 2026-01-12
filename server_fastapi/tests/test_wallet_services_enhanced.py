@@ -30,7 +30,9 @@ class TestWalletServicesEnhanced:
             )
 
             response = await client.post(
-                "/api/wallets/", json=wallet_data, headers=user["auth_headers"]
+                "/api/wallets/custodial",
+                json={"chain_id": chain_id, "label": f"Chain {chain_id} Wallet"},
+                headers=user["auth_headers"],
             )
 
             # May return 200/201 or 400 if wallet already exists
@@ -100,7 +102,9 @@ class TestWalletServicesEnhanced:
         }
 
         response = await client.post(
-            "/api/wallets/withdraw", json=withdrawal_data, headers=user["auth_headers"]
+            f"/api/wallets/{wallet['id']}/withdraw",
+            json=withdrawal_data,
+            headers=user["auth_headers"],
         )
 
         # Should reject insufficient balance
@@ -116,7 +120,8 @@ class TestWalletServicesEnhanced:
 
         # Get deposit address
         response = await client.get(
-            f"/api/wallets/{wallet['id']}/deposit-address", headers=user["auth_headers"]
+            f"/api/wallets/deposit-address/{wallet['chain_id']}",
+            headers=user["auth_headers"],
         )
 
         # Should return deposit address or 404 if not implemented

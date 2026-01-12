@@ -277,8 +277,8 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
   }, [isPlacingOrder, amount, price, orderType]);
 
   return (
-    <Card className="border-2 border-card-border/70 shadow-2xl bg-gradient-to-br from-card via-card/98 to-card/95" style={{ borderWidth: '3px', borderStyle: 'solid', boxShadow: '0px 20px 40px -10px hsl(220 8% 2% / 0.60), 0px 10px 20px -10px hsl(220 8% 2% / 0.60)' }}>
-      <CardHeader className="pb-5 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b-2 border-primary/20">
+    <Card className="glass-premium border-border/50 shadow-2xl overflow-hidden hover-lift transition-all duration-300">
+      <CardHeader className="pb-5 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-primary/10">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-lg font-extrabold">Place Order</CardTitle>

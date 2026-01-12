@@ -5,9 +5,11 @@ Provides robust validation for all user inputs with security hardening
 
 import logging
 import re
-from typing import Any
+from typing import Any, Dict
 
 from fastapi import HTTPException, status
+
+from ..services.risk.risk_manager import risk_manager
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,41 @@ XSS_PATTERNS = [
     re.compile(r"on\w+\s*=", re.IGNORECASE),
 ]
 
+
+async def validate_transaction_intent(
+    user_id: int,
+    signal: Dict[str, Any]
+) -> None:
+    """
+    Validate transaction intent against Risk Manager before execution.
+    (2026 Best Practice: Intent-based Validation)
+
+    Args:
+        user_id: User initiating the transaction
+        signal: Transaction signal details
+
+    Raises:
+        ValidationError: If risk checks fail
+    """
+    try:
+        current_risk_manager = risk_manager  # Get global instance
+        
+        # Check if trade is allowed by risk manager
+        errors = await current_risk_manager.validate_trade(user_id, signal)
+        
+        if errors:
+            logger.warning(f"Transaction intent blocked for user {user_id}: {errors}")
+            raise ValidationError(
+                message="Transaction blocked by risk controls",
+                details={"risk_errors": errors}
+            )
+            
+    except ValidationError:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating transaction intent: {e}")
+        # Fail safe: Block if validation fails
+        raise ValidationError(message="Failed to validate transaction risk")
 
 def validate_ethereum_address(address: str) -> str:
     """

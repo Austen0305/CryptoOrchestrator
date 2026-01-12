@@ -129,14 +129,14 @@ class PriceMonitoringService:
             return {}
 
         try:
-            # Use CoinGecko for price data (blockchain/DEX model)
-            from ...services.coingecko_service import CoinGeckoService
+            # Use MarketDataService for price data (blockchain/DEX model)
+            from ...services.market_data_service import get_market_data_service
 
-            coingecko = CoinGeckoService()
+            market_data = get_market_data_service()
 
             # Use batch fetching for efficiency (single API call instead of N calls)
             symbol_list = list(symbols)
-            price_results = await coingecko.get_prices_batch(symbol_list)
+            price_results = await market_data.get_prices_batch(symbol_list)
 
             # Filter out None values and convert to float
             prices = {

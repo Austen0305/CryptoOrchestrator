@@ -199,6 +199,41 @@ class TransactionService:
             )
             return None
 
+    async def broadcast_raw_transaction(
+        self, chain_id: int, raw_transaction: str
+    ) -> str | None:
+        """
+        Broadcast a pre-signed raw transaction to the network.
+
+        Args:
+            chain_id: Blockchain chain ID
+            raw_transaction: Signed transaction hex string
+
+        Returns:
+            Transaction hash or None if error
+        """
+        try:
+            w3 = await self.web3_service.get_connection(chain_id)
+            if not w3:
+                return None
+
+            # Convert to bytes if string
+            tx_data = raw_transaction
+            if isinstance(tx_data, str) and tx_data.startswith("0x"):
+                tx_data = HexBytes(tx_data)
+            elif isinstance(tx_data, str):
+                tx_data = HexBytes("0x" + tx_data)
+
+            tx_hash = await w3.eth.send_raw_transaction(tx_data)
+            logger.info(
+                f"Raw transaction broadcasted: {tx_hash.hex()} on chain {chain_id}"
+            )
+            return tx_hash.hex()
+
+        except Exception as e:
+            logger.error(f"Failed to broadcast raw transaction: {e}")
+            return None
+
     async def sign_and_send_transaction(
         self,
         chain_id: int,

@@ -188,44 +188,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r-2 border-sidebar-border/60 bg-gradient-to-b from-sidebar via-sidebar/98 to-sidebar backdrop-blur-lg shadow-2xl"
-      style={{
-        borderRightWidth: "4px",
-        borderRightStyle: "solid",
-        borderRightColor: "hsl(var(--sidebar-border) / 0.7)",
-        boxShadow: "8px 0px 16px -6px hsl(220 8% 2% / 0.40)",
-        background:
-          "linear-gradient(180deg, hsl(var(--sidebar)), hsl(var(--sidebar) / 0.98), hsl(var(--sidebar)))",
-      }}
+      className="border-r-4 border-sidebar-border/70 bg-gradient-to-b from-sidebar via-sidebar/98 to-sidebar backdrop-blur-lg shadow-[8px_0px_16px_-6px_hsl(220_8%_2%_/_0.40)]"
     >
       <SidebarContent className="gap-3">
-        <div
-          className="p-5 md:p-6 border-b-2 border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 via-sidebar-accent/20 to-transparent"
-          style={{ borderBottomWidth: "2px", borderBottomStyle: "solid" }}
-        >
+        <div className="p-5 md:p-6 border-b-2 border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 via-sidebar-accent/20 to-transparent">
           <h1 className="text-lg md:text-xl font-black flex items-center gap-3">
-            <span
-              className="status-indicator bg-primary rounded-full w-3 h-3 shadow-xl shadow-primary/60 animate-pulse"
-              style={{
-                width: "12px",
-                height: "12px",
-                boxShadow: "0 0 12px hsl(217 91% 50% / 0.6), 0 0 24px hsl(217 91% 50% / 0.3)",
-              }}
-            />
-            <span
-              className="font-extrabold"
-              style={{
-                backgroundImage:
-                  "linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--foreground) / 0.95), hsl(var(--foreground) / 0.9))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-                fontWeight: 900,
-                fontSize: "1.25rem",
-                letterSpacing: "-0.01em",
-                textShadow: "0 2px 8px hsl(var(--foreground) / 0.2)",
-              }}
-            >
+            <span className="status-indicator bg-primary rounded-full w-3 h-3 shadow-[0_0_12px_hsl(217_91%_50%_/_0.6),0_0_24px_hsl(217_91%_50%_/_0.3)] animate-pulse" />
+            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90 tracking-tighter drop-shadow-[0_2px_8px_hsl(var(--foreground)/0.2)] text-xl">
               CryptoOrchestrator
             </span>
           </h1>

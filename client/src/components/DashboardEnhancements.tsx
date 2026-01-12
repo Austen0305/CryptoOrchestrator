@@ -32,55 +32,55 @@ export function QuickStats({
 
   return (
     <div className={cn("grid grid-cols-1 md:grid-cols-4 gap-4", className)}>
-      <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+      <Card className="glass-premium border-primary/20 hover-lift transition-all duration-300">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-muted-foreground">Total Portfolio</CardTitle>
+          <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">Total Portfolio</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{formattedValue}</div>
-          <div className={cn("text-sm flex items-center gap-1 mt-1", isPositive ? "text-green-500" : "text-red-500")}>
+          <div className="text-2xl font-black text-foreground drop-shadow-sm">{formattedValue}</div>
+          <div className={cn("text-xs font-bold flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full w-fit", isPositive ? "text-trading-profit bg-trading-profit/10" : "text-trading-loss bg-trading-loss/10")}>
             {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {isPositive ? "+" : ""}{change24h.toFixed(2)}%
           </div>
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-transparent">
+      <Card className="glass-premium border-blue-500/20 hover-lift transition-all duration-300">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-muted-foreground">Active Bots</CardTitle>
+          <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">Active Bots</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-500" />
+          <div className="text-2xl font-black flex items-center gap-2 text-foreground">
+            <Activity className="h-5 w-5 text-blue-400 drop-shadow-glow-blue" />
             {activeBots}
           </div>
-          <div className="text-sm text-muted-foreground mt-1">Running</div>
+          <div className="text-xs font-bold text-blue-400/80 mt-1">Live Engines</div>
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-green-500/20 bg-gradient-to-br from-green-500/5 to-transparent">
+      <Card className="glass-premium border-green-500/20 hover-lift transition-all duration-300">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-muted-foreground">Total Trades</CardTitle>
+          <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">Total Trades</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-5 w-5 text-green-500" />
+          <div className="text-2xl font-black flex items-center gap-2 text-foreground">
+            <Zap className="h-5 w-5 text-green-400 drop-shadow-glow" />
             {totalTrades}
           </div>
-          <div className="text-sm text-muted-foreground mt-1">All time</div>
+          <div className="text-xs font-bold text-green-400/80 mt-1">Executions</div>
         </CardContent>
       </Card>
 
-      <Card className="border-2 border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-transparent">
+      <Card className="glass-premium border-orange-500/20 hover-lift transition-all duration-300">
         <CardHeader className="pb-2">
-          <CardTitle className="text-xs font-medium text-muted-foreground">Status</CardTitle>
+          <CardTitle className="text-xs font-black text-muted-foreground uppercase tracking-widest">System Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-semibold">All Systems Operational</span>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-glow" />
+            <span className="text-xs font-black text-foreground uppercase">Operational</span>
           </div>
-          <Badge variant="outline" className="mt-2">Live</Badge>
+          <Badge variant="outline" className="text-[10px] font-black border-primary/30 uppercase tracking-tighter">Latency: 14ms</Badge>
         </CardContent>
       </Card>
     </div>
@@ -107,11 +107,11 @@ export function RecentActivity({ activities, maxItems = 5 }: RecentActivityProps
   const getActivityIcon = (type: string) => {
     switch (type) {
       case "trade":
-        return <Zap className="h-4 w-4 text-green-500" />;
+        return <Zap className="h-4 w-4 text-green-400" />;
       case "bot":
-        return <Activity className="h-4 w-4 text-blue-500" />;
+        return <Activity className="h-4 w-4 text-blue-400" />;
       case "alert":
-        return <AlertCircle className="h-4 w-4 text-orange-500" />;
+        return <AlertCircle className="h-4 w-4 text-orange-400" />;
       default:
         return <Activity className="h-4 w-4 text-muted-foreground" />;
     }
@@ -120,52 +120,53 @@ export function RecentActivity({ activities, maxItems = 5 }: RecentActivityProps
   const getStatusColor = (status?: string) => {
     switch (status) {
       case "success":
-        return "text-green-500";
+        return "text-green-400";
       case "warning":
-        return "text-orange-500";
+        return "text-orange-400";
       case "error":
-        return "text-red-500";
+        return "text-red-400";
       default:
         return "text-muted-foreground";
     }
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-bold">Recent Activity</CardTitle>
+    <Card className="glass-premium border-border/50 shadow-xl overflow-hidden">
+      <CardHeader className="border-b border-primary/10">
+        <CardTitle className="text-lg font-black tracking-tight text-foreground uppercase">Live Feed</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {displayActivities.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No recent activity
+          <div className="text-center py-8 text-muted-foreground font-medium italic">
+            Waiting for activity...
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {displayActivities.map((activity) => (
               <div
                 key={activity.id}
-                className="flex items-start gap-3 p-3 rounded-lg border border-border/50 hover:bg-accent/30 transition-colors"
+                className="flex items-start gap-3 p-3 rounded-xl border border-border/30 bg-muted/20 hover:bg-primary/5 transition-all duration-200 group"
               >
-                <div className="mt-0.5">{getActivityIcon(activity.type)}</div>
+                <div className="mt-0.5 p-1.5 rounded-lg bg-background/50 border border-border/50 group-hover:border-primary/30 transition-colors">
+                  {getActivityIcon(activity.type)}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className={cn("text-sm font-medium", getStatusColor(activity.status))}>
+                  <p className={cn("text-sm font-bold tracking-tight", getStatusColor(activity.status))}>
                     {activity.message}
                   </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-widest">
                     {activity.timestamp}
                   </p>
                 </div>
                 {activity.status && (
                   <Badge
-                    variant={
-                      activity.status === "success"
-                        ? "default"
-                        : activity.status === "warning"
-                        ? "secondary"
-                        : "destructive"
-                    }
-                    className="text-xs"
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] font-black uppercase tracking-tighter",
+                      activity.status === "success" ? "border-green-500/50 text-green-500" :
+                      activity.status === "warning" ? "border-orange-500/50 text-orange-500" :
+                      "border-red-500/50 text-red-500"
+                    )}
                   >
                     {activity.status}
                   </Badge>
@@ -195,35 +196,35 @@ export function PerformanceSummary({
   worstTrade,
 }: PerformanceSummaryProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg font-bold">Performance Summary</CardTitle>
+    <Card className="glass-premium border-border/50 shadow-xl">
+      <CardHeader className="border-b border-primary/10">
+        <CardTitle className="text-lg font-black tracking-tight text-foreground uppercase">Performance Insights</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Win Rate</div>
-            <div className="text-2xl font-bold">{winRate.toFixed(1)}%</div>
+      <CardContent className="pt-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div className="space-y-1">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Win Rate</div>
+            <div className="text-2xl font-black text-foreground">{winRate.toFixed(1)}%</div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Avg Profit</div>
-            <div className={cn("text-2xl font-bold", avgProfit >= 0 ? "text-green-500" : "text-red-500")}>
+          <div className="space-y-1">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Avg Profit</div>
+            <div className={cn("text-2xl font-black", avgProfit >= 0 ? "text-trading-profit" : "text-trading-loss")}>
               ${avgProfit.toFixed(2)}
             </div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Total Profit</div>
-            <div className={cn("text-2xl font-bold", totalProfit >= 0 ? "text-green-500" : "text-red-500")}>
+          <div className="space-y-1">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Net Profit</div>
+            <div className={cn("text-2xl font-black", totalProfit >= 0 ? "text-trading-profit shadow-glow-green" : "text-trading-loss")}>
               ${totalProfit.toFixed(2)}
             </div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Best Trade</div>
-            <div className="text-2xl font-bold text-green-500">${bestTrade.toFixed(2)}</div>
+          <div className="space-y-1">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Best Execution</div>
+            <div className="text-2xl font-black text-trading-profit">${bestTrade.toFixed(2)}</div>
           </div>
-          <div>
-            <div className="text-xs text-muted-foreground mb-1">Worst Trade</div>
-            <div className="text-2xl font-bold text-red-500">${worstTrade.toFixed(2)}</div>
+          <div className="space-y-1">
+            <div className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Max Drawdown</div>
+            <div className="text-2xl font-black text-trading-loss">${Math.abs(worstTrade).toFixed(2)}</div>
           </div>
         </div>
       </CardContent>

@@ -23,6 +23,7 @@ class KYCSubmissionRequest(BaseModel):
     date_of_birth: str  # YYYY-MM-DD
     country: str
     document_type: str = "passport"
+    tax_id: str | None = None
 
 
 class KYCStatusUpdateRequest(BaseModel):
@@ -41,6 +42,15 @@ async def submit_kyc(
         user_id = _get_user_id(current_user)
         email = current_user.get("email", "")
 
+        if (
+            request.country.lower() in ["uk", "united kingdom", "gb", "great britain"]
+            and not request.tax_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Tax ID is required for UK residents (2026 Regulation)",
+            )
+
         result = await kyc_service.initiate_kyc(
             user_id=user_id,
             email=email,
@@ -48,6 +58,7 @@ async def submit_kyc(
             date_of_birth=request.date_of_birth,
             country=request.country,
             document_type=request.document_type,
+            tax_id=request.tax_id,
         )
 
         return {

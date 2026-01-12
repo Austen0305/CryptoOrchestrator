@@ -10,6 +10,30 @@ import { OptimizedLoading } from "@/components/OptimizedLoading";
 import { ErrorRetry } from "@/components/ErrorRetry";
 import { EmptyState } from "@/components/EmptyState";
 import { TrendingUp } from "lucide-react";
+import { motion } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
 
 export default function Markets() {
   const [selectedPair, setSelectedPair] = useState<string>("BTC/USD");
@@ -28,59 +52,66 @@ export default function Markets() {
   }, [marketsData]);
 
   return (
-    <div className="space-y-6 w-full animate-fade-in">
-      <div>
+    <motion.div 
+      className="space-y-6 w-full"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div variants={itemVariants}>
         <h1 className="text-3xl font-bold" data-testid="markets-page">Markets</h1>
         <p className="text-muted-foreground mt-1">
           Browse and trade cryptocurrency pairs on blockchain via DEX aggregators
         </p>
-      </div>
+      </motion.div>
 
-      <Tabs defaultValue="watch" className="space-y-4">
-        <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
-          <TabsTrigger value="watch" className="text-xs sm:text-sm">Market Watch</TabsTrigger>
-          <TabsTrigger value="watchlist" className="text-xs sm:text-sm">Watchlist</TabsTrigger>
-          <TabsTrigger value="all" className="text-xs sm:text-sm">All Markets</TabsTrigger>
-        </TabsList>
+      <motion.div variants={itemVariants}>
+        <Tabs defaultValue="watch" className="space-y-4">
+          <TabsList className="w-full sm:w-auto grid grid-cols-3 sm:inline-flex">
+            <TabsTrigger value="watch" className="text-xs sm:text-sm">Market Watch</TabsTrigger>
+            <TabsTrigger value="watchlist" className="text-xs sm:text-sm">Watchlist</TabsTrigger>
+            <TabsTrigger value="all" className="text-xs sm:text-sm">All Markets</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="watch">
-          <MarketWatch />
-        </TabsContent>
+          <TabsContent value="watch">
+            <MarketWatch />
+          </TabsContent>
 
-        <TabsContent value="watchlist">
-          <Watchlist />
-        </TabsContent>
+          <TabsContent value="watchlist">
+            <Watchlist />
+          </TabsContent>
 
-        <TabsContent value="all">
-          {marketsLoading ? (
-            <div className="space-y-4">
-              <OptimizedLoading variant="skeleton" />
-            </div>
-          ) : marketsError ? (
-            <ErrorRetry
-              title="Failed to load markets"
-              onRetry={() => refetchMarkets()}
-              error={marketsError as Error}
-            />
-          ) : !markets || markets.length === 0 ? (
-            <EmptyState
-              icon={TrendingUp}
-              title="No markets available"
-              description="No trading pairs are currently available. Please try again later."
-            />
-          ) : (
-            <MarketDataTable 
-              markets={markets}
-              onPairSelect={(pair) => setSelectedPair(pair)}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="all">
+            {marketsLoading ? (
+              <div className="space-y-4">
+                <OptimizedLoading variant="skeleton" />
+              </div>
+            ) : marketsError ? (
+              <ErrorRetry
+                title="Failed to load markets"
+                onRetry={() => refetchMarkets()}
+                error={marketsError as Error}
+              />
+            ) : !markets || markets.length === 0 ? (
+              <EmptyState
+                icon={TrendingUp}
+                title="No markets available"
+                description="No trading pairs are currently available. Please try again later."
+              />
+            ) : (
+              <MarketDataTable 
+                markets={markets}
+                onPairSelect={(pair) => setSelectedPair(pair)}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+      </motion.div>
 
       {/* Advanced Market Analysis */}
-      <div className="mt-6">
+      <motion.div variants={itemVariants} className="mt-6">
         <AdvancedMarketAnalysis pair={selectedPair} />
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

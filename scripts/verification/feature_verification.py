@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 class FeatureVerificationResult:
     """Result of a feature verification check"""
 
-    def __init__(self, name: str, passed: bool, message: str, details: Optional[str] = None):
+    def __init__(
+        self, name: str, passed: bool, message: str, details: Optional[str] = None
+    ):
         self.name = name
         self.passed = passed
         self.message = message
@@ -49,12 +51,23 @@ class FeatureVerifier:
 
         services = [
             ("AuthService", "server_fastapi.services.auth"),
-            ("DEXTradingService", "server_fastapi.services.trading.dex_trading_service"),
-            ("GridTradingService", "server_fastapi.services.trading.grid_trading_service"),
-            ("DCATradingService", "server_fastapi.services.trading.dca_trading_service"),
-            ("BotTradingService", "server_fastapi.services.trading.bot_trading_service"),
+            (
+                "DEXTradingService",
+                "server_fastapi.services.trading.dex_trading_service",
+            ),
+            (
+                "GridTradingService",
+                "server_fastapi.services.trading.grid_trading_service",
+            ),
+            (
+                "DCATradingService",
+                "server_fastapi.services.trading.dca_trading_service",
+            ),
+            (
+                "BotTradingService",
+                "server_fastapi.services.trading.bot_trading_service",
+            ),
             ("RiskManager", "server_fastapi.services.advanced_risk_manager"),
-            ("CoinGeckoService", "server_fastapi.services.coingecko_service"),
             ("MarketDataService", "server_fastapi.services.market_data"),
             ("NotificationService", "server_fastapi.services.notification_service"),
             ("WalletService", "server_fastapi.services.wallet_service"),
@@ -181,6 +194,7 @@ class FeatureVerifier:
                         try:
                             # Try a simple query
                             from sqlalchemy import text
+
                             result = await session.execute(text("SELECT 1"))
                             result.scalar()
                             return True
@@ -243,7 +257,6 @@ class FeatureVerifier:
 
         optional_vars = [
             "REDIS_URL",
-            "COINGECKO_API_KEY",
             "SENTRY_DSN",
         ]
 
@@ -293,9 +306,16 @@ class FeatureVerifier:
         logger.info("Checking service initialization...")
 
         services_to_check = [
-            ("CoinGeckoService", "server_fastapi.services.coingecko_service", "get_coingecko_service"),
-            ("MarketDataService", "server_fastapi.services.market_data", "MarketDataService"),
-            ("NotificationService", "server_fastapi.services.notification_service", "NotificationService"),
+            (
+                "MarketDataService",
+                "server_fastapi.services.market_data",
+                "MarketDataService",
+            ),
+            (
+                "NotificationService",
+                "server_fastapi.services.notification_service",
+                "NotificationService",
+            ),
         ]
 
         for service_name, module_path, class_or_func_name in services_to_check:
@@ -313,11 +333,12 @@ class FeatureVerifier:
                             else:
                                 # It's a class - check if it needs parameters
                                 import inspect
+
                                 sig = inspect.signature(service_class_or_func)
                                 params = list(sig.parameters.keys())
-                                
+
                                 # If it requires db parameter, skip initialization check
-                                if 'db' in params or 'db_session' in params:
+                                if "db" in params or "db_session" in params:
                                     self.add_result(
                                         FeatureVerificationResult(
                                             f"Service Initialization: {service_name}",
@@ -326,9 +347,9 @@ class FeatureVerifier:
                                         )
                                     )
                                     continue
-                                
+
                                 instance = service_class_or_func()
-                            
+
                             self.add_result(
                                 FeatureVerificationResult(
                                     f"Service Initialization: {service_name}",
@@ -338,7 +359,7 @@ class FeatureVerifier:
                             )
                         except TypeError as e:
                             # Service requires parameters - this is OK, it will be initialized with proper params at runtime
-                            if 'required' in str(e) or 'missing' in str(e):
+                            if "required" in str(e) or "missing" in str(e):
                                 self.add_result(
                                     FeatureVerificationResult(
                                         f"Service Initialization: {service_name}",
@@ -437,4 +458,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

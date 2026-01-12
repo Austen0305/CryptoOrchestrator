@@ -52,8 +52,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:800
 # COINBASE_SANDBOX_API_SECRET=
 # COINBASE_SANDBOX_BASE_URL=https://api-public.sandbox.exchange.coinbase.com
 
-# Optional: CoinGecko API (free tier, no key required)
-# COINGECKO_API_KEY=
+
 
 # Optional: Stripe (for payment testing)
 # STRIPE_SECRET_KEY=

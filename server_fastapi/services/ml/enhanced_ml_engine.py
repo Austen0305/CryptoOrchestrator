@@ -8,6 +8,10 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel
 
+from .determinism import set_global_seed
+from .ml_pipeline import MLPipeline
+from .model_persistence import ModelPersistence
+
 try:
     import os
 
@@ -55,7 +59,10 @@ class MarketData(BaseModel):
 
 
 class EnhancedMLEngine:
-    def __init__(self):
+    def __init__(self, seed: int = 42):
+        set_global_seed(seed)
+        self.pipeline = MLPipeline()
+        self.persistence = ModelPersistence()
         self.model: tf.keras.Model | None = None
         self.is_training: bool = False
         self.prediction_history: list[dict[str, Any]] = []
@@ -646,11 +653,11 @@ class EnhancedMLEngine:
 
         return np.array(inputs), np.array(labels)
 
-    async def train(self, data: list[MarketData], epochs: int = 50) -> None:
+    async def train(self, data: list[MarketData], epochs: int = 50) -> dict[str, Any]:
         """Train the neural network model"""
         if self.is_training:
             logger.warning("Training already in progress")
-            return
+            return {"status": "error", "message": "Training in progress"}
 
         try:
             self.is_training = True
@@ -658,23 +665,35 @@ class EnhancedMLEngine:
                 f"Starting ML model training with {len(data)} data points, {epochs} epochs"
             )
 
-            if not TENSORFLOW_AVAILABLE or not self.model:
-                logger.warning("TensorFlow not available, skipping actual training")
-                await asyncio.sleep(1)  # Simulate training time
-                logger.info("Mock training completed")
-                return
-
             inputs, labels = self.prepare_training_data(data)
+            dataset_hash = self.pipeline.get_dataset_hash(inputs, labels)
 
             if len(inputs) == 0:
                 raise ValueError("Insufficient data for training")
+
+            training_config = {
+                "epochs": epochs,
+                "batch_size": 32,
+                "validation_split": 0.2,
+                "lookback_period": self.lookback_period,
+                "feature_count": self.feature_count,
+            }
+
+            if not TENSORFLOW_AVAILABLE or not self.model:
+                logger.warning("TensorFlow not available, skipping actual training")
+                await asyncio.sleep(0.1)
+                return {
+                    "status": "mock_success",
+                    "dataset_hash": dataset_hash,
+                    "config": training_config,
+                }
 
             history = self.model.fit(
                 inputs,
                 labels,
                 epochs=epochs,
-                batch_size=32,
-                validation_split=0.2,
+                batch_size=training_config["batch_size"],
+                validation_split=training_config["validation_split"],
                 shuffle=True,
                 verbose=1,
                 callbacks=[
@@ -684,10 +703,18 @@ class EnhancedMLEngine:
                 ],
             )
 
-            logger.info(
-                f"ML model training completed. Final accuracy: {history.history['accuracy'][-1]:.4f}, "
-                f"Final loss: {history.history['loss'][-1]:.4f}"
-            )
+            metrics = {
+                "accuracy": float(history.history["accuracy"][-1]),
+                "loss": float(history.history["loss"][-1]),
+            }
+
+            return {
+                "status": "success",
+                "dataset_hash": dataset_hash,
+                "metrics": metrics,
+                "history": history.history,
+                "config": training_config,
+            }
 
         except Exception as error:
             logger.error(f"Error training ML model: {error}")
@@ -695,36 +722,29 @@ class EnhancedMLEngine:
         finally:
             self.is_training = False
 
-    def record_prediction_result(self, predicted: str, actual: str) -> None:
-        self.prediction_history.append(
-            {
-                "predicted": predicted,
-                "actual": actual,
-                "timestamp": datetime.now().timestamp() * 1000,
-            }
-        )
-
-        if len(self.prediction_history) > self.max_history:
-            self.prediction_history.pop(0)
-
-    def get_accuracy(self) -> float:
-        if not self.prediction_history:
-            return 0.0
-
-        correct = sum(
-            1 for p in self.prediction_history if p["predicted"] == p["actual"]
-        )
-        return correct / len(self.prediction_history)
-
-    async def save_model(self, bot_id: str) -> None:
-        """Save the trained model to disk"""
+    async def save_model(self, bot_id: str, training_result: dict[str, Any]) -> None:
+        """Save the trained model to disk with full metadata"""
         try:
             if not self.model:
                 raise ValueError("No model to save")
 
-            model_path = f"./models/{bot_id}"
-            self.model.save(model_path)
-            logger.info(f"ML model saved successfully for bot {bot_id} at {model_path}")
+            metadata = {
+                "config": training_result.get("config", {}),
+                "performance_metrics": training_result.get("metrics"),
+                "dataset_hash": training_result.get("dataset_hash"),
+                "training_config": training_result.get("config"),
+                "training_history": training_result.get("history"),
+                "feature_count": self.feature_count,
+                "sequence_length": self.lookback_period,
+            }
+
+            self.persistence.save_model(
+                model=self.model,
+                model_type="neural_network",
+                model_name=bot_id,
+                metadata=metadata,
+                version=datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+            )
         except Exception as error:
             logger.error(f"Failed to save ML model: {error}")
             raise error

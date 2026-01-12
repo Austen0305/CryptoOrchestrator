@@ -296,24 +296,15 @@ NON_CUSTODIAL_FEE_BPS=15  # 0.15% fee for non-custodial trades (lower, users mai
 
 ## Optional API Keys
 
-### 4. CoinGecko API Key (Optional - Free Tier Works Without Key)
+### 4. Market Data (Free Tier)
 
-**CoinGecko API** provides cryptocurrency market data as a fallback.
+**MarketDataService** uses CoinCap (primary) and CoinLore (fallback), which are free and do not require API keys.
 
-1. Go to https://www.coingecko.com/en/api
-2. Sign up for a free account
-3. Go to **API Dashboard**
-4. Copy your **API Key** (if you want higher rate limits)
+1.  **CoinCap**: 200 requests/min (Free)
+2.  **CoinLore**: Free public API
 
-**Free Tier:**
-- 10-50 calls/minute without API key
-- 30-50 calls/minute with free API key
-- No credit card required
+No configuration is needed in `.env` for these providers.
 
-**Environment Variables:**
-```env
-COINGECKO_API_KEY=your_coingecko_api_key_here  # Optional
-```
 
 ---
 

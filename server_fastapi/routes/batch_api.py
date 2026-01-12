@@ -75,15 +75,15 @@ async def batch_request(
 # Register common batch handlers
 def register_batch_handlers():
     """Register handlers for common batch methods"""
-    from ..services.coingecko_service import CoinGeckoService
+    from ..services.market_data_service import get_market_data_service
     from ..services.hft_orderbook_service import hft_orderbook_service
 
-    coingecko = CoinGeckoService()
+    market_data = get_market_data_service()
 
     async def get_market_data_handler(params: dict, context: dict) -> dict:
         """Handler for get_market_data batch method"""
         pair = params.get("pair", "BTC/USD")
-        price = await coingecko.get_price(pair)
+        price = await market_data.get_price(pair)
         return {"pair": pair, "price": price}
 
     async def get_orderbook_snapshot_handler(params: dict, context: dict) -> dict:

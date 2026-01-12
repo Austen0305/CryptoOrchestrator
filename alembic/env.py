@@ -78,6 +78,16 @@ try:
         from server_fastapi.models import FeatureFlag, FlagEvaluation, ABTestExperiment, ExperimentAssignment
     except ImportError:
         pass  # Models may not all exist yet
+    # Import audit logs models
+    try:
+        from server_fastapi.models import AuditLog
+    except ImportError:
+        pass
+    # Import webhooks and API keys models
+    try:
+        from server_fastapi.models import Webhook, WebhookDelivery, APIKey, APIKeyUsage
+    except ImportError:
+        pass
 except ImportError:
     try:
         from models import Base

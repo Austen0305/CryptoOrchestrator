@@ -25,6 +25,8 @@ class ModelMetadata(BaseModel):
     updated_at: str
     config: dict[str, Any]
     performance_metrics: dict[str, Any] | None = None
+    dataset_hash: str | None = None
+    training_config: dict[str, Any] | None = None
     training_history: dict[str, Any] | None = None
     feature_count: int | None = None
     sequence_length: int | None = None
@@ -84,6 +86,8 @@ class ModelPersistence:
                 performance_metrics=(
                     metadata.get("performance_metrics") if metadata else None
                 ),
+                dataset_hash=metadata.get("dataset_hash") if metadata else None,
+                training_config=metadata.get("training_config") if metadata else None,
                 training_history=metadata.get("training_history") if metadata else None,
                 feature_count=metadata.get("feature_count") if metadata else None,
                 sequence_length=metadata.get("sequence_length") if metadata else None,

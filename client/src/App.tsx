@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 // React Query Devtools - commented out due to missing dependency
@@ -181,42 +181,24 @@ function AppContent() {
 
   // Manage landing-page body classes based on auth state
   useLayoutEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
     const root = document.getElementById("root");
 
     if (!isAuthenticated) {
-      document.body.classList.add("landing-page-active");
-      document.documentElement.classList.add("landing-page-active");
-      if (root) {
-        root.classList.add("landing-page-active");
-      }
-
-      document.body.style.overflowY = "auto";
-      document.body.style.height = "auto";
-      document.documentElement.style.overflowY = "auto";
-      document.documentElement.style.height = "auto";
+      body.classList.add("landing-page-active");
+      html.classList.add("landing-page-active");
+      root?.classList.add("landing-page-active");
     } else {
-      document.body.classList.remove("landing-page-active");
-      document.documentElement.classList.remove("landing-page-active");
-      if (root) {
-        root.classList.remove("landing-page-active");
-      }
-      document.body.style.overflowY = "";
-      document.body.style.height = "";
-      document.documentElement.style.overflowY = "";
-      document.documentElement.style.height = "";
+      body.classList.remove("landing-page-active");
+      html.classList.remove("landing-page-active");
+      root?.classList.remove("landing-page-active");
     }
 
     return () => {
-      document.body.classList.remove("landing-page-active");
-      document.documentElement.classList.remove("landing-page-active");
-      const cleanupRoot = document.getElementById("root");
-      if (cleanupRoot) {
-        cleanupRoot.classList.remove("landing-page-active");
-      }
-      document.body.style.overflowY = "";
-      document.body.style.height = "";
-      document.documentElement.style.overflowY = "";
-      document.documentElement.style.height = "";
+      body.classList.remove("landing-page-active");
+      html.classList.remove("landing-page-active");
+      root?.classList.remove("landing-page-active");
     };
   }, [isAuthenticated]);
 

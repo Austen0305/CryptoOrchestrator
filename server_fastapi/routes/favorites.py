@@ -109,11 +109,11 @@ async def get_favorites(
         # Enrich with current market data
         enriched_favorites = []
         # Fetch market data for favorites
-        from ..services.coingecko_service import get_coingecko_service
-        from ..services.market_data import MarketDataService
+        from ..services.market_data_service import get_market_data_service
 
-        market_data_service = MarketDataService()
-        coingecko = get_coingecko_service()
+        # from ..services.market_data import MarketDataService # Already using helper
+
+        market_data_service = get_market_data_service()
 
         for fav in favorites:
             # Fetch current price and 24h change
@@ -127,16 +127,15 @@ async def get_favorites(
                 if price:
                     current_price = float(price)
 
-                # Try to get 24h change from CoinGecko
-                if coingecko:
-                    try:
-                        ticker_data = await coingecko.get_ticker(fav.symbol)
-                        if ticker_data and "price_change_percentage_24h" in ticker_data:
-                            price_change_24h = float(
-                                ticker_data["price_change_percentage_24h"]
-                            )
-                    except Exception:
-                        pass  # Fallback if CoinGecko fails
+                # Try to get 24h change from MarketDataService
+                try:
+                    ticker_data = await market_data_service.get_ticker(fav.symbol)
+                    if ticker_data and "price_change_percentage_24h" in ticker_data:
+                        price_change_24h = float(
+                            ticker_data["price_change_percentage_24h"]
+                        )
+                except Exception:
+                    pass  # Fallback if fetching fails
             except Exception as e:
                 logger.debug(f"Failed to fetch market data for {fav.symbol}: {e}")
 
@@ -372,16 +371,16 @@ async def get_watchlist_summary(
         exchanges = [row[0] for row in exchanges_result.all()]
 
         # Fetch actual market data for top gainers/losers
-        from ..services.coingecko_service import get_coingecko_service
+        from ..services.market_data_service import get_market_data_service
 
         top_gainers = []
         top_losers = []
 
         try:
-            coingecko = get_coingecko_service()
-            if coingecko:
+            market_data = get_market_data_service()
+            if market_data:
                 # Get trending coins (top gainers/losers)
-                trending = await coingecko.get_trending()
+                trending = await market_data.get_trending()
                 if trending:
                     # Sort by 24h change
                     sorted_coins = sorted(

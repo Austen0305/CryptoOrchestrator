@@ -1,5 +1,26 @@
 # CryptoOrchestrator Documentation
 
+## 2026 Architecture Standards
+
+> **Latest Update (Jan 2026)**: This project has been modernized for autonomous scalability and zero-failure reliability.
+
+### Key Modernization Features
+
+1. **Router Auto-Discovery**:
+   - The backend (`server_fastapi`) now uses intelligent router discovery (`core/router_discovery.py`).
+   - Manual router registration in `main.py` is deprecated. New routers in `routes/` are automatically mounted.
+
+2. **End-to-End Verification**:
+   - **Source of Truth**: `scripts/verify_full_system.py`
+   - Validates the critical path: Health -> Auth -> Market Data (CoinCap) -> Wallet -> Trade Simulation.
+   - Run verification: `python scripts/verify_full_system.py`
+
+3. **Strict Type Safety**:
+   - Core schemas use `pydantic` v2 with `strict=True`.
+   - All financial operations are validated against strict contracts.
+
+---
+
 ## Overview
 
 This comprehensive documentation framework provides complete guidance for deploying, using, and maintaining the CryptoOrchestrator professional cryptocurrency trading platform. All documentation is production-ready and designed for both technical and non-technical users.

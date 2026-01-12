@@ -66,7 +66,7 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
       });
 
       // Verify chart was created successfully
-      if (!chart || typeof chart.addCandlestickSeries !== 'function') {
+      if (!chart || typeof (chart as any).addCandlestickSeries !== 'function') {
         console.error('Chart initialization failed: addCandlestickSeries not available');
         return;
       }
@@ -75,7 +75,7 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
 
       // Create candlestick series
       try {
-        const candlestickSeries = chart.addCandlestickSeries({
+        const candlestickSeries = (chart as any).addCandlestickSeries({
           upColor: "#22c55e",
           downColor: "#ef4444",
           borderVisible: false,
@@ -89,7 +89,7 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
 
       // Create area series
       try {
-        const areaSeries = chart.addAreaSeries({
+        const areaSeries = (chart as any).addAreaSeries({
           lineColor: "hsl(var(--primary))",
           topColor: "hsl(var(--primary) / 0.3)",
           bottomColor: "hsl(var(--primary) / 0.05)",
@@ -118,8 +118,10 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      chart.remove();
-      chartRef.current = null;
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
     };
   }, []);
 
@@ -227,12 +229,16 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
 
   if (isLoading) {
     return (
-      <Card className="h-full flex flex-col border-2 border-card-border/70 shadow-2xl">
-        <CardHeader className="flex-row items-center justify-between space-y-0 pb-5 px-6 pt-6">
-          <CardTitle className="text-xl md:text-2xl font-extrabold">{pair}</CardTitle>
+      <Card className="glass-premium border-border/50 shadow-2xl h-[500px] flex flex-col overflow-hidden">
+        <CardHeader className="flex-row items-center justify-between space-y-0 pb-5 px-6 pt-6 border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
+          <div className="space-y-2">
+            <LoadingSkeleton className="h-8 w-32 rounded-lg" />
+            <LoadingSkeleton className="h-4 w-48 rounded-md" />
+          </div>
+          <LoadingSkeleton className="h-10 w-24 rounded-xl" />
         </CardHeader>
-        <CardContent className="flex-1 pb-6 px-6">
-          <LoadingSkeleton className="h-full w-full" />
+        <CardContent className="flex-1 p-6">
+          <LoadingSkeleton className="h-full w-full rounded-2xl" />
         </CardContent>
       </Card>
     );
@@ -257,32 +263,31 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
   }
 
   return (
-    <Card className="h-full flex flex-col border-2 border-card-border/70 shadow-2xl">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-5 px-6 pt-6 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b-2 border-primary/20">
-        <div className="flex flex-col space-y-1">
-          <CardTitle className="text-xl md:text-2xl font-extrabold text-foreground drop-shadow-sm">{pair}</CardTitle>
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl font-bold">${priceRef.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            <Badge variant={isPositive ? "default" : "destructive"} className="text-xs">
-              {isPositive ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
-              {Math.abs(change24h).toFixed(2)}%
+    <Card className="glass-premium border-border/50 shadow-2xl h-full flex flex-col group overflow-hidden transition-all duration-500 hover:shadow-glow-blue/20">
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 px-6 pt-6 border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
+        <div className="flex flex-col gap-1">
+          <CardTitle className="text-2xl font-black tracking-tighter bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent uppercase flex items-center gap-2">
+            {pair}
+            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest border-primary/20 bg-primary/5 text-primary">
+              Live
             </Badge>
-            {isConnected && (
-              <Badge variant="outline" className="text-xs">
-                <Radio className="h-3 w-3 mr-1" />
-                Live
-              </Badge>
-            )}
+          </CardTitle>
+          <div className="flex items-center gap-3">
+            <span className="text-3xl font-black font-mono tracking-tighter text-foreground drop-shadow-sm">
+              ${priceRef.current.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className={`text-sm font-black flex items-center gap-1 ${isPositive ? "text-trading-profit" : "text-trading-loss"}`}>
+              {isPositive ? "▲" : "▼"} {Math.abs(change24h).toFixed(2)}%
+            </span>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="flex rounded-lg border border-border bg-background p-1">
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex bg-muted/3 p-1 rounded-xl border border-border/50 backdrop-blur-md">
             {timeframes.map((tf) => (
               <Button
                 key={tf}
-                variant={timeframe === tf ? "default" : "ghost"}
+                variant={tf === timeframe ? "default" : "ghost"}
                 size="sm"
-                className="h-7 px-2 text-xs"
                 onClick={() => setTimeframe(tf)}
               >
                 {tf}

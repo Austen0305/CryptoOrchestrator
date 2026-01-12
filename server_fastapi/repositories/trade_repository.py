@@ -282,7 +282,7 @@ class TradeRepository(SQLAlchemyRepository[Trade]):
         session: AsyncSession,
         user_id: int,
         mode: str,
-        pair: str | None = None,
+        pairs: list[str] | str | None = None,
         period_hours: int | None = None,
     ) -> list[Trade]:
         """
@@ -304,8 +304,11 @@ class TradeRepository(SQLAlchemyRepository[Trade]):
             Trade.status == "completed",
         ]
 
-        if pair:
-            conditions.append(Trade.pair == pair)
+        if pairs:
+            if isinstance(pairs, list):
+                conditions.append(Trade.pair.in_(pairs))
+            else:
+                conditions.append(Trade.pair == pairs)
 
         if period_hours:
             cutoff_time = datetime.utcnow() - timedelta(hours=period_hours)

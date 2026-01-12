@@ -3,6 +3,7 @@ Accounting System Export Adapters
 Export tax data to QuickBooks, Xero, and other accounting systems
 """
 
+from dataclasses import dataclass
 import csv
 import io
 import logging

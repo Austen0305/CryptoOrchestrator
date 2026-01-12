@@ -83,10 +83,20 @@ export function PerformanceMonitor() {
       const wsBase = windowWithGlobals?.__WS_BASE__
         || importMetaWithEnv?.env?.VITE_WS_BASE_URL
         || (() => {
-          const api = windowWithGlobals?.__API_BASE__ || importMetaWithEnv?.env?.VITE_API_URL || '';
-          if (api.startsWith('http')) {
+          const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+          const wsUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000';
+    
+          // Simple regex for basic strict validation
+          const isValidUrl = (url: string) => {
+            const match = url.match(/^(https?|wss?):\/\/[^\s/$.?#].[^\s]*$/i);
+            return !!match;
+          };
+
+          if (isValidUrl(wsUrl)) {
+            return wsUrl;
+          } else if (isValidUrl(apiUrl) && apiUrl.startsWith('http')) {
             // Convert HTTPS to WSS, HTTP to WS
-            return api.replace(/^https?/, (match) => match === 'https' ? 'wss' : 'ws');
+            return apiUrl.replace(/^https?/, (match: string) => match === 'https' ? 'wss' : 'ws');
           }
           return 'ws://localhost:8000';
         })();

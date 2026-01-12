@@ -218,7 +218,7 @@ See `.vscode/settings.json` for complete configuration.
 10+ free MCP servers available for enhanced capabilities:
 
 - Infrastructure: Sentry, Docker, New Relic, OneUptime, Prisma, Puppeteer, GitHub
-- Crypto: CoinGecko, Web3, DeFi Trading, Crypto Fear & Greed, CryptoPanic, and more
+- Crypto: CoinCap, CoinLore, Web3, DeFi Trading, Crypto Fear & Greed, CryptoPanic, and more
 
 See [`.cursor/MCP_ENV_VARS_ADDED.md`](../../.cursor/MCP_ENV_VARS_ADDED.md) for MCP server setup instructions.
 

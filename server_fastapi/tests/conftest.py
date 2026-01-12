@@ -556,7 +556,7 @@ def test_bot_config():
 @pytest.fixture
 def factories():
     """Provide access to test data factories"""
-    from .utils.test_factories import (
+    from server_fastapi.tests.utils.test_factories import (
         BotFactory,
         PortfolioFactory,
         TradeFactory,
@@ -580,11 +580,11 @@ async def test_user_with_auth(db_session, factories):
 
     from server_fastapi.services.auth.auth_service import AuthService
 
-    auth_service = AuthService(db_session=db_session)
+    auth_service = AuthService()
 
     try:
         token_data = await auth_service.login_user(
-            email=user["email"], password=user["password"]
+            email=user["email"], password=user["password"], session=db_session
         )
         user["token"] = token_data["token"]
         user["auth_headers"] = {"Authorization": f"Bearer {token_data['token']}"}

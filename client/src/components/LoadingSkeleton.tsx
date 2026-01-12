@@ -23,7 +23,7 @@ export function LoadingSkeleton({
   lines = 3,
   count,
 }: LoadingSkeletonProps) {
-  const baseClasses = 'animate-pulse bg-muted rounded';
+  const baseClasses = 'shimmer bg-muted rounded';
   const itemCount = count || lines;
 
   if (variant === 'text') {

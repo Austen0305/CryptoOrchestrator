@@ -21,7 +21,6 @@ export { OptimizedTooltip } from './OptimizedTooltip';
 export { OptimizedTable } from './OptimizedTable';
 export { OptimizedPagination } from './OptimizedPagination';
 export { OptimizedLoading, LoadingOverlay } from './OptimizedLoading';
-export { OptimizedSkeleton } from './OptimizedSkeleton';
 export { OptimizedImage } from './OptimizedImage';
 export { OptimizedErrorBoundary } from './OptimizedErrorBoundary';
 export { OptimizedSuspense } from './OptimizedSuspense';

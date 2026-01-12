@@ -13,24 +13,24 @@ class MarketDataService:
         self.is_streaming = False
         # Simple in-memory candle cache per symbol: list of (ts, open, high, low, close, volume)
         self.candles: dict[str, list[list[float]]] = {}
-        # CoinGecko service for fallback price data
-        self._coingecko_service: Any | None = None
+        # Free Market Data Service
+        self._market_service: Any | None = None
 
-    def _get_coingecko_service(self):
-        """Lazy load CoinGecko service"""
-        if self._coingecko_service is None:
+    def _get_market_service(self):
+        """Lazy load MarketDataService"""
+        if self._market_service is None:
             try:
-                from .coingecko_service import get_coingecko_service
+                from .market_data_service import get_market_data_service
 
-                self._coingecko_service = get_coingecko_service()
+                self._market_service = get_market_data_service()
             except ImportError:
-                logger.warning("CoinGecko service not available")
-                self._coingecko_service = None
-        return self._coingecko_service
+                logger.warning("MarketDataService not available")
+                self._market_service = None
+        return self._market_service
 
     async def get_price_with_fallback(self, symbol: str) -> float | None:
         """
-        Get price with fallback to CoinGecko if exchange API fails
+        Get price with fallback to free providers if exchange API fails
 
         Args:
             symbol: Trading pair (e.g., "BTC/USD")
@@ -38,32 +38,32 @@ class MarketDataService:
         Returns:
             Current price or None
         """
-        # Try CoinGecko first (free tier, no API keys needed)
-        coingecko = self._get_coingecko_service()
-        if coingecko:
+        # Try Free Market Service first
+        market_service = self._get_market_service()
+        if market_service:
             try:
-                price = await coingecko.get_price(symbol)
+                price = await market_service.get_price(symbol)
                 if price:
-                    logger.debug(f"Got price from CoinGecko for {symbol}: {price}")
+                    logger.debug(f"Got price from MarketService for {symbol}: {price}")
                     return price
             except Exception as e:
-                logger.debug(f"CoinGecko price fetch failed for {symbol}: {e}")
+                logger.debug(f"MarketService price fetch failed for {symbol}: {e}")
 
         # No fallback to mock data - return None if all sources fail
         logger.warning(f"Unable to get price for {symbol} from any source")
         return None
 
     async def stream_market_data(self) -> AsyncGenerator[dict[str, Any], None]:
-        """Stream real-time market data updates using CoinGecko"""
+        """Stream real-time market data updates using Free Market Service"""
         logger.info("Starting market data stream with real data")
 
         symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
         self.is_streaming = True
 
-        # Get CoinGecko service
-        coingecko = self._get_coingecko_service()
-        if not coingecko:
-            logger.error("CoinGecko service not available for market data streaming")
+        # Get Market Service
+        market_service = self._get_market_service()
+        if not market_service:
+            logger.error("MarketDataService not available for market data streaming")
             return
 
         # Track previous prices for change calculation
@@ -71,11 +71,11 @@ class MarketDataService:
 
         try:
             while self.is_streaming:
-                # Get real prices from CoinGecko
+                # Get real prices from Market Service
                 for symbol in symbols:
                     try:
                         # Get current price
-                        current_price = await coingecko.get_price(symbol)
+                        current_price = await market_service.get_price(symbol)
                         if not current_price:
                             continue
 
@@ -87,7 +87,7 @@ class MarketDataService:
                             price_change = 0.0
 
                         # Get market data for volume
-                        market_data = await coingecko.get_market_data(symbol)
+                        market_data = await market_service.get_market_data(symbol)
                         volume_24h = (
                             market_data.get("volume_24h", 0) if market_data else 0
                         )
@@ -141,7 +141,7 @@ class MarketDataService:
                         )
                         continue
 
-                # Rate limit: CoinGecko free tier is 10-50 calls/minute
+                # Rate limit: CoinCap 200/min approx check
                 # Update every 5 seconds to stay within limits
                 await asyncio.sleep(5)
 

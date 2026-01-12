@@ -228,14 +228,16 @@ class PortfolioRebalancer:
         """Get 30-day volatility for asset"""
         try:
             # Use real volatility calculation from price history
-            from ..services.coingecko_service import CoinGeckoService
+            from ..services.market_data_service import get_market_data_service
             from ..services.volatility_analyzer import VolatilityAnalyzer
 
-            coingecko = CoinGeckoService()
+            market_data_service = get_market_data_service()
             volatility_analyzer = VolatilityAnalyzer()
 
             # Get 30 days of historical price data
-            historical_data = await coingecko.get_historical_prices(symbol, days=30)
+            historical_data = await market_data_service.get_historical_prices(
+                symbol, days=30
+            )
             if not historical_data or len(historical_data) < 2:
                 logger.warning(
                     f"Insufficient data for volatility calculation for {symbol}"
@@ -243,7 +245,7 @@ class PortfolioRebalancer:
                 return 0.2  # Default 20% volatility if data unavailable
 
             # Convert to OHLCV format for volatility analyzer
-            # CoinGecko returns price points, we'll estimate OHLCV
+            # Market Data Service returns price points, we'll estimate OHLCV
             market_data = []
             for i, point in enumerate(historical_data):
                 price = point.get("price", 0)
@@ -283,13 +285,13 @@ class PortfolioRebalancer:
     async def _get_market_cap(self, symbol: str) -> float:
         """Get market cap for asset"""
         try:
-            # Use CoinGecko for real market cap data
-            from ..services.coingecko_service import CoinGeckoService
+            # Use MarketDataService for real market cap data
+            from ..services.market_data_service import get_market_data_service
 
-            coingecko = CoinGeckoService()
+            market_data_service = get_market_data_service()
 
             # Get market data which includes market cap
-            market_data = await coingecko.get_market_data(symbol)
+            market_data = await market_data_service.get_market_data(symbol)
             if market_data and "market_cap" in market_data:
                 market_cap = market_data.get("market_cap", 0)
                 if market_cap > 0:
@@ -297,10 +299,10 @@ class PortfolioRebalancer:
                     return market_cap
 
             # Fallback: estimate from price if available
-            price = await coingecko.get_price(symbol)
+            price = await market_data_service.get_price(symbol)
             if price:
                 # Very rough estimate: assume circulating supply (this is a fallback)
-                # In production, get actual circulating supply from CoinGecko
+                # In production, get actual circulating supply from Market Data Service
                 logger.warning(
                     f"Market cap not available for {symbol}, using price estimate"
                 )
@@ -326,12 +328,14 @@ class PortfolioRebalancer:
         """Calculate 12-month momentum (rate of return)"""
         try:
             # Use real price history to calculate momentum
-            from ..services.coingecko_service import CoinGeckoService
+            from ..services.market_data_service import get_market_data_service
 
-            coingecko = CoinGeckoService()
+            market_data_service = get_market_data_service()
 
             # Get 365 days of historical data (12 months)
-            historical_data = await coingecko.get_historical_prices(symbol, days=365)
+            historical_data = await market_data_service.get_historical_prices(
+                symbol, days=365
+            )
             if not historical_data or len(historical_data) < 2:
                 logger.warning(
                     f"Insufficient data for momentum calculation for {symbol}"
@@ -357,12 +361,14 @@ class PortfolioRebalancer:
         """Get expected return for asset (based on historical average)"""
         try:
             # Use historical returns to estimate expected return
-            from ..services.coingecko_service import CoinGeckoService
+            from ..services.market_data_service import get_market_data_service
 
-            coingecko = CoinGeckoService()
+            market_data_service = get_market_data_service()
 
             # Get 90 days of historical data for recent trend
-            historical_data = await coingecko.get_historical_prices(symbol, days=90)
+            historical_data = await market_data_service.get_historical_prices(
+                symbol, days=90
+            )
             if not historical_data or len(historical_data) < 2:
                 logger.warning(
                     f"Insufficient data for expected return calculation for {symbol}"

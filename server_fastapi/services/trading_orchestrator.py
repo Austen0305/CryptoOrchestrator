@@ -3,7 +3,8 @@ import asyncio
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, Optional
+from ...core.domain_registry import domain_registry
 
 from pydantic import BaseModel
 
@@ -71,10 +72,17 @@ class TradingOrchestrator:
             except Exception as e:
                 logger.warning(f"Failed to initialize JesseManager: {e}")
 
-        # Initialize Execution Service
-        from .execution.execution_service import ExecutionService
+        # Lazy-resolved Execution Service
+        self._execution_service = None
 
-        self.execution_service = ExecutionService(db_session)
+    @property
+    def execution_service(self):
+        if self._execution_service is None:
+            # Conditional import to avoid circular paths
+            from .execution.execution_service import ExecutionService
+
+            self._execution_service = ExecutionService(self.db)
+        return self._execution_service
 
     async def execute_trade(
         self,
@@ -89,14 +97,11 @@ class TradingOrchestrator:
         Execute a trade for a specific bot via the ExecutionService.
         """
         try:
-            # 1. Get user wallet (simplified for Phase 3)
-            # In real system, we'd fetch the specific wallet assigned to this bot/strategy
-            # For now, we assume a default wallet or fetch from DB if available
-
-            # Temporary: Mock wallet/key for Phase 3 bridge testing until KeyManager is ready
-            wallet_address = "0x71C7656EC7ab88b098defB751B7401B5f6d8976F"
-            chain_id = 1  # Ethereum Mainnet
-            private_key = "0x0000000000000000000000000000000000000000000000000000000000000001"  # MOCK KEY
+            # 1. Get user wallet (2026 standard)
+            # In Phase 3, we fetch the wallet_id assigned to this bot.
+            # For now, we'll use a placeholder wallet_id that would be in the DB.
+            wallet_id = "default_eth_wallet"
+            chain_id = 1
 
             # In a real implementation:
             # wallet = await self.wallet_service.get_user_wallet(user_id, chain_id)
@@ -113,10 +118,10 @@ class TradingOrchestrator:
             result = await self.execution_service.execute_trade_signal(
                 signal=signal,
                 user_id=user_id,
-                wallet_address=wallet_address,
+                wallet_id=wallet_id,
                 chain_id=chain_id,
-                private_key=private_key,
                 db_session=self.db,
+                dry_run=os.getenv("DRY_RUN", "true").lower() == "true",
             )
 
             return result

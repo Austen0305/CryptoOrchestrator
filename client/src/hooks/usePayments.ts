@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import logger from "@/lib/logger";
 import { useAuth } from "@/hooks/useAuth";
 
-interface Plan {
+export interface Plan {
   plan: string;
   name: string;
   amount: number; // Amount in cents (0 for free)
@@ -13,6 +13,8 @@ interface Plan {
   is_free?: boolean;
   price_display?: string;
   features: string[];
+  price_monthly?: number;
+  price_yearly?: number;
   limits: {
     max_bots: number;
     max_strategies: number;
@@ -20,7 +22,7 @@ interface Plan {
   };
 }
 
-interface Subscription {
+export interface Subscription {
   plan: string;
   status: string;
   current_period_start?: string;

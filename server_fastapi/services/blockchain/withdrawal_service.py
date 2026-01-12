@@ -167,7 +167,7 @@ class WithdrawalService:
                         weekly_total = float(weekly_result.scalar() or 0)
 
                         # Convert amount to USD for limit checking (simplified - use current price)
-                        # In production, use actual token price from CoinGecko or similar
+                        # In production, use actual token price from Market Data Service or similar
                         amount_usd = (
                             float(amount) * 2000.0
                         )  # Placeholder: assume $2000 per ETH

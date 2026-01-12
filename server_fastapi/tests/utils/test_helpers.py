@@ -22,7 +22,9 @@ async def create_test_user(
         email = f"testuser-{uuid.uuid4().hex[:8]}@example.com"
 
     auth_service = AuthService()
-    user = await auth_service.register_user(email=email, password=password, name=name)
+    user = await auth_service.register_user(
+        email=email, password=password, name=name, session=db
+    )
 
     return {
         "id": user.get("id") if isinstance(user, dict) else str(user),

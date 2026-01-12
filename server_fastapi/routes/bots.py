@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from ..dependencies.auth import get_current_user
 from ..dependencies.bots import get_bot_service, get_bot_trading_service
 from ..middleware.cache_manager import cached
-from ..routes.integrations import get_trading_orchestrator
+from .integrations import get_trading_orchestrator
 from ..services.trading.bot_service import BotService
 from ..services.trading.bot_trading_service import BotTradingService
 from ..utils.route_helpers import _get_user_id

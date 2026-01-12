@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -644,9 +644,9 @@ async def get_analytics_thresholds(
                 "enabled": t.enabled,
                 "notification_channels": t.notification_channels,
                 "cooldown_minutes": t.cooldown_minutes,
-                "last_triggered_at": t.last_triggered_at.isoformat()
-                if t.last_triggered_at
-                else None,
+                "last_triggered_at": (
+                    t.last_triggered_at.isoformat() if t.last_triggered_at else None
+                ),
                 "name": t.name,
                 "description": t.description,
                 "created_at": t.created_at.isoformat(),
@@ -693,9 +693,11 @@ async def get_analytics_threshold(
             "enabled": threshold.enabled,
             "notification_channels": threshold.notification_channels,
             "cooldown_minutes": threshold.cooldown_minutes,
-            "last_triggered_at": threshold.last_triggered_at.isoformat()
-            if threshold.last_triggered_at
-            else None,
+            "last_triggered_at": (
+                threshold.last_triggered_at.isoformat()
+                if threshold.last_triggered_at
+                else None
+            ),
             "name": threshold.name,
             "description": threshold.description,
             "created_at": threshold.created_at.isoformat(),

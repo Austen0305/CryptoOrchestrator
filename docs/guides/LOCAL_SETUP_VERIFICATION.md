@@ -67,7 +67,7 @@ All phases of the local development setup plan have been completed and verified.
 
 ### Real-Time Price Data ✅
 
-- **Service:** `server_fastapi/services/coingecko_service.py`
+- **Service:** `server_fastapi/services/market_data_service.py`
 - **Features:**
   - ✅ Free tier integration (10-50 calls/minute)
   - ✅ Real-time price data
@@ -182,7 +182,7 @@ All phases of the local development setup plan have been completed and verified.
 
 4. **Enhanced Features:**
    - ✅ TradingView Lightweight Charts integrated
-   - ✅ CoinGecko fallback implemented
+   - ✅ Market Data Service (CoinCap/CoinLore) implemented
    - ✅ Advanced orders service complete
    - ✅ All API endpoints registered
 
@@ -272,7 +272,7 @@ python scripts/quick_env.py binance
 3. ✅ Database initialized and migrated
 4. ✅ Exchange API keys configured (Binance.US)
 5. ✅ Enhanced charting implemented
-6. ✅ Real-time price data with CoinGecko fallback
+6. ✅ Real-time price data with Market Data Service
 7. ✅ Advanced trading orders implemented
 8. ✅ Documentation complete
 9. ✅ Ready for local development and testing

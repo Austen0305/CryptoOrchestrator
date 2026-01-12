@@ -26,7 +26,7 @@ export function createOptimizedRoute<T extends React.ComponentType<unknown>>(
 
   return (props: React.ComponentPropsWithoutRef<T>) => (
     <React.Suspense fallback={fallback || <div>Loading...</div>}>
-      <LazyComponent {...(props as React.ComponentProps<T>)} />
+      <LazyComponent {...(props as any)} />
     </React.Suspense>
   );
 }

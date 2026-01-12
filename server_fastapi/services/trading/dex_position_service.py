@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models.dex_position import DEXPosition
 from ...repositories.dex_position_repository import DEXPositionRepository
 from ..blockchain.token_registry import get_token_registry
-from ..coingecko_service import CoinGeckoService
+from ..market_data_service import get_market_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class DEXPositionService:
         self.position_repository = position_repository or DEXPositionRepository()
         self.db = db_session  # Keep db for transaction handling
         self.token_registry = get_token_registry()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
 
     async def open_position(
         self,
@@ -128,7 +128,8 @@ class DEXPositionService:
             if current_price is None:
                 price_symbol = f"{position.token_symbol}/USD"
                 current_price = (
-                    await self.coingecko.get_price(price_symbol) or position.entry_price
+                    await self.market_data.get_price(price_symbol)
+                    or position.entry_price
                 )
 
             # ✅ Business logic: Calculate current value and P&L

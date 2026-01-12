@@ -48,7 +48,7 @@ export function createLazyRoute<T extends React.ComponentType<unknown>>(
   
   return (props: React.ComponentPropsWithoutRef<T>) => (
     <Suspense fallback={fallback || <div>Loading...</div>}>
-      <LazyComponent {...(props as React.ComponentProps<T>)} />
+      <LazyComponent {...(props as any)} />
     </Suspense>
   );
 }

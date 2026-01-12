@@ -1,10 +1,6 @@
-const path = require('path');
-
-module.exports = {
+export default {
   plugins: {
-    tailwindcss: {
-      config: path.resolve(__dirname, '..', 'tailwind.config.ts'),
-    },
+    tailwindcss: {},
     autoprefixer: {},
   },
   // Explicitly set from option to fix PostCSS warning

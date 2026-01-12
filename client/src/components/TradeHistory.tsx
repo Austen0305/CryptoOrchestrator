@@ -104,52 +104,56 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
   }, [filteredTrades, toast]);
 
   return (
-    <Card className="border-card-border shadow-md">
-      <CardHeader className="pb-4">
+    <Card className="glass-premium border-border/50 shadow-2xl overflow-hidden">
+      <CardHeader className="pb-4 border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <CardTitle className="text-lg font-bold">Trade History</CardTitle>
+          <CardTitle className="text-xl font-black tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent uppercase">Trade Ledger</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-trades-csv" className="rounded-md">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
               <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportJSON} data-testid="button-export-trades-json" className="rounded-md">
+            <Button variant="outline" size="sm" onClick={handleExportJSON} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
               <Download className="h-3.5 w-3.5 mr-1.5" /> JSON
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} data-testid="button-export-trades-pdf" className="rounded-md">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
               <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
             </Button>
           </div>
         </div>
         {/* Filters */}
-        <div className="flex items-center gap-2 mt-4">
-          <Select value={filterMode} onValueChange={setFilterMode}>
-            <SelectTrigger className="w-[120px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Mode" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Modes</SelectItem>
-              <SelectItem value="paper">Paper</SelectItem>
-              <SelectItem value="real">Real Money</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterSide} onValueChange={setFilterSide}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Side" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sides</SelectItem>
-              <SelectItem value="buy">Buy</SelectItem>
-              <SelectItem value="sell">Sell</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex items-center gap-3 mt-6 flex-wrap">
+          <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border/50">
+            <Select value={filterMode} onValueChange={setFilterMode}>
+              <SelectTrigger className="w-[130px] border-none bg-transparent h-8 font-bold text-xs">
+                <Filter className="h-3.5 w-3.5 mr-2 text-primary" />
+                <SelectValue placeholder="Mode" />
+              </SelectTrigger>
+              <SelectContent className="glass-premium">
+                <SelectItem value="all">All Modes</SelectItem>
+                <SelectItem value="paper">Paper Trading</SelectItem>
+                <SelectItem value="real">Real Money</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="h-4 w-px bg-border/50 mx-1" />
+            <Select value={filterSide} onValueChange={setFilterSide}>
+              <SelectTrigger className="w-[110px] border-none bg-transparent h-8 font-bold text-xs">
+                <SelectValue placeholder="Side" />
+              </SelectTrigger>
+              <SelectContent className="glass-premium">
+                <SelectItem value="all">Both Sides</SelectItem>
+                <SelectItem value="buy">Buys Only</SelectItem>
+                <SelectItem value="sell">Sells Only</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
           {chains.length > 0 && (
             <Select value={filterChain} onValueChange={setFilterChain}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Chain" />
+              <SelectTrigger className="w-[150px] bg-muted/30 border-border/50 h-10 font-bold text-xs rounded-xl">
+                <SelectValue placeholder="All Networks" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Chains</SelectItem>
+              <SelectContent className="glass-premium">
+                <SelectItem value="all">All Networks</SelectItem>
                 {chains.map(chain => (
                   <SelectItem key={chain || "unknown"} value={chain || ""}>
                     {chain || "Unknown"}
@@ -158,46 +162,51 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
               </SelectContent>
             </Select>
           )}
-          <div className="ml-auto text-sm text-muted-foreground">
-            Showing {filteredTrades.length} of {trades.length} trades
+          
+          <div className="ml-auto text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+            Captured {filteredTrades.length} / {trades.length} trades
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {filteredTrades.length === 0 ? (
-          <EmptyTradesState 
-            onRefresh={() => window.location.reload()} 
-          />
+          <div className="p-12">
+            <EmptyTradesState 
+              onRefresh={() => window.location.reload()} 
+            />
+          </div>
         ) : filteredTrades.length > 50 ? (
           // Use virtual scrolling for large lists (50+ items)
-          <VirtualizedList
-            items={filteredTrades}
-            itemHeight={80}
-            containerHeight={400}
-            renderItem={(trade, index) => {
-              const tradeSide = trade.side || trade.type;
-              const isBuy = tradeSide === "buy";
-              
-              return (
-                <div
-                  className="mx-2"
-                  data-testid={`trade-${trade.id}`}
-                  aria-label={`Trade ${index + 1}: ${tradeSide} ${trade.amount} ${trade.pair} at $${trade.price.toLocaleString()}`}
-                  tabIndex={0}
-                >
-                  <TradeItem trade={trade} isBuy={isBuy} tradeSide={tradeSide} />
+          <div className="p-4">
+            <VirtualizedList
+              items={filteredTrades}
+              itemHeight={80}
+              containerHeight={400}
+              renderItem={(trade, index) => {
+                const tradeSide = trade.side || trade.type;
+                const isBuy = tradeSide === "buy";
+                
+                return (
+                  <div
+                    className="mx-2 mb-2"
+                    data-testid={`trade-${trade.id}`}
+                    aria-label={`Trade ${index + 1}: ${tradeSide} ${trade.amount} ${trade.pair} at $${trade.price.toLocaleString()}`}
+                    tabIndex={0}
+                  >
+                    <TradeItem trade={trade} isBuy={isBuy} tradeSide={tradeSide} />
+                  </div>
+                );
+              }}
+              emptyState={
+                <div className="text-center py-12 text-muted-foreground font-medium italic">
+                  No trades found matching your filters
                 </div>
-              );
-            }}
-            emptyState={
-              <div className="text-center py-8 text-muted-foreground">
-                No trades found matching your filters
-              </div>
-            }
-          />
+              }
+            />
+          </div>
         ) : (
-          <ScrollArea className="h-[400px] pr-4">
-            <div className="space-y-3">
+          <ScrollArea className="h-[400px] modern-scrollbar">
+            <div className="p-4 space-y-3">
               {filteredTrades.map((trade) => {
                 const tradeSide = trade.side || trade.type;
                 const isBuy = tradeSide === "buy";

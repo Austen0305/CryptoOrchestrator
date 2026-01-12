@@ -38,7 +38,8 @@ email-validator==2.2.0
 # stripe>=8.0.0  # REMOVED: Using free subscription service instead
 
 # Redis for caching
-aioredis>=2.0.1
+# aioredis merged into redis-py 4.2+
+
 
 # Enhanced logging
 structlog==24.1.0

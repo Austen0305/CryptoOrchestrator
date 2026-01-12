@@ -18,6 +18,10 @@ from prometheus_client import (
 
 router = APIRouter(prefix="/metrics", tags=["Metrics"])
 
+# Auto-discovery override: mount at root, not /api/metrics
+ROUTER_PREFIX = ""
+
+
 # HTTP Metrics (using unique prefixes to avoid conflicts)
 crypto_http_requests_total = Counter(
     "crypto_http_requests_total",

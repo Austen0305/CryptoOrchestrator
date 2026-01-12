@@ -15,7 +15,7 @@ from ...database import get_db_context
 from ...models.trailing_bot import TrailingBot
 from ...repositories.trailing_bot_repository import TrailingBotRepository
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...services.coingecko_service import CoinGeckoService
+from ...services.market_data_service import get_market_data_service
 from ...services.trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class TrailingBotService:
         self.repository = TrailingBotRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
         self.dex_service = DEXTradingService()
 
     @asynccontextmanager
@@ -72,7 +72,7 @@ class TrailingBotService:
             async with self._get_session() as session:
                 # Get current market price if not provided
                 if not initial_price:
-                    initial_price = await self.coingecko.get_price(symbol)
+                    initial_price = await self.market_data.get_price(symbol)
                     if not initial_price:
                         raise ValueError(f"Could not get market price for {symbol}")
 
@@ -176,8 +176,8 @@ class TrailingBotService:
                 if not bot or not bot.active:
                     return {"action": "skipped", "reason": "bot_inactive"}
 
-                # Get current market price from CoinGecko
-                current_price = await self.coingecko.get_price(bot.symbol)
+                # Get current market price from Market Data Service
+                current_price = await self.market_data.get_price(bot.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}

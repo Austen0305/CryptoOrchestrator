@@ -43,6 +43,7 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         session: AsyncSession,
         user_id: int,
         transaction_type: str | None = None,
+        currency: str | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> list[WalletTransaction]:
@@ -51,6 +52,9 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
 
         if transaction_type:
             conditions.append(WalletTransaction.transaction_type == transaction_type)
+
+        if currency:
+            conditions.append(WalletTransaction.currency == currency)
 
         query = (
             select(WalletTransaction)
@@ -67,6 +71,30 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
 
         result = await session.execute(query)
         return list(result.scalars().all())
+
+    async def get_count_by_user(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        transaction_type: str | None = None,
+        currency: str | None = None,
+    ) -> int:
+        """Get total count of transactions for a user."""
+        from sqlalchemy import func
+
+        conditions = [WalletTransaction.user_id == user_id]
+
+        if transaction_type:
+            conditions.append(WalletTransaction.transaction_type == transaction_type)
+
+        if currency:
+            conditions.append(WalletTransaction.currency == currency)
+
+        query = (
+            select(func.count()).select_from(WalletTransaction).where(and_(*conditions))
+        )
+        result = await session.execute(query)
+        return result.scalar_one() or 0
 
     async def get_by_wallet(
         self,

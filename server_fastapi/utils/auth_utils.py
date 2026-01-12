@@ -23,4 +23,4 @@ def get_user_id_from_payload(payload: dict) -> str | None:
         >>> get_user_id_from_payload(payload)
         '456'
     """
-    return payload.get("id") or payload.get("sub")
+    return payload.get("id") or payload.get("sub") or payload.get("user_id")

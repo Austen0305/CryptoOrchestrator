@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 class SanitizedBaseModel(BaseModel):
     """Base model with built-in input sanitization"""
 
-    model_config = ConfigDict(validate_assignment=True)
+    model_config = ConfigDict(validate_assignment=True, strict=True)
 
     @field_validator("*", mode="before")
     @classmethod

@@ -27,6 +27,10 @@ except ImportError:
     SKLEARN_AVAILABLE = False
     logging.warning("scikit-learn unavailable; XGBoost engine preprocessing may fail.")
 
+from .determinism import set_global_seed
+from .ml_pipeline import MLPipeline
+from .model_persistence import ModelPersistence
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,8 +67,11 @@ class MarketData(BaseModel):
 class XGBoostEngine:
     """XGBoost gradient boosting engine for time-series prediction"""
 
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any] | None = None, seed: int = 42):
+        set_global_seed(seed)
         self.config = XGBoostConfig(**(config or {}))
+        self.pipeline = MLPipeline()
+        self.persistence = ModelPersistence()
         self.model: xgb.XGBClassifier | None = None
         self.is_training: bool = False
         self.scaler = None
@@ -300,9 +307,15 @@ class XGBoostEngine:
         y_val: np.ndarray | None = None,
     ) -> dict[str, Any]:
         """Train the XGBoost model"""
+        dataset_hash = self.pipeline.get_dataset_hash(X_train, y_train)
+        
         if not XGBOOST_AVAILABLE:
             logger.warning("XGBoost not available, cannot train model")
-            return {"status": "skipped", "reason": "XGBoost not available"}
+            return {
+                "status": "skipped", 
+                "reason": "XGBoost not available",
+                "dataset_hash": dataset_hash
+            }
 
         try:
             self.is_training = True

@@ -73,53 +73,55 @@ export const MarketDataTable = React.memo(function MarketDataTable({ markets, on
   }, [filteredMarkets, toast]);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="glass-premium border-border/50 shadow-2xl overflow-hidden">
+      <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
         <div className="flex items-center justify-between gap-4">
-          <CardTitle>Markets</CardTitle>
+          <CardTitle className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent font-black tracking-tight">
+            Market Discovery
+          </CardTitle>
           <div className="flex items-center gap-2">
             <div className="relative flex-1 max-w-sm">
               <OptimizedSearch
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder="Search markets..."
+                placeholder="Search assets..."
                 className="w-full"
               />
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportCSV} data-testid="button-export-markets-csv">
-              <Download className="h-4 w-4 mr-1" /> CSV
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-primary/20 hover:bg-primary/10 transition-colors">
+              <Download className="h-4 w-4 mr-1" /> Export
             </Button>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
+      <CardContent className="p-0">
+        <div className="overflow-x-auto modern-scrollbar">
           <table className="w-full">
             <thead>
-              <tr className="border-b text-sm text-muted-foreground">
-                <th className="text-left p-3 font-medium">Pair</th>
-                <th className="text-right p-3 font-medium">Price</th>
-                <th className="text-right p-3 font-medium">24h Change</th>
-                <th className="text-right p-3 font-medium">24h Volume</th>
-                <th className="text-center p-3 font-medium">Action</th>
+              <tr className="border-b border-border/50 text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider font-black bg-muted/30">
+                <th className="text-left p-4">Pair</th>
+                <th className="text-right p-4">Price</th>
+                <th className="text-right p-4">24h Change</th>
+                <th className="text-right p-4">24h Volume</th>
+                <th className="text-center p-4">Action</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/30">
               {paginatedMarkets.map((market) => {
                 const isPositive = market.change24h >= 0;
                 return (
                   <tr
                     key={market.pair}
-                    className="border-b hover-elevate cursor-pointer"
+                    className="group transition-colors hover:bg-primary/5 cursor-pointer"
                     data-testid={`row-market-${market.pair}`}
                     onClick={() => onPairSelect?.(market.pair)}
                   >
-                    <td className="p-3">
+                    <td className="p-4">
                       <div className="flex items-center gap-2">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6"
+                          className="h-8 w-8 hover:bg-primary/20"
                           onClick={(e) => {
                             e.stopPropagation();
                             toggleFavorite(market.pair);
@@ -127,24 +129,24 @@ export const MarketDataTable = React.memo(function MarketDataTable({ markets, on
                           data-testid={`button-favorite-${market.pair}`}
                         >
                           <Star
-                            className={`h-4 w-4 ${
+                            className={`h-4 w-4 transition-all ${
                               favorites.has(market.pair)
-                                ? "fill-yellow-500 text-yellow-500"
-                                : ""
+                                ? "fill-yellow-500 text-yellow-500 scale-125"
+                                : "text-muted-foreground/50 group-hover:text-muted-foreground"
                             }`}
                           />
                         </Button>
-                        <span className="font-semibold">{market.pair}</span>
+                        <span className="font-bold text-foreground group-hover:text-primary transition-colors">{market.pair}</span>
                       </div>
                     </td>
-                    <td className="p-3 text-right font-mono font-semibold" data-testid={`text-price-${market.pair}`}>
-                      ${market.price.toLocaleString()}
+                    <td className="p-4 text-right font-mono font-bold text-foreground" data-testid={`text-price-${market.pair}`}>
+                      ${market.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="p-3 text-right">
-                      <Badge
-                        variant={isPositive ? "default" : "destructive"}
-                        className="font-mono"
-                      >
+                    <td className="p-4 text-right">
+                      <div className={cn(
+                        "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black",
+                        isPositive ? "bg-trading-profit/20 text-trading-profit border border-trading-profit/30" : "bg-trading-loss/20 text-trading-loss border border-trading-loss/30"
+                      )}>
                         {isPositive ? (
                           <TrendingUp className="w-3 h-3 mr-1" />
                         ) : (
@@ -152,13 +154,13 @@ export const MarketDataTable = React.memo(function MarketDataTable({ markets, on
                         )}
                         {isPositive ? "+" : ""}
                         {market.change24h.toFixed(2)}%
-                      </Badge>
+                      </div>
                     </td>
-                    <td className="p-3 text-right font-mono text-sm">
+                    <td className="p-4 text-right font-mono text-xs font-medium text-muted-foreground">
                       ${(market.volume24h / 1000000).toFixed(2)}M
                     </td>
-                    <td className="p-3 text-center">
-                      <Button size="sm" data-testid={`button-trade-${market.pair}`}>
+                    <td className="p-4 text-center">
+                      <Button size="sm" className="font-bold shadow-glow border-none" data-testid={`button-trade-${market.pair}`}>
                         Trade
                       </Button>
                     </td>
@@ -171,7 +173,7 @@ export const MarketDataTable = React.memo(function MarketDataTable({ markets, on
         
         {/* Pagination */}
         {filteredMarkets.length > pagination.pageSize && (
-          <div className="mt-4 pt-4 border-t">
+          <div className="p-4 border-t border-border/50 bg-muted/10">
             <Pagination
               page={pagination.page}
               pageSize={pagination.pageSize}

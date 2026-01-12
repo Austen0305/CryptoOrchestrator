@@ -15,7 +15,7 @@ from ...database import get_db_context
 from ...models.infinity_grid import InfinityGrid
 from ...repositories.infinity_grid_repository import InfinityGridRepository
 from ...services.advanced_risk_manager import AdvancedRiskManager
-from ...services.coingecko_service import CoinGeckoService
+from ...services.market_data_service import get_market_data_service
 from ...services.trading.dex_trading_service import DEXTradingService
 
 logger = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class InfinityGridService:
         self.repository = InfinityGridRepository()
         self._session = session
         self.risk_manager = AdvancedRiskManager.get_instance()
-        self.coingecko = CoinGeckoService()
+        self.market_data = get_market_data_service()
         self.dex_service = DEXTradingService()
 
     @asynccontextmanager
@@ -70,7 +70,7 @@ class InfinityGridService:
 
             async with self._get_session() as session:
                 # Get current market price to set initial bounds
-                current_price = await self.coingecko.get_price(symbol)
+                current_price = await self.market_data.get_price(symbol)
 
                 if not current_price:
                     raise ValueError(f"Could not get market price for {symbol}")
@@ -194,8 +194,8 @@ class InfinityGridService:
                 if not bot or not bot.active:
                     return {"action": "skipped", "reason": "bot_inactive"}
 
-                # Get current market price from CoinGecko
-                current_price = await self.coingecko.get_price(bot.symbol)
+                # Get current market price from Market Data Service
+                current_price = await self.market_data.get_price(bot.symbol)
 
                 if not current_price:
                     return {"action": "skipped", "reason": "no_price_data"}

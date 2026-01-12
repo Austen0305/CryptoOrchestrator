@@ -28,7 +28,7 @@ class KYCService:
         # In production, this would use a database
         self.kyc_records: dict[int, dict] = {}
 
-    async def initiate_kyc(
+    def initiate_kyc(
         self,
         user_id: int,
         email: str,
@@ -36,6 +36,7 @@ class KYCService:
         date_of_birth: str,
         country: str,
         document_type: str = "passport",
+        tax_id: str | None = None,
     ) -> dict[str, any]:
         """
         Initiate KYC verification process.
@@ -47,6 +48,7 @@ class KYCService:
             date_of_birth: Date of birth (YYYY-MM-DD)
             country: Country code
             document_type: Type of ID document
+            tax_id: Tax Identification Number (Required for UK)
 
         Returns:
             Dict with KYC submission details
@@ -59,6 +61,7 @@ class KYCService:
                 "date_of_birth": date_of_birth,
                 "country": country,
                 "document_type": document_type,
+                "tax_id": tax_id,
                 "status": KYCStatus.PENDING,
                 "submitted_at": datetime.now().isoformat(),
                 "reviewed_at": None,
@@ -75,11 +78,11 @@ class KYCService:
             logger.error(f"Error initiating KYC: {e}", exc_info=True)
             raise
 
-    async def get_kyc_status(self, user_id: int) -> dict | None:
+    def get_kyc_status(self, user_id: int) -> dict | None:
         """Get KYC status for a user"""
         return self.kyc_records.get(user_id)
 
-    async def update_kyc_status(
+    def update_kyc_status(
         self,
         user_id: int,
         status: KYCStatus,
@@ -114,12 +117,12 @@ class KYCService:
             logger.error(f"Error updating KYC status: {e}", exc_info=True)
             return False
 
-    async def is_verified(self, user_id: int) -> bool:
+    def is_verified(self, user_id: int) -> bool:
         """Check if user is KYC verified"""
-        record = await self.get_kyc_status(user_id)
+        record = self.get_kyc_status(user_id)
         return record is not None and record.get("status") == KYCStatus.APPROVED
 
-    async def require_kyc_for_trading(self, user_id: int, amount: float) -> bool:
+    def require_kyc_for_trading(self, user_id: int, amount: float) -> bool:
         """
         Check if KYC is required for a trading amount.
         In production, this would check regulatory requirements.
@@ -133,7 +136,7 @@ class KYCService:
         """
         # Example: Require KYC for trades over $10,000
         if amount > 10000:
-            return not await self.is_verified(user_id)
+            return not self.is_verified(user_id)
         return False
 
 

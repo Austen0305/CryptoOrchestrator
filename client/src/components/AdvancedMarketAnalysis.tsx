@@ -85,7 +85,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
 
   if (!isAuthenticated) {
     return (
-      <Card>
+      <Card className="glass-premium border-border/50">
         <CardHeader>
           <CardTitle>Advanced Market Analysis</CardTitle>
           <CardDescription>Please log in to access advanced analysis</CardDescription>
@@ -95,7 +95,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
   }
 
   return (
-    <Card className="w-full">
+    <Card className="w-full glass-premium animate-fade-in border-border/50">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -132,10 +132,9 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
           />
         ) : (
           <>
-            {/* Summary */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Card
-                className={cn("border-2", getSignalColor(analysisData.recommendation || "hold"))}
+                className={cn("border-2 glass-premium hover-lift transition-all duration-300", getSignalColor(analysisData.recommendation || "hold"))}
               >
                 <CardContent className="pt-4">
                   <div className="text-sm font-medium mb-1">Recommendation</div>
@@ -147,7 +146,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="glass-premium hover-lift transition-all duration-300">
                 <CardContent className="pt-4">
                   <div className="text-sm font-medium text-muted-foreground mb-1">
                     Current Price
@@ -157,7 +156,7 @@ export const AdvancedMarketAnalysis = React.memo(function AdvancedMarketAnalysis
                   </div>
                 </CardContent>
               </Card>
-              <Card>
+              <Card className="glass-premium hover-lift transition-all duration-300">
                 <CardContent className="pt-4">
                   <div className="text-sm font-medium text-muted-foreground mb-1">
                     Signal Balance

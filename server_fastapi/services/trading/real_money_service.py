@@ -60,12 +60,12 @@ class RealMoneyTradingService:
         )
         if not price_decimal:  # Market order - estimate with current price
             try:
-                # Get current price from CoinGecko
-                from ..coingecko_service import CoinGeckoService
+                # Get current price from Market Data Service
+                from ..market_data_service import get_market_data_service
 
-                coingecko = CoinGeckoService()
+                market_data = get_market_data_service()
                 coin_symbol = pair.split("/")[0]  # e.g., "ETH" from "ETH/USD"
-                current_price = await coingecko.get_price(f"{coin_symbol}/USD")
+                current_price = await market_data.get_price(f"{coin_symbol}/USD")
                 if current_price:
                     trade_value_usd = float(amount_decimal) * current_price
             except Exception as e:

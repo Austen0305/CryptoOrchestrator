@@ -14,8 +14,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-# Environment variables
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key-change-in-production")
+from ...config.settings import settings
+
+# JWT secret from settings
+JWT_SECRET = settings.jwt_secret
 
 
 class UserCredentials(BaseModel):
@@ -206,8 +208,50 @@ class AuthService:
             }
         return None
 
-    # ------------------------------------------------------------------
-    # Registration & email verification helpers (parity with route usage)
+    async def register_user(
+        self,
+        email: str,
+        password: str,
+        name: str | None = None,
+        session: AsyncSession | None = None,
+        **kwargs,
+    ) -> dict[str, Any]:
+        """Compatibility method for tests that call register_user instead of register"""
+        data = {
+            "email": email,
+            "password": password,
+            "name": name,
+            **kwargs,
+        }
+        return await self.register(data, session=session)
+
+    async def login_user(
+        self, email: str, password: str, session: AsyncSession | None = None
+    ) -> dict[str, Any]:
+        """Compatibility method for tests that call login_user"""
+        if session is None:
+            raise ValueError("Database session required for login_user")
+
+        from ...repositories.user_repository import UserRepository
+
+        user_repo = UserRepository()
+        user = await user_repo.get_by_email(session, email)
+        if not user:
+            raise ValueError("User not found")
+
+        token = await self.authenticate_user(user.username, password, session=session)
+        if not token:
+            raise ValueError("Invalid password")
+
+        return {
+            "token": token,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+            },
+        }
+
     # ------------------------------------------------------------------
     async def register(
         self, data: dict[str, Any], session: AsyncSession | None = None

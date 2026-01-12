@@ -368,7 +368,7 @@ git push origin main
 2. ✅ **Configure External Services** (optional)
    - Add Alchemy API keys for blockchain
    - Add 0x API key for DEX trading
-   - Add CoinGecko API for price data
+   - Market Data Service works automatically (CoinCap/CoinLore)
 
 3. ✅ **Set Up Monitoring** (30 minutes)
    - Enable error tracking (Sentry optional)

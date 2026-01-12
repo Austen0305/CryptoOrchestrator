@@ -15,19 +15,19 @@ class CorrelationService:
     """Service for calculating price correlations between trading pairs"""
 
     def __init__(self):
-        self._coingecko_service: Any | None = None
+        self._market_service: Any | None = None
 
-    def _get_coingecko_service(self):
-        """Lazy load CoinGecko service"""
-        if self._coingecko_service is None:
+    def _get_market_service(self):
+        """Lazy load MarketDataService"""
+        if self._market_service is None:
             try:
-                from .coingecko_service import CoinGeckoService
+                from .market_data_service import get_market_data_service
 
-                self._coingecko_service = CoinGeckoService()
+                self._market_service = get_market_data_service()
             except ImportError:
-                logger.warning("CoinGecko service not available")
-                self._coingecko_service = None
-        return self._coingecko_service
+                logger.warning("MarketDataService not available")
+                self._market_service = None
+        return self._market_service
 
     async def get_historical_prices(
         self, symbols: list[str], days: int = 30
@@ -42,8 +42,8 @@ class CorrelationService:
         Returns:
             Dict mapping symbols to lists of closing prices
         """
-        coingecko = self._get_coingecko_service()
-        if not coingecko:
+        market_service = self._get_market_service()
+        if not market_service:
             return {}
 
         historical_data: dict[str, list[float]] = {}
@@ -51,8 +51,8 @@ class CorrelationService:
         # Fetch historical data for each symbol
         for symbol in symbols:
             try:
-                # Get historical prices from CoinGecko
-                prices = await coingecko.get_historical_prices(symbol, days=days)
+                # Get historical prices from Market Service
+                prices = await market_service.get_historical_prices(symbol, days=days)
                 if prices and len(prices) > 0:
                     # Extract closing prices
                     historical_data[symbol] = [
@@ -197,8 +197,8 @@ class CorrelationService:
         Returns:
             Dict with symbol data for heatmap visualization
         """
-        coingecko = self._get_coingecko_service()
-        if not coingecko:
+        market_service = self._get_market_service()
+        if not market_service:
             return {}
 
         if metric == "correlation":
@@ -209,7 +209,7 @@ class CorrelationService:
             heatmap_data: dict[str, dict[str, float]] = {}
             for symbol in symbols:
                 try:
-                    market_data = await coingecko.get_market_data(symbol)
+                    market_data = await market_service.get_market_data(symbol)
                     if market_data:
                         heatmap_data[symbol] = {
                             "change_24h": market_data.get("change_24h", 0.0),
@@ -224,7 +224,7 @@ class CorrelationService:
             heatmap_data: dict[str, dict[str, float]] = {}
             for symbol in symbols:
                 try:
-                    market_data = await coingecko.get_market_data(symbol)
+                    market_data = await market_service.get_market_data(symbol)
                     if market_data:
                         volume = market_data.get("volume_24h", 0.0)
                         heatmap_data[symbol] = {

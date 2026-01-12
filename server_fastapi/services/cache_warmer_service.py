@@ -195,19 +195,19 @@ cache_warmer_service = CacheWarmerService()
 
 # Example warmup functions
 async def warmup_market_data():
-    """Warmup market data cache using CoinGecko"""
+    """Warmup market data cache using MarketDataService"""
     try:
-        from ..services.coingecko_service import CoinGeckoService
+        from ..services.market_data_service import get_market_data_service
 
-        coingecko = CoinGeckoService()
+        market_data_service = get_market_data_service()
 
         # Warmup popular trading pairs
         popular_pairs = ["BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD"]
         pairs_warmed = 0
         for pair in popular_pairs:
             try:
-                # Get market data from CoinGecko
-                market_data = await coingecko.get_market_data(pair)
+                # Get market data from MarketDataService
+                market_data = await market_data_service.get_market_data(pair)
                 if market_data:
                     cache_key = f"market_data:{pair}"
                     await cache_service.set(cache_key, market_data, ttl=60)
@@ -241,11 +241,11 @@ async def warmup_staking_options():
 
 
 async def warmup_popular_token_prices():
-    """Warmup popular token prices from CoinGecko"""
+    """Warmup popular token prices from MarketDataService"""
     try:
-        from ..services.coingecko_service import CoinGeckoService
+        from ..services.market_data_service import get_market_data_service
 
-        coingecko = CoinGeckoService()
+        market_data_service = get_market_data_service()
 
         # Popular tokens for trading
         popular_tokens = [
@@ -264,7 +264,7 @@ async def warmup_popular_token_prices():
         prices_warmed = 0
         for pair in popular_tokens:
             try:
-                price = await coingecko.get_price(pair)
+                price = await market_data_service.get_price(pair)
                 if price is not None:
                     cache_key = f"markets:get_price:{pair}"
                     await cache_service.set(
