@@ -1,5 +1,5 @@
-# Use official Python 3.12 full image to ensure build tools for numpy/scipy are present
-FROM python:3.12
+# Use official Python 3.11 full image for better compatibility with DS libraries
+FROM python:3.11
 
 # Set working directory
 WORKDIR /app
