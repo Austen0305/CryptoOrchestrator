@@ -8,32 +8,19 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.9
 email-validator==2.2.0
-aioredis==2.0.1
 redis==5.0.8
 httpx==0.27.2
-pytest==8.3.3
-pytest-asyncio==0.24.0
-celery==5.4.0
-flower==2.0.1
-psutil==6.0.0
-websockets==13.0.1
-colorlog==6.8.2
+websockets>=13.0
 python-dotenv==1.0.1
 asyncpg==0.29.0
 alembic==1.13.2
-numpy>=1.26.0
-pandas>=2.2.0
-scikit-learn>=1.5.0
 tenacity
-cryptography>=42.0.0
 
-# Security & Orchestration
+# Core Crypto
 web3==6.20.1
 eth-account==0.13.3
 aiofiles==24.1.0
-google-cloud-secret-manager==2.20.0
-google-cloud-logging==3.10.0
-opentelemetry-api==1.27.0
-opentelemetry-sdk==1.27.0
-opentelemetry-exporter-otlp==1.27.0
-sentry-sdk[fastapi]==2.14.0
+
+# Temporarily removed for stability:
+# numpy, pandas, scikit-learn (RiskManager fallback only)
+# google-cloud-*, opentelemetry-*, sentry-sdk, celery, flower
