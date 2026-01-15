@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/api/:path*", "destination": "${VITE_API_URL}/api/:path*" }
+    { "source": "/api/:path*", "destination": "http://34.16.15.56/:path*" }
   ],
   "headers": [
     {
