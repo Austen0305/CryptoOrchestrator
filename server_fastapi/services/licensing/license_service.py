@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -118,14 +118,14 @@ class LicenseService:
 
             # Set expiration date
             if expires_at is None and config["duration_days"]:
-                expires_at = datetime.utcnow() + timedelta(days=config["duration_days"])
+                expires_at = datetime.now(UTC) + timedelta(days=config["duration_days"])
 
             # Create license data
             license_data = {
                 "user_id": user_id,
                 "license_type": license_type,
                 "expires_at": expires_at.isoformat() if expires_at else None,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "max_bots": config["max_bots"],
                 "features": config["features"],
             }
@@ -207,7 +207,7 @@ class LicenseService:
             expires_at = None
             if license_data.get("expires_at"):
                 expires_at = datetime.fromisoformat(license_data["expires_at"])
-                if datetime.utcnow() > expires_at:
+                if datetime.now(UTC) > expires_at:
                     return LicenseStatus(
                         valid=False,
                         license_type=license_data.get("license_type", "expired"),
@@ -227,7 +227,7 @@ class LicenseService:
                 expires_at=expires_at,
                 activated_at=(
                     datetime.fromisoformat(
-                        license_data.get("activated_at", datetime.utcnow().isoformat())
+                        license_data.get("activated_at", datetime.now(UTC).isoformat())
                     )
                     if license_data.get("activated_at")
                     else None

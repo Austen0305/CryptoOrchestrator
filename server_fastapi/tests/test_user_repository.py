@@ -34,8 +34,8 @@ class TestUserRepository:
         assert user.username == username
         assert user.email == email
         assert user.hashed_password == hashed_password
-        assert user.is_active == True
-        assert user.is_verified == False
+        assert user.is_active
+        assert not user.is_verified
         assert user.role == "user"
 
     async def test_get_by_username(self, db_session: AsyncSession):
@@ -224,7 +224,7 @@ class TestUserRepository:
         verified_user = await repo.verify_user(db_session, user.id)
 
         assert verified_user is not None
-        assert verified_user.is_verified == True
+        assert verified_user.is_verified
 
     async def test_deactivate_user(self, db_session: AsyncSession):
         """Test deactivating a user"""
@@ -247,4 +247,4 @@ class TestUserRepository:
         deactivated_user = await repo.deactivate_user(db_session, user.id)
 
         assert deactivated_user is not None
-        assert deactivated_user.is_active == False
+        assert not deactivated_user.is_active

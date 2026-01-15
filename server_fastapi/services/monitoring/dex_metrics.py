@@ -4,7 +4,7 @@ Tracks DEX trading volume, fees, aggregator performance, and error rates
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -46,9 +46,9 @@ class DEXMetricsService:
         """
         try:
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             stmt = (
                 select(
@@ -106,9 +106,9 @@ class DEXMetricsService:
         """
         try:
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             stmt = (
                 select(
@@ -162,9 +162,9 @@ class DEXMetricsService:
         """
         try:
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             stmt = (
                 select(
@@ -239,9 +239,9 @@ class DEXMetricsService:
         """
         try:
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             # Total trades
             total_stmt = (
@@ -315,9 +315,9 @@ class DEXMetricsService:
         """
         try:
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             stmt = (
                 select(
@@ -382,7 +382,7 @@ class DEXMetricsService:
                 "aggregators": aggregators,
                 "errors": errors,
                 "chains": chains,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
@@ -393,7 +393,7 @@ class DEXMetricsService:
                 "aggregators": [],
                 "errors": {},
                 "chains": [],
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
 

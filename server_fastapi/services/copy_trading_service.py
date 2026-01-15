@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from ..repositories.follow_repository import FollowRepository
     from ..repositories.trade_repository import TradeRepository
     from ..repositories.user_repository import UserRepository
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -502,7 +502,7 @@ class CopyTradingService:
                 return 0
 
             # ✅ Business logic: Get recent trades from trader that haven't been copied yet
-            cutoff_time = datetime.utcnow() - timedelta(minutes=lookback_minutes)
+            cutoff_time = datetime.now(UTC) - timedelta(minutes=lookback_minutes)
 
             # ✅ Data access delegated to repository
             recent_trades = await self.trade_repository.get_by_user(

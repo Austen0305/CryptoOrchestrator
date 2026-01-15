@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useActionState } from "react";
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,7 +42,58 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
   
   // Get portfolio balance for validation
   const { data: portfolio } = usePortfolio(mode) as { data: Portfolio | undefined };
-  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // React 19 Action State
+  type OrderState = { success?: boolean; error?: string; timestamp?: number };
+  
+  const placeOrderAction = async (_prev: OrderState, formData: FormData): Promise<OrderState> => {
+    const side = formData.get("side") as "buy" | "sell";
+    const amountStr = formData.get("amount") as string;
+    const priceStr = formData.get("price") as string;
+    const mfaToken = formData.get("mfa_token") as string;
+    const chainId = formData.get("chain_id") ? parseInt(formData.get("chain_id") as string) : undefined;
+    
+    try {
+       const orderBody: any = {
+        pair,
+        side,
+        type: orderType,
+        amount: parseFloat(amountStr),
+        mode,
+        chain_id: chainId,
+        mfa_token: mfaToken || undefined
+      };
+      
+      if (priceStr) orderBody.price = parseFloat(priceStr);
+      if (stopPrice) orderBody.stop = parseFloat(stopPrice);
+      if (takeProfitPrice) orderBody.take_profit = parseFloat(takeProfitPrice);
+      if (trailingStopPercent) orderBody.trailing_stop_percent = parseFloat(trailingStopPercent);
+      if ((orderType === "limit" || orderType === "stop-limit") && timeInForce) {
+        orderBody.time_in_force = timeInForce;
+      }
+
+      await apiRequest("/api/trades", { method: "POST", body: orderBody });
+      return { success: true, timestamp: Date.now() };
+    } catch (error) {
+       return { success: false, error: error instanceof Error ? error.message : "Order failed" };
+    }
+  };
+
+  const [formState, submitOrder, isPending] = useActionState(placeOrderAction, {});
+
+  // Response Effect
+  useEffect(() => {
+    if (formState.success) {
+      toast({ title: "Order Placed", description: "Order executed successfully" });
+      setAmount("");
+      setPrice("");
+      setPercentage([0]);
+      setShowConfirmDialog(false);
+      setPendingOrder(null);
+    } else if (formState.error) {
+      toast({ title: "Order Failed", description: formState.error, variant: "destructive" });
+      setShowConfirmDialog(false);
+    }
+  }, [formState]);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const amountInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -125,98 +176,31 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
     }
 
     // Paper trading - execute immediately
-    await executeOrder(side, amount, price);
+    // Paper trading - execute via Action
+    const formData = new FormData();
+    formData.append("side", side);
+    formData.append("amount", amount);
+    if (price) formData.append("price", price);
+    
+    React.startTransition(() => {
+      submitOrder(formData);
+    });
   };
 
-  const executeOrder = async (side: "buy" | "sell", orderAmount: string, orderPrice: string, orderMfaToken?: string, orderChainId?: number) => {
-    setIsPlacingOrder(true);
-    try {
-      interface OrderBody {
-        pair: string;
-        side: "buy" | "sell";
-        type: string;
-        amount: number;
-        mode: string;
-        chain_id?: number;
-        mfa_token?: string;
-        price?: number;
-        stop?: number;
-        take_profit?: number;
-        trailing_stop_percent?: number;
-        time_in_force?: string;
-      }
 
-      const orderBody: OrderBody = {
-        pair: pair,
-        side,
-        type: orderType,
-        amount: parseFloat(orderAmount),
-        mode: mode,
-        chain_id: isRealMoney ? (orderChainId || chainId) : undefined,
-        mfa_token: orderMfaToken || mfaToken || undefined,
-      };
-
-      // Add price for limit orders
-      if (orderPrice) {
-        orderBody.price = parseFloat(orderPrice);
-      }
-
-      // Add stop price for stop orders
-      if (stopPrice) {
-        orderBody.stop = parseFloat(stopPrice);
-      }
-
-      // Add take profit price
-      if (takeProfitPrice) {
-        orderBody.take_profit = parseFloat(takeProfitPrice);
-      }
-
-      // Add trailing stop percentage
-      if (trailingStopPercent) {
-        orderBody.trailing_stop_percent = parseFloat(trailingStopPercent);
-      }
-
-      // Add time in force for limit orders
-      if (orderType === "limit" || orderType === "stop-limit") {
-        orderBody.time_in_force = timeInForce;
-      }
-
-      const response = await apiRequest("/api/trades", {
-        method: "POST",
-        body: orderBody,
-      });
-
-      toast({
-        title: "Order Placed",
-        description: `${side.toUpperCase()} order placed successfully`,
-      });
-
-      // Reset form
-      setAmount("");
-      setPrice("");
-      setPercentage([0]);
-    } catch (error) {
-      toast({
-        title: "Order Failed",
-        description: error instanceof Error ? error.message : "Failed to place order",
-        variant: "destructive",
-      });
-    } finally {
-      setIsPlacingOrder(false);
-      setShowConfirmDialog(false);
-      setPendingOrder(null);
-    }
-  };
 
   const handleConfirmOrder = async () => {
     if (!pendingOrder) return;
-    await executeOrder(
-      pendingOrder.side, 
-      pendingOrder.amount, 
-      pendingOrder.price, 
-      pendingOrder.mfaToken,
-      pendingOrder.chainId
-    );
+    const formData = new FormData();
+    formData.append("side", pendingOrder.side);
+    formData.append("amount", pendingOrder.amount);
+    if (pendingOrder.price) formData.append("price", pendingOrder.price);
+    if (pendingOrder.chainId) formData.append("chain_id", pendingOrder.chainId.toString());
+    if (pendingOrder.mfaToken) formData.append("mfa_token", pendingOrder.mfaToken);
+    
+    React.startTransition(() => {
+      submitOrder(formData);
+    });
   };
 
   // Keyboard shortcuts
@@ -234,14 +218,14 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
       // Buy: B key
       if (e.key === "b" || e.key === "B") {
         e.preventDefault();
-        if (!isPlacingOrder) {
+        if (!isPending) {
           handleOrder("buy");
         }
       }
       // Sell: S key
       if (e.key === "s" || e.key === "S") {
         e.preventDefault();
-        if (!isPlacingOrder) {
+        if (!isPending) {
           handleOrder("sell");
         }
       }
@@ -274,7 +258,7 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isPlacingOrder, amount, price, orderType]);
+  }, [isPending, amount, price, orderType]);
 
   return (
     <Card className="glass-premium border-border/50 shadow-2xl overflow-hidden hover-lift transition-all duration-300">
@@ -700,10 +684,10 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmOrder}
-                disabled={isPlacingOrder}
+                disabled={isPending}
                 className={isRealMoney ? "bg-red-500 hover:bg-red-600 text-white" : ""}
               >
-                {isPlacingOrder ? "Placing..." : "Confirm Order"}
+                {isPending ? "Placing..." : "Confirm Order"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -713,23 +697,23 @@ export const OrderEntryPanel = React.memo(function OrderEntryPanel({ pair = "BTC
           <Button
             className="bg-gradient-to-r from-trading-buy to-trading-buy-hover hover:from-trading-buy-hover hover:to-trading-buy text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-trading-buy/30"
             onClick={() => handleOrder("buy")}
-            disabled={isPlacingOrder}
+            disabled={isPending}
             data-testid="button-buy"
             aria-label="Place buy order"
             aria-describedby="buy-button-description"
           >
-            {isPlacingOrder ? "Placing..." : "Buy"} <span className="ml-2 text-xs opacity-90">(B)</span>
+            {isPending ? "Placing..." : "Buy"} <span className="ml-2 text-xs opacity-90">(B)</span>
           </Button>
           <span id="buy-button-description" className="sr-only">Place a buy order. Press B key for keyboard shortcut.</span>
           <Button
             className="bg-gradient-to-r from-trading-sell to-trading-sell-hover hover:from-trading-sell-hover hover:to-trading-sell text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border-2 border-trading-sell/30"
             onClick={() => handleOrder("sell")}
-            disabled={isPlacingOrder}
+            disabled={isPending}
             data-testid="button-sell"
             aria-label="Place sell order"
             aria-describedby="sell-button-description"
           >
-            {isPlacingOrder ? "Placing..." : "Sell"} <span className="ml-2 text-xs opacity-90">(S)</span>
+            {isPending ? "Placing..." : "Sell"} <span className="ml-2 text-xs opacity-90">(S)</span>
           </Button>
           <span id="sell-button-description" className="sr-only">Place a sell order. Press S key for keyboard shortcut.</span>
         </div>

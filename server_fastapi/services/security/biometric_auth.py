@@ -7,7 +7,7 @@ import hashlib
 import logging
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class BiometricAuthService:
         cred_id = (
             credential_id
             or hashlib.sha256(
-                f"{user_id}:{device_id}:{biometric_type}:{datetime.utcnow().isoformat()}".encode()
+                f"{user_id}:{device_id}:{biometric_type}:{datetime.now(UTC).isoformat()}".encode()
             ).hexdigest()
         )
 
@@ -112,7 +112,7 @@ class BiometricAuthService:
             biometric_type=biometric_type,
             device_id=device_id,
             public_key=public_key,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         self.credentials[cred_id] = credential
@@ -143,14 +143,14 @@ class BiometricAuthService:
         """
         challenge_data = secrets.token_bytes(32)
         challenge_id = hashlib.sha256(
-            f"{user_id}:{challenge_data.hex()}:{datetime.utcnow().isoformat()}".encode()
+            f"{user_id}:{challenge_data.hex()}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         challenge = BiometricChallenge(
             challenge_id=challenge_id,
             user_id=user_id,
             challenge_data=challenge_data,
-            expires_at=datetime.utcnow() + timedelta(seconds=timeout_seconds),
+            expires_at=datetime.now(UTC) + timedelta(seconds=timeout_seconds),
         )
 
         self.challenges[challenge_id] = challenge
@@ -184,7 +184,7 @@ class BiometricAuthService:
             return False
 
         # Check expiration
-        if datetime.utcnow() > challenge.expires_at:
+        if datetime.now(UTC) > challenge.expires_at:
             logger.warning(f"Challenge {challenge_id} expired")
             return False
 
@@ -206,7 +206,7 @@ class BiometricAuthService:
         )
 
         if is_valid:
-            credential.last_used = datetime.utcnow()
+            credential.last_used = datetime.now(UTC)
             # Remove used challenge
             del self.challenges[challenge_id]
             logger.info(
@@ -247,7 +247,7 @@ class BiometricAuthService:
         # which verifies the signature against the public key using
         # the challenge and authenticator data
         # This is a placeholder
-        expected = hashlib.sha256(challenge + authenticator_data + public_key).digest()
+        hashlib.sha256(challenge + authenticator_data + public_key).digest()
         return len(signature) > 0  # Placeholder verification
 
 

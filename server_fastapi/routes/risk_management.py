@@ -70,7 +70,7 @@ async def get_alerts(
         user_id, limit=page_size * page, unresolved_only=False
     )
     # Apply pagination manually (service returns all up to limit)
-    total = len(alerts)
+    len(alerts)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     return alerts[start_idx:end_idx]

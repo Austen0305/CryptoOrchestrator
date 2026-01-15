@@ -3,6 +3,7 @@ Auto-Hedging Service - Automatic hedging strategies
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 from enum import Enum
@@ -74,10 +75,8 @@ class AutoHedgingService:
         try:
             if portfolio_id in self.monitoring_tasks:
                 self.monitoring_tasks[portfolio_id].cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self.monitoring_tasks[portfolio_id]
-                except asyncio.CancelledError:
-                    pass
                 del self.monitoring_tasks[portfolio_id]
 
                 logger.info(f"Stopped auto-hedging for portfolio {portfolio_id}")

@@ -4,7 +4,7 @@ Manages IP whitelists for enhanced security
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from ipaddress import ip_address
 from typing import Any
 
@@ -42,7 +42,7 @@ class IPWhitelistService:
         try:
             # Validate IP address
             try:
-                ip = ip_address(ip_address_str)
+                ip_address(ip_address_str)
             except ValueError:
                 return {
                     "success": False,
@@ -100,7 +100,7 @@ class IPWhitelistService:
             {
                 "address": ip_address_str,
                 "label": label or f"IP {ip_address_str}",
-                "added_at": datetime.utcnow().isoformat(),
+                "added_at": datetime.now(UTC).isoformat(),
             }
         )
 

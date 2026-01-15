@@ -4,7 +4,7 @@ Data access layer for wallet operations
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -170,7 +170,7 @@ class WalletRepository:
                 return None
 
             wallet.balance = balance
-            wallet.last_balance_update = datetime.utcnow()
+            wallet.last_balance_update = datetime.now(UTC)
 
             await self.db.commit()
             await self.db.refresh(wallet)

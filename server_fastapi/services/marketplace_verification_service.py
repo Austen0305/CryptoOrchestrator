@@ -4,7 +4,7 @@ Verifies and validates signal provider historical performance data.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -50,7 +50,7 @@ class MarketplaceVerificationService:
                 raise ValueError("Signal provider not found")
 
             # Get trade history for provider's user
-            period_start = datetime.utcnow() - timedelta(days=period_days)
+            period_start = datetime.now(UTC) - timedelta(days=period_days)
 
             trades_result = await self.db.execute(
                 select(Trade)
@@ -128,7 +128,7 @@ class MarketplaceVerificationService:
                 "verified_metrics": verified_metrics,
                 "stored_metrics": stored_metrics,
                 "discrepancies": discrepancies,
-                "verification_date": datetime.utcnow().isoformat(),
+                "verification_date": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error verifying provider performance: {e}", exc_info=True)
@@ -302,7 +302,7 @@ class MarketplaceVerificationService:
             flagged = []
 
             # Get providers that haven't been verified recently
-            cutoff_date = datetime.utcnow() - timedelta(days=threshold_days)
+            datetime.now(UTC) - timedelta(days=threshold_days)
 
             providers_result = await self.db.execute(
                 select(SignalProvider).where(

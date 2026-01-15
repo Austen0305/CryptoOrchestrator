@@ -5,7 +5,7 @@ Formal verification framework for critical contracts and code
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -106,7 +106,7 @@ class FormalVerificationService:
         """
         spec_id = (
             spec_id
-            or f"spec_{component_name}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            or f"spec_{component_name}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
         )
 
         spec = VerificationSpec(
@@ -149,7 +149,7 @@ class FormalVerificationService:
         spec = self.specifications[spec_id]
 
         verification_id = (
-            f"verify_{spec_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            f"verify_{spec_id}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
         )
 
         # Placeholder for verification logic
@@ -195,7 +195,7 @@ class FormalVerificationService:
             properties_failed=properties_failed,
             counterexamples=counterexamples,
             proof_time_seconds=proof_time,
-            verified_at=datetime.utcnow(),
+            verified_at=datetime.now(UTC),
         )
 
         self.verification_results[verification_id] = result

@@ -5,7 +5,7 @@ Implements JSON-RPC style request batching for reduced latency
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -24,7 +24,7 @@ class BatchRequest:
     ):
         self.method = method
         self.params = params or {}
-        self.id = id or f"req_{datetime.utcnow().timestamp()}"
+        self.id = id or f"req_{datetime.now(UTC).timestamp()}"
         self.result: Any | None = None
         self.error: dict[str, Any] | None = None
 

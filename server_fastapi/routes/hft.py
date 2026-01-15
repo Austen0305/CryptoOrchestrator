@@ -3,6 +3,8 @@ High-Frequency Trading API Routes
 Low-latency endpoints for professional traders and institutions
 """
 
+import builtins
+import contextlib
 import logging
 import struct
 import time
@@ -266,10 +268,8 @@ async def websocket_orderbook_deltas(
         logger.error(f"Error in orderbook WebSocket: {e}", exc_info=True)
     finally:
         await hft_orderbook_service.unsubscribe_deltas(pair, delta_queue)
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.close()
-        except:
-            pass
 
 
 async def _send_binary_snapshot(websocket: WebSocket, snapshot: OrderBookSnapshot):
@@ -338,7 +338,7 @@ async def batch_orders(
     Optimized for low-latency processing.
     """
     start_time = time.time_ns()
-    user_id = _get_user_id(current_user)
+    _get_user_id(current_user)
 
     try:
         if not request.orders:

@@ -26,7 +26,7 @@ class TestBotOrchestratorIntegration:
             "/api/bots/", json=test_bot_config, headers=auth_headers
         )
         assert create_response.status_code in [200, 201]
-        bot = create_response.json()
+        create_response.json()
 
         # Mock market data and trading service
         with patch(
@@ -40,7 +40,7 @@ class TestBotOrchestratorIntegration:
 
             # Execute trading cycle (if endpoint exists)
             # This tests the orchestrator's ability to coordinate trading cycles
-            assert mock_execute.called or True  # Placeholder for actual endpoint test
+            assert True  # Placeholder for actual endpoint test
 
     async def test_execute_trading_cycle_bot_inactive(
         self, client: AsyncClient, auth_headers, test_bot_config
@@ -83,7 +83,7 @@ class TestBotOrchestratorIntegration:
             "/api/bots/", json=test_bot_config, headers=auth_headers
         )
         assert create_response.status_code in [200, 201]
-        bot = create_response.json()
+        create_response.json()
 
         # Mock trading service to return blocked action
         with patch(
@@ -109,7 +109,7 @@ class TestBotOrchestratorIntegration:
             "/api/bots/", json=test_bot_config, headers=auth_headers
         )
         assert create_response.status_code in [200, 201]
-        bot = create_response.json()
+        create_response.json()
 
         # Mock trading service to return hold action
         with patch(
@@ -182,7 +182,7 @@ class TestBotOrchestratorIntegration:
             "/api/bots/", json=test_bot_config, headers=auth_headers
         )
         assert create_response.status_code in [200, 201]
-        bot = create_response.json()
+        create_response.json()
 
         # Mock risk profile calculation
         with patch(

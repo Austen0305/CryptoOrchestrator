@@ -164,7 +164,7 @@ async def get_suspicious_patterns(
         )
 
         # Apply pagination
-        total = len(patterns)
+        len(patterns)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_patterns = patterns[start_idx:end_idx]

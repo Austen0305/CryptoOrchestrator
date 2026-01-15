@@ -4,7 +4,7 @@ API endpoints for copy trading marketplace functionality.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -289,7 +289,7 @@ async def calculate_payout(
             )
 
         service = MarketplaceService(db)
-        period_end = datetime.utcnow()
+        period_end = datetime.now(UTC)
         period_start = period_end - timedelta(days=period_days)
 
         result = await service.calculate_payout(
@@ -333,7 +333,7 @@ async def create_payout(
             )
 
         service = MarketplaceService(db)
-        period_end = datetime.utcnow()
+        period_end = datetime.now(UTC)
         period_start = period_end - timedelta(days=period_days)
 
         result = await service.create_payout(

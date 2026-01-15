@@ -4,7 +4,7 @@ Handles real money trades with proper security and validation
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -271,7 +271,7 @@ class RealMoneyTradingService:
                     # Check expiration
                     if (
                         user.mfa_code_expires_at
-                        and datetime.utcnow() > user.mfa_code_expires_at
+                        and datetime.now(UTC) > user.mfa_code_expires_at
                     ):
                         raise ValueError(
                             "2FA code has expired. Please request a new code."
@@ -417,7 +417,7 @@ class RealMoneyTradingService:
                 "order_type": order_type,
                 "amount": amount,
                 "mode": "real",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             # Calculate P&L (will be updated when position is closed)
@@ -482,7 +482,7 @@ class RealMoneyTradingService:
                 "filled": order_result.get("filled", amount),
                 "remaining": 0,  # DEX swaps are atomic, no remaining
                 "price": order_result.get("price", price),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:

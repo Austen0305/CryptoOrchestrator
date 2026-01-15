@@ -7,7 +7,7 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class MetricSeries:
     def add(self, value: float, tags: dict[str, str] | None = None):
         """Add a metric value"""
         metric_value = MetricValue(
-            value=value, timestamp=datetime.utcnow(), tags=tags or {}
+            value=value, timestamp=datetime.now(UTC), tags=tags or {}
         )
         self.values.append(metric_value)
 
@@ -43,7 +43,7 @@ class MetricSeries:
 
     def get_recent(self, minutes: int = 60) -> list[MetricValue]:
         """Get recent metric values"""
-        cutoff = datetime.utcnow() - timedelta(minutes=minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=minutes)
         return [v for v in self.values if v.timestamp >= cutoff]
 
     def get_summary(self) -> dict[str, Any]:
@@ -106,7 +106,7 @@ class MetricsService:
     def start_timer(self, name: str, tags: dict[str, str] | None = None) -> str:
         """Start a timer, returns timer ID"""
         timer_id = f"{name}_{time.time_ns()}"
-        key = self._make_key(name, tags)
+        self._make_key(name, tags)
         self.timer_start_times[timer_id] = time.time()
         return timer_id
 

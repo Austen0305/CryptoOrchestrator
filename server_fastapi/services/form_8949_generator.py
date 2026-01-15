@@ -5,7 +5,7 @@ Generates IRS Form 8949 for cryptocurrency capital gains and losses
 
 import logging
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from .tax_calculation_service import TaxableEvent, TaxCalculationService
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Form8949Row:
-    """A single row on Form 8949"""
+    """A single row on Form 8949 (Extended for 1099-DA)"""
 
     # Part I: Short-term transactions
     # Part II: Long-term transactions
@@ -28,11 +28,14 @@ class Form8949Row:
     adjustment_amount: float  # Amount of adjustment
     gain_loss: float  # Gain or (loss)
     is_long_term: bool  # True for Part II, False for Part I
+    # IRS 1099-DA Extensions
+    transaction_hash: str = ""
+    digital_asset_address: str = ""
 
 
 class Form8949Generator:
     """
-    Generator for IRS Form 8949
+    Generator for IRS Form 8949 (with 1099-DA support)
 
     Form 8949 is used to report sales and exchanges of capital assets.
     This generator creates the form data structure that can be exported
@@ -103,7 +106,7 @@ class Form8949Generator:
                 "totals": long_term_totals,
             },
             "summary": summary,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     def _event_to_row(self, event: TaxableEvent) -> Form8949Row:
@@ -130,6 +133,11 @@ class Form8949Generator:
             code = "W"  # Wash sale
             adjustment_amount = event.wash_sale_adjustment
 
+        # 1099-DA Enrichment
+        # If we have the address, append it to description (common practice)
+        if event.digital_asset_address:
+            symbol = f"{symbol} ({event.digital_asset_address[:8]}...)"
+
         return Form8949Row(
             description=symbol,
             date_acquired=date_acquired,
@@ -140,6 +148,8 @@ class Form8949Generator:
             adjustment_amount=adjustment_amount,
             gain_loss=event.gain_loss,
             is_long_term=event.is_long_term,
+            transaction_hash=event.transaction_hash or "",
+            digital_asset_address=event.digital_asset_address or "",
         )
 
     def _calculate_totals(self, rows: list[Form8949Row]) -> dict:
@@ -159,7 +169,7 @@ class Form8949Generator:
 
     def export_to_csv(self, form_data: dict) -> str:
         """
-        Export Form 8949 to CSV format
+        Export Form 8949 to CSV format (Extended with 1099-DA columns)
 
         Returns:
             CSV string
@@ -186,6 +196,8 @@ class Form8949Generator:
                 "Code",
                 "Adjustment",
                 "Gain/(Loss)",
+                "Tx Hash (1099-DA)",
+                "Wallet Addr (1099-DA)",
             ]
         )
 
@@ -200,6 +212,8 @@ class Form8949Generator:
                     row.code,
                     f"{row.adjustment_amount:.2f}",
                     f"{row.gain_loss:.2f}",
+                    row.transaction_hash,
+                    row.digital_asset_address,
                 ]
             )
 
@@ -215,6 +229,8 @@ class Form8949Generator:
                 "",
                 f"{totals['total_adjustments']:.2f}",
                 f"{totals['total_gain_loss']:.2f}",
+                "",
+                "",
             ]
         )
 
@@ -232,6 +248,8 @@ class Form8949Generator:
                 "Code",
                 "Adjustment",
                 "Gain/(Loss)",
+                "Tx Hash (1099-DA)",
+                "Wallet Addr (1099-DA)",
             ]
         )
 
@@ -246,6 +264,8 @@ class Form8949Generator:
                     row.code,
                     f"{row.adjustment_amount:.2f}",
                     f"{row.gain_loss:.2f}",
+                    row.transaction_hash,
+                    row.digital_asset_address,
                 ]
             )
 
@@ -261,6 +281,8 @@ class Form8949Generator:
                 "",
                 f"{totals['total_adjustments']:.2f}",
                 f"{totals['total_gain_loss']:.2f}",
+                "",
+                "",
             ]
         )
 

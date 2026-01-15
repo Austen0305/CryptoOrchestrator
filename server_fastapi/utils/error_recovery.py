@@ -7,7 +7,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from functools import wraps
 from typing import Any, TypeVar
@@ -69,7 +69,7 @@ class CircuitBreaker:
         if self.state == "open":
             # Check if recovery timeout has passed
             if self.last_failure_time:
-                elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+                elapsed = (datetime.now(UTC) - self.last_failure_time).total_seconds()
                 if elapsed >= self.recovery_timeout:
                     self.state = "half-open"
                     self.success_count = 0
@@ -87,15 +87,14 @@ class CircuitBreaker:
 
     async def call_async(self, func: Callable, *args, **kwargs):
         """Execute async function with circuit breaker"""
-        if self.state == "open":
-            if self.last_failure_time:
-                elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
-                if elapsed >= self.recovery_timeout:
-                    self.state = "half-open"
-                    self.success_count = 0
-                    logger.info("Circuit breaker entering half-open state")
-                else:
-                    raise Exception("Circuit breaker is OPEN")
+        if self.state == "open" and self.last_failure_time:
+            elapsed = (datetime.now(UTC) - self.last_failure_time).total_seconds()
+            if elapsed >= self.recovery_timeout:
+                self.state = "half-open"
+                self.success_count = 0
+                logger.info("Circuit breaker entering half-open state")
+            else:
+                raise Exception("Circuit breaker is OPEN")
 
         try:
             result = await func(*args, **kwargs)
@@ -119,7 +118,7 @@ class CircuitBreaker:
     def _on_failure(self):
         """Handle failed call"""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(UTC)
 
         if self.state == "half-open":
             self.state = "open"

@@ -25,7 +25,8 @@ try:
     from ..rate_limit_config import get_rate_limit, limiter
 except ImportError:
     limiter = None
-    get_rate_limit = lambda x: x
+    def get_rate_limit(x):
+        return x
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,12 @@ async def get_admin_stats(
         total_users = total_users_result.scalar() or 0
 
         active_users_result = await db.execute(
-            select(func.count(User.id)).where(User.is_active == True)
+            select(func.count(User.id)).where(User.is_active)
         )
         active_users = active_users_result.scalar() or 0
 
         verified_users_result = await db.execute(
-            select(func.count(User.id)).where(User.is_email_verified == True)
+            select(func.count(User.id)).where(User.is_email_verified)
         )
         verified_users = verified_users_result.scalar() or 0
 
@@ -98,7 +99,7 @@ async def get_admin_stats(
         total_bots = total_bots_result.scalar() or 0
 
         active_bots_result = await db.execute(
-            select(func.count(Bot.id)).where(Bot.active == True)
+            select(func.count(Bot.id)).where(Bot.active)
         )
         active_bots = active_bots_result.scalar() or 0
 

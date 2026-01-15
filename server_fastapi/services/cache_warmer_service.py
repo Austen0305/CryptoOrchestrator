@@ -4,10 +4,11 @@ Pre-populates cache with frequently accessed data to reduce cache misses
 """
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from ..services.cache_service import cache_service
@@ -53,7 +54,7 @@ class CacheWarmerService:
             ttl=ttl,
             interval=interval,
             enabled=enabled,
-            next_run=datetime.utcnow() + timedelta(seconds=interval),
+            next_run=datetime.now(UTC) + timedelta(seconds=interval),
         )
         self.tasks[name] = task
         logger.info(f"Registered cache warmup task: {name} (interval: {interval}s)")
@@ -61,7 +62,7 @@ class CacheWarmerService:
     async def warmup_task(self, task: CacheWarmupTask) -> bool:
         """Execute a single warmup task"""
         try:
-            start_time = datetime.utcnow()
+            start_time = datetime.now(UTC)
 
             # Execute the warmup function
             if asyncio.iscoroutinefunction(task.function):
@@ -75,7 +76,7 @@ class CacheWarmerService:
 
             # Update task stats
             task.last_run = start_time
-            task.next_run = datetime.utcnow() + timedelta(seconds=task.interval)
+            task.next_run = datetime.now(UTC) + timedelta(seconds=task.interval)
             task.run_count += 1
 
             logger.debug(f"Cache warmup task '{task.name}' completed successfully")
@@ -91,7 +92,7 @@ class CacheWarmerService:
         if not self._running:
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         tasks_to_run = [
             task
             for task in self.tasks.values()
@@ -133,10 +134,8 @@ class CacheWarmerService:
         self._running = False
         if self._warmup_task:
             self._warmup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._warmup_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Cache warmer service stopped")
 
     async def _warmup_loop(self):
@@ -292,7 +291,7 @@ async def warmup_active_bot_statuses():
 
         async with get_db_context() as db:
             # Get all active bots
-            stmt = select(Bot).where(Bot.active == True).limit(100)
+            stmt = select(Bot).where(Bot.active).limit(100)
             result = await db.execute(stmt)
             active_bots = result.scalars().all()
 

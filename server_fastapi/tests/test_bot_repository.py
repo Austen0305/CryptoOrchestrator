@@ -34,7 +34,7 @@ class TestBotRepository:
         assert bot.symbol == "BTC/USDT"
         assert bot.strategy == "SMA"
         assert json.loads(bot.parameters) == {"period": 20}
-        assert bot.active == False
+        assert not bot.active
         assert bot.status == "stopped"
 
     async def test_get_by_user_and_id(self, db_session: AsyncSession):
@@ -129,7 +129,7 @@ class TestBotRepository:
         )
 
         assert updated_bot is not None
-        assert updated_bot.active == True
+        assert updated_bot.active
         assert updated_bot.status == "running"
         assert updated_bot.last_started_at is not None
 
@@ -139,7 +139,7 @@ class TestBotRepository:
         )
 
         assert updated_bot is not None
-        assert updated_bot.active == False
+        assert not updated_bot.active
         assert updated_bot.status == "stopped"
         assert updated_bot.last_stopped_at is not None
 
@@ -173,7 +173,7 @@ class TestBotRepository:
             db_session, "test_bot_1", 1, performance_data
         )
 
-        assert success == True
+        assert success
 
         # Verify data was updated
         bot = await repo.get_by_user_and_id(db_session, "test_bot_1", 1)
@@ -202,5 +202,5 @@ class TestBotRepository:
         assert bot.symbol == "BTC/USDT"
         assert bot.strategy == "SMA"
         assert json.loads(bot.parameters) == parameters
-        assert bot.active == False
+        assert not bot.active
         assert bot.status == "stopped"

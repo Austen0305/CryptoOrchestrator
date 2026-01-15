@@ -8,7 +8,7 @@ import logging
 import os
 import traceback
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request, status
@@ -44,7 +44,7 @@ class ErrorResponse:
                 "message": message,
                 "status_code": status_code,
             },
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
         }
 
         if details:
@@ -230,7 +230,7 @@ class EnhancedErrorHandler:
     def _track_error_rate(error_code: str, path: str):
         """Track error rate for monitoring"""
         try:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             key = f"{error_code}:{path}"
 
             # Clean old entries (older than window)
@@ -322,7 +322,7 @@ class EnhancedErrorHandler:
     ) -> JSONResponse:
         """Handle database-related errors"""
         request_id = getattr(request.state, "request_id", None)
-        is_production = os.getenv("NODE_ENV") == "production"
+        os.getenv("NODE_ENV") == "production"
 
         logger.error(
             f"Database error on {request.url.path}: {str(exc)}",

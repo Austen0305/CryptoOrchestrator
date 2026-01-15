@@ -4,7 +4,7 @@ Comprehensive safety checks and validations for all real money operations
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -129,7 +129,7 @@ class RealMoneySafetyService:
             errors.append(f"Invalid side: {side}. Must be 'buy' or 'sell'")
 
         # 6. Check daily volume limit
-        today_start = datetime.utcnow().replace(
+        today_start = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         volume_result = await db.execute(
@@ -137,7 +137,7 @@ class RealMoneySafetyService:
                 Trade.user_id == user_id,
                 Trade.mode == "real",
                 Trade.executed_at >= today_start,
-                Trade.success == True,
+                Trade.success,
             )
         )
         daily_volume = volume_result.scalar() or Decimal("0")
@@ -152,7 +152,7 @@ class RealMoneySafetyService:
         metadata["trade_value"] = float(trade_value)
 
         # 7. Check hourly trade count
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
         count_result = await db.execute(
             select(func.count(Trade.id)).where(
                 Trade.user_id == user_id,
@@ -170,12 +170,12 @@ class RealMoneySafetyService:
         metadata["hourly_trades"] = hourly_trades
 
         # 8. Check for recent failed trades (cooldown)
-        cooldown_start = datetime.utcnow() - self.cooldown_after_failed_trade
+        cooldown_start = datetime.now(UTC) - self.cooldown_after_failed_trade
         failed_result = await db.execute(
             select(func.count(Trade.id)).where(
                 Trade.user_id == user_id,
                 Trade.mode == "real",
-                Trade.success == False,
+                not Trade.success,
                 Trade.executed_at >= cooldown_start,
             )
         )
@@ -194,7 +194,7 @@ class RealMoneySafetyService:
                 select(Wallet).where(
                     Wallet.user_id == user_id,
                     Wallet.currency == "USD",
-                    Wallet.is_active == True,
+                    Wallet.is_active,
                 )
             )
             wallet = wallet_result.scalar_one_or_none()
@@ -284,7 +284,7 @@ class RealMoneySafetyService:
             select(Wallet).where(
                 Wallet.user_id == user_id,
                 Wallet.currency == currency,
-                Wallet.is_active == True,
+                Wallet.is_active,
             )
         )
         wallet = wallet_result.scalar_one_or_none()
@@ -301,7 +301,7 @@ class RealMoneySafetyService:
         metadata["wallet_balance"] = float(wallet.available_balance)
 
         # 4. Check daily withdrawal limit
-        today_start = datetime.utcnow().replace(
+        today_start = datetime.now(UTC).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         withdrawal_result = await db.execute(
@@ -344,7 +344,7 @@ class RealMoneySafetyService:
             log_entry = {
                 "operation_type": operation_type,
                 "user_id": user_id,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "success": success,
                 "error": error,
                 **details,

@@ -6,7 +6,7 @@ Integration with TaxAct, TurboTax, and other tax software
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -96,11 +96,11 @@ class TaxSoftwareIntegrationService:
         4. Or provide download link
         """
         export_id = (
-            f"taxact_{user_id}_{tax_year}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            f"taxact_{user_id}_{tax_year}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
         )
 
         # Format data for TaxAct (simplified)
-        formatted_data = self._format_for_taxact(tax_data)
+        self._format_for_taxact(tax_data)
 
         export = TaxSoftwareExport(
             export_id=export_id,
@@ -141,10 +141,10 @@ class TaxSoftwareIntegrationService:
         3. Upload via TurboTax API (if available)
         4. Or provide download link
         """
-        export_id = f"turbotax_{user_id}_{tax_year}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        export_id = f"turbotax_{user_id}_{tax_year}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         # Format data for TurboTax (simplified)
-        formatted_data = self._format_for_turbotax(tax_data)
+        self._format_for_turbotax(tax_data)
 
         export = TaxSoftwareExport(
             export_id=export_id,
@@ -180,9 +180,9 @@ class TaxSoftwareIntegrationService:
         Returns:
             TaxSoftwareExport
         """
-        export_id = f"hrblock_{user_id}_{tax_year}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        export_id = f"hrblock_{user_id}_{tax_year}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
-        formatted_data = self._format_for_hr_block(tax_data)
+        self._format_for_hr_block(tax_data)
 
         export = TaxSoftwareExport(
             export_id=export_id,
@@ -220,7 +220,7 @@ class TaxSoftwareIntegrationService:
         Returns:
             TaxSoftwareExport
         """
-        export_id = f"generic_{user_id}_{tax_year}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        export_id = f"generic_{user_id}_{tax_year}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         export = TaxSoftwareExport(
             export_id=export_id,

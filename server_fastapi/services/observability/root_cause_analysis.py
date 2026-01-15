@@ -6,7 +6,7 @@ Automated root cause identification for incidents
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -84,14 +84,14 @@ class RootCauseAnalysisService:
         Returns:
             Incident
         """
-        incident_id = f"inc_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        incident_id = f"inc_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         incident = Incident(
             id=incident_id,
             title=title,
             description=description,
             severity=severity,
-            start_time=datetime.utcnow(),
+            start_time=datetime.now(UTC),
             affected_services=affected_services or [],
             metrics=metrics or {},
         )
@@ -203,7 +203,7 @@ class RootCauseAnalysisService:
 
     def record_metric(self, metric_name: str, value: float):
         """Record metric value for analysis"""
-        self.metric_history[metric_name].append((datetime.utcnow(), value))
+        self.metric_history[metric_name].append((datetime.now(UTC), value))
 
         # Keep only last 1000 values
         if len(self.metric_history[metric_name]) > 1000:
@@ -219,7 +219,7 @@ class RootCauseAnalysisService:
         severity: str | None = None,
     ) -> list[Incident]:
         """Get recent incidents"""
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
         incidents = [inc for inc in self.incidents.values() if inc.start_time >= cutoff]
 
@@ -231,7 +231,7 @@ class RootCauseAnalysisService:
     def resolve_incident(self, incident_id: str):
         """Resolve an incident"""
         if incident_id in self.incidents:
-            self.incidents[incident_id].end_time = datetime.utcnow()
+            self.incidents[incident_id].end_time = datetime.now(UTC)
             logger.info(f"Resolved incident {incident_id}")
 
     def get_analysis_summary(self) -> dict[str, Any]:

@@ -23,12 +23,12 @@ async def broadcast_wallet_update(user_id: int, wallet_data: dict):
         return
 
     try:
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         message = {
             "type": "wallet_update",
             "data": wallet_data,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         disconnected = []

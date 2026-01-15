@@ -5,7 +5,7 @@ Implements tier-based fee structure
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -131,7 +131,7 @@ class TradingFeeService:
             Monthly volume in USD
         """
         if not month:
-            month = datetime.utcnow().replace(
+            month = datetime.now(UTC).replace(
                 day=1, hour=0, minute=0, second=0, microsecond=0
             )
 

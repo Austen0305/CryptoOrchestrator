@@ -3,7 +3,7 @@
  * User preferences, security, notifications, and app configuration
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,15 +13,15 @@ import {
   Switch,
   Alert,
   TextInput,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigation } from '@react-navigation/native';
-import BiometricAuth from '../services/BiometricAuth';
-import { apiService } from '../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import pushNotificationService from '../services/PushNotificationService';
-import { useOffline } from '../hooks/useOffline';
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigation } from "@react-navigation/native";
+import BiometricAuth from "../services/BiometricAuth";
+import { api } from "../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import pushNotificationService from "../services/PushNotificationService";
+import { useOffline } from "../hooks/useOffline";
 
 export default function SettingsScreen() {
   const navigation = useNavigation();
@@ -29,16 +29,20 @@ export default function SettingsScreen() {
   const { isOnline, queuedActions, syncNow, clearQueue } = useOffline();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
-  const [apiUrl, setApiUrl] = useState('');
+  const [apiUrl, setApiUrl] = useState("");
   const [editingApiUrl, setEditingApiUrl] = useState(false);
 
+  interface Preferences {
+    push_notifications_enabled?: boolean;
+    [key: string]: unknown;
+  }
+
   // Fetch preferences
-  const { data: preferences } = useQuery({
-    queryKey: ['preferences'],
+  const { data: preferences } = useQuery<Preferences>({
+    queryKey: ["preferences"],
     queryFn: async () => {
       try {
-        const response = await apiService.getPreferences();
-        return response.data;
+        return await api.get<Preferences>("settings/preferences");
       } catch (error) {
         return {};
       }
@@ -47,10 +51,10 @@ export default function SettingsScreen() {
 
   // Update preferences mutation
   const updatePreferencesMutation = useMutation({
-    mutationFn: (data: Record<string, any>) => apiService.updatePreferences(data),
+    mutationFn: (data: Record<string, unknown>) => api.post("settings/preferences", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preferences'] });
-      Alert.alert('Success', 'Preferences updated successfully');
+      queryClient.invalidateQueries({ queryKey: ["preferences"] });
+      Alert.alert("Success", "Preferences updated successfully");
     },
   });
 
@@ -63,11 +67,11 @@ export default function SettingsScreen() {
   }, [preferences]);
 
   const loadApiUrl = async () => {
-    const url = await AsyncStorage.getItem('api_base_url');
+    const url = await AsyncStorage.getItem("api_base_url");
     if (url) {
       setApiUrl(url);
     } else {
-      setApiUrl(process.env.API_BASE_URL || 'http://localhost:8000');
+      setApiUrl(process.env.API_BASE_URL ?? "http://localhost:8000");
     }
   };
 
@@ -76,25 +80,23 @@ export default function SettingsScreen() {
       const result = await BiometricAuth.isBiometricAvailable();
       setBiometricsEnabled(result.available);
     } catch (error) {
-      console.error('Error checking biometric status:', error);
+      console.error("Error checking biometric status:", error);
     }
   };
 
   const handleBiometricToggle = async (value: boolean) => {
     if (value) {
       try {
-        const result = await BiometricAuth.authenticate(
-          'Enable Biometric Authentication'
-        );
+        const result = await BiometricAuth.authenticate("Enable Biometric Authentication");
         if (result.success) {
           setBiometricsEnabled(true);
           updatePreferencesMutation.mutate({ biometric_auth_enabled: true });
-          Alert.alert('Success', 'Biometric authentication enabled');
+          Alert.alert("Success", "Biometric authentication enabled");
         } else {
-          Alert.alert('Error', result.error || 'Failed to enable biometric authentication');
+          Alert.alert("Error", result.error ?? "Failed to enable biometric authentication");
         }
       } catch (error) {
-        Alert.alert('Error', 'Failed to enable biometric authentication');
+        Alert.alert("Error", "Failed to enable biometric authentication");
       }
     } else {
       setBiometricsEnabled(false);
@@ -104,14 +106,14 @@ export default function SettingsScreen() {
 
   const handleNotificationsToggle = async (value: boolean) => {
     setNotificationsEnabled(value);
-    
+
     if (value) {
       // Subscribe to push notifications
       const subscribed = await pushNotificationService.subscribe();
       if (subscribed) {
         updatePreferencesMutation.mutate({ push_notifications_enabled: true });
       } else {
-        Alert.alert('Error', 'Failed to enable push notifications. Please check permissions.');
+        Alert.alert("Error", "Failed to enable push notifications. Please check permissions.");
         setNotificationsEnabled(false);
       }
     } else {
@@ -123,29 +125,25 @@ export default function SettingsScreen() {
 
   const handleSaveApiUrl = async () => {
     if (apiUrl) {
-      await AsyncStorage.setItem('api_base_url', apiUrl);
+      await AsyncStorage.setItem("api_base_url", apiUrl);
       setEditingApiUrl(false);
-      Alert.alert('Success', 'API URL updated. Restart app to apply changes.');
+      Alert.alert("Success", "API URL updated. Restart app to apply changes.");
     }
   };
 
   const handleClearCache = () => {
-    Alert.alert(
-      'Clear Cache',
-      'This will clear all cached data. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: async () => {
-            queryClient.clear();
-            await AsyncStorage.multiRemove(['cached_data', 'portfolio_cache']);
-            Alert.alert('Success', 'Cache cleared');
-          },
+    Alert.alert("Clear Cache", "This will clear all cached data. Continue?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear",
+        style: "destructive",
+        onPress: async () => {
+          queryClient.clear();
+          await AsyncStorage.multiRemove(["cached_data", "portfolio_cache"]);
+          Alert.alert("Success", "Cache cleared");
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
@@ -168,7 +166,7 @@ export default function SettingsScreen() {
             <Switch
               value={biometricsEnabled}
               onValueChange={handleBiometricToggle}
-              trackColor={{ false: '#374151', true: '#3b82f6' }}
+              trackColor={{ false: "#374151", true: "#3b82f6" }}
               thumbColor="#fff"
             />
           </View>
@@ -177,7 +175,7 @@ export default function SettingsScreen() {
             style={styles.settingItem}
             onPress={() => {
               // Navigate to security settings
-              Alert.alert('Security Settings', 'Password and 2FA settings');
+              Alert.alert("Security Settings", "Password and 2FA settings");
             }}
           >
             <View style={styles.settingInfo}>
@@ -210,7 +208,7 @@ export default function SettingsScreen() {
             <Switch
               value={notificationsEnabled}
               onValueChange={handleNotificationsToggle}
-              trackColor={{ false: '#374151', true: '#3b82f6' }}
+              trackColor={{ false: "#374151", true: "#3b82f6" }}
               thumbColor="#fff"
             />
           </View>
@@ -218,7 +216,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
-              Alert.alert('Notification Settings', 'Configure notification preferences');
+              Alert.alert("Notification Settings", "Configure notification preferences");
             }}
           >
             <View style={styles.settingInfo}>
@@ -241,7 +239,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
-              Alert.alert('Risk Settings', 'Configure default risk limits');
+              Alert.alert("Risk Settings", "Configure default risk limits");
             }}
           >
             <View style={styles.settingInfo}>
@@ -259,16 +257,14 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
-              Alert.alert('Trading Hours', 'Set preferred trading hours');
+              Alert.alert("Trading Hours", "Set preferred trading hours");
             }}
           >
             <View style={styles.settingInfo}>
               <MaterialCommunityIcons name="clock-outline" size={24} color="#3b82f6" />
               <View style={styles.settingText}>
                 <Text style={styles.settingLabel}>Trading Hours</Text>
-                <Text style={styles.settingDescription}>
-                  Configure when bots can trade
-                </Text>
+                <Text style={styles.settingDescription}>Configure when bots can trade</Text>
               </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#9ca3af" />
@@ -319,9 +315,7 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="delete-outline" size={24} color="#ef4444" />
               <View style={styles.settingText}>
                 <Text style={[styles.settingLabel, styles.dangerText]}>Clear Cache</Text>
-                <Text style={styles.settingDescription}>
-                  Clear all cached data and refresh
-                </Text>
+                <Text style={styles.settingDescription}>Clear all cached data and refresh</Text>
               </View>
             </View>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#9ca3af" />
@@ -335,7 +329,8 @@ export default function SettingsScreen() {
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Queued Actions</Text>
                   <Text style={styles.settingDescription}>
-                    {queuedActions.length} action{queuedActions.length !== 1 ? 's' : ''} waiting to sync
+                    {queuedActions.length} action{queuedActions.length === 1 ? "" : "s"} waiting to
+                    sync
                   </Text>
                 </View>
               </View>
@@ -351,27 +346,21 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={styles.settingItem}
               onPress={() => {
-                Alert.alert(
-                  'Clear Queue',
-                  'Are you sure you want to clear all queued actions?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Clear',
-                      style: 'destructive',
-                      onPress: clearQueue,
-                    },
-                  ]
-                );
+                Alert.alert("Clear Queue", "Are you sure you want to clear all queued actions?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Clear",
+                    style: "destructive",
+                    onPress: () => void clearQueue(),
+                  },
+                ]);
               }}
             >
               <View style={styles.settingInfo}>
                 <MaterialCommunityIcons name="delete-sweep" size={24} color="#ef4444" />
                 <View style={styles.settingText}>
                   <Text style={[styles.settingLabel, styles.dangerText]}>Clear Queue</Text>
-                  <Text style={styles.settingDescription}>
-                    Remove all queued actions
-                  </Text>
+                  <Text style={styles.settingDescription}>Remove all queued actions</Text>
                 </View>
               </View>
               <MaterialCommunityIcons name="chevron-right" size={24} color="#9ca3af" />
@@ -387,7 +376,7 @@ export default function SettingsScreen() {
             style={styles.settingItem}
             onPress={() => {
               // Navigate to profile screen
-              navigation.navigate('Profile' as never);
+              navigation.navigate("Profile" as never);
             }}
           >
             <View style={styles.settingInfo}>
@@ -418,7 +407,7 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
-              Alert.alert('Help & Support', 'Documentation and support resources');
+              Alert.alert("Help & Support", "Documentation and support resources");
             }}
           >
             <View style={styles.settingInfo}>
@@ -439,7 +428,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: "#0f172a",
   },
   content: {
     padding: 16,
@@ -448,27 +437,27 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
     minHeight: 44,
   },
   settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   settingText: {
@@ -476,13 +465,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingLabel: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 4,
   },
   settingDescription: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 12,
   },
   inputContainer: {
@@ -490,27 +479,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
     borderRadius: 8,
     padding: 16,
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
     minHeight: 44,
   },
   dangerText: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   syncButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
     borderRadius: 6,
   },
   syncButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

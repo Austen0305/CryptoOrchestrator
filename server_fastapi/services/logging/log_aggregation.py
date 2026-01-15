@@ -7,7 +7,7 @@ Supports multiple output formats and transport mechanisms.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -89,7 +89,7 @@ class LogAggregator:
         }
 
         # Add aggregation metadata
-        enriched["@timestamp"] = datetime.utcnow().isoformat() + "Z"
+        enriched["@timestamp"] = datetime.now(UTC).isoformat() + "Z"
         enriched["aggregation_type"] = self.aggregation_type
 
         return enriched

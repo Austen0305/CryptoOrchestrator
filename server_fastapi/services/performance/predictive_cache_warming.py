@@ -6,7 +6,7 @@ Warm cache based on user patterns and predicted requests
 import logging
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class PredictiveCacheWarmingService:
         if not self.enabled:
             return
 
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(UTC)
 
         # Record in history
         self.access_history[user_id].append(
@@ -158,7 +158,7 @@ class PredictiveCacheWarmingService:
             return []
 
         tasks = []
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         current_hour = now.hour
         current_day = now.weekday()
 

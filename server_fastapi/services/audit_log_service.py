@@ -4,7 +4,7 @@ Comprehensive audit logging with integrity protection
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, desc, func, select
@@ -73,7 +73,7 @@ class AuditLogService:
             resource_id=resource_id,
             previous_hash=previous_hash,
             compliance_flags=compliance_flags or [],
-            retention_until=datetime.utcnow() + timedelta(days=retention_days),
+            retention_until=datetime.now(UTC) + timedelta(days=retention_days),
         )
 
         # Calculate integrity hash
@@ -205,7 +205,7 @@ class AuditLogService:
         days: int = 30,
     ) -> dict[str, Any]:
         """Get audit log summary statistics"""
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(UTC) - timedelta(days=days)
 
         # Count by category
         stmt = (

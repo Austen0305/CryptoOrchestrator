@@ -21,7 +21,7 @@ def monitor_deposits_task(chain_id: Optional[int] = None):
         chain_id: Optional specific chain ID to monitor (if None, monitors all chains)
     """
     try:
-        monitor = get_deposit_monitor()
+        get_deposit_monitor()
 
         # Get database session
         # Note: In production, you'd use a proper async context manager

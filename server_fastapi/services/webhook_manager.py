@@ -9,7 +9,7 @@ import hmac
 import json
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -44,7 +44,7 @@ class WebhookSubscription:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(UTC)
 
 
 @dataclass
@@ -63,7 +63,7 @@ class WebhookDelivery:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(UTC)
 
 
 class WebhookManager:
@@ -94,7 +94,7 @@ class WebhookManager:
     ) -> WebhookSubscription:
         """Subscribe to webhook events"""
         subscription_id = hashlib.sha256(
-            f"{url}:{datetime.utcnow().isoformat()}".encode()
+            f"{url}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()[:16]
 
         subscription = WebhookSubscription(
@@ -132,7 +132,7 @@ class WebhookManager:
         for subscription in matching_subscriptions:
             delivery = WebhookDelivery(
                 id=hashlib.sha256(
-                    f"{subscription.id}:{event_type}:{datetime.utcnow().isoformat()}".encode()
+                    f"{subscription.id}:{event_type}:{datetime.now(UTC).isoformat()}".encode()
                 ).hexdigest()[:16],
                 subscription_id=subscription.id,
                 event_type=event_type,
@@ -160,7 +160,7 @@ class WebhookManager:
                 webhook_payload = {
                     "event": delivery.event_type,
                     "data": delivery.payload,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "delivery_id": delivery.id,
                 }
 
@@ -187,8 +187,8 @@ class WebhookManager:
 
                     if response.is_success:
                         delivery.status = WebhookStatus.SUCCESS
-                        delivery.delivered_at = datetime.utcnow()
-                        subscription.last_delivery = datetime.utcnow()
+                        delivery.delivered_at = datetime.now(UTC)
+                        subscription.last_delivery = datetime.now(UTC)
                         subscription.failure_count = 0
                         logger.info(f"Webhook delivered: {delivery.id}")
                         return

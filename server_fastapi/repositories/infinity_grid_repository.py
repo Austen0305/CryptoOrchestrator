@@ -73,7 +73,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         status: str,
     ) -> InfinityGrid | None:
         """Update infinity grid active status and status field."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         update_data = {
             "active": active,
@@ -81,9 +81,9 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         }
 
         if active:
-            update_data["started_at"] = datetime.utcnow()
+            update_data["started_at"] = datetime.now(UTC)
         else:
-            update_data["stopped_at"] = datetime.utcnow()
+            update_data["stopped_at"] = datetime.now(UTC)
 
         stmt = (
             update(InfinityGrid)
@@ -126,7 +126,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
                 current_upper_price=upper_price,
                 current_lower_price=lower_price,
                 grid_adjustments=InfinityGrid.grid_adjustments + 1,
-                last_adjustment_at=datetime.utcnow(),
+                last_adjustment_at=datetime.now(UTC),
             )
             .returning(InfinityGrid)
         )
@@ -145,7 +145,7 @@ class InfinityGridRepository(SQLAlchemyRepository[InfinityGrid]):
         """Get all active infinity grids with eager loading, optionally filtered by user."""
         query = (
             select(InfinityGrid)
-            .where(InfinityGrid.active == True, ~InfinityGrid.is_deleted)
+            .where(InfinityGrid.active, ~InfinityGrid.is_deleted)
             .options(joinedload(InfinityGrid.user))
         )
 

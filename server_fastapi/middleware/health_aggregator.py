@@ -7,7 +7,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -35,7 +35,7 @@ class HealthCheck:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(UTC)
         if self.details is None:
             self.details = {}
 
@@ -67,7 +67,7 @@ class HealthAggregator:
         """Run all health checks"""
         # Check cache
         if use_cache and self._cache and self._cache_time:
-            age = (datetime.utcnow() - self._cache_time).total_seconds()
+            age = (datetime.now(UTC) - self._cache_time).total_seconds()
             if age < self.cache_ttl:
                 return self._cache
 
@@ -98,7 +98,7 @@ class HealthAggregator:
         # Build response
         response = {
             "status": overall_status.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "checks": {
                 check.name: {
                     "status": check.status.value,
@@ -112,7 +112,7 @@ class HealthAggregator:
 
         # Cache result
         self._cache = response
-        self._cache_time = datetime.utcnow()
+        self._cache_time = datetime.now(UTC)
 
         return response
 

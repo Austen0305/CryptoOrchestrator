@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket
@@ -23,9 +24,11 @@ except ImportError:
 
 # Exchange services removed - using blockchain/DEX data sources
 # Market data now comes from CoinCap and CoinLore
+import builtins
+import contextlib
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..services.market_data_service import MarketDataService, get_market_data_service
 from server_fastapi.services.correlation_service import CorrelationService
 from server_fastapi.services.market_analysis_service import MarketAnalysisService
 from server_fastapi.services.volatility_analyzer import VolatilityAnalyzer
@@ -35,6 +38,7 @@ from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
 from ..middleware.query_cache import cache_query_result
 from ..repositories.candle_repository import CandleRepository
+from ..services.market_data_service import MarketDataService, get_market_data_service
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -172,7 +176,6 @@ async def get_markets() -> list[TradingPair]:
     """Get all available trading pairs from Market Data Service"""
     try:
         from ..services.market_data_service import (
-            MarketDataService,
             get_market_data_service,
         )
 
@@ -232,14 +235,13 @@ async def get_ohlcv(
     """Get OHLCV data for a trading pair from Market Data Service"""
     try:
         from ..services.market_data_service import (
-            MarketDataService,
             get_market_data_service,
         )
 
         market_data = get_market_data_service()
 
         # Convert pair to ID if needed
-        coin_id = pair.split("/")[0].lower()
+        pair.split("/")[0].lower()
 
         # Get historical price data
         # For full OHLCV, you'd need Pro API or use DEX aggregator APIs
@@ -250,7 +252,7 @@ async def get_ohlcv(
 
         # Convert price history to OHLCV format (simplified - in production, use proper OHLCV endpoint)
         candles = []
-        for i, point in enumerate(historical_data):
+        for _i, point in enumerate(historical_data):
             price = point.get("price", 0)
             # For free tier, we only have price, so estimate OHLCV
             candles.append(
@@ -916,7 +918,7 @@ async def get_correlation_matrix(
         return CorrelationMatrixResponse(
             symbols=symbol_list,
             matrix=matrix,
-            calculated_at=datetime.utcnow().isoformat(),
+            calculated_at=datetime.now(UTC).isoformat(),
         )
 
     except HTTPException:
@@ -977,7 +979,7 @@ async def get_heatmap_data(
         return HeatmapDataResponse(
             data=data,
             metric=metric,
-            calculated_at=datetime.utcnow().isoformat(),
+            calculated_at=datetime.now(UTC).isoformat(),
         )
 
     except HTTPException:
@@ -1080,9 +1082,7 @@ async def websocket_market_stream(
 
     except Exception as e:
         logger.error(f"Market stream connection failed for {pair}: {e}")
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({"error": str(e)})
-        except:
-            pass
     finally:
         logger.info(f"Market stream closed for {pair}")

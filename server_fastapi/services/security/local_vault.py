@@ -1,4 +1,5 @@
 import os
+
 from .vault_interface import AbstractVault
 
 

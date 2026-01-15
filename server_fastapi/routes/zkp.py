@@ -4,7 +4,7 @@ Endpoints for ZKP-based wallet balance verification
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -95,7 +95,7 @@ async def verify_balance_proof(
         return {
             "wallet_address": request.wallet_address,
             "verified": is_valid,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error verifying balance proof: {e}", exc_info=True)
@@ -125,7 +125,7 @@ async def verify_balance_range(
             "min_balance": request.min_balance,
             "max_balance": request.max_balance,
             "in_range": is_in_range,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error verifying balance range: {e}", exc_info=True)

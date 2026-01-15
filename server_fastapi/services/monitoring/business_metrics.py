@@ -5,7 +5,7 @@ Exposes metrics for Prometheus and business intelligence dashboards.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -143,7 +143,7 @@ class BusinessMetricsService:
             user_growth_total.set(total_users)
 
             # Active users in last 24 hours
-            active_cutoff = datetime.utcnow() - timedelta(hours=24)
+            active_cutoff = datetime.now(UTC) - timedelta(hours=24)
             active_stmt = select(func.count(User.id)).where(
                 User.last_login_at >= active_cutoff
             )
@@ -168,7 +168,7 @@ class BusinessMetricsService:
         try:
             from ..models.trade import Trade
 
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             stmt = (
                 select(
@@ -211,9 +211,9 @@ class BusinessMetricsService:
             from ..services.payments.stripe_service import StripeService
 
             if not start_date:
-                start_date = datetime.utcnow() - timedelta(days=30)
+                start_date = datetime.now(UTC) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.utcnow()
+                end_date = datetime.now(UTC)
 
             # Get subscription revenue
             stripe_service = StripeService()
@@ -280,7 +280,6 @@ class BusinessMetricsService:
         self, aggregator: str, chain_id: int, success: bool
     ) -> None:
         """Record DEX swap for success rate tracking"""
-        status = "success" if success else "failed"
         dex_swap_success_rate.labels(aggregator=aggregator, chain_id=chain_id).observe(
             1.0 if success else 0.0
         )
@@ -299,7 +298,7 @@ class BusinessMetricsService:
             "users": user_metrics,
             "trades_per_day": trades_per_day_data,
             "revenue": revenue_metrics,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 

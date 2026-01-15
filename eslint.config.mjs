@@ -17,8 +17,6 @@ export default [
       'dist/**',
       'build/**',
       'coverage/**',
-      '*.config.js',
-      '*.config.mjs',
     ],
   },
   
@@ -30,7 +28,8 @@ export default [
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: './client/tsconfig.json',
+        project: ['./client/tsconfig.json', './mobile/tsconfig.json'],
+        tsconfigRootDir: import.meta.dirname,
         ecmaFeatures: {
           jsx: true,
         },
@@ -43,6 +42,10 @@ export default [
         Buffer: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
       },
     },
     plugins: {
@@ -79,6 +82,7 @@ export default [
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       '@typescript-eslint/prefer-optional-chain': 'warn',
       '@typescript-eslint/no-unnecessary-condition': 'warn',
+      'no-unused-vars': 'off',
       
       // React Hooks rules
       'react-hooks/rules-of-hooks': 'error',
@@ -89,6 +93,22 @@ export default [
       'no-debugger': 'warn',
       'prefer-const': 'warn',
       'no-var': 'error',
+    },
+  },
+  
+  // JavaScript configuration files (CommonJS)
+  {
+    files: ['**/*.config.js', '**/*.config.mjs', '**/metro.config.js', '**/babel.config.js'],
+    languageOptions: {
+      globals: {
+        module: 'readonly',
+        require: 'readonly',
+        __dirname: 'readonly',
+        process: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
     },
   },
   

@@ -436,7 +436,7 @@ class AdvancedAnalyticsEngine:
         # Calculate linear regression coefficients
         sum_x = sum(x_values)
         sum_y = sum(y_values)
-        sum_xy = sum(x * y for x, y in zip(x_values, y_values))
+        sum_xy = sum(x * y for x, y in zip(x_values, y_values, strict=False))
         sum_xx = sum(x * x for x in x_values)
 
         slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x)
@@ -759,7 +759,7 @@ class AdvancedAnalyticsEngine:
 
         annualized_return = mean * 252
         annualized_volatility = standard_deviation * math.sqrt(252)
-        daily_risk_free_rate = risk_free_rate / 252
+        risk_free_rate / 252
 
         return (annualized_return - risk_free_rate) / annualized_volatility
 

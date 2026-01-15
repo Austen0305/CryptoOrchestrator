@@ -1,6 +1,6 @@
-import logging
 import asyncio
-from datetime import datetime
+import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -84,7 +84,7 @@ class RiskManagementEngine:
 
     async def update_historical_volatility(self, exchange_service: Any = None) -> None:
         """Update historical volatility from exchange data"""
-        now = int(datetime.utcnow().timestamp() * 1000)
+        now = int(datetime.now(UTC).timestamp() * 1000)
         if now - self.last_volatility_update < self.volatility_update_interval:
             return
 

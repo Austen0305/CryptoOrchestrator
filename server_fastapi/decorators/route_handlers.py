@@ -8,7 +8,7 @@ logging, and response formatting.
 import logging
 import traceback
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any
 
@@ -44,13 +44,13 @@ def handle_errors(operation_name: str, logger_instance: logging.Logger | None = 
         @wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
             log = logger_instance or logger
-            start_time = datetime.utcnow()
+            start_time = datetime.now(UTC)
 
             try:
                 log.info(f"Starting {operation_name}")
                 result = await func(*args, **kwargs)
 
-                duration = (datetime.utcnow() - start_time).total_seconds()
+                duration = (datetime.now(UTC) - start_time).total_seconds()
                 log.info(f"Completed {operation_name} in {duration:.2f}s")
 
                 return result
@@ -219,11 +219,11 @@ def log_performance(slow_threshold_seconds: float = 1.0):
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         async def wrapper(*args, **kwargs) -> Any:
-            start_time = datetime.utcnow()
+            start_time = datetime.now(UTC)
 
             result = await func(*args, **kwargs)
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(UTC) - start_time).total_seconds()
 
             if duration >= slow_threshold_seconds:
                 logger.warning(

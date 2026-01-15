@@ -4,9 +4,10 @@ Real-time portfolio updates via WebSocket
 """
 
 import asyncio
+import contextlib
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import jwt
@@ -43,7 +44,7 @@ class PortfolioWebSocketManager:
         self.connections[client_id] = {
             "websocket": websocket,
             "user_id": user_id,
-            "connected_at": datetime.utcnow(),
+            "connected_at": datetime.now(UTC),
         }
         logger.info(
             f"Portfolio WebSocket connected: client={client_id}, user={user_id}"
@@ -64,7 +65,7 @@ class PortfolioWebSocketManager:
                     await conn["websocket"].send_json(
                         {
                             "type": "portfolio_update",
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                             "data": portfolio_data,
                         }
                     )
@@ -84,7 +85,7 @@ class PortfolioWebSocketManager:
                 await conn["websocket"].send_json(
                     {
                         "type": "market_data",
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "data": market_data,
                     }
                 )
@@ -146,10 +147,8 @@ async def websocket_portfolio(
         else:
             logger.error(f"Failed to accept WebSocket connection: {e}", exc_info=True)
             # Try to close the connection if accept failed
-            try:
+            with contextlib.suppress(Exception):
                 await websocket.close(code=1006, reason="Connection error")
-            except Exception:
-                pass
             return
 
     try:
@@ -202,17 +201,13 @@ async def websocket_portfolio(
                 logger.warning(
                     "WebSocket authentication timeout - no auth message received"
                 )
-                try:
+                with contextlib.suppress(Exception):
                     await websocket.close(code=1008, reason="Authentication timeout")
-                except Exception:
-                    pass
                 return
             except Exception as e:
                 logger.warning(f"Error receiving auth message: {e}")
-                try:
+                with contextlib.suppress(Exception):
                     await websocket.close(code=1008, reason="Authentication failed")
-                except Exception:
-                    pass
                 return
 
         if not user_id:
@@ -305,7 +300,7 @@ async def websocket_portfolio(
                         await websocket.send_json(
                             {
                                 "type": "portfolio_update",
-                                "timestamp": datetime.utcnow().isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                                 "data": portfolio_data,
                             }
                         )
@@ -358,7 +353,7 @@ async def websocket_portfolio(
                     await websocket.send_json(
                         {
                             "type": "portfolio_update",
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                             "data": portfolio_data,
                         }
                     )
@@ -441,7 +436,7 @@ async def websocket_portfolio(
                     await websocket.send_json(
                         {
                             "type": "portfolio_update",
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                             "data": portfolio_data,
                         }
                     )
@@ -526,7 +521,7 @@ async def websocket_portfolio(
                     await websocket.send_json(
                         {
                             "type": "portfolio_update",
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(UTC).isoformat(),
                             "data": portfolio_data,
                         }
                     )
@@ -554,10 +549,8 @@ async def websocket_portfolio(
         logger.info(f"Portfolio WebSocket disconnected: {client_id_str}")
     except Exception as e:
         logger.error(f"Portfolio WebSocket error: {e}", exc_info=True)
-        try:
+        with contextlib.suppress(Exception):
             await websocket.close(code=1011, reason=str(e))
-        except Exception:
-            pass
     finally:
         portfolio_ws_manager.disconnect(client_id_str)
         # Cancel update task if it exists

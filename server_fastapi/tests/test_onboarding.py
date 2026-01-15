@@ -31,7 +31,7 @@ class TestOnboardingProgress:
         """Test completing an onboarding step"""
         service = OnboardingService(db_session)
 
-        progress = await service.get_or_create_progress(test_user.id)
+        await service.get_or_create_progress(test_user.id)
 
         # Complete first step
         updated = await service.complete_step(test_user.id, "welcome")
@@ -44,7 +44,7 @@ class TestOnboardingProgress:
         """Test skipping an onboarding step"""
         service = OnboardingService(db_session)
 
-        progress = await service.get_or_create_progress(test_user.id)
+        await service.get_or_create_progress(test_user.id)
 
         # Skip first step
         updated = await service.skip_step(test_user.id, "welcome")

@@ -21,7 +21,8 @@ try:
     from ..rate_limit_config import get_rate_limit, limiter
 except ImportError:
     limiter = None
-    get_rate_limit = lambda x: x
+    def get_rate_limit(x):
+        return x
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +219,7 @@ async def get_indicator_detail(
         version_result = await db.execute(
             select(IndicatorVersion)
             .where(IndicatorVersion.indicator_id == indicator_id)
-            .where(IndicatorVersion.is_active == True)
+            .where(IndicatorVersion.is_active)
             .order_by(IndicatorVersion.version.desc())
             .limit(1)
         )

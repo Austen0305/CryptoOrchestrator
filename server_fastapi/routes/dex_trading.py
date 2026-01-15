@@ -13,8 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..services.trading.dex_trading_service import DEXTradingService
 from ..services.real_money_transaction_manager import real_money_transaction_manager
+from ..services.trading.dex_trading_service import DEXTradingService
 from ..utils.route_helpers import _get_user_id
 from ..utils.validation_2026 import (
     ValidationError,
@@ -466,7 +466,7 @@ async def get_dex_trade_status(
     Queries the blockchain for transaction status and updates the trade record.
     """
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
 
         # Get swap status from service
         status_result = await service.get_swap_status(

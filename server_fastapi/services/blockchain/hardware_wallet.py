@@ -5,7 +5,7 @@ Ledger and Trezor wallet support
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -137,7 +137,7 @@ class HardwareWalletService:
             model="Unknown",
             firmware_version="0.0.0",
             connected=True,
-            connected_at=datetime.utcnow(),
+            connected_at=datetime.now(UTC),
         )
 
         self.devices[device_id] = device
@@ -191,7 +191,6 @@ class HardwareWalletService:
         # In production, this would use hardware wallet SDK
         # to derive the address using BIP44 path
 
-        derivation_path = path or f"m/44'/60'/{account_index}'/0/{address_index}"
 
         # In production, this would actually derive from device
         address = f"0x{'0' * 40}"  # Placeholder
@@ -241,7 +240,7 @@ class HardwareWalletService:
         # 3. Wait for user approval
         # 4. Get signature from device
 
-        signature_id = f"sig_{device_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        signature_id = f"sig_{device_id}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         # Placeholder signature
         signature = TransactionSignature(

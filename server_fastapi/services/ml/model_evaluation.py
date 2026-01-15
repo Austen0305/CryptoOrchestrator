@@ -3,7 +3,7 @@ Model Evaluation Service - Metrics and validation system
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -173,7 +173,7 @@ class ModelEvaluation:
                 return {
                     "model_type": "classification",
                     "metrics": metrics.dict(),
-                    "evaluated_at": datetime.utcnow().isoformat(),
+                    "evaluated_at": datetime.now(UTC).isoformat(),
                 }
 
             elif model_type == "regression":
@@ -181,7 +181,7 @@ class ModelEvaluation:
                 return {
                     "model_type": "regression",
                     "metrics": metrics.dict(),
-                    "evaluated_at": datetime.utcnow().isoformat(),
+                    "evaluated_at": datetime.now(UTC).isoformat(),
                 }
 
             else:

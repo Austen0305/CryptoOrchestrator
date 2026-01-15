@@ -4,7 +4,7 @@ Simulates cold storage for high-value crypto assets (security best practice)
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from sqlalchemy import and_, select
@@ -127,9 +127,9 @@ class ColdStorageService:
                 or f"Cold storage transfer: {amount} {currency}",
                 metadata={
                     "cold_storage": True,
-                    "initiated_at": datetime.utcnow().isoformat(),
+                    "initiated_at": datetime.now(UTC).isoformat(),
                     "estimated_completion": (
-                        datetime.utcnow() + timedelta(hours=self.PROCESSING_TIME_HOURS)
+                        datetime.now(UTC) + timedelta(hours=self.PROCESSING_TIME_HOURS)
                     ).isoformat(),
                     "status": ColdStorageStatus.PENDING.value,
                 },
@@ -197,11 +197,11 @@ class ColdStorageService:
 
                 # Update transaction
                 transaction.status = TransactionStatus.COMPLETED.value
-                transaction.processed_at = datetime.utcnow()
+                transaction.processed_at = datetime.now(UTC)
 
                 if transaction.metadata:
                     transaction.metadata["status"] = ColdStorageStatus.COMPLETED.value
-                    transaction.metadata["completed_at"] = datetime.utcnow().isoformat()
+                    transaction.metadata["completed_at"] = datetime.now(UTC).isoformat()
 
                 await self.db.commit()
 

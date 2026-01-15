@@ -20,7 +20,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8000
-      - DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@postgres:5432/cryptoorchestrator
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crypto_user}:${DB_PASSWORD:-crypto_pass}@postgres:5432/${DB_NAME:-cryptoorchestrator}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
       - EXCHANGE_KEY_ENCRYPTION_KEY=${EXCHANGE_KEY_ENCRYPTION_KEY:-change-me-in-production-use-32-byte-key-here-now}
@@ -53,9 +53,9 @@ services:
     image: postgres:15-alpine
     container_name: crypto-orchestrator-db
     environment:
-      - POSTGRES_USER=crypto_user
-      - POSTGRES_PASSWORD=crypto_pass
-      - POSTGRES_DB=cryptoorchestrator
+      - POSTGRES_USER=${DB_USER:-crypto_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-crypto_pass}
+      - POSTGRES_DB=${DB_NAME:-cryptoorchestrator}
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -119,7 +119,7 @@ services:
     command: celery -A server_fastapi.celery_app worker --loglevel=info
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@postgres:5432/cryptoorchestrator
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crypto_user}:${DB_PASSWORD:-crypto_pass}@postgres:5432/${DB_NAME:-cryptoorchestrator}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     volumes:
@@ -144,7 +144,7 @@ services:
     command: celery -A server_fastapi.celery_app beat --loglevel=info
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql+asyncpg://crypto_user:crypto_pass@postgres:5432/cryptoorchestrator
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-crypto_user}:${DB_PASSWORD:-crypto_pass}@postgres:5432/${DB_NAME:-cryptoorchestrator}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
     volumes:

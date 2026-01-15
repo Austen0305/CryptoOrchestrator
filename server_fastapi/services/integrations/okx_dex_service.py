@@ -11,7 +11,7 @@ import hashlib
 import hmac
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -67,7 +67,7 @@ class OKXDEXService:
             return {"Content-Type": "application/json"}
 
         if not timestamp:
-            timestamp = datetime.utcnow().isoformat() + "Z"
+            timestamp = datetime.now(UTC).isoformat() + "Z"
 
         message = timestamp + method + path + body
         signature = base64.b64encode(

@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ class ZKPService:
 
         # Generate proof (simplified - in production, use actual ZKP library)
         proof_id = hashlib.sha256(
-            f"{wallet_address}:{balance_hash}:{datetime.utcnow().isoformat()}".encode()
+            f"{wallet_address}:{balance_hash}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         # Create proof data (placeholder - would be actual ZKP proof)
@@ -107,14 +107,14 @@ class ZKPService:
                 "wallet_address": wallet_address,
                 "balance_hash": balance_hash,
             },
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         balance_proof = BalanceProof(
             wallet_address=wallet_address,
             balance_hash=balance_hash,
             proof=zkp_proof,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
 
         self.proofs[proof_id] = zkp_proof
@@ -163,7 +163,7 @@ class ZKPService:
 
         if is_valid:
             balance_proof.proof.verified = True
-            balance_proof.proof.verification_timestamp = datetime.utcnow()
+            balance_proof.proof.verification_timestamp = datetime.now(UTC)
 
         return is_valid
 

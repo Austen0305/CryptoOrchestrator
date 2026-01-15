@@ -1,10 +1,11 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
+
 from eth_account import Account
 from eth_account.messages import encode_defunct
 
-from .vault_interface import AbstractVault
 from ...core.domain_registry import domain_registry
+from .vault_interface import AbstractVault
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ class SigningService:
     Always uses an AbstractVault to retrieve keys.
     """
 
-    def __init__(self, vault: Optional[AbstractVault] = None):
+    def __init__(self, vault: AbstractVault | None = None):
         self._vault = vault
 
     @property
@@ -30,7 +31,7 @@ class SigningService:
         self,
         user_id: int,
         wallet_id: str,
-        transaction: Dict[str, Any],
+        transaction: dict[str, Any],
         dry_run: bool = False,
     ) -> str:
         """

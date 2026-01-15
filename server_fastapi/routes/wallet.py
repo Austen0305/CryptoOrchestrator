@@ -13,9 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import get_db_session
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
+from ..services.real_money_transaction_manager import real_money_transaction_manager
 from ..services.wallet_broadcast import broadcast_wallet_update
 from ..services.wallet_service import WalletService
-from ..services.real_money_transaction_manager import real_money_transaction_manager
 from ..utils.route_helpers import _get_user_id
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,7 @@ async def deposit_funds(
 
         # Idempotency Key Handling
         ikey = (
-            request.idempotency_key or f"dep_{user_id}_{datetime.utcnow().timestamp()}"
+            request.idempotency_key or f"dep_{user_id}_{datetime.now(UTC).timestamp()}"
         )
 
         async def operation(db_session):
@@ -152,7 +152,7 @@ async def withdraw_funds(
 
         # Idempotency Key Handling
         ikey = (
-            request.idempotency_key or f"wit_{user_id}_{datetime.utcnow().timestamp()}"
+            request.idempotency_key or f"wit_{user_id}_{datetime.now(UTC).timestamp()}"
         )
 
         async def operation(db_session):
@@ -235,7 +235,7 @@ async def confirm_deposit(
 ):
     """Confirm a deposit transaction (called after payment verification)"""
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
         service = WalletService(db)
 
         success = await service.confirm_deposit(transaction_id, payment_intent_id)

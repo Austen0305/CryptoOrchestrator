@@ -4,7 +4,7 @@ Data access layer for WalletTransaction model operations.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -188,7 +188,7 @@ class TransactionRepository(SQLAlchemyRepository[WalletTransaction]):
         if processed_at:
             update_data["processed_at"] = processed_at
         elif status in ["completed", "failed"]:
-            update_data["processed_at"] = datetime.utcnow()
+            update_data["processed_at"] = datetime.now(UTC)
 
         stmt = (
             update(WalletTransaction)

@@ -4,7 +4,7 @@ Ensures no money is lost during deposit operations with comprehensive safety mea
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -136,7 +136,7 @@ class DepositSafetyService:
                     metadata["existing_transaction_id"] = existing_transaction.id
 
             # 5. Check daily deposit limits
-            today_start = datetime.utcnow().replace(
+            today_start = datetime.now(UTC).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             deposits_result = await db.execute(
@@ -388,7 +388,7 @@ class DepositSafetyService:
 
             # 8. Mark transaction as completed
             transaction.status = TransactionStatus.COMPLETED.value
-            transaction.processed_at = datetime.utcnow()
+            transaction.processed_at = datetime.now(UTC)
 
             # 9. Store idempotency result
             await transaction_idempotency_service.store_idempotency_result(

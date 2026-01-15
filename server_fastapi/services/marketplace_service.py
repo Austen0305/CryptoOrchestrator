@@ -4,7 +4,7 @@ Manages signal providers, curator system, reputation, and payouts for copy tradi
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, desc, func, select
@@ -144,7 +144,7 @@ class MarketplaceService:
                 raise ValueError("Signal provider not found")
 
             signal_provider.curator_status = CuratorStatus.APPROVED.value
-            signal_provider.curator_approved_at = datetime.utcnow()
+            signal_provider.curator_approved_at = datetime.now(UTC)
             if curator_notes:
                 signal_provider.curator_notes = curator_notes
             signal_provider.is_public = True  # Make public upon approval
@@ -273,7 +273,6 @@ class MarketplaceService:
                 )
 
                 # Calculate max drawdown
-                equity_curve = []
                 running_balance = initial_capital
                 peak = initial_capital
                 max_dd = 0.0
@@ -293,13 +292,13 @@ class MarketplaceService:
                 select(func.count(Follow.id)).where(
                     and_(
                         Follow.trader_id == signal_provider.user_id,
-                        Follow.is_active == True,
+                        Follow.is_active,
                     )
                 )
             )
             signal_provider.follower_count = follows_result.scalar() or 0
 
-            signal_provider.last_metrics_update = datetime.utcnow()
+            signal_provider.last_metrics_update = datetime.now(UTC)
 
             await self.db.commit()
             await self.db.refresh(signal_provider)
@@ -440,7 +439,7 @@ class MarketplaceService:
                 .where(
                     and_(
                         SignalProvider.curator_status == CuratorStatus.APPROVED.value,
-                        SignalProvider.is_public == True,
+                        SignalProvider.is_public,
                     )
                 )
                 .options(selectinload(SignalProvider.user))
@@ -471,7 +470,7 @@ class MarketplaceService:
             # Get total count (optimized - reuse filter conditions)
             count_conditions = [
                 SignalProvider.curator_status == CuratorStatus.APPROVED.value,
-                SignalProvider.is_public == True,
+                SignalProvider.is_public,
             ]
             if min_rating is not None:
                 count_conditions.append(SignalProvider.average_rating >= min_rating)
@@ -556,7 +555,7 @@ class MarketplaceService:
                 select(Follow).where(
                     and_(
                         Follow.trader_id == signal_provider.user_id,
-                        Follow.is_active == True,
+                        Follow.is_active,
                     )
                 )
             )

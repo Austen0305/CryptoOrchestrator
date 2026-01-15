@@ -5,11 +5,12 @@ Acts as a mandatory gate for all trade executions.
 """
 
 import logging
-from typing import Any, Dict, List, Optional
-from .drawdown_kill_switch import drawdown_kill_switch
-from .var_service import var_service
+from typing import Any
+
 from ..cache_service import cache_service
 from ..market_data.binance_public import binance_public_service
+from .drawdown_kill_switch import drawdown_kill_switch
+from .var_service import var_service
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,8 @@ class RiskManager:
         self._cache = cache_service
 
     async def validate_trade(
-        self, user_id: int, trade_signal: Dict[str, Any]
-    ) -> List[str]:
+        self, user_id: int, trade_signal: dict[str, Any]
+    ) -> list[str]:
         """
         Validate a trade against all risk parameters (2026 persistent).
         Returns a list of error messages (empty if OK).

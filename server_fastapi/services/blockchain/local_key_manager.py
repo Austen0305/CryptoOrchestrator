@@ -1,9 +1,9 @@
-import os
 import json
 import logging
-from typing import Dict, Optional
-from cryptography.fernet import Fernet
+import os
 from pathlib import Path
+
+from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class LocalEncryptedKeyManager:
             logger.error(f"Invalid Master Key: {e}")
             raise ValueError("Invalid Master Key provided")
 
-    async def _load_storage(self) -> Dict[str, str]:
+    async def _load_storage(self) -> dict[str, str]:
         if not self.storage_path.exists():
             return {}
         try:
@@ -51,13 +51,13 @@ class LocalEncryptedKeyManager:
                 return json.loads(content)
         except ImportError:
             # Fallback to sync if aiofiles not present (simplifies dependency)
-            with open(self.storage_path, "r") as f:
+            with open(self.storage_path) as f:
                 return json.load(f)
         except Exception as e:
             logger.error(f"Failed to load key storage: {e}")
             return {}
 
-    async def _save_storage(self, data: Dict[str, str]):
+    async def _save_storage(self, data: dict[str, str]):
         try:
             # Sync write for safety/simplicity in MVP
             with open(self.storage_path, "w") as f:
@@ -66,13 +66,13 @@ class LocalEncryptedKeyManager:
             logger.error(f"Failed to save key storage: {e}")
             raise
 
-    def get_encrypted_blob(self, wallet_address: str) -> Optional[str]:
+    def get_encrypted_blob(self, wallet_address: str) -> str | None:
         """Retrieve encrypted blob for address (storage only)"""
         if not self.storage_path.exists():
             return None
 
         try:
-            with open(self.storage_path, "r") as f:
+            with open(self.storage_path) as f:
                 data = json.load(f)
 
             return data.get(wallet_address.lower())
@@ -80,7 +80,7 @@ class LocalEncryptedKeyManager:
             logger.error(f"Failed to retrieve blob for {wallet_address}: {e}")
             return None
 
-    def get_key(self, wallet_address: str) -> Optional[str]:
+    def get_key(self, wallet_address: str) -> str | None:
         """Retrieve and decrypt private key using internal master key (Phase 3 compatibility)"""
         encrypted_blob = self.get_encrypted_blob(wallet_address)
         if not encrypted_blob:
@@ -95,7 +95,7 @@ class LocalEncryptedKeyManager:
         """Store encrypted blob (storage only)"""
         try:
             if self.storage_path.exists():
-                with open(self.storage_path, "r") as f:
+                with open(self.storage_path) as f:
                     data = json.load(f)
             else:
                 data = {}

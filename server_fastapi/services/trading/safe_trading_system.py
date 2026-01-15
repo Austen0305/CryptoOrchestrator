@@ -3,7 +3,7 @@ Safe trading system
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -76,7 +76,7 @@ class SafeTradingSystem:
 
             # Check for daily reset (Handled in repository's update_trade_stats logic mostly,
             # but for validation we check here)
-            today = datetime.utcnow().date()
+            today = datetime.now(UTC).date()
             if stats.last_reset_at.date() < today:
                 # Stats are stale, effectively zero for validation
                 total_loss = 0.0
@@ -194,7 +194,7 @@ class SafeTradingSystem:
             stats = await self.safety_repo.get_safety_stats(current_session, user_id)
             total_loss = (
                 stats.daily_loss
-                if stats and stats.last_reset_at.date() == datetime.utcnow().date()
+                if stats and stats.last_reset_at.date() == datetime.now(UTC).date()
                 else 0.0
             )
 
@@ -296,7 +296,7 @@ class SafeTradingSystem:
                     current_session, user_id
                 )
 
-            today = datetime.utcnow().date()
+            today = datetime.now(UTC).date()
             if stats.last_reset_at.date() < today:
                 total_loss = 0.0
                 total_profit = 0.0
@@ -438,7 +438,7 @@ class SafeTradingSystem:
 
         try:
             stats = await self.safety_repo.get_safety_stats(current_session, user_id)
-            if not stats or stats.last_reset_at.date() < datetime.utcnow().date():
+            if not stats or stats.last_reset_at.date() < datetime.now(UTC).date():
                 return 0.0
 
             return stats.daily_profit - stats.daily_loss

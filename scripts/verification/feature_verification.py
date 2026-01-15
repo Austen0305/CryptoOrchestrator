@@ -67,8 +67,8 @@ class FeatureVerifier:
                 "BotTradingService",
                 "server_fastapi.services.trading.bot_trading_service",
             ),
-            ("RiskManager", "server_fastapi.services.advanced_risk_manager"),
-            ("MarketDataService", "server_fastapi.services.market_data"),
+            ("AdvancedRiskManager", "server_fastapi.services.advanced_risk_manager"),
+            ("MarketDataService", "server_fastapi.services.market_data_service"),
             ("NotificationService", "server_fastapi.services.notification_service"),
             ("WalletService", "server_fastapi.services.wallet_service"),
         ]
@@ -308,7 +308,7 @@ class FeatureVerifier:
         services_to_check = [
             (
                 "MarketDataService",
-                "server_fastapi.services.market_data",
+                "server_fastapi.services.market_data_service",
                 "MarketDataService",
             ),
             (

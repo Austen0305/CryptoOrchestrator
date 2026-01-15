@@ -227,10 +227,10 @@ async def get_user_subscriptions(
         )
 
         # Apply pagination
-        total = len(subscriptions)
+        len(subscriptions)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
-        paginated_subscriptions = subscriptions[start_idx:end_idx]
+        subscriptions[start_idx:end_idx]
 
         return {
             "success": True,

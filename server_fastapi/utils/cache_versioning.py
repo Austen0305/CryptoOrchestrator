@@ -4,7 +4,7 @@ Implements cache versioning to handle schema changes and invalidate stale data.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class CacheVersionManager:
         self.versions[cache_prefix] = new_version
         self.version_metadata[cache_prefix] = {
             "version": new_version,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "reason": reason or "Manual version increment",
         }
 
@@ -81,7 +81,7 @@ class CacheVersionManager:
         self.versions[cache_prefix] = version
         self.version_metadata[cache_prefix] = {
             "version": version,
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "reason": reason or "Version set manually",
         }
 

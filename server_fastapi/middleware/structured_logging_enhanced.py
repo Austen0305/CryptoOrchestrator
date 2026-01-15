@@ -6,7 +6,7 @@ Provides comprehensive request/response logging with structured format
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -143,7 +143,7 @@ class EnhancedStructuredLoggingMiddleware(BaseHTTPMiddleware):
         info = {
             "request_id": request_id,
             "duration_ms": round(duration_ms, 2),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
         }
 
         if error:

@@ -53,10 +53,10 @@ async def get_leaderboard(
         )
 
         # Apply pagination
-        total = len(leaderboard)
+        len(leaderboard)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
-        paginated_leaderboard = leaderboard[start_idx:end_idx]
+        leaderboard[start_idx:end_idx]
 
         # Add user's rank if authenticated
         user_rank = None

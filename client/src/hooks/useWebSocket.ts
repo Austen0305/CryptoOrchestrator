@@ -21,7 +21,7 @@ interface IncomingMarketUpdate {
 
 export const useWebSocket = () => {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 10;
   const [isConnected, setIsConnected] = useState(false);
@@ -39,7 +39,7 @@ export const useWebSocket = () => {
       // Clean up reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
+        reconnectTimeoutRef.current = undefined;
       }
       // Close any existing connection
       if (wsRef.current) {
@@ -186,7 +186,7 @@ export const useWebSocket = () => {
         logger.info(`WebSocket disconnected (code: ${event.code}); scheduling reconnect attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts} in ${Math.round(delay)}ms`);
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          reconnectTimeoutRef.current = null;
+          reconnectTimeoutRef.current = undefined;
           connectWebSocket();
         }, delay);
       };
@@ -204,7 +204,7 @@ export const useWebSocket = () => {
       // Clean up reconnection timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
+        reconnectTimeoutRef.current = undefined;
       }
       // Close WebSocket connection
       if (wsRef.current) {

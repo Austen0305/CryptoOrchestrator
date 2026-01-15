@@ -2,7 +2,7 @@
 Tests for Analytics Threshold Notification System
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -68,11 +68,11 @@ class TestAnalyticsThresholdModel:
         await db_session.commit()
 
         # Set last triggered to 30 minutes ago (within cooldown)
-        threshold.last_triggered_at = datetime.utcnow() - timedelta(minutes=30)
+        threshold.last_triggered_at = datetime.now(UTC) - timedelta(minutes=30)
         await db_session.commit()
 
         # Should still be in cooldown
-        time_since_last = datetime.utcnow() - threshold.last_triggered_at
+        time_since_last = datetime.now(UTC) - threshold.last_triggered_at
         assert time_since_last.total_seconds() < (threshold.cooldown_minutes * 60)
 
 

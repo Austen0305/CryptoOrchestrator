@@ -6,7 +6,7 @@ Server push for preloading resources and query results
 import logging
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ class HTTP2PushService:
                 "endpoint": endpoint,
                 "resource_path": resource_path,
                 "success": success,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(UTC),
             }
         )
 

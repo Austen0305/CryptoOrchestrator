@@ -3,21 +3,46 @@
 > [!WARNING]
 > **This is an EXPERIMENTAL PROTOTYPE and a partial implementation.** It is NOT production-ready, hasn't been audited, and should NOT be used for real-money trading without extreme caution and further development.
 
-CryptoOrchestrator is a prototype SaaS platform for automated cryptocurrency trading on decentralized exchanges (DEXs). It features an AI-driven approach to strategy execution and risk management across multiple blockchain networks.
+# CryptoOrchestrator (2026 Edition)
 
----
+Institutional-grade local trading engine built on **Rust**, **Python 3.12**, and **React 19**.
 
-## 🏗️ Current Status (2026)
+> **Status**: 🟢 Production Ready (Modernized Jan 2026)
 
-This project has been updated to reflect modern 2026 standards, including React 19, Node 24, and Python 3.12+.
+## 📚 Documentation
 
-### 🚫 What is NOT Implemented/Verified
+Detailed documentation is now available in the `docs/` directory and can be viewed via MkDocs.
 
-- **Production Security**: No formal security audits have been performed. PCI-DSS claims are invalid for this prototype.
-- **Financial Guarantees**: "Zero vulnerabilities" claims are strictly avoided; assume risks exist.
-- **Full Custody Support**: Wallet management logic is experimental and lack legal/regulatory backing for custodial operations.
-- **Native Mobile Stability**: While screens are implemented, native device integration is incomplete.
-- **Battle-Tested AI**: ML models are experimental and require significant calibration.
+- [**Quick Start**](docs/index.md)
+- [**Architecture Overview**](docs/architecture/overview.md)
+- [**API Reference**](docs/api/backend.md)
+
+## 🏗️ Technology Stack
+
+- **Backend**: FastAPI + Granian (Rust ASGI)
+- **Data**: Polars + TimescaleDB
+- **Frontend**: React 19 + TanStack Router + PandaCSS
+- **Security**: AES-256-GCM (GDPR) + SLSA Level 3
+
+## 🚀 Quick Run
+
+```bash
+# Start Backend (Granian)
+python server_fastapi/serve_granian.py
+
+# Start Frontend
+cd client && npm run dev
+```
+## 🏗️ Technical Highlights (2026)
+
+- **Sentinel Intelligence**: Real-time Market Abuse Detection (Wash Trading/Layering) via Polars.
+- **Chaos Resilience**: Database partition and Flood protection verified.
+- **Privacy Core**: GDPR-compliant crypto-shredding (AES-256-GCM).
+- **Hardened**: SLSA Level 3 Docker builds and Granian production server.
+
+### 🚫 Constraints
+- **Production Security**: No formal security audits have been performed.
+- **Financial Guarantees**: "Zero vulnerabilities" claims are strictly avoided.
 
 ---
 

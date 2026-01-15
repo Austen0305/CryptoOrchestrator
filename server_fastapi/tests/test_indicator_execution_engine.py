@@ -138,9 +138,6 @@ def calculate_rsi(data, period=14
     return 50.0
 """
 
-        market_data = [
-            {"open": 100, "high": 105, "low": 99, "close": 103, "volume": 1000},
-        ]
 
         result = engine.validate_code(code)
         assert result["valid"] is False

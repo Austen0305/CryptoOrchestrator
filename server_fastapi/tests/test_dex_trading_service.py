@@ -462,7 +462,7 @@ async def test_get_swap_status_pending(dex_service, db_session):
         # Mock trade record
         with patch(
             "server_fastapi.services.trading.dex_trading_service.DEXTrade"
-        ) as mock_trade_model:
+        ):
             mock_trade = MagicMock()
             mock_trade.id = trade_id
             mock_trade.status = "executing"
@@ -614,7 +614,7 @@ async def test_fee_charging_custodial(dex_service, db_session):
             "transaction_hash": "0xabc123...",
         }
 
-        result = await dex_service.execute_custodial_swap(
+        await dex_service.execute_custodial_swap(
             user_id=1,
             sell_token="ETH",
             buy_token="USDC",
@@ -666,7 +666,7 @@ async def test_fee_charging_non_custodial(dex_service, db_session):
         mock_trade_instance.id = 1
         mock_trade.return_value = mock_trade_instance
 
-        result = await dex_service.execute_non_custodial_swap(
+        await dex_service.execute_non_custodial_swap(
             user_id=1,
             sell_token="ETH",
             buy_token="USDC",

@@ -6,7 +6,7 @@ import json
 import logging
 import os
 import pickle
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -80,8 +80,8 @@ class ModelPersistence:
             metadata_obj = ModelMetadata(
                 model_type=model_type,
                 model_version=version,
-                created_at=datetime.utcnow().isoformat(),
-                updated_at=datetime.utcnow().isoformat(),
+                created_at=datetime.now(UTC).isoformat(),
+                updated_at=datetime.now(UTC).isoformat(),
                 config=metadata.get("config", {}) if metadata else {},
                 performance_metrics=(
                     metadata.get("performance_metrics") if metadata else None
@@ -107,7 +107,7 @@ class ModelPersistence:
                         "version": version,
                         "model_path": model_path,
                         "metadata_path": metadata_path,
-                        "updated_at": datetime.utcnow().isoformat(),
+                        "updated_at": datetime.now(UTC).isoformat(),
                     },
                     f,
                     indent=2,

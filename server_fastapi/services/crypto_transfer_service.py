@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..repositories.transaction_repository import TransactionRepository
     from ..repositories.wallet_balance_repository import WalletBalanceRepository
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -83,7 +83,7 @@ class CryptoTransferService:
                     "fee": 0.0,
                     "net_amount": amount,
                     "description": f"Crypto transfer from {source_platform}",
-                    "reference_id": f"{source_platform}_{datetime.utcnow().timestamp()}",
+                    "reference_id": f"{source_platform}_{datetime.now(UTC).timestamp()}",
                     "transaction_metadata": {
                         "source_platform": source_platform,
                         "source_address": source_address,
@@ -210,12 +210,12 @@ class CryptoTransferService:
                 # ✅ Data access delegated to repository
                 transaction_metadata["tx_hash"] = tx_hash
                 transaction_metadata["confirmations"] = confirmations
-                transaction_metadata["verified_at"] = datetime.utcnow().isoformat()
+                transaction_metadata["verified_at"] = datetime.now(UTC).isoformat()
                 await self.transaction_repository.update_status(
                     self.db,
                     transaction_id,
                     TransactionStatus.COMPLETED.value,
-                    processed_at=datetime.utcnow(),
+                    processed_at=datetime.now(UTC),
                 )
                 await self.transaction_repository.update(
                     self.db,
@@ -322,7 +322,7 @@ class CryptoTransferService:
                     "fee": fee,
                     "net_amount": amount,
                     "description": f"Withdrawal to {destination_address[:10]}...",
-                    "reference_id": f"withdraw_{datetime.utcnow().timestamp()}",
+                    "reference_id": f"withdraw_{datetime.now(UTC).timestamp()}",
                     "transaction_metadata": {
                         "destination_address": destination_address,
                         "network": network,
@@ -373,7 +373,7 @@ class CryptoTransferService:
         # In production, this would generate addresses from your wallet infrastructure
         # For now, return a placeholder
         network_suffix = f"_{network}" if network else ""
-        return f"{currency.lower()}_deposit_{datetime.utcnow().timestamp()}{network_suffix}"
+        return f"{currency.lower()}_deposit_{datetime.now(UTC).timestamp()}{network_suffix}"
 
     async def _get_transfer_instructions(
         self,

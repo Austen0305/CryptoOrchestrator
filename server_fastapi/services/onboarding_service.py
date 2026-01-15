@@ -4,7 +4,7 @@ Manages user onboarding progress, achievements, and feature unlocking
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,7 +129,7 @@ class OnboardingService:
             progress.completed_steps = {}
 
         if step_id not in progress.completed_steps:
-            progress.completed_steps[step_id] = datetime.utcnow().isoformat()
+            progress.completed_steps[step_id] = datetime.now(UTC).isoformat()
 
         # Update current step
         try:
@@ -147,7 +147,7 @@ class OnboardingService:
         # Check if completed
         if progress.progress_percentage >= 100:
             progress.is_completed = True
-            progress.completed_at = datetime.utcnow()
+            progress.completed_at = datetime.now(UTC)
 
         await self.db.commit()
         await self.db.refresh(progress)
@@ -177,7 +177,7 @@ class OnboardingService:
             progress.skipped_steps = {}
 
         if step_id not in progress.skipped_steps:
-            progress.skipped_steps[step_id] = datetime.utcnow().isoformat()
+            progress.skipped_steps[step_id] = datetime.now(UTC).isoformat()
 
         # Move to next step
         try:
@@ -273,7 +273,7 @@ class OnboardingService:
             and not achievement.is_unlocked
         ):
             achievement.is_unlocked = True
-            achievement.unlocked_at = datetime.utcnow()
+            achievement.unlocked_at = datetime.now(UTC)
             logger.info(f"Achievement {achievement_id} unlocked for user {user_id}")
 
         await self.db.commit()

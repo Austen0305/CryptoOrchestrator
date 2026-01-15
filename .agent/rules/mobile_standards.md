@@ -4,7 +4,7 @@ Overrides: NONE
 
 ---
 trigger: always_on
-glob: "mobile/**/*"
+glob: ["mobile/**/*"]
 description: Standards for React Native / Expo mobile application.
 ---
 

@@ -115,7 +115,7 @@ async def get_audit_logs(
         )
 
         # Apply pagination
-        total = len(logs)
+        len(logs)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_logs = logs[start_idx:end_idx]

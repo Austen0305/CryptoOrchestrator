@@ -1,4 +1,7 @@
 from __future__ import annotations
+
+import builtins
+import contextlib
 import logging
 from typing import Any
 
@@ -362,10 +365,8 @@ class EnsembleEngine:
         if self.neural_network_engine and hasattr(
             self.neural_network_engine, "dispose"
         ):
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 self.neural_network_engine.dispose()
-            except:
-                pass
 
 
 # Global instance

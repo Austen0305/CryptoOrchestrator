@@ -3,7 +3,7 @@ API Key Management Routes
 Endpoints for API key creation, management, and usage tracking
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -161,7 +161,7 @@ async def get_api_key_usage(
         raise HTTPException(status_code=404, detail="API key not found")
 
     # Get usage stats
-    start_date = datetime.utcnow() - timedelta(days=days)
+    start_date = datetime.now(UTC) - timedelta(days=days)
     stmt = select(
         func.count(APIKeyUsage.id).label("total_requests"),
         func.avg(APIKeyUsage.response_time_ms).label("avg_response_time"),

@@ -6,7 +6,7 @@ Multi-party signature generation without single key holder
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ class ThresholdSignatureService:
                 public_key=public_key,
                 threshold=threshold,
                 total_parties=len(parties),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
             key_shares.append(share)
 
@@ -178,7 +178,7 @@ class ThresholdSignatureService:
             )
 
         # Generate partial signature (simplified)
-        partial_sig_id = f"partial_{wallet_id}_{message_hash}_{party_id}_{datetime.utcnow().timestamp()}"
+        partial_sig_id = f"partial_{wallet_id}_{message_hash}_{party_id}_{datetime.now(UTC).timestamp()}"
 
         partial_signature = TSSPartialSignature(
             partial_sig_id=partial_sig_id,
@@ -188,7 +188,7 @@ class ThresholdSignatureService:
             partial_signature=self._generate_partial_sig(
                 wallet_id, message_hash, party_id
             ),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         # Store partial signature
@@ -252,7 +252,7 @@ class ThresholdSignatureService:
         # Combine partial signatures (simplified)
         r, s, v = self._combine_partial_signatures(partials, wallet_id, message_hash)
 
-        signature_id = f"tss_{wallet_id}_{message_hash}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        signature_id = f"tss_{wallet_id}_{message_hash}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         signature = TSSSignature(
             signature_id=signature_id,

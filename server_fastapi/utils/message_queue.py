@@ -9,7 +9,7 @@ import logging
 import os
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -40,7 +40,7 @@ class QueueMessage:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(UTC)
 
 
 class MessageQueue:
@@ -69,7 +69,7 @@ class MessageQueue:
         max_retries: int = 3,
     ) -> str:
         """Enqueue a task"""
-        message_id = f"{task}:{datetime.utcnow().timestamp()}"
+        f"{task}:{datetime.now(UTC).timestamp()}"
 
         if self.backend == QueueBackend.CELERY:
             return await self._enqueue_celery(task, payload, delay, max_retries)
@@ -133,15 +133,15 @@ class MessageQueue:
             client = redis.from_url(redis_url)
 
             message = QueueMessage(
-                id=f"{task}:{datetime.utcnow().timestamp()}",
+                id=f"{task}:{datetime.now(UTC).timestamp()}",
                 task=task,
                 payload=payload,
                 priority=priority,
-                scheduled_at=datetime.utcnow() + delay if delay else None,
+                scheduled_at=datetime.now(UTC) + delay if delay else None,
             )
 
             # Use sorted set for priority queue
-            score = priority * 1000000 + datetime.utcnow().timestamp()
+            score = priority * 1000000 + datetime.now(UTC).timestamp()
             await client.zadd("queue:tasks", {json.dumps(asdict(message)): score})
 
             await client.close()
@@ -159,11 +159,11 @@ class MessageQueue:
     ) -> str:
         """Enqueue in memory (for testing)"""
         message = QueueMessage(
-            id=f"{task}:{datetime.utcnow().timestamp()}",
+            id=f"{task}:{datetime.now(UTC).timestamp()}",
             task=task,
             payload=payload,
             priority=priority,
-            scheduled_at=datetime.utcnow() + delay if delay else None,
+            scheduled_at=datetime.now(UTC) + delay if delay else None,
         )
 
         self._in_memory_queue.append(message)

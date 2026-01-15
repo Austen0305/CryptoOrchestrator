@@ -244,7 +244,7 @@ async def test_recovery(
 ):
     """Test backup recovery in test environment (Admin only)"""
     try:
-        settings = get_settings()
+        get_settings()
         service = BackupService(
             db_url=test_db_url,
             backup_dir="./backups",

@@ -13,7 +13,7 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from server_fastapi.services.advanced_risk_management import (
+from server_fastapi.services.advanced_risk_manager import (
     AdvancedRiskManager,
     PositionSizingMethod,
     VaRMethod,

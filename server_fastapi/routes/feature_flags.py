@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from ..config.feature_flags import feature_flags
-from ..dependencies.auth import get_current_user, require_admin
+from ..dependencies.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 

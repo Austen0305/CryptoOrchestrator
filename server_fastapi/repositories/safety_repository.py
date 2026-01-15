@@ -4,10 +4,9 @@ Data access layer for persistent user safety statistics
 """
 
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models.user_safety_stats import UserSafetyStats
@@ -20,7 +19,7 @@ class SafetyRepository:
 
     async def get_safety_stats(
         self, session: AsyncSession, user_id: int
-    ) -> Optional[UserSafetyStats]:
+    ) -> UserSafetyStats | None:
         """Retrieve safety stats for a user"""
         stmt = select(UserSafetyStats).where(UserSafetyStats.user_id == user_id)
         result = await session.execute(stmt)
@@ -35,7 +34,7 @@ class SafetyRepository:
             daily_loss=0.0,
             daily_volume=0.0,
             total_trades_today=0,
-            last_reset_at=datetime.now(timezone.utc),
+            last_reset_at=datetime.now(UTC),
             emergency_stop_active=0,
         )
         session.add(stats)
@@ -56,7 +55,7 @@ class SafetyRepository:
             stats = await self.create_safety_stats(session, user_id)
 
         # Check for daily reset (2026 standard)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if stats.last_reset_at.date() < now.date():
             stats.daily_loss = realized_loss
             stats.daily_volume = trade_volume

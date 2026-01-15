@@ -6,8 +6,8 @@ Provides intelligent pool management, health monitoring, and automatic scaling
 import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
-from datetime import datetime
+from contextlib import asynccontextmanager, suppress
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import event, text
@@ -208,7 +208,7 @@ class AdvancedPoolManager:
             async with self.get_session() as session:
                 await session.execute(text("SELECT 1"))
             self.metrics.health_status = "healthy"
-            self.metrics.last_health_check = datetime.utcnow()
+            self.metrics.last_health_check = datetime.now(UTC)
         except Exception as e:
             self.metrics.health_status = "unhealthy"
             self.metrics.connection_errors += 1
@@ -221,14 +221,14 @@ class AdvancedPoolManager:
             raise RuntimeError("Pool manager not initialized")
 
         session = self.session_factory()
-        start_time = datetime.utcnow()
+        start_time = datetime.now(UTC)
 
         try:
             yield session
             self.metrics.query_count += 1
 
             # Check for slow queries
-            duration = (datetime.utcnow() - start_time).total_seconds()
+            duration = (datetime.now(UTC) - start_time).total_seconds()
             if duration > 1.0:  # Queries over 1 second
                 self.metrics.slow_queries += 1
                 logger.warning(f"Slow query detected: {duration:.2f}s")
@@ -240,16 +240,12 @@ class AdvancedPoolManager:
                 await session.rollback()
                 raise
         except Exception:
-            try:
+            with suppress(Exception):
                 await session.rollback()
-            except Exception:
-                pass
             raise
         finally:
-            try:
+            with suppress(Exception):
                 await session.close()
-            except Exception:
-                pass
 
     async def health_check(self) -> bool:
         """Check if pool is healthy"""
@@ -265,10 +261,8 @@ class AdvancedPoolManager:
 
         if self._monitoring_task:
             self._monitoring_task.cancel()
-            try:
+            with suppress(asyncio.CancelledError):
                 await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
 
         if self.engine:
             await self.engine.dispose()

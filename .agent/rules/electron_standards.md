@@ -1,10 +1,7 @@
-Priority: LOW
-Scope: FULL
-Overrides: NONE
-
+```
 ---
 trigger: always_on
-glob: "electron/**/*"
+glob: ["electron/**/*"]
 description: Standards for Electron desktop application.
 ---
 

@@ -28,7 +28,7 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with response transformation"""
         # Get client preferences
-        accept_header = request.headers.get("Accept", "application/json")
+        request.headers.get("Accept", "application/json")
         api_version = getattr(request.state, "api_version", "v1")
 
         # Process request
@@ -105,6 +105,6 @@ class ResponseTransformerMiddleware(BaseHTTPMiddleware):
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO format"""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
-        return datetime.utcnow().isoformat() + "Z"
+        return datetime.now(UTC).isoformat() + "Z"

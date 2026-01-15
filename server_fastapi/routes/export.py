@@ -5,7 +5,7 @@ Export Routes - Export trades and performance data to CSV/PDF
 import csv
 import io
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -171,7 +171,7 @@ async def export_trades_csv(
         csv_content = generate_trades_csv(trades_data)
 
         # Create filename
-        filename = f"trades_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"trades_export_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
 
         # Return as downloadable file
         return Response(
@@ -273,7 +273,7 @@ async def export_performance_csv(
 
         # Create filename
         filename = (
-            f"performance_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+            f"performance_export_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
         )
 
         # Return as downloadable file
@@ -374,7 +374,7 @@ async def export_bots_csv(
         csv_content = output.getvalue()
 
         # Create filename
-        filename = f"bots_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"bots_export_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
 
         # Return as downloadable file
         return Response(

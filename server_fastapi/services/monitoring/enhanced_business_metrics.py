@@ -4,7 +4,7 @@ Extends business metrics with OpenTelemetry integration and advanced analytics
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -95,7 +95,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                         "growth_rate": trade_growth,
                         "daily_breakdown": trades_per_day,
                     },
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
 
                 # Record KPIs in OpenTelemetry
@@ -118,7 +118,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
 
         except Exception as e:
             logger.error(f"Error getting business KPIs: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def get_user_acquisition_metrics(
         self, db: AsyncSession, days: int = 30
@@ -127,7 +127,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
         try:
             from ..models.user import User
 
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Daily user registrations
             daily_registrations_stmt = (
@@ -161,12 +161,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "total_new_users": total_new_users,
                 "daily_registrations": daily_registrations,
                 "average_per_day": total_new_users / days if days > 0 else 0,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error getting user acquisition metrics: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def get_trading_activity_metrics(
         self, db: AsyncSession, days: int = 30
@@ -175,7 +175,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
         try:
             from ..models.trade import Trade
 
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Trading activity by mode
             activity_by_mode_stmt = (
@@ -218,12 +218,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "period_days": days,
                 "activity_by_mode": activity_by_mode,
                 "activity_by_chain": activity_by_chain,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error getting trading activity metrics: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def calculate_user_acquisition_cost(
         self, db: AsyncSession, days: int = 30
@@ -232,7 +232,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
         try:
             from ..models.user import User
 
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Get new users in period
             new_users_stmt = select(func.count(User.id)).where(
@@ -254,12 +254,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "new_users": new_users,
                 "marketing_spend": marketing_spend,
                 "cac": cac,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error calculating CAC: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def calculate_lifetime_value(
         self, db: AsyncSession, days: int = 90
@@ -270,7 +270,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
             from ..models.trading_fee import TradingFee
 
             # Get average revenue per user
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Get total revenue from trading fees
             fee_stmt = (
@@ -311,12 +311,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "avg_lifespan_days": avg_lifespan_days,
                 "ltv": ltv,
                 "ltv_cac_ratio": ltv_cac_ratio,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error calculating LTV: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def analyze_churn(self, db: AsyncSession, days: int = 30) -> dict[str, Any]:
         """Analyze user churn"""
@@ -324,7 +324,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
             from ..models.trade import Trade
 
             # Users who were active before period but not during
-            period_start = datetime.utcnow() - timedelta(days=days)
+            period_start = datetime.now(UTC) - timedelta(days=days)
             before_period = period_start - timedelta(days=days)
 
             # Users active before period
@@ -357,12 +357,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "churned_users": churned_users,
                 "churn_rate_percent": round(churn_rate, 2),
                 "retention_rate_percent": round(100 - churn_rate, 2),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error analyzing churn: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def get_detailed_trading_metrics(
         self, db: AsyncSession, days: int = 30
@@ -371,7 +371,7 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
         try:
             from ..models.trade import Trade
 
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Total trading volume
             volume_stmt = (
@@ -434,12 +434,12 @@ class EnhancedBusinessMetricsService(BusinessMetricsService):
                 "success_rate_percent": round(success_rate, 2),
                 "successful_trades": successful_trades,
                 "failed_trades": total_trades - successful_trades,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:
             logger.error(f"Error getting detailed trading metrics: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
 
 # Enhanced instance

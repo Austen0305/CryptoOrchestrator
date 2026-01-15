@@ -77,10 +77,7 @@ class OptimizedCompressionMiddleware(BaseHTTPMiddleware):
             return False
 
         # Check if already compressed
-        if "content-encoding" in response.headers:
-            return False
-
-        return True
+        return "content-encoding" not in response.headers
 
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with optimized compression"""

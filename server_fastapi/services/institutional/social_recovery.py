@@ -4,7 +4,7 @@ Social recovery mechanisms for institutional wallets with database persistence
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -264,7 +264,7 @@ class SocialRecoveryService:
             raise ValueError("Time-lock must be between 7 and 30 days")
 
         # Create recovery request
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         recovery_request = RecoveryRequest(
             wallet_id=wallet_id,
             requester_id=requester_id,
@@ -335,7 +335,7 @@ class SocialRecoveryService:
         # Check if expired
         if (
             recovery_request.expires_at
-            and datetime.utcnow() > recovery_request.expires_at
+            and datetime.now(UTC) > recovery_request.expires_at
         ):
             recovery_request.status = RecoveryRequestStatus.EXPIRED.value
             await self.db.commit()
@@ -368,7 +368,7 @@ class SocialRecoveryService:
             recovery_request_id=recovery_request_id,
             guardian_id=guardian_id,
             approver_id=approver_id,
-            approved_at=datetime.utcnow(),
+            approved_at=datetime.now(UTC),
             signature=signature,
             verification_code=verification_code,
             ip_address=ip_address,
@@ -479,7 +479,7 @@ class SocialRecoveryService:
         # Check if time-lock has passed
         if (
             recovery_request.unlock_time
-            and datetime.utcnow() < recovery_request.unlock_time
+            and datetime.now(UTC) < recovery_request.unlock_time
         ):
             raise ValueError(
                 f"Recovery time-lock has not passed yet. Unlocks at {recovery_request.unlock_time}"
@@ -487,7 +487,7 @@ class SocialRecoveryService:
 
         # Execute recovery (in production, this would perform actual wallet recovery)
         recovery_request.status = RecoveryRequestStatus.COMPLETED.value
-        recovery_request.completed_at = datetime.utcnow()
+        recovery_request.completed_at = datetime.now(UTC)
         recovery_request.executed_by = executor_id
 
         await self.db.commit()

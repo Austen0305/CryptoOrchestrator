@@ -4,7 +4,7 @@ Automated liquidity provision and yield optimization across DeFi protocols
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,7 +132,7 @@ class YieldFarmingService:
 
         # Create position (mock - would interact with DeFi protocol)
         position = {
-            "position_id": f"farm_{user_id}_{int(datetime.utcnow().timestamp())}",
+            "position_id": f"farm_{user_id}_{int(datetime.now(UTC).timestamp())}",
             "user_id": user_id,
             "pool_id": pool_id,
             "protocol": pool["protocol"],
@@ -140,7 +140,7 @@ class YieldFarmingService:
             "chain_id": chain_id,
             "apy": pool["apy"],
             "auto_compound": auto_compound,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "status": "active",
         }
 

@@ -4,6 +4,13 @@ Circuit breaker service
 
 import time
 from enum import Enum
+from typing import Any
+
+
+class CircuitBreakerOpenError(RuntimeError):
+    """Raised when circuit breaker is open and blocking requests"""
+
+    pass
 
 
 class CircuitState(Enum):
@@ -15,20 +22,20 @@ class CircuitState(Enum):
 class CircuitBreaker:
     """Circuit breaker pattern implementation"""
 
-    def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 60):
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 60) -> None:
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout
         self.failure_count = 0
-        self.last_failure_time = None
+        self.last_failure_time: float | None = None
         self.state = CircuitState.CLOSED
 
-    async def call(self, func, *args, **kwargs):
+    async def call(self, func, *args, **kwargs) -> Any:
         """Execute function with circuit breaker protection"""
         if self.state == CircuitState.OPEN:
             if self._should_attempt_reset():
                 self.state = CircuitState.HALF_OPEN
             else:
-                raise Exception("Circuit breaker is OPEN")
+                raise CircuitBreakerOpenError("Circuit breaker is OPEN")
 
         try:
             result = await func(*args, **kwargs)
@@ -44,12 +51,12 @@ class CircuitBreaker:
             return True
         return time.time() - self.last_failure_time >= self.recovery_timeout
 
-    def _on_success(self):
+    def _on_success(self) -> None:
         """Handle successful call"""
         self.failure_count = 0
         self.state = CircuitState.CLOSED
 
-    def _on_failure(self):
+    def _on_failure(self) -> None:
         """Handle failed call"""
         self.failure_count += 1
         self.last_failure_time = time.time()
@@ -57,7 +64,7 @@ class CircuitBreaker:
         if self.failure_count >= self.failure_threshold:
             self.state = CircuitState.OPEN
 
-    def get_status(self) -> dict[str, any]:
+    def get_status(self) -> dict[str, Any]:
         """Get circuit breaker status"""
         return {
             "state": self.state.value,

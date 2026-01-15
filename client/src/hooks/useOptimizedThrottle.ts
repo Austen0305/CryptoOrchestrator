@@ -10,7 +10,7 @@ export function useOptimizedThrottle<T extends (...args: any[]) => any>(
   delay: number
 ): T {
   const lastRunRef = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const throttledCallback = useCallback(
     (...args: Parameters<T>) => {

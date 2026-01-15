@@ -3,7 +3,7 @@ Wallet Nonce Model - Signature nonce tracking
 Prevents replay attacks for wallet signatures
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -80,7 +80,7 @@ class WalletNonce(Base, TimestampMixin):
 
     def is_expired(self) -> bool:
         """Check if nonce has expired"""
-        return datetime.utcnow() > self.expires_at
+        return datetime.now(UTC) > self.expires_at
 
     def is_valid(self) -> bool:
         """Check if nonce is valid (not used and not expired)"""

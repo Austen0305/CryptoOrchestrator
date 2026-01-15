@@ -6,7 +6,7 @@ Provides centralized logging aggregation and analysis
 import json
 import logging
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -56,7 +56,7 @@ class LogAggregator:
             "level": level.value,
             "message": message,
             "source": source,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metadata": metadata or {},
         }
 
@@ -130,7 +130,7 @@ class LogAggregator:
             log
             for log in self.logs
             if datetime.fromisoformat(log["timestamp"])
-            > datetime.utcnow() - timedelta(hours=1)
+            > datetime.now(UTC) - timedelta(hours=1)
         ]
 
         return {

@@ -393,7 +393,7 @@ async def export_to_accounting_system(
     - csv_generic (Generic CSV)
     """
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
 
         # Get tax events for the year (simplified - would fetch from database)
         # In production, this would query actual tax events from the database

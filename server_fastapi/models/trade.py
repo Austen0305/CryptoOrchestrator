@@ -120,5 +120,19 @@ class Trade(Base, TimestampMixin):
         Boolean, default=False, nullable=False
     )  # Whether trade has been audit logged
 
+    # ISO 20022 / MiCA Compliance Fields
+    uti: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+        comment="Unique Transaction Identifier (ISO 23897)",
+    )
+    venue_reporting_id: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Venue Reporting ID (MiCA Art 16)",
+    )
+
     def __repr__(self):
         return f"<Trade(id={self.id}, symbol={self.symbol}, side={self.side}, amount={self.amount})>"

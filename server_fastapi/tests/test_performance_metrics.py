@@ -193,7 +193,7 @@ class TestPerformanceMetrics:
             drawdowns.append(drawdown)
 
         # Last drawdown should be less than max (recovery happening)
-        max_dd = max(drawdowns)
+        max(drawdowns)
         current_dd = drawdowns[-1]
 
         # Current drawdown should be >= 0

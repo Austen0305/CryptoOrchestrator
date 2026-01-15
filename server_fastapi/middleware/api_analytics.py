@@ -6,7 +6,7 @@ Tracks API usage, endpoint popularity, and client analytics
 import logging
 import time
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -72,13 +72,13 @@ class APIAnalyticsMiddleware(BaseHTTPMiddleware):
         # Track endpoint
         endpoint_key = f"{method} {endpoint}"
         self.endpoint_stats[endpoint_key]["count"] += 1
-        self.endpoint_stats[endpoint_key]["last_access"] = datetime.utcnow()
+        self.endpoint_stats[endpoint_key]["last_access"] = datetime.now(UTC)
 
         # Track client
         client_key = f"{client_ip}:{user_agent[:50]}"
         self.client_stats[client_key]["count"] += 1
         self.client_stats[client_key]["endpoints"].add(endpoint_key)
-        self.client_stats[client_key]["last_access"] = datetime.utcnow()
+        self.client_stats[client_key]["last_access"] = datetime.now(UTC)
 
         # Update analytics
         self.analytics["total_requests"] += 1
@@ -111,7 +111,7 @@ class APIAnalyticsMiddleware(BaseHTTPMiddleware):
 
     def _record_hourly_stats(self, endpoint: str, duration: float, status_code: int):
         """Record statistics for current hour"""
-        current_hour = datetime.utcnow().replace(minute=0, second=0, microsecond=0)
+        current_hour = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
 
         if not self.hourly_stats or self.hourly_stats[-1]["hour"] != current_hour:
             self.hourly_stats.append(

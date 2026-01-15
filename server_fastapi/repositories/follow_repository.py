@@ -37,8 +37,8 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
     ) -> list[Follow]:
         """Get all active follow relationships with auto-copy enabled."""
         query = select(Follow).where(
-            Follow.is_active == True,
-            Follow.auto_copy_enabled == True,
+            Follow.is_active,
+            Follow.auto_copy_enabled,
             ~Follow.is_deleted,
         )
 
@@ -72,7 +72,7 @@ class FollowRepository(SQLAlchemyRepository[Follow]):
         query = select(Follow).where(
             and_(
                 Follow.follower_id == follower_id,
-                Follow.is_active == True,
+                Follow.is_active,
                 ~Follow.is_deleted,
             )
         )

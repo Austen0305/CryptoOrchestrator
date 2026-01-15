@@ -1,6 +1,7 @@
----\r\nPrerequisite: 00_system_exploration.md
+---
+name: UI Modernization
 description: Standards for achieving premium UI/UX.
----\r\nPrerequisite: 00_system_exploration.md
+---
 
 # UI Modernization Workflow (2026 standards)
 

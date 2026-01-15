@@ -217,16 +217,10 @@ class MultiJurisdictionTaxService:
             taxable_amount = max(0, gain_loss - rule.tax_free_threshold)
 
         # Select tax rate
-        if is_long_term:
-            tax_rate = rule.long_term_rate
-        else:
-            tax_rate = rule.short_term_rate
+        tax_rate = rule.long_term_rate if is_long_term else rule.short_term_rate
 
         # Calculate tax (only on gains)
-        if taxable_amount > 0:
-            tax_amount = taxable_amount * (tax_rate / 100.0)
-        else:
-            tax_amount = 0.0
+        tax_amount = taxable_amount * (tax_rate / 100.0) if taxable_amount > 0 else 0.0
 
         return {
             "jurisdiction": jurisdiction.value,

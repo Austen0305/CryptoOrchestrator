@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import logging
 from typing import Annotated, Any
 
@@ -93,7 +94,7 @@ async def get_integrations_overview(
         any_running = False
 
         # Check integration service processes
-        for name in integration_svc.integrations.keys():
+        for name in integration_svc.integrations:
             proc = integration_svc.processes.get(name)
             running = proc is not None and proc.poll() is None
             any_running = any_running or running
@@ -143,7 +144,7 @@ async def list_integrations(
         integrations = await integration_svc.list_integrations()
 
         # Apply pagination
-        total = len(integrations)
+        len(integrations)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_integrations = integrations[start_idx:end_idx]
@@ -419,7 +420,7 @@ async def start_all(
     try:
         orchestrator.start_all()
         # Also start integration services
-        for name in integration_svc.integrations.keys():
+        for name in integration_svc.integrations:
             if integration_svc.integrations[name].enabled:
                 try:
                     await integration_svc.start_integration(name)
@@ -459,7 +460,7 @@ async def get_status(
         ping_result = await orchestrator.ping_all()
         # Get integration statuses
         integration_statuses = {}
-        for name in integration_svc.integrations.keys():
+        for name in integration_svc.integrations:
             try:
                 status = await integration_svc.get_integration_status(name)
                 integration_statuses[name] = status

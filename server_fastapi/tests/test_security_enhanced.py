@@ -290,7 +290,7 @@ class TestRateLimiting:
 
         # Make many rapid requests
         responses = []
-        for i in range(110):  # More than default limit
+        for _i in range(110):  # More than default limit
             response = await client.get("/api/bots/", headers=user["auth_headers"])
             responses.append(response.status_code)
 

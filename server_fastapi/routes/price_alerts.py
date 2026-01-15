@@ -4,7 +4,7 @@ Manages price alerts for cryptocurrency trading
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 from uuid import uuid4
 
@@ -84,7 +84,7 @@ async def get_price_alerts(
                 continue
 
         # Apply pagination
-        total = len(alerts)
+        len(alerts)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_alerts = alerts[start_idx:end_idx]
@@ -132,7 +132,7 @@ async def create_price_alert(
             "volumeThreshold": request.volumeThreshold,
             "isActive": True,
             "triggered": False,
-            "createdAt": datetime.utcnow(),
+            "createdAt": datetime.now(UTC),
             "triggeredAt": None,
             "channels": request.channels,
             "sound": request.sound or False,

@@ -7,7 +7,7 @@ import html
 import logging
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Request, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -142,13 +142,13 @@ class EnhancedSecurityMiddleware(BaseHTTPMiddleware):
             return False
 
         # Clean old threats
-        cutoff = datetime.utcnow() - timedelta(seconds=self.threat_window)
+        cutoff = datetime.now(UTC) - timedelta(seconds=self.threat_window)
         self.threat_tracker[ip] = [ts for ts in self.threat_tracker[ip] if ts > cutoff]
 
         # Check threshold
         if len(self.threat_tracker[ip]) >= self.threat_threshold:
             # Block IP temporarily
-            self.blocked_ips[ip] = datetime.utcnow()
+            self.blocked_ips[ip] = datetime.now(UTC)
             return True
 
         return False
@@ -160,7 +160,7 @@ class EnhancedSecurityMiddleware(BaseHTTPMiddleware):
 
         # Check if block has expired
         block_time = self.blocked_ips[ip]
-        if (datetime.utcnow() - block_time).total_seconds() > self.block_duration:
+        if (datetime.now(UTC) - block_time).total_seconds() > self.block_duration:
             del self.blocked_ips[ip]
             return False
 
@@ -168,7 +168,7 @@ class EnhancedSecurityMiddleware(BaseHTTPMiddleware):
 
     def _record_threat(self, ip: str, threat_type: str, details: str):
         """Record security threat"""
-        self.threat_tracker[ip].append(datetime.utcnow())
+        self.threat_tracker[ip].append(datetime.now(UTC))
 
         if self.log_threats:
             logger.warning(

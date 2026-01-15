@@ -4,8 +4,7 @@ Provides keyless access to Binance Public API for real-time prices and OHLCV his
 """
 
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -17,7 +16,7 @@ class BinancePublicService:
 
     BASE_URL = "https://api.binance.com/api/v3"
 
-    async def get_price(self, symbol: str) -> Optional[float]:
+    async def get_price(self, symbol: str) -> float | None:
         """Get current price for a symbol (e.g., BTCUSDT)"""
         try:
             # Normalize symbol for Binance (remove slash, uppercase)
@@ -39,7 +38,7 @@ class BinancePublicService:
 
     async def get_ohlcv(
         self, symbol: str, interval: str = "1d", limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Get historical OHLCV data
         Intervals: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M
@@ -74,7 +73,7 @@ class BinancePublicService:
             logger.error(f"Error fetching Binance OHLCV for {symbol}: {e}")
             return []
 
-    async def get_returns(self, symbol: str, limit: int = 100) -> List[float]:
+    async def get_returns(self, symbol: str, limit: int = 100) -> list[float]:
         """Get historical returns for VaR calculation"""
         ohlcv = await self.get_ohlcv(symbol, limit=limit + 1)
         if len(ohlcv) < 2:

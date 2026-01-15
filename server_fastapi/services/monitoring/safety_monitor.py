@@ -212,7 +212,7 @@ class SafetyMonitor:
             try:
                 from ..notification_service import NotificationService
 
-                notification_service = NotificationService()
+                NotificationService()
                 # In production, would send to all active users
                 logger.info("Emergency stop notifications would be sent to all users")
             except Exception as e:

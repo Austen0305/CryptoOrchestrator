@@ -4,11 +4,11 @@ Implements hardened local key management using secret splitting (2-of-2 XOR)
 Mimics production KMS/HSM patterns for the 2026 Rebuild.
 """
 
+import contextlib
 import logging
 import os
 import secrets
 from pathlib import Path
-from typing import Optional
 
 from cryptography.fernet import Fernet
 
@@ -21,16 +21,16 @@ class VaultSimulator:
     def __init__(self, vault_path: str = "data/secure/.vault_share"):
         self.vault_path = Path(vault_path)
         self.vault_path.parent.mkdir(parents=True, exist_ok=True)
-        self._master_key: Optional[bytes] = None
+        self._master_key: bytes | None = None
 
-    def _get_env_share(self) -> Optional[bytes]:
+    def _get_env_share(self) -> bytes | None:
         """Retrieve Share B from environment"""
         share_b_hex = os.getenv("VAULT_SHARE_B")
         if share_b_hex:
             return bytes.fromhex(share_b_hex)
         return None
 
-    def _load_file_share(self) -> Optional[bytes]:
+    def _load_file_share(self) -> bytes | None:
         """Retrieve Share A from a hidden local file"""
         if self.vault_path.exists():
             return self.vault_path.read_bytes()
@@ -40,10 +40,8 @@ class VaultSimulator:
         """Save Share A to a hidden local file"""
         self.vault_path.write_bytes(share)
         # In a real 2026 system, we'd set strict file permissions here
-        try:
+        with contextlib.suppress(Exception):
             os.chmod(self.vault_path, 0o600)
-        except Exception:
-            pass
 
     def initialize_vault(self) -> str:
         """
@@ -57,7 +55,7 @@ class VaultSimulator:
         share_a = secrets.token_bytes(32)
 
         # Calculate Share B via XOR: B = Master ^ A
-        share_b = bytes(a ^ b for a, b in zip(master_key, share_a))
+        share_b = bytes(a ^ b for a, b in zip(master_key, share_a, strict=False))
 
         # Save Share A locally
         self._save_file_share(share_a)
@@ -68,7 +66,7 @@ class VaultSimulator:
         logger.info("Vault initialized with 2-of-2 XOR secret splitting")
         return share_b.hex()
 
-    def unlock(self, share_b_hex: Optional[str] = None):
+    def unlock(self, share_b_hex: str | None = None):
         """Reconstruct the master key using the provided Share B and local Share A"""
         share_a = self._load_file_share()
         share_b = bytes.fromhex(share_b_hex) if share_b_hex else self._get_env_share()
@@ -83,7 +81,7 @@ class VaultSimulator:
             raise ValueError("Vault shares length mismatch")
 
         # Reconstruct: Master = A ^ B
-        self._master_key = bytes(a ^ b for a, b in zip(share_a, share_b))
+        self._master_key = bytes(a ^ b for a, b in zip(share_a, share_b, strict=False))
         logger.info("Vault successfully unlocked and master key reconstructed")
 
     def get_fernet(self) -> Fernet:

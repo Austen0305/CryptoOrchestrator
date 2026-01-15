@@ -80,7 +80,7 @@ async def test_complete_signal_provider_workflow(client: AsyncClient, db: AsyncS
 
     # 5. Rate provider (as different user - would need second user token)
     # For now, we'll test with same user (some platforms allow self-rating)
-    rate_response = await client.post(
+    await client.post(
         f"/api/marketplace/traders/{provider_id}/rate",
         json={"rating": 5, "comment": "Excellent trader!"},
         headers={"Authorization": f"Bearer {token}"},

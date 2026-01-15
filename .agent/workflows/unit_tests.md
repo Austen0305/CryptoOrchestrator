@@ -1,6 +1,7 @@
----\r\nPrerequisite: 00_system_exploration.md
+---
+name: Unit Test Generation
 description: Triggerable workflow for generating unit tests.
----\r\nPrerequisite: 00_system_exploration.md
+---
 
 # Unit Test Generation Workflow
 

@@ -66,7 +66,6 @@ class ZeroExService:
         Returns:
             Function result or None if all retries fail
         """
-        last_exception = None
 
         for attempt in range(self.max_retries):
             try:
@@ -74,7 +73,6 @@ class ZeroExService:
                 result = await self.circuit_breaker.call(func, *args, **kwargs)
                 return result
             except Exception as e:
-                last_exception = e
                 if attempt < self.max_retries - 1:
                     # Exponential backoff
                     delay = self.retry_delay_base * (2**attempt)

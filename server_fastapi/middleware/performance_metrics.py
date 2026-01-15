@@ -7,7 +7,7 @@ import logging
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Request
 
@@ -45,7 +45,7 @@ class MiddlewarePerformanceMonitor:
         metric = MiddlewareMetric(
             name=middleware_name,
             duration_ms=duration_ms,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             success=success,
             error=error,
         )
@@ -73,7 +73,7 @@ class MiddlewarePerformanceMonitor:
             }
 
         # Filter by time window
-        cutoff = datetime.utcnow() - timedelta(seconds=self.window_seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=self.window_seconds)
         recent_metrics = [m for m in metrics if m.timestamp > cutoff]
 
         if not recent_metrics:
@@ -106,7 +106,7 @@ class MiddlewarePerformanceMonitor:
     def get_all_stats(self) -> dict[str, dict]:
         """Get statistics for all middleware"""
         all_stats = {}
-        for middleware_name in self.metrics.keys():
+        for middleware_name in self.metrics:
             all_stats[middleware_name] = self.get_stats(middleware_name)
         return all_stats
 

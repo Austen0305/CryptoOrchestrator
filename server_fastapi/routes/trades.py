@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -25,7 +26,8 @@ except ImportError:
     Limiter = None
     get_remote_address = None
     limiter = None
-    get_rate_limit = lambda x: x  # No-op fallback
+    def get_rate_limit(x):
+        return x  # No-op fallback
     logger.warning("SlowAPI not available, rate limiting disabled")
 
 from ..database import get_db_session
@@ -60,7 +62,8 @@ if not LIMITER_AVAILABLE or limiter is None:
             return decorator
 
     limiter = NoOpLimiter()
-    get_rate_limit = lambda x: x  # No-op fallback
+    def get_rate_limit(x):
+        return x  # No-op fallback
 
 
 # Pydantic models
@@ -217,7 +220,7 @@ async def get_profit_calendar(
 ):
     """Get daily profit data for a calendar month"""
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
 
         # Parse month
         from datetime import datetime
@@ -380,10 +383,10 @@ async def create_trade(
             cost=(trade.amount * (trade.price or 0.0)),
             fee=0.0,  # Will be updated after execution
             mode=normalized_mode,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(UTC),
             success=False,  # Will be updated after execution
             status="pending",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
 
         db_session.add(db_trade)

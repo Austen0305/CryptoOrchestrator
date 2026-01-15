@@ -5,7 +5,7 @@ Provides query optimization utilities and connection pool monitoring
 
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any
 
@@ -61,7 +61,7 @@ class QueryOptimizer:
             stats["total_time"] += total
             stats["min_time"] = min(stats["min_time"], total)
             stats["max_time"] = max(stats["max_time"], total)
-            stats["last_executed"] = datetime.utcnow()
+            stats["last_executed"] = datetime.now(UTC)
 
     async def get_pool_stats(self, db: AsyncSession) -> dict[str, Any]:
         """Get database connection pool statistics"""

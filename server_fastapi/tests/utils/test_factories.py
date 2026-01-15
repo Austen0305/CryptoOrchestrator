@@ -4,18 +4,15 @@ Provides factories for users, bots, wallets, trades, etc.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server_fastapi.models.bot import Bot
-from server_fastapi.models.order import Order
 from server_fastapi.models.portfolio import Portfolio
 from server_fastapi.models.trade import Trade
-from server_fastapi.models.user import User
 from server_fastapi.models.user_wallet import UserWallet
-from server_fastapi.models.wallet import Wallet
 from server_fastapi.services.auth.auth_service import AuthService
 
 
@@ -135,8 +132,8 @@ class BotFactory:
             strategy=bot_data["strategy"],
             config=bot_data["config"],
             is_active=bot_data.get("is_active", False),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
 
         db.add(bot)
@@ -176,7 +173,7 @@ class WalletFactory:
             "wallet_address": address,
             "wallet_type": "custodial" if is_custodial else "external",
             "balance": kwargs.get("balance", "0.0"),
-            "created_at": datetime.utcnow().isoformat(),  # ISO format for JSON
+            "created_at": datetime.now(UTC).isoformat(),  # ISO format for JSON
             **kwargs,
         }
 
@@ -250,7 +247,7 @@ class TradeFactory:
             "fee": kwargs.get("fee", 0.001),
             "status": kwargs.get("status", "completed"),
             "mode": kwargs.get("mode", "paper"),
-            "created_at": kwargs.get("created_at", datetime.utcnow()),
+            "created_at": kwargs.get("created_at", datetime.now(UTC)),
             **kwargs,
         }
 
@@ -319,7 +316,7 @@ class PortfolioFactory:
             "total_balance": total_balance,
             "available_balance": available_balance,
             "mode": kwargs.get("mode", "paper"),
-            "updated_at": kwargs.get("updated_at", datetime.utcnow()),
+            "updated_at": kwargs.get("updated_at", datetime.now(UTC)),
             **kwargs,
         }
 

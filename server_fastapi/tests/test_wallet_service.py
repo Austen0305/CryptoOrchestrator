@@ -653,16 +653,15 @@ async def test_process_withdrawal_wallet_not_found(
     with patch(
         "server_fastapi.services.wallet_service.WalletRepository",
         return_value=mock_repository,
-    ):
-        with pytest.raises(ValueError, match="Wallet not found"):
-            await wallet_service.process_withdrawal(
-                wallet_id=wallet_id,
-                user_id=user_id,
-                to_address=to_address,
-                amount=amount,
-                chain_id=chain_id,
-                db=db_session,
-            )
+    ), pytest.raises(ValueError, match="Wallet not found"):
+        await wallet_service.process_withdrawal(
+            wallet_id=wallet_id,
+            user_id=user_id,
+            to_address=to_address,
+            amount=amount,
+            chain_id=chain_id,
+            db=db_session,
+        )
 
 
 @pytest.mark.asyncio

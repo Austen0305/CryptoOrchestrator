@@ -354,7 +354,7 @@ class TokenRegistryService:
             Token symbol or None
         """
         # Check cache first
-        for cache_key, cached_data in self._token_cache.items():
+        for _cache_key, cached_data in self._token_cache.items():
             if (
                 cached_data.get("address", "").lower() == token_address.lower()
                 and cached_data.get("chain_id") == chain_id

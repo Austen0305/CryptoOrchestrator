@@ -7,7 +7,7 @@ Consolidated from health.py, health_comprehensive.py, and health_wallet.py
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 import psutil
@@ -245,7 +245,7 @@ async def get_liveness():
     try:
         return {
             "status": "alive",
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat() + "Z",
             "uptime_seconds": round(time.time() - _app_start_time, 2),
         }
     except Exception as e:
@@ -266,7 +266,7 @@ async def get_readiness(db: Annotated[AsyncSession, Depends(get_db_session)]):
         db_health = await check_database()
 
         if db_health.get("status") == "healthy":
-            return {"status": "ready", "timestamp": datetime.utcnow().isoformat() + "Z"}
+            return {"status": "ready", "timestamp": datetime.now(UTC).isoformat() + "Z"}
         else:
             raise HTTPException(
                 status_code=503, detail="Service not ready: database unavailable"
@@ -296,7 +296,7 @@ async def get_startup():
         if db_health.get("status") == "healthy":
             return {
                 "status": "started",
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "timestamp": datetime.now(UTC).isoformat() + "Z",
             }
         else:
             raise HTTPException(status_code=503, detail="Service still starting up")

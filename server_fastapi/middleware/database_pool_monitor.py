@@ -6,7 +6,7 @@ Monitors and optimizes database connection pool usage
 import logging
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class DatabasePoolMonitor:
 
     def record_checkout(self, connection_id: str):
         """Record connection checkout"""
-        self.leak_detection[connection_id] = datetime.utcnow()
+        self.leak_detection[connection_id] = datetime.now(UTC)
 
     def record_checkin(self, connection_id: str, checkout_duration_ms: float):
         """Record connection checkin"""
@@ -64,7 +64,7 @@ class DatabasePoolMonitor:
     ):
         """Record pool metrics"""
         metric = PoolMetrics(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             pool_size=pool_size,
             active_connections=active,
             idle_connections=idle,
@@ -83,7 +83,7 @@ class DatabasePoolMonitor:
         """Check pool health and generate alerts"""
         # Check for connection leaks
         leak_threshold = timedelta(minutes=5)
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         leaks = [
             conn_id
             for conn_id, checkout_time in self.leak_detection.items()
@@ -137,7 +137,7 @@ class DatabasePoolMonitor:
 
     def get_stats(self, window_minutes: int = 5) -> dict[str, Any]:
         """Get statistics for the last N minutes"""
-        cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
+        cutoff = datetime.now(UTC) - timedelta(minutes=window_minutes)
         recent_metrics = [m for m in self.metrics_history if m.timestamp > cutoff]
 
         if not recent_metrics:

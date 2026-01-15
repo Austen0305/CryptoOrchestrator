@@ -295,7 +295,7 @@ class MLInferenceOptimizationService:
             output_names = [output.name for output in session.get_outputs()]
             results = {
                 name: output.tolist() if hasattr(output, "tolist") else output
-                for name, output in zip(output_names, outputs)
+                for name, output in zip(output_names, outputs, strict=False)
             }
 
             return results

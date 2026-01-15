@@ -4,7 +4,7 @@ Data access layer for risk alerts and limits
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,7 +79,7 @@ class RiskRepository:
         stmt = (
             update(RiskAlert)
             .where(RiskAlert.id == alert_id)
-            .values(acknowledged=True, acknowledged_at=datetime.utcnow())
+            .values(acknowledged=True, acknowledged_at=datetime.now(UTC))
         )
         await session.execute(stmt)
         await session.commit()
@@ -95,7 +95,7 @@ class RiskRepository:
         stmt = (
             update(RiskAlert)
             .where(RiskAlert.id == alert_id)
-            .values(resolved=True, resolved_at=datetime.utcnow())
+            .values(resolved=True, resolved_at=datetime.now(UTC))
         )
         await session.execute(stmt)
         await session.commit()

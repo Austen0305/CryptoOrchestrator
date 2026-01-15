@@ -108,7 +108,7 @@ class LSTMEngine:
             )
 
             # LSTM layers with return_sequences=True (except last layer)
-            for i in range(self.config.num_layers - 1):
+            for _i in range(self.config.num_layers - 1):
                 model.add(
                     layers.LSTM(
                         self.config.lstm_units,
@@ -280,7 +280,7 @@ class LSTMEngine:
         try:
             self.is_training = True
             
-            training_config = self.config.dict()
+            self.config.dict()
 
             # Callbacks
             callback_list = [

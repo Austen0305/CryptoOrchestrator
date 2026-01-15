@@ -7,7 +7,7 @@ import logging
 import statistics
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class PredictiveAlertingService:
         if key not in self.metric_history:
             self.metric_history[key] = deque(maxlen=1000)
 
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(UTC)
         self.metric_history[key].append((timestamp, value))
 
         # Generate forecast
@@ -112,7 +112,7 @@ class PredictiveAlertingService:
 
         # Simple moving average forecast
         window_size = min(10, len(recent_values))
-        moving_avg = statistics.mean(recent_values[-window_size:])
+        statistics.mean(recent_values[-window_size:])
 
         # Calculate trend
         if len(recent_values) >= 2:
@@ -202,7 +202,7 @@ class PredictiveAlertingService:
                 rate = (predicted_value - current_value) / self.forecast_window_minutes
                 if rate > 0:
                     time_to_breach = (threshold - current_value) / rate
-                    predicted_breach_time = datetime.utcnow() + timedelta(
+                    predicted_breach_time = datetime.now(UTC) + timedelta(
                         minutes=time_to_breach
                     )
                 else:
@@ -214,7 +214,7 @@ class PredictiveAlertingService:
                 rate = (current_value - predicted_value) / self.forecast_window_minutes
                 if rate > 0:
                     time_to_breach = (current_value - threshold) / rate
-                    predicted_breach_time = datetime.utcnow() + timedelta(
+                    predicted_breach_time = datetime.now(UTC) + timedelta(
                         minutes=time_to_breach
                     )
                 else:
@@ -231,7 +231,7 @@ class PredictiveAlertingService:
 
         # Determine severity based on time to breach
         minutes_to_breach = (
-            predicted_breach_time - datetime.utcnow()
+            predicted_breach_time - datetime.now(UTC)
         ).total_seconds() / 60
         if minutes_to_breach < 5:
             severity = "critical"
@@ -251,7 +251,7 @@ class PredictiveAlertingService:
             confidence=confidence,
             severity=severity,
             message=f"{metric_name} predicted to breach {condition} {threshold} in {minutes_to_breach:.1f} minutes",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             tags=tags or {},
         )
 

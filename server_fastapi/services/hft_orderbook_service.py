@@ -4,6 +4,7 @@ Provides order book snapshots with delta updates for low-latency trading
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import deque
@@ -307,10 +308,8 @@ class HFTOrderBookService:
         """Stop streaming order book updates for a pair"""
         if pair in self.update_tasks:
             self.update_tasks[pair].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.update_tasks[pair]
-            except asyncio.CancelledError:
-                pass
             del self.update_tasks[pair]
 
 

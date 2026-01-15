@@ -4,9 +4,10 @@ Ensures cache consistency across distributed systems
 """
 
 import asyncio
+import contextlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ class DistributedCacheConsistencyService:
         import socket
 
         hostname = socket.gethostname()
-        return f"{hostname}_{datetime.utcnow().timestamp()}"
+        return f"{hostname}_{datetime.now(UTC).timestamp()}"
 
     def invalidate_key(
         self,
@@ -85,7 +86,7 @@ class DistributedCacheConsistencyService:
         Returns:
             CacheInvalidationEvent
         """
-        event_id = f"inv_{datetime.utcnow().timestamp()}"
+        event_id = f"inv_{datetime.now(UTC).timestamp()}"
 
         event = CacheInvalidationEvent(
             event_id=event_id,
@@ -96,12 +97,12 @@ class DistributedCacheConsistencyService:
         # Increment version
         if cache_key in self.cache_versions:
             self.cache_versions[cache_key].version += 1
-            self.cache_versions[cache_key].timestamp = datetime.utcnow()
+            self.cache_versions[cache_key].timestamp = datetime.now(UTC)
         else:
             self.cache_versions[cache_key] = CacheVersion(
                 key=cache_key,
                 version=1,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 node_id=self.node_id,
             )
 
@@ -147,7 +148,7 @@ class DistributedCacheConsistencyService:
         # Find matching keys
         matching_keys = [
             key
-            for key in self.cache_versions.keys()
+            for key in self.cache_versions
             if self._match_pattern(key, pattern)
         ]
 
@@ -183,10 +184,8 @@ class DistributedCacheConsistencyService:
         # Check if cache value exists
         cache_exists = False
         if self.cache_service:
-            try:
+            with contextlib.suppress(Exception):
                 cache_exists = self.cache_service.exists(cache_key)
-            except Exception:
-                pass
 
         # Determine consistency
         is_consistent = cache_exists or version.version == 0
@@ -216,7 +215,7 @@ class DistributedCacheConsistencyService:
         self.cache_versions[cache_key] = CacheVersion(
             key=cache_key,
             version=version,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             node_id=node_id or self.node_id,
         )
 
@@ -247,7 +246,7 @@ class DistributedCacheConsistencyService:
         recent_events = [
             e
             for e in self.invalidation_events
-            if e.timestamp >= datetime.utcnow() - timedelta(hours=1)
+            if e.timestamp >= datetime.now(UTC) - timedelta(hours=1)
         ]
 
         return {

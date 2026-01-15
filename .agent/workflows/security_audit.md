@@ -1,6 +1,7 @@
----\r\nPrerequisite: 00_system_exploration.md
+---
+name: Security Audit
 description: Triggerable workflow for security auditing.
----\r\nPrerequisite: 00_system_exploration.md
+---
 
 # Security Audit Workflow
 

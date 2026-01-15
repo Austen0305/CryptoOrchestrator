@@ -6,7 +6,7 @@ Prevents replay attacks
 
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -200,7 +200,7 @@ class WalletSignatureService:
             EIP-712 message and domain objects
         """
         expiry = int(
-            (datetime.utcnow() + timedelta(seconds=expiry_seconds)).timestamp()
+            (datetime.now(UTC) + timedelta(seconds=expiry_seconds)).timestamp()
         )
 
         message = {
@@ -274,7 +274,7 @@ class WalletSignatureService:
         """
         if not db:
             # Fallback to timestamp-based nonce if no database
-            timestamp = int(datetime.utcnow().timestamp() * 1000)
+            timestamp = int(datetime.now(UTC).timestamp() * 1000)
             nonce_string = f"{user_id}:{wallet_address}:{timestamp}"
             nonce_hash = hashlib.sha256(nonce_string.encode()).hexdigest()
             # Use first 8 bytes of hash as nonce (uint64)
@@ -298,11 +298,11 @@ class WalletSignatureService:
                 nonce = last_nonce + 1
             else:
                 # Start with timestamp-based nonce
-                timestamp = int(datetime.utcnow().timestamp())
+                timestamp = int(datetime.now(UTC).timestamp())
                 nonce = timestamp
 
             # Create nonce record
-            expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+            expires_at = datetime.now(UTC) + timedelta(hours=1)  # 1 hour expiry
             nonce_record = WalletNonce(
                 user_id=user_id,
                 wallet_address=wallet_address,
@@ -332,7 +332,7 @@ class WalletSignatureService:
             logger.error(f"Error generating nonce: {e}", exc_info=True)
             await db.rollback()
             # Fallback to timestamp-based nonce
-            timestamp = int(datetime.utcnow().timestamp() * 1000)
+            timestamp = int(datetime.now(UTC).timestamp() * 1000)
             nonce_string = f"{user_id}:{wallet_address}:{timestamp}"
             nonce_hash = hashlib.sha256(nonce_string.encode()).hexdigest()
             nonce = int(nonce_hash[:16], 16)
@@ -402,7 +402,7 @@ class WalletSignatureService:
 
             # Mark as used
             nonce_record.used = True
-            nonce_record.used_at = datetime.utcnow()
+            nonce_record.used_at = datetime.now(UTC)
             if message_hash:
                 nonce_record.message_hash = message_hash
 

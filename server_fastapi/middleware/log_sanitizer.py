@@ -77,7 +77,7 @@ class LogSanitizer:
         sanitized = text
 
         # Mask sensitive patterns
-        for pattern_name, pattern in LogSanitizer.SENSITIVE_PATTERNS.items():
+        for _pattern_name, pattern in LogSanitizer.SENSITIVE_PATTERNS.items():
             sanitized = re.sub(
                 pattern,
                 lambda m: f"{m.group(0).split('=')[0].split(':')[0]}={mask}",

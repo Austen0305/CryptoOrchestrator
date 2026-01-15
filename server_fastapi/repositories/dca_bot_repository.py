@@ -3,7 +3,7 @@ DCA Bot repository for database operations.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -78,11 +78,11 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         }
 
         if active:
-            update_data["started_at"] = datetime.utcnow()
+            update_data["started_at"] = datetime.now(UTC)
         else:
-            update_data["stopped_at"] = datetime.utcnow()
+            update_data["stopped_at"] = datetime.now(UTC)
             if status == "completed":
-                update_data["completed_at"] = datetime.utcnow()
+                update_data["completed_at"] = datetime.now(UTC)
 
         stmt = (
             update(DCABot)
@@ -108,7 +108,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         stmt = (
             update(DCABot)
             .where(DCABot.id == bot_id, DCABot.user_id == user_id, ~DCABot.is_deleted)
-            .values(next_order_at=next_order_at, last_order_at=datetime.utcnow())
+            .values(next_order_at=next_order_at, last_order_at=datetime.now(UTC))
             .returning(DCABot)
         )
 
@@ -161,7 +161,7 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         """Get all active DCA bots with eager loading, optionally filtered by user."""
         query = (
             select(DCABot)
-            .where(DCABot.active == True, ~DCABot.is_deleted)
+            .where(DCABot.active, ~DCABot.is_deleted)
             .options(joinedload(DCABot.user))
         )
 
@@ -175,12 +175,12 @@ class DCABotRepository(SQLAlchemyRepository[DCABot]):
         """Get DCA bots that are ready to execute their next order with eager loading."""
         from datetime import datetime
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         query = (
             select(DCABot)
             .where(
-                DCABot.active == True, DCABot.next_order_at <= now, ~DCABot.is_deleted
+                DCABot.active, DCABot.next_order_at <= now, ~DCABot.is_deleted
             )
             .options(joinedload(DCABot.user))
         )

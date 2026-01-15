@@ -540,7 +540,7 @@ class TransactionService:
             except TransactionNotFound:
                 # Transaction not yet mined, check if it exists in mempool
                 try:
-                    tx = await w3.eth.get_transaction(tx_hash_bytes)
+                    await w3.eth.get_transaction(tx_hash_bytes)
                     return {
                         "status": "pending",
                         "success": None,

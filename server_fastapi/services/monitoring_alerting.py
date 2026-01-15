@@ -4,11 +4,12 @@ Provides real-time monitoring, alerting, and notification capabilities
 """
 
 import asyncio
+import contextlib
 import logging
 from collections import defaultdict, deque
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -64,7 +65,7 @@ class AlertRule:
     def should_trigger(self) -> bool:
         """Check if alert should trigger"""
         if self.last_triggered:
-            elapsed = (datetime.utcnow() - self.last_triggered).total_seconds()
+            elapsed = (datetime.now(UTC) - self.last_triggered).total_seconds()
             if elapsed < self.cooldown:
                 return False
 
@@ -72,7 +73,7 @@ class AlertRule:
 
     def trigger(self):
         """Mark alert as triggered"""
-        self.last_triggered = datetime.utcnow()
+        self.last_triggered = datetime.now(UTC)
 
 
 class MonitoringAlertingSystem:
@@ -121,10 +122,8 @@ class MonitoringAlertingSystem:
         self._running = False
         if self._monitoring_task:
             self._monitoring_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._monitoring_task
-            except asyncio.CancelledError:
-                pass
         logger.info("Monitoring system stopped")
 
     async def _monitor_loop(self, interval: int):
@@ -132,7 +131,7 @@ class MonitoringAlertingSystem:
         while self._running:
             try:
                 # Check all rules
-                for rule_name, rule in self.rules.items():
+                for _rule_name, rule in self.rules.items():
                     if rule.should_trigger():
                         await self._trigger_alert(rule)
                         rule.trigger()
@@ -157,7 +156,7 @@ class MonitoringAlertingSystem:
             title=rule.name,
             message=rule.message,
             source="monitoring_system",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
 
         self.alerts[alert.id] = alert
@@ -227,7 +226,7 @@ class MonitoringAlertingSystem:
             title=name,
             message=message,
             source="metrics",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
         )
 
         self.alerts[alert.id] = alert
@@ -240,7 +239,7 @@ class MonitoringAlertingSystem:
         self.metrics[name].append(
             {
                 "value": value,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(UTC),
                 "metadata": metadata or {},
             }
         )
@@ -267,7 +266,7 @@ class MonitoringAlertingSystem:
         """Resolve an alert"""
         if alert_id in self.alerts:
             self.alerts[alert_id].resolved = True
-            self.alerts[alert_id].resolved_at = datetime.utcnow()
+            self.alerts[alert_id].resolved_at = datetime.now(UTC)
             logger.info(f"Alert resolved: {alert_id}")
 
     def get_stats(self) -> dict[str, Any]:

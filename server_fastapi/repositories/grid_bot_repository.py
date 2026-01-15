@@ -73,7 +73,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         status: str,
     ) -> GridBot | None:
         """Update grid bot active status and status field."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         update_data = {
             "active": active,
@@ -81,9 +81,9 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         }
 
         if active:
-            update_data["started_at"] = datetime.utcnow()
+            update_data["started_at"] = datetime.now(UTC)
         else:
-            update_data["stopped_at"] = datetime.utcnow()
+            update_data["stopped_at"] = datetime.now(UTC)
 
         stmt = (
             update(GridBot)
@@ -148,7 +148,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
                 total_profit=total_profit,
                 total_trades=total_trades,
                 win_rate=win_rate,
-                last_trade_at=datetime.utcnow(),
+                last_trade_at=datetime.now(UTC),
             )
             .returning(GridBot)
         )
@@ -167,7 +167,7 @@ class GridBotRepository(SQLAlchemyRepository[GridBot]):
         """Get all active grid bots with eager loading, optionally filtered by user."""
         query = (
             select(GridBot)
-            .where(GridBot.active == True, ~GridBot.is_deleted)
+            .where(GridBot.active, ~GridBot.is_deleted)
             .options(joinedload(GridBot.user))
         )
 

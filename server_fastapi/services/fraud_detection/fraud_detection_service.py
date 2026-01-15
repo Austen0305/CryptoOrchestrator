@@ -169,7 +169,7 @@ class FraudDetectionService:
             "is_fraud": is_fraud,
             "indicators": indicators,
             "recommendation": recommendation,
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(UTC).isoformat(),
         }
 
     async def _check_velocity(
@@ -177,7 +177,7 @@ class FraudDetectionService:
     ) -> dict[str, Any]:
         """Check transaction velocity"""
         try:
-            window_start = datetime.utcnow() - timedelta(
+            window_start = datetime.now(UTC) - timedelta(
                 hours=self.velocity_window_hours
             )
 
@@ -194,7 +194,7 @@ class FraudDetectionService:
             transaction_count = count_result.scalar() or 0
 
             # Check hourly rate
-            hour_start = datetime.utcnow() - timedelta(hours=1)
+            hour_start = datetime.now(UTC) - timedelta(hours=1)
             hourly_count_result = await db.execute(
                 select(func.count(WalletTransaction.id)).where(
                     and_(
@@ -314,7 +314,7 @@ class FraudDetectionService:
             # Check transaction frequency, amounts, times, etc.
 
             # Get last 30 days of transactions
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+            thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
 
             pattern_result = await db.execute(
                 select(
@@ -371,7 +371,7 @@ class FraudDetectionService:
     def _check_time_anomaly(self) -> dict[str, Any]:
         """Check for unusual transaction times"""
         try:
-            current_hour = datetime.utcnow().hour
+            current_hour = datetime.now(UTC).hour
 
             # Transactions between 2 AM and 5 AM are less common (suspicious)
             is_suspicious = 2 <= current_hour <= 5
@@ -448,7 +448,7 @@ class FraudDetectionService:
             user_result = await db.execute(select(User).where(User.id == user_id))
             user = user_result.scalar_one_or_none()
             if user and user.created_at:
-                account_age_days = (datetime.utcnow() - user.created_at).days
+                account_age_days = (datetime.now(UTC) - user.created_at).days
                 if account_age_days < 7:
                     risk_score += 0.3  # New account
                 elif account_age_days > 90:
@@ -470,7 +470,7 @@ class FraudDetectionService:
             "total_volume": (
                 float(stats.total_volume) if stats and stats.total_volume else 0.0
             ),
-            "analyzed_at": datetime.utcnow().isoformat(),
+            "analyzed_at": datetime.now(UTC).isoformat(),
         }
 
 

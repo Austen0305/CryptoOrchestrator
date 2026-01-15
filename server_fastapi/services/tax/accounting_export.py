@@ -3,11 +3,11 @@ Accounting System Export Adapters
 Export tax data to QuickBooks, Xero, and other accounting systems
 """
 
-from dataclasses import dataclass
 import csv
 import io
 import logging
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -96,7 +96,7 @@ class AccountingExportService:
 
         # Process transactions
         for tx in transactions:
-            date = datetime.fromisoformat(tx.get("date", datetime.utcnow().isoformat()))
+            date = datetime.fromisoformat(tx.get("date", datetime.now(UTC).isoformat()))
             description = tx.get("description", "Crypto Transaction")
             amount = tx.get("amount", 0.0)
             account = tx.get("account", "crypto_asset")
@@ -164,7 +164,7 @@ class AccountingExportService:
 
         # Process transactions
         for tx in transactions:
-            date = datetime.fromisoformat(tx.get("date", datetime.utcnow().isoformat()))
+            date = datetime.fromisoformat(tx.get("date", datetime.now(UTC).isoformat()))
             description = tx.get("description", "Crypto Transaction")
             amount = tx.get("amount", 0.0)
             account = tx.get("account", "crypto_asset")
@@ -230,7 +230,7 @@ class AccountingExportService:
 
         # Process transactions
         for tx in transactions:
-            date = datetime.fromisoformat(tx.get("date", datetime.utcnow().isoformat()))
+            date = datetime.fromisoformat(tx.get("date", datetime.now(UTC).isoformat()))
             description = tx.get("description", "Crypto Transaction")
             account = tx.get("account", "crypto_asset")
             amount = tx.get("amount", 0.0)
@@ -272,7 +272,7 @@ class AccountingExportService:
 
         for event in tax_events:
             sale_date = datetime.fromisoformat(
-                event.get("sale_date", datetime.utcnow().isoformat())
+                event.get("sale_date", datetime.now(UTC).isoformat())
             )
             symbol = event.get("symbol", "CRYPTO")
             quantity = event.get("quantity", 0.0)

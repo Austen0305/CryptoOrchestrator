@@ -4,7 +4,7 @@ Check ETH and ERC-20 token balances with caching
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -115,7 +115,7 @@ class BalanceService:
         # Check in-memory cache
         if cache_key in self._balance_cache:
             cached = self._balance_cache[cache_key]
-            age = (datetime.utcnow() - cached["timestamp"]).total_seconds()
+            age = (datetime.now(UTC) - cached["timestamp"]).total_seconds()
             if age < self._cache_ttl:
                 return cached["balance"]
             else:
@@ -128,7 +128,7 @@ class BalanceService:
         # In-memory cache
         self._balance_cache[cache_key] = {
             "balance": balance,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
         }
 
         # Redis cache (30s TTL)
@@ -328,7 +328,7 @@ class BalanceService:
         else:
             # Clear specific entries
             keys_to_remove = []
-            for key in self._balance_cache.keys():
+            for key in self._balance_cache:
                 parts = key.split(":")
                 if len(parts) >= 3:
                     key_chain_id = int(parts[0])

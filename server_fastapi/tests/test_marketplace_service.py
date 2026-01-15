@@ -2,7 +2,7 @@
 Tests for Copy Trading Marketplace Service
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 import pytest_asyncio
@@ -101,9 +101,9 @@ class TestMarketplaceService:
 
         # Create some trade history (simplified)
         trades = [
-            {"pnl": 100.0, "timestamp": datetime.utcnow() - timedelta(days=1)},
-            {"pnl": -50.0, "timestamp": datetime.utcnow() - timedelta(days=2)},
-            {"pnl": 200.0, "timestamp": datetime.utcnow() - timedelta(days=3)},
+            {"pnl": 100.0, "timestamp": datetime.now(UTC) - timedelta(days=1)},
+            {"pnl": -50.0, "timestamp": datetime.now(UTC) - timedelta(days=2)},
+            {"pnl": 200.0, "timestamp": datetime.now(UTC) - timedelta(days=3)},
         ]
 
         result = await service.update_performance_metrics(
@@ -184,8 +184,8 @@ class TestMarketplaceService:
         """Test calculating payout"""
         service = MarketplaceService(db_session)
 
-        period_start = datetime.utcnow() - timedelta(days=30)
-        period_end = datetime.utcnow()
+        period_start = datetime.now(UTC) - timedelta(days=30)
+        period_end = datetime.now(UTC)
         total_revenue = 1000.0
 
         result = await service.calculate_payout(
@@ -203,8 +203,8 @@ class TestMarketplaceService:
         """Test creating a payout"""
         service = MarketplaceService(db_session)
 
-        period_start = datetime.utcnow() - timedelta(days=30)
-        period_end = datetime.utcnow()
+        period_start = datetime.now(UTC) - timedelta(days=30)
+        period_end = datetime.now(UTC)
         total_revenue = 1000.0
 
         result = await service.create_payout(

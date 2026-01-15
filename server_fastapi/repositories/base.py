@@ -2,6 +2,7 @@
 Base repository pattern implementation for database operations.
 """
 
+import contextlib
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
@@ -164,10 +165,8 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         try:
             result = await session.execute(stmt)
             # Flush instead of commit to allow transaction control by caller (fixtures/tests)
-            try:
+            with contextlib.suppress(Exception):
                 await session.flush()
-            except Exception:
-                pass
 
             created_obj = result.scalar_one()
             await session.refresh(created_obj)
@@ -243,10 +242,8 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
 
         result = await session.execute(stmt)
         # Flush instead of commit so test transactions/rollbacks work correctly
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
 
         updated_obj = result.scalar_one_or_none()
         if updated_obj:
@@ -264,10 +261,8 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         )  # Set deleted_at to current time
 
         result = await session.execute(stmt)
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
         return result.rowcount > 0
 
     async def hard_delete(self, session: AsyncSession, id: int) -> bool:
@@ -277,10 +272,8 @@ class SQLAlchemyRepository(BaseRepository[T, int]):
         """
         stmt = delete(self.model_class).where(self.model_class.id == id)
         result = await session.execute(stmt)
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
         return result.rowcount > 0
 
     async def exists(self, session: AsyncSession, id: int) -> bool:

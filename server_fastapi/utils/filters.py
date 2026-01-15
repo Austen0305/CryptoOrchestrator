@@ -3,7 +3,7 @@ Quick Filters for Bots and Trades
 Provides pre-defined filters for common queries
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -42,7 +42,7 @@ def get_bot_filter_query(filter_type: BotFilter) -> dict[str, Any]:
     Returns:
         Dictionary of filter conditions
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     today_start = datetime(now.year, now.month, now.day)
 
     filters = {
@@ -78,7 +78,7 @@ def get_trade_filter_query(filter_type: TradeFilter) -> dict[str, Any]:
     Returns:
         Dictionary of filter conditions
     """
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     today_start = datetime(now.year, now.month, now.day)
     week_start = now - timedelta(days=now.weekday())
     month_start = datetime(now.year, now.month, 1)

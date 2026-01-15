@@ -3,18 +3,18 @@ User Safety Stats Model
 Tracks persistent safety metrics for users (daily loss, volume, etc.)
 """
 
+from datetime import datetime
+
 from sqlalchemy import (
+    Boolean,
     Column,
+    DateTime,
     Float,
     ForeignKey,
-    Integer,
-    String,
     Index,
-    DateTime,
-    Boolean,
+    Integer,
 )
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from .base import Base, TimestampMixin
 

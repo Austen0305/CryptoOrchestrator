@@ -5,7 +5,7 @@ Passwordless authentication using WebAuthn passkeys
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ class PasskeyAuthService:
                 user_id=user_id,
                 credential_id=registration_response.get("id", ""),
                 public_key=b"",  # Would extract from response
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
                 is_backup_eligible=registration_response.get(
                     "is_backup_eligible", False
                 ),
@@ -276,7 +276,7 @@ class PasskeyAuthService:
 
             # Update credential
             credential.counter += 1
-            credential.last_used_at = datetime.utcnow()
+            credential.last_used_at = datetime.now(UTC)
 
             # Remove challenge
             del self.challenges[challenge_key]

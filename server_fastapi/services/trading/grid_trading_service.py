@@ -586,7 +586,7 @@ class GridTradingService:
     ) -> None:
         """Update grid bot performance metrics."""
         # Calculate profit from filled orders
-        grid_state = (
+        (
             json.loads(bot.grid_state) if bot.grid_state else {"filled_orders": []}
         )
 

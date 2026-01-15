@@ -690,10 +690,7 @@ class SmartBotEngine:
         high = np.max(recent)
         current = closes[-1]
 
-        if high == low:
-            k = 50.0
-        else:
-            k = 100 * (current - low) / (high - low)
+        k = 50.0 if high == low else 100 * (current - low) / (high - low)
 
         # Simplified %D (3-period SMA of %K)
         d = k  # In practice, would smooth over multiple %K values
@@ -1056,7 +1053,7 @@ class SmartBotEngine:
 
             bid_volume = sum([float(bid[1]) for bid in bids[:10]]) if bids else 0
             ask_volume = sum([float(ask[1]) for ask in asks[:10]]) if asks else 0
-            total_ob_volume = bid_volume + ask_volume
+            bid_volume + ask_volume
 
             bid_ask_ratio = bid_volume / ask_volume if ask_volume > 0 else 1.0
 

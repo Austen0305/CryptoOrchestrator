@@ -226,7 +226,7 @@ class ReadReplicaManager:
                 logger.error(f"Write engine health check failed: {e}")
 
         # Check read replicas
-        for i, engine in enumerate(self.read_engines):
+        for i, _engine in enumerate(self.read_engines):
             try:
                 async with self.get_read_session() as session:
                     await session.execute("SELECT 1")

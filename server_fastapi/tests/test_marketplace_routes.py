@@ -2,7 +2,7 @@
 Tests for Copy Trading Marketplace API Routes
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient
@@ -123,8 +123,8 @@ class TestMarketplaceRoutes:
         )
         provider_id = apply_response.json()["id"]
 
-        period_start = (datetime.utcnow() - timedelta(days=30)).isoformat()
-        period_end = datetime.utcnow().isoformat()
+        period_start = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        period_end = datetime.now(UTC).isoformat()
 
         response = await client.post(
             f"/api/marketplace/traders/{provider_id}/payout/calculate",
@@ -155,8 +155,8 @@ class TestMarketplaceRoutes:
         )
         provider_id = apply_response.json()["id"]
 
-        period_start = (datetime.utcnow() - timedelta(days=30)).isoformat()
-        period_end = datetime.utcnow().isoformat()
+        period_start = (datetime.now(UTC) - timedelta(days=30)).isoformat()
+        period_end = datetime.now(UTC).isoformat()
 
         response = await client.post(
             f"/api/marketplace/traders/{provider_id}/payout",

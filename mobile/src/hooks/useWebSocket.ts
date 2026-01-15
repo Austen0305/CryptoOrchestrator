@@ -1,12 +1,12 @@
 /**
  * WebSocket Hook for Real-time Updates
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from "react";
 
 interface UseWebSocketResult {
   isConnected: boolean;
   lastMessage: string | null;
-  sendMessage: (message: any) => void;
+  sendMessage: (message: unknown) => void;
 }
 
 export const useWebSocket = (url?: string): UseWebSocketResult => {
@@ -19,14 +19,15 @@ export const useWebSocket = (url?: string): UseWebSocketResult => {
 
     try {
       // Construct full WebSocket URL
-      const wsUrl = url.startsWith('ws://') || url.startsWith('wss://') 
-        ? url 
-        : `ws://localhost:8000${url.startsWith('/') ? url : '/' + url}`;
-      
+      const wsUrl =
+        url.startsWith("ws://") || url.startsWith("wss://")
+          ? url
+          : `ws://localhost:8000${url.startsWith("/") ? url : "/" + url}`;
+
       ws.current = new WebSocket(wsUrl);
 
       ws.current.onopen = () => {
-        console.log('WebSocket connected');
+        console.warn("WebSocket connected");
         setIsConnected(true);
       };
 
@@ -35,16 +36,16 @@ export const useWebSocket = (url?: string): UseWebSocketResult => {
           // Store raw message string for parsing in components
           setLastMessage(event.data);
         } catch (error) {
-          console.error('Failed to handle WebSocket message:', error);
+          console.error("Failed to handle WebSocket message:", error);
         }
       };
 
       ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error("WebSocket error:", error);
       };
 
       ws.current.onclose = () => {
-        console.log('WebSocket disconnected');
+        console.warn("WebSocket disconnected");
         setIsConnected(false);
       };
 
@@ -54,16 +55,16 @@ export const useWebSocket = (url?: string): UseWebSocketResult => {
         }
       };
     } catch (error) {
-      console.error('Failed to create WebSocket:', error);
+      console.error("Failed to create WebSocket:", error);
       return undefined;
     }
   }, [url]);
 
-  const sendMessage = (message: any) => {
+  const sendMessage = (message: unknown) => {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not connected');
+      console.warn("WebSocket is not connected");
     }
   };
 

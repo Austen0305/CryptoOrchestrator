@@ -6,7 +6,7 @@ Provides utilities for deployment, health checks, and rollback
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -40,13 +40,13 @@ class DeploymentManager:
                 return {
                     "status": "healthy",
                     "response": response.json(),
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
         except Exception as e:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def verify_deployment(self) -> dict[str, Any]:
@@ -63,7 +63,7 @@ class DeploymentManager:
         return {
             "status": "success" if all_healthy else "failed",
             "checks": checks,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     async def _check_api(self) -> dict[str, Any]:
@@ -121,7 +121,7 @@ class DeploymentManager:
             "version": version,
             "environment": environment,
             "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "details": details or {},
         }
         self.deployment_history.append(deployment)

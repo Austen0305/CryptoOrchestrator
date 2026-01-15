@@ -213,7 +213,7 @@ class BacktestEngine:
         simulated_returns = []
         all_metrics = []
 
-        for i in range(config.num_simulations):
+        for _i in range(config.num_simulations):
             # Randomize trades
             if config.randomize_trades:
                 simulated_trades = self._randomize_trade_order(base_trades)
@@ -365,7 +365,6 @@ class BacktestEngine:
         # Mock implementation - integrate with actual data source
         import random
 
-        dates = []
         current = datetime.fromisoformat(start)
         end_dt = datetime.fromisoformat(end)
 

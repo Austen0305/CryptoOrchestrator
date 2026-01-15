@@ -4,7 +4,7 @@ Automated compliance monitoring and reporting for SOC 2 controls.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -35,7 +35,7 @@ class SOC2ComplianceService:
         Returns:
             Dict with control status and evidence
         """
-        period_start = datetime.utcnow() - timedelta(days=period_days)
+        period_start = datetime.now(UTC) - timedelta(days=period_days)
 
         # Control-specific checks
         checks = {
@@ -59,7 +59,7 @@ class SOC2ComplianceService:
             "evidence": check_result.get("evidence", {}),
             "findings": check_result.get("findings", []),
             "period_start": period_start.isoformat(),
-            "period_end": datetime.utcnow().isoformat(),
+            "period_end": datetime.now(UTC).isoformat(),
         }
 
     async def _check_access_credentials(self, period_start: datetime) -> dict[str, Any]:
@@ -72,7 +72,7 @@ class SOC2ComplianceService:
             users_with_2fa_result = await self.db.execute(
                 select(func.count(User.id)).where(
                     and_(
-                        User.two_factor_enabled == True,
+                        User.two_factor_enabled,
                         User.created_at >= period_start,
                     )
                 )
@@ -378,7 +378,7 @@ class SOC2ComplianceService:
         ]
 
         report = {
-            "report_date": datetime.utcnow().isoformat(),
+            "report_date": datetime.now(UTC).isoformat(),
             "period_days": period_days,
             "controls": {},
             "summary": {

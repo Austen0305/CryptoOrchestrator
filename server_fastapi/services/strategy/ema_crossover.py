@@ -1,7 +1,8 @@
-from .base_strategy import BaseStrategy, StrategySignal, StrategyConfig
-from typing import Any, Dict, List, Optional
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any
+
+from .base_strategy import BaseStrategy, StrategySignal
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class EMACrossoverStrategy(BaseStrategy):
     Generates 'sell' when Short EMA crosses below Long EMA.
     """
 
-    async def generate_signal(self, market_data: Dict[str, Any]) -> StrategySignal:
+    async def generate_signal(self, market_data: dict[str, Any]) -> StrategySignal:
         """
         Expects market_data to contain 'ema_short', 'ema_long', and 'current_price'.
         """
@@ -35,7 +36,7 @@ class EMACrossoverStrategy(BaseStrategy):
             action = "sell"
             confidence = 0.8
 
-        self.last_run = datetime.utcnow()
+        self.last_run = datetime.now(UTC)
 
         # Calculate dynamic stop-loss/take-profit if needed
         stop_loss = price * 0.98 if action == "buy" else price * 1.02
@@ -50,7 +51,7 @@ class EMACrossoverStrategy(BaseStrategy):
             metadata={"short_ema": short_ema, "long_ema": long_ema},
         )
 
-    async def on_trade_executed(self, trade_result: Dict[str, Any]) -> None:
+    async def on_trade_executed(self, trade_result: dict[str, Any]) -> None:
         self.performance_history.append(trade_result)
         logger.info(
             f"EMACrossoverStrategy trade recorded: {trade_result.get('tx_hash')}"

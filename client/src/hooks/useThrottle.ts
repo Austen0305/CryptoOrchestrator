@@ -7,17 +7,17 @@ import { useRef, useCallback } from 'react';
 
 export function useThrottle<T extends (...args: unknown[]) => any>(
   func: T,
-  delay: number = 500
+  delay: number
 ): T {
-  const lastRun = useRef<number>(0);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastRunRef = useRef<number>(0);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  return useCallback(
+  const throttledCallback = useCallback(
     ((...args: Parameters<T>) => {
       const now = Date.now();
       
-      if (now - lastRun.current >= delay) {
-        lastRun.current = now;
+      if (now - lastRunRef.current >= delay) {
+        lastRunRef.current = now;
         func(...args);
       } else {
         if (timeoutRef.current) {
@@ -25,12 +25,14 @@ export function useThrottle<T extends (...args: unknown[]) => any>(
         }
         
         timeoutRef.current = setTimeout(() => {
-          lastRun.current = Date.now();
+          lastRunRef.current = Date.now();
           func(...args);
-        }, delay - (now - lastRun.current));
+        }, delay - (now - lastRunRef.current));
       }
     }) as T,
     [func, delay]
   );
+
+  return throttledCallback;
 }
 

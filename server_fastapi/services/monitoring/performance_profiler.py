@@ -6,7 +6,7 @@ Identifies slow endpoints and slow database queries.
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import event
@@ -46,7 +46,7 @@ class PerformanceProfiler:
                 "query": query[:200],  # Truncate long queries
                 "duration_ms": duration_ms,
                 "params": str(params)[:200] if params else None,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
             self.slow_queries.append(slow_query)
 
@@ -96,7 +96,7 @@ class PerformanceProfiler:
                     "max_ms": max(times),
                     "count": len(times),
                     "status_code": status_code,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                 }
 
                 # Avoid duplicates (check if already logged recently)
@@ -106,7 +106,7 @@ class PerformanceProfiler:
                     if e["method"] == method
                     and e["path"] == path
                     and (
-                        datetime.utcnow() - datetime.fromisoformat(e["timestamp"])
+                        datetime.now(UTC) - datetime.fromisoformat(e["timestamp"])
                     ).total_seconds()
                     < 300
                 ]
@@ -208,7 +208,7 @@ class PerformanceProfiler:
 
     def clear_old_entries(self, max_age_hours: int = 24) -> None:
         """Clear old profiling entries"""
-        cutoff = datetime.utcnow() - timedelta(hours=max_age_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=max_age_hours)
 
         # Clear old slow queries
         self.slow_queries = [

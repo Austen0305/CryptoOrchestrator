@@ -6,7 +6,7 @@ Manages cryptographic secret rotation for production security
 import hashlib
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class SecretRotationService:
         Returns:
             True if rotation is needed
         """
-        age = datetime.utcnow() - last_rotation
+        age = datetime.now(UTC) - last_rotation
         should_rotate = age > timedelta(days=days)
 
         if should_rotate:
@@ -97,7 +97,7 @@ class SecretRotationService:
         stmt = (
             update(User)
             .where(User.id == user_id)
-            .values(api_key_hash=new_hash, api_key_rotated_at=datetime.utcnow())
+            .values(api_key_hash=new_hash, api_key_rotated_at=datetime.now(UTC))
         )
 
         await db_session.execute(stmt)
@@ -118,7 +118,7 @@ class SecretRotationService:
             rotation_file: Path to rotation log file
         """
         try:
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(UTC).isoformat()
             log_entry = f"{timestamp} - {secret_type} rotated\n"
 
             with open(rotation_file, "a") as f:
@@ -161,7 +161,7 @@ class SecretRotationService:
             lines.append(f"{key}={value}")
 
         lines.append("")
-        lines.append(f"# Generated at: {datetime.utcnow().isoformat()}")
+        lines.append(f"# Generated at: {datetime.now(UTC).isoformat()}")
 
         return "\n".join(lines)
 

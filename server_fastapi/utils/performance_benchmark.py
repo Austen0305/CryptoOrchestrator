@@ -3,12 +3,13 @@ Performance Benchmarking Utilities
 Provides utilities for benchmarking and performance testing
 """
 
+import contextlib
 import logging
 import statistics
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ class BenchmarkResult:
 
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(UTC)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
@@ -79,10 +80,8 @@ class PerformanceBenchmark:
         """Benchmark async function"""
         # Warmup
         for _ in range(warmup):
-            try:
+            with contextlib.suppress(Exception):
                 await func(*args, **kwargs)
-            except Exception:
-                pass
 
         # Benchmark
         times = []
@@ -110,10 +109,8 @@ class PerformanceBenchmark:
         """Benchmark sync function"""
         # Warmup
         for _ in range(warmup):
-            try:
+            with contextlib.suppress(Exception):
                 func(*args, **kwargs)
-            except Exception:
-                pass
 
         # Benchmark
         times = []

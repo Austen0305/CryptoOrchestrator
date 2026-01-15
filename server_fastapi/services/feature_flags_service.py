@@ -4,7 +4,7 @@ Manages feature flags and A/B testing
 """
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, case, func, select
@@ -138,10 +138,10 @@ class FeatureFlagsService:
             return {}
 
         # Get evaluation stats
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(UTC) - timedelta(days=days)
         eval_stmt = select(
             func.count(FlagEvaluation.id).label("total_evaluations"),
-            func.count(case((FlagEvaluation.enabled == True, 1))).label(
+            func.count(case((FlagEvaluation.enabled, 1))).label(
                 "enabled_count"
             ),
         ).where(
@@ -184,7 +184,7 @@ class FeatureFlagsService:
             description=description,
             variants=variants,
             primary_metric=primary_metric,
-            start_date=start_date or datetime.utcnow(),
+            start_date=start_date or datetime.now(UTC),
             end_date=end_date,
             is_active=True,
         )
@@ -277,7 +277,7 @@ class FeatureFlagsService:
 
         if not assignment.converted:
             assignment.converted = True
-            assignment.converted_at = datetime.utcnow()
+            assignment.converted_at = datetime.now(UTC)
             if conversion_value:
                 assignment.conversion_value = conversion_value
             await self.db.commit()
@@ -300,7 +300,7 @@ class FeatureFlagsService:
             select(
                 ExperimentAssignment.variant,
                 func.count(ExperimentAssignment.id).label("total_assignments"),
-                func.count(case((ExperimentAssignment.converted == True, 1))).label(
+                func.count(case((ExperimentAssignment.converted, 1))).label(
                     "conversions"
                 ),
                 func.sum(ExperimentAssignment.conversion_value).label("total_value"),

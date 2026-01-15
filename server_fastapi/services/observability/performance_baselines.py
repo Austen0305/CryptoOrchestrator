@@ -7,7 +7,7 @@ import logging
 import statistics
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,7 @@ class PerformanceBaselinesService:
             value: Metric value
             timestamp: Optional timestamp
         """
-        ts = timestamp or datetime.utcnow()
+        ts = timestamp or datetime.now(UTC)
         self.metric_history[metric_name].append((ts, value))
 
     def calculate_baseline(
@@ -100,7 +100,7 @@ class PerformanceBaselinesService:
             return None
 
         # Get values within time window
-        cutoff = datetime.utcnow() - timedelta(hours=time_window_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=time_window_hours)
         recent_values = [v for t, v in history if t >= cutoff]
 
         if len(recent_values) < 10:
@@ -136,7 +136,7 @@ class PerformanceBaselinesService:
             percentile_95=percentile_95,
             percentile_99=percentile_99,
             sample_count=len(recent_values),
-            calculated_at=datetime.utcnow(),
+            calculated_at=datetime.now(UTC),
             time_window_hours=time_window_hours,
         )
 
@@ -169,7 +169,7 @@ class PerformanceBaselinesService:
             return None
 
         # Get recent values
-        cutoff = datetime.utcnow() - timedelta(hours=analysis_period_hours)
+        cutoff = datetime.now(UTC) - timedelta(hours=analysis_period_hours)
         recent_data = [(t, v) for t, v in history if t >= cutoff]
 
         if len(recent_data) < 2:
@@ -188,7 +188,7 @@ class PerformanceBaselinesService:
         n = len(times)
         sum_x = sum(times)
         sum_y = sum(values)
-        sum_xy = sum(t * v for t, v in zip(times, values))
+        sum_xy = sum(t * v for t, v in zip(times, values, strict=False))
         sum_x2 = sum(t * t for t in times)
 
         if n * sum_x2 - sum_x * sum_x == 0:
@@ -208,7 +208,7 @@ class PerformanceBaselinesService:
 
         # Calculate trend strength (R-squared approximation)
         mean_y = sum_y / n
-        ss_res = sum((v - (slope * t + intercept)) ** 2 for t, v in zip(times, values))
+        ss_res = sum((v - (slope * t + intercept)) ** 2 for t, v in zip(times, values, strict=False))
         ss_tot = sum((v - mean_y) ** 2 for v in values)
 
         if ss_tot > 0:

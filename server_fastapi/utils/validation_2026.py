@@ -5,7 +5,7 @@ Provides robust validation for all user inputs with security hardening
 
 import logging
 import re
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import HTTPException, status
 
@@ -31,7 +31,7 @@ XSS_PATTERNS = [
 
 async def validate_transaction_intent(
     user_id: int,
-    signal: Dict[str, Any]
+    signal: dict[str, Any]
 ) -> None:
     """
     Validate transaction intent against Risk Manager before execution.

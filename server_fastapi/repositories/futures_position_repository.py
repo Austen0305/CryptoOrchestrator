@@ -58,7 +58,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         """Get all open futures positions with eager loading, optionally filtered by user."""
         query = (
             select(FuturesPosition)
-            .where(FuturesPosition.is_open == True, ~FuturesPosition.is_deleted)
+            .where(FuturesPosition.is_open, ~FuturesPosition.is_deleted)
             .options(joinedload(FuturesPosition.user))
         )
 
@@ -94,7 +94,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
         margin_ratio: float,
     ) -> FuturesPosition | None:
         """Update futures position P&L and risk metrics."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         stmt = (
             update(FuturesPosition)
@@ -111,7 +111,7 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
                 pnl_percent=pnl_percent,
                 liquidation_risk=liquidation_risk,
                 margin_ratio=margin_ratio,
-                last_updated_at=datetime.utcnow(),
+                last_updated_at=datetime.now(UTC),
             )
             .returning(FuturesPosition)
         )
@@ -147,8 +147,8 @@ class FuturesPositionRepository(SQLAlchemyRepository[FuturesPosition]):
                 status="closed",
                 realized_pnl=realized_pnl,
                 total_pnl=total_pnl,
-                closed_at=datetime.utcnow(),
-                last_updated_at=datetime.utcnow(),
+                closed_at=datetime.now(UTC),
+                last_updated_at=datetime.now(UTC),
             )
             .returning(FuturesPosition)
         )

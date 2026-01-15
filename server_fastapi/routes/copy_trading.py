@@ -93,7 +93,7 @@ async def get_followed_traders(
         traders = await service.get_followed_traders(follower_id)
 
         # Apply pagination (service returns all, paginate in route)
-        total = len(traders)
+        len(traders)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_traders = traders[start_idx:end_idx]

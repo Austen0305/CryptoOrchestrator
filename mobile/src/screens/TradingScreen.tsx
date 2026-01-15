@@ -3,7 +3,7 @@
  * Allows users to place trades and execute DEX swaps on mobile
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -14,19 +14,17 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { apiService } from '../services/api';
-import BiometricAuth from '../services/BiometricAuth';
-import { useOffline } from '../hooks/useOffline';
-import OfflineIndicator from '../components/OfflineIndicator';
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { api } from "../services/api";
+import BiometricAuth from "../services/BiometricAuth";
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000';
+import OfflineIndicator from "../components/OfflineIndicator";
 
 interface TradingScreenProps {
-  mode?: 'paper' | 'real' | 'live';
+  mode?: "paper" | "real" | "live";
 }
 
 interface DexQuote {
@@ -40,30 +38,28 @@ interface DexQuote {
   route?: string[];
 }
 
-export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
-  const { isOnline, queueAction } = useOffline();
-  const [tradingType, setTradingType] = useState<'exchange' | 'dex'>('exchange');
-  const [pair, setPair] = useState('BTC/USD');
-  const [side, setSide] = useState<'buy' | 'sell'>('buy');
-  const [orderType, setOrderType] = useState<'market' | 'limit'>('market');
-  const [amount, setAmount] = useState('');
-  const [price, setPrice] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function TradingScreen({ mode = "paper" }: TradingScreenProps) {
+  const [tradingType, setTradingType] = useState<"exchange" | "dex">("exchange");
+  const [pair, setPair] = useState("BTC/USD");
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [orderType, setOrderType] = useState<"market" | "limit">("market");
+  const [amount, setAmount] = useState("");
+  const [price, setPrice] = useState("");
 
   // DEX Trading State
   const [chainId, setChainId] = useState(1); // Ethereum
-  const [tokenIn, setTokenIn] = useState('USDC');
-  const [tokenOut, setTokenOut] = useState('ETH');
-  const [dexAmount, setDexAmount] = useState('');
-  const [slippage, setSlippage] = useState('0.5');
+  const [tokenIn, setTokenIn] = useState("USDC");
+  const [tokenOut, setTokenOut] = useState("ETH");
+  const [dexAmount, setDexAmount] = useState("");
+  const [slippage, setSlippage] = useState("0.5");
   const [requireBiometric, setRequireBiometric] = useState(true);
 
   // Fetch DEX quote
   const { data: dexQuote, isLoading: quoteLoading } = useQuery({
-    queryKey: ['dexQuote', tokenIn, tokenOut, dexAmount, chainId],
+    queryKey: ["dexQuote", tokenIn, tokenOut, dexAmount, chainId],
     queryFn: async () => {
       if (!dexAmount || parseFloat(dexAmount) <= 0) return null;
-      const response = await apiService.getDexQuote({
+      const response = await api.getDexQuote({
         token_in: tokenIn,
         token_out: tokenOut,
         amount: parseFloat(dexAmount),
@@ -71,7 +67,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
       });
       return response.data as DexQuote;
     },
-    enabled: tradingType === 'dex' && !!dexAmount && parseFloat(dexAmount) > 0,
+    enabled: tradingType === "dex" && !!dexAmount && parseFloat(dexAmount) > 0,
     refetchInterval: 10000, // Refresh quote every 10 seconds
   });
 
@@ -79,19 +75,20 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
   const executeTradeMutation = useMutation({
     mutationFn: (data: {
       pair: string;
-      side: 'buy' | 'sell';
-      type: 'market' | 'limit';
+      side: "buy" | "sell";
+      type: "market" | "limit";
       amount: number;
       price?: number;
-      mode?: 'paper' | 'real';
-    }) => apiService.createTrade(data),
+      mode?: "paper" | "real";
+    }) => api.createTrade(data),
     onSuccess: () => {
-      Alert.alert('Success', 'Trade executed successfully');
-      setAmount('');
-      setPrice('');
+      Alert.alert("Success", "Trade executed successfully");
+      setAmount("");
+      setPrice("");
     },
-    onError: (error: any) => {
-      Alert.alert('Trade Failed', error.response?.data?.detail || 'An error occurred');
+    onError: (err: unknown) => {
+      const errorData = (err as { response?: { data?: { detail?: string } } }).response?.data;
+      Alert.alert("Trade Failed", errorData?.detail ?? (err as Error).message);
     },
   });
 
@@ -104,61 +101,60 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
       chain_id: number;
       slippage?: number;
       aggregator?: string;
-    }) => apiService.executeDexSwap(data),
+    }) => api.executeDexSwap(data),
     onSuccess: () => {
-      Alert.alert('Success', 'Swap executed successfully');
-      setDexAmount('');
+      Alert.alert("Success", "Swap executed successfully");
+      setDexAmount("");
     },
-    onError: (error: any) => {
-      Alert.alert('Swap Failed', error.response?.data?.detail || 'An error occurred');
+    onError: (err: unknown) => {
+      const errorData = (err as { response?: { data?: { detail?: string } } }).response?.data;
+      Alert.alert("Swap Failed", errorData?.detail ?? (err as Error).message);
     },
   });
 
   const handleTrade = async () => {
     if (!amount || parseFloat(amount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert("Error", "Please enter a valid amount");
       return;
     }
 
-    if (orderType === 'limit' && (!price || parseFloat(price) <= 0)) {
-      Alert.alert('Error', 'Please enter a valid price for limit orders');
+    if (orderType === "limit" && (!price || parseFloat(price) <= 0)) {
+      Alert.alert("Error", "Please enter a valid price for limit orders");
       return;
     }
 
     // Biometric confirmation for real money trades
-    if (mode === 'real' && requireBiometric) {
+    if (mode === "real" && requireBiometric) {
       try {
-        const result = await BiometricAuth.authenticate(
-          'Confirm Real Money Trade'
-        );
+        const result = await BiometricAuth.authenticate("Confirm Real Money Trade");
         if (!result.success) {
-          Alert.alert('Authentication Failed', result.error || 'Biometric authentication required');
+          Alert.alert("Authentication Failed", result.error ?? "Biometric authentication required");
           return;
         }
       } catch (error) {
-        Alert.alert('Error', 'Biometric authentication failed');
+        Alert.alert("Error", "Biometric authentication failed");
         return;
       }
     }
 
     // Confirmation for real money trades
-    if (mode === 'real') {
+    if (mode === "real" || mode === "live") {
       Alert.alert(
-        'Confirm Real Money Trade',
+        "Confirm Real Money Trade",
         `Are you sure you want to ${side} ${amount} ${pair}?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: "Cancel", style: "cancel" },
           {
-            text: 'Confirm',
-            style: 'destructive',
+            text: "Confirm",
+            style: "destructive",
             onPress: () => {
-              const normalizedMode = mode === 'live' ? 'real' : mode;
+              const normalizedMode = mode === "live" ? "real" : mode;
               executeTradeMutation.mutate({
                 pair,
                 side,
                 type: orderType,
                 amount: parseFloat(amount),
-                price: orderType === 'limit' ? parseFloat(price) : undefined,
+                price: orderType === "limit" ? parseFloat(price) : undefined,
                 mode: normalizedMode,
               });
             },
@@ -171,32 +167,32 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
         side,
         type: orderType,
         amount: parseFloat(amount),
-        price: orderType === 'limit' ? parseFloat(price) : undefined,
-        mode: mode === 'live' ? 'real' : mode,
+        price: orderType === "limit" ? parseFloat(price) : undefined,
+        mode: mode,
       });
     }
   };
 
   const handleDexSwap = async () => {
     if (!dexAmount || parseFloat(dexAmount) <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      Alert.alert("Error", "Please enter a valid amount");
       return;
     }
 
     if (!dexQuote) {
-      Alert.alert('Error', 'Please wait for quote to load');
+      Alert.alert("Error", "Please wait for quote to load");
       return;
     }
 
     // Price impact warning
     if (dexQuote.price_impact > 0.01) {
       Alert.alert(
-        'High Price Impact Warning',
+        "High Price Impact Warning",
         `Price impact is ${(dexQuote.price_impact * 100).toFixed(2)}%. This may result in unfavorable execution. Continue?`,
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: "Cancel", style: "cancel" },
           {
-            text: 'Continue',
+            text: "Continue",
             onPress: () => executeSwap(),
           },
         ]
@@ -209,17 +205,15 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
 
   const executeSwap = async () => {
     // Biometric confirmation for real money swaps
-    if (mode === 'real' && requireBiometric) {
+    if (mode === "real" && requireBiometric) {
       try {
-        const result = await BiometricAuth.authenticate(
-          'Confirm DEX Swap'
-        );
+        const result = await BiometricAuth.authenticate("Confirm DEX Swap");
         if (!result.success) {
-          Alert.alert('Authentication Failed', result.error || 'Biometric authentication required');
+          Alert.alert("Authentication Failed", result.error ?? "Biometric authentication required");
           return;
         }
       } catch (error) {
-        Alert.alert('Error', 'Biometric authentication failed');
+        Alert.alert("Error", "Biometric authentication failed");
         return;
       }
     }
@@ -243,12 +237,12 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
         {/* Mode Indicator */}
         <View style={styles.modeIndicator}>
           <MaterialCommunityIcons
-            name={mode === 'real' ? 'shield-alert' : 'shield-check'}
+            name={mode === "real" ? "shield-alert" : "shield-check"}
             size={20}
-            color={mode === 'real' ? '#ef4444' : '#22c55e'}
+            color={mode === "real" ? "#ef4444" : "#22c55e"}
           />
-          <Text style={[styles.modeText, mode === 'real' && styles.modeTextReal]}>
-            {mode === 'real' ? 'Real Money Trading' : 'Paper Trading'}
+          <Text style={[styles.modeText, mode === "real" && styles.modeTextReal]}>
+            {mode === "real" ? "Real Money Trading" : "Paper Trading"}
           </Text>
         </View>
 
@@ -257,32 +251,26 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
           <Text style={styles.label}>Trading Type</Text>
           <View style={styles.toggleContainer}>
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                tradingType === 'exchange' && styles.toggleButtonActive,
-              ]}
-              onPress={() => setTradingType('exchange')}
+              style={[styles.toggleButton, tradingType === "exchange" && styles.toggleButtonActive]}
+              onPress={() => setTradingType("exchange")}
             >
               <Text
                 style={[
                   styles.toggleButtonText,
-                  tradingType === 'exchange' && styles.toggleButtonTextActive,
+                  tradingType === "exchange" && styles.toggleButtonTextActive,
                 ]}
               >
                 Exchange
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.toggleButton,
-                tradingType === 'dex' && styles.toggleButtonActive,
-              ]}
-              onPress={() => setTradingType('dex')}
+              style={[styles.toggleButton, tradingType === "dex" && styles.toggleButtonActive]}
+              onPress={() => setTradingType("dex")}
             >
               <Text
                 style={[
                   styles.toggleButtonText,
-                  tradingType === 'dex' && styles.toggleButtonTextActive,
+                  tradingType === "dex" && styles.toggleButtonTextActive,
                 ]}
               >
                 DEX Swap
@@ -291,17 +279,13 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
           </View>
         </View>
 
-        {tradingType === 'exchange' ? (
+        {tradingType === "exchange" ? (
           <>
             {/* Exchange Trading Form */}
             <View style={styles.section}>
               <Text style={styles.label}>Trading Pair</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={pair}
-                  onValueChange={setPair}
-                  style={styles.picker}
-                >
+                <Picker selectedValue={pair} onValueChange={setPair} style={styles.picker}>
                   <Picker.Item label="BTC/USD" value="BTC/USD" />
                   <Picker.Item label="ETH/USD" value="ETH/USD" />
                   <Picker.Item label="BTC/USDT" value="BTC/USDT" />
@@ -316,21 +300,18 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
                 <TouchableOpacity
                   style={[
                     styles.sideButton,
-                    side === 'buy' && styles.sideButtonActive,
-                    side === 'buy' && styles.sideButtonBuy,
+                    side === "buy" && styles.sideButtonActive,
+                    side === "buy" && styles.sideButtonBuy,
                   ]}
-                  onPress={() => setSide('buy')}
+                  onPress={() => setSide("buy")}
                 >
                   <MaterialCommunityIcons
                     name="arrow-down"
                     size={20}
-                    color={side === 'buy' ? '#fff' : '#9ca3af'}
+                    color={side === "buy" ? "#fff" : "#9ca3af"}
                   />
                   <Text
-                    style={[
-                      styles.sideButtonText,
-                      side === 'buy' && styles.sideButtonTextActive,
-                    ]}
+                    style={[styles.sideButtonText, side === "buy" && styles.sideButtonTextActive]}
                   >
                     Buy
                   </Text>
@@ -338,21 +319,18 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
                 <TouchableOpacity
                   style={[
                     styles.sideButton,
-                    side === 'sell' && styles.sideButtonActive,
-                    side === 'sell' && styles.sideButtonSell,
+                    side === "sell" && styles.sideButtonActive,
+                    side === "sell" && styles.sideButtonSell,
                   ]}
-                  onPress={() => setSide('sell')}
+                  onPress={() => setSide("sell")}
                 >
                   <MaterialCommunityIcons
                     name="arrow-up"
                     size={20}
-                    color={side === 'sell' ? '#fff' : '#9ca3af'}
+                    color={side === "sell" ? "#fff" : "#9ca3af"}
                   />
                   <Text
-                    style={[
-                      styles.sideButtonText,
-                      side === 'sell' && styles.sideButtonTextActive,
-                    ]}
+                    style={[styles.sideButtonText, side === "sell" && styles.sideButtonTextActive]}
                   >
                     Sell
                   </Text>
@@ -364,32 +342,26 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
               <Text style={styles.label}>Order Type</Text>
               <View style={styles.sideContainer}>
                 <TouchableOpacity
-                  style={[
-                    styles.sideButton,
-                    orderType === 'market' && styles.sideButtonActive,
-                  ]}
-                  onPress={() => setOrderType('market')}
+                  style={[styles.sideButton, orderType === "market" && styles.sideButtonActive]}
+                  onPress={() => setOrderType("market")}
                 >
                   <Text
                     style={[
                       styles.sideButtonText,
-                      orderType === 'market' && styles.sideButtonTextActive,
+                      orderType === "market" && styles.sideButtonTextActive,
                     ]}
                   >
                     Market
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[
-                    styles.sideButton,
-                    orderType === 'limit' && styles.sideButtonActive,
-                  ]}
-                  onPress={() => setOrderType('limit')}
+                  style={[styles.sideButton, orderType === "limit" && styles.sideButtonActive]}
+                  onPress={() => setOrderType("limit")}
                 >
                   <Text
                     style={[
                       styles.sideButtonText,
-                      orderType === 'limit' && styles.sideButtonTextActive,
+                      orderType === "limit" && styles.sideButtonTextActive,
                     ]}
                   >
                     Limit
@@ -412,7 +384,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
               </View>
             </View>
 
-            {orderType === 'limit' && (
+            {orderType === "limit" && (
               <View style={styles.section}>
                 <Text style={styles.label}>Price</Text>
                 <View style={styles.inputContainer}>
@@ -431,23 +403,23 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
             <TouchableOpacity
               style={[
                 styles.executeButton,
-                side === 'buy' ? styles.executeButtonBuy : styles.executeButtonSell,
-                (executeTradeMutation.isPending || loading) && styles.executeButtonDisabled,
+                side === "buy" ? styles.executeButtonBuy : styles.executeButtonSell,
+                executeTradeMutation.isPending && styles.executeButtonDisabled,
               ]}
               onPress={handleTrade}
-              disabled={executeTradeMutation.isPending || loading}
+              disabled={executeTradeMutation.isPending}
             >
-              {executeTradeMutation.isPending || loading ? (
+              {executeTradeMutation.isPending ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
                   <MaterialCommunityIcons
-                    name={side === 'buy' ? 'arrow-down' : 'arrow-up'}
+                    name={side === "buy" ? "arrow-down" : "arrow-up"}
                     size={20}
                     color="#fff"
                   />
                   <Text style={styles.executeButtonText}>
-                    {side === 'buy' ? 'Buy' : 'Sell'} {pair}
+                    {side === "buy" ? "Buy" : "Sell"} {pair}
                   </Text>
                 </>
               )}
@@ -459,11 +431,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
             <View style={styles.section}>
               <Text style={styles.label}>Blockchain Network</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={chainId}
-                  onValueChange={setChainId}
-                  style={styles.picker}
-                >
+                <Picker selectedValue={chainId} onValueChange={setChainId} style={styles.picker}>
                   <Picker.Item label="Ethereum" value={1} />
                   <Picker.Item label="Base" value={8453} />
                   <Picker.Item label="Arbitrum" value={42161} />
@@ -475,11 +443,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
             <View style={styles.section}>
               <Text style={styles.label}>Token In</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={tokenIn}
-                  onValueChange={setTokenIn}
-                  style={styles.picker}
-                >
+                <Picker selectedValue={tokenIn} onValueChange={setTokenIn} style={styles.picker}>
                   <Picker.Item label="USDC" value="USDC" />
                   <Picker.Item label="USDT" value="USDT" />
                   <Picker.Item label="ETH" value="ETH" />
@@ -491,11 +455,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
             <View style={styles.section}>
               <Text style={styles.label}>Token Out</Text>
               <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={tokenOut}
-                  onValueChange={setTokenOut}
-                  style={styles.picker}
-                >
+                <Picker selectedValue={tokenOut} onValueChange={setTokenOut} style={styles.picker}>
                   <Picker.Item label="ETH" value="ETH" />
                   <Picker.Item label="USDC" value="USDC" />
                   <Picker.Item label="USDT" value="USDT" />
@@ -526,7 +486,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
               </View>
             )}
 
-            {dexQuote && !quoteLoading && (
+            {!quoteLoading && dexQuote && (
               <View style={styles.quoteCard}>
                 <Text style={styles.quoteTitle}>Swap Quote</Text>
                 <View style={styles.quoteRow}>
@@ -577,7 +537,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
               </View>
             </View>
 
-            {mode === 'real' && (
+            {mode === "real" && (
               <View style={styles.section}>
                 <View style={styles.switchRow}>
                   <View style={styles.switchInfo}>
@@ -587,7 +547,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
                   <Switch
                     value={requireBiometric}
                     onValueChange={setRequireBiometric}
-                    trackColor={{ false: '#374151', true: '#3b82f6' }}
+                    trackColor={{ false: "#374151", true: "#3b82f6" }}
                     thumbColor="#fff"
                   />
                 </View>
@@ -598,8 +558,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
               style={[
                 styles.executeButton,
                 styles.executeButtonDex,
-                (executeDexSwapMutation.isPending || !dexQuote) &&
-                  styles.executeButtonDisabled,
+                (executeDexSwapMutation.isPending || !dexQuote) && styles.executeButtonDisabled,
               ]}
               onPress={handleDexSwap}
               disabled={executeDexSwapMutation.isPending || !dexQuote}
@@ -617,7 +576,7 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
         )}
 
         {/* Warning for real money */}
-        {mode === 'real' && (
+        {mode === "real" && (
           <View style={styles.warningContainer}>
             <MaterialCommunityIcons name="alert" size={20} color="#ef4444" />
             <Text style={styles.warningText}>
@@ -633,89 +592,89 @@ export default function TradingScreen({ mode = 'paper' }: TradingScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: "#0f172a",
   },
   content: {
     padding: 16,
   },
   modeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   modeText: {
-    color: '#22c55e',
+    color: "#22c55e",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: 8,
   },
   modeTextReal: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   section: {
     marginBottom: 24,
   },
   label: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 14,
     marginBottom: 8,
   },
   toggleContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   toggleButton: {
     flex: 1,
     padding: 12,
     borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   toggleButtonActive: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
   },
   toggleButtonText: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   toggleButtonTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   pickerContainer: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   picker: {
-    color: '#fff',
+    color: "#fff",
   },
   sideContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   sideButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
     gap: 8,
     minHeight: 44,
   },
@@ -723,37 +682,37 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   sideButtonBuy: {
-    borderColor: '#22c55e',
-    backgroundColor: '#22c55e',
+    borderColor: "#22c55e",
+    backgroundColor: "#22c55e",
   },
   sideButtonSell: {
-    borderColor: '#ef4444',
-    backgroundColor: '#ef4444',
+    borderColor: "#ef4444",
+    backgroundColor: "#ef4444",
   },
   sideButtonText: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   sideButtonTextActive: {
-    color: '#fff',
+    color: "#fff",
   },
   inputContainer: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   input: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
     padding: 16,
     minHeight: 44,
   },
   executeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
     borderRadius: 8,
     marginTop: 8,
@@ -761,103 +720,103 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   executeButtonBuy: {
-    backgroundColor: '#22c55e',
+    backgroundColor: "#22c55e",
   },
   executeButtonSell: {
-    backgroundColor: '#ef4444',
+    backgroundColor: "#ef4444",
   },
   executeButtonDex: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
   },
   executeButtonDisabled: {
     opacity: 0.6,
   },
   executeButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   warningContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: 24,
     padding: 12,
-    backgroundColor: '#ef4444',
+    backgroundColor: "#ef4444",
     opacity: 0.1,
     borderRadius: 8,
     gap: 8,
   },
   warningText: {
     flex: 1,
-    color: '#ef4444',
+    color: "#ef4444",
     fontSize: 12,
   },
   quoteContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     padding: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     marginBottom: 16,
     gap: 8,
   },
   quoteText: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 14,
   },
   quoteCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     padding: 16,
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   quoteTitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
   },
   quoteRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   quoteLabel: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 14,
   },
   quoteValue: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   warning: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
   success: {
-    color: '#22c55e',
+    color: "#22c55e",
   },
   switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   switchInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     flex: 1,
   },
   switchLabel: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 14,
   },
 });

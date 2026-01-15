@@ -101,7 +101,7 @@ class GRUEngine:
             )
 
             # GRU layers with return_sequences=True (except last layer)
-            for i in range(self.config.num_layers - 1):
+            for _i in range(self.config.num_layers - 1):
                 model.add(
                     layers.GRU(
                         self.config.gru_units,

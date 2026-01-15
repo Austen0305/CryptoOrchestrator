@@ -44,7 +44,7 @@ class MiddlewareManager:
 
     def _load_config(self):
         """Load middleware configuration from environment and defaults"""
-        is_production = os.getenv("NODE_ENV") == "production"
+        os.getenv("NODE_ENV") == "production"
         is_testing = os.getenv("TESTING", "false").lower() == "true"
         enable_heavy = os.getenv("ENABLE_HEAVY_MIDDLEWARE", "false").lower() == "true"
 

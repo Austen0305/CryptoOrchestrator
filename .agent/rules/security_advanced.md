@@ -1,21 +1,29 @@
-Priority: CRITICAL
-Scope: READ-ONLY
-Overrides: NONE
-
 ---
 trigger: always_on
-glob: "server_fastapi/services/security/**/*"
-description: Advanced security standards for high-stakes financial logic.
+glob: ["server_fastapi/services/security/**/*"]
+description: Advanced security standards for high-stakes financial logic (MPC/ZKP/Formal).
 ---
 
-# Advanced Security Standards`r`n`r`n## Regulatory Alignment`r`n- **MiCA & GENIUS**: All custody, reserve, and AML logic must align with EU MiCA (2025) and US GENIUS Act (2026/2027) implementing regulations.
+# Advanced Security Standards (2027 Edition)
 
-## Cryptography
-- **MPC & ZKP**: Use multi-party computation (MPC) and zero-knowledge proofs (ZKP) for sensitive multi-signature operations.
-- **Formal Verification**: Core state-machine logic for trade execution must undergo formal verification.
+## 🔐 Cryptographic Sovereignty
 
-## Market Abuse Prevention`r`n- **Surveillance**: Implement Spoofing, Layering, and Momentum Ignition detection as defined in `FINANCIAL_COMPLIANCE.md`.`r`n`r`n## Hardening
-- **Key Management**: Keys must never leave the HSM or secure enclave.
-- **Circuit Breakers**: Implement security circuit breakers that pause trading if anomalous signature patterns are detected.
+### Multi-Party Computation (MPC)
+- **Threshold Signatures**: All wallet signing operations **MUST** use MPC protocols (e.g., GG20, FROST) where no single party holds the full private key.
+- **Key Sharding**: Shares must be stored across geographically distributed HSMs or secure enclaves.
 
+### Zero-Knowledge Proofs (ZKP)
+- **Private Compliance**: Use ZKPs (e.g., zk-SNARKs) to prove AML/KYC status to external parties without revealing the underlying PII.
+- **State Validity**: Core trading state transitions must be accompanied by a ZK-proof of validity.
 
+## 🛡️ Formal Verification
+- **State Machine Integrity**: The core trade execution state machine **MUST** be formally verified using tools like TLA+ or Coq for safety and liveness properties.
+- **Pydantic Strict Mode**: All financial models must enable `strict=True` to prevent implicit type coercion.
+
+## 🕵️ Market Abuse & Surveillance
+- **Real-time Detection**: Implement AI-driven surveillance for Spoofing, Wash Trading, and Layering.
+- **Circuit Breaker**: Automatic 10-minute trading pause if anomalous signature volume is detected (>5 sigma from 30D average).
+
+## 🚩 Hardening
+- **Key Management**: Keys MUST NEVER leave the HSM. All signing must happen within the HSM environment.
+- **Zero-Trust IPC**: All communication between microservices must be mutually authenticated (mTLS) and encrypted.

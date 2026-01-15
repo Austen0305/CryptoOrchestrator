@@ -7,7 +7,7 @@ import hashlib
 import logging
 import re
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request, status
@@ -149,10 +149,10 @@ class SecurityThreatDetector:
         if ip not in self.threats:
             self.threats[ip] = []
 
-        self.threats[ip].append(datetime.utcnow())
+        self.threats[ip].append(datetime.now(UTC))
 
         # Clean old threats
-        cutoff = datetime.utcnow() - self.threat_window
+        cutoff = datetime.now(UTC) - self.threat_window
         self.threats[ip] = [t for t in self.threats[ip] if t > cutoff]
 
         # Check if should block
@@ -186,7 +186,7 @@ class APIKeyManager:
         self.keys[api_key] = {
             "user_id": user_id,
             "permissions": permissions,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(UTC),
             "last_used": None,
             "usage_count": 0,
         }
@@ -199,13 +199,13 @@ class APIKeyManager:
             return None
 
         key_info = self.keys[api_key]
-        key_info["last_used"] = datetime.utcnow()
+        key_info["last_used"] = datetime.now(UTC)
         key_info["usage_count"] += 1
 
         # Track usage
         if api_key not in self.key_usage:
             self.key_usage[api_key] = []
-        self.key_usage[api_key].append(datetime.utcnow())
+        self.key_usage[api_key].append(datetime.now(UTC))
 
         return key_info
 

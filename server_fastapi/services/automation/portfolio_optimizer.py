@@ -170,7 +170,7 @@ class PortfolioOptimizationAdvisor:
         """Generate recommendations to maximize returns"""
         recommendations = []
 
-        allocations = metrics.get("allocations", {})
+        metrics.get("allocations", {})
         concentration = metrics.get("concentration", 0)
 
         # Check if portfolio is too concentrated

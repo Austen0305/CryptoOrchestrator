@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...repositories.dex_position_repository import DEXPositionRepository
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -150,7 +150,7 @@ class DEXPositionService:
                     "current_value_usd": current_value_usd,
                     "unrealized_pnl": unrealized_pnl,
                     "unrealized_pnl_percent": unrealized_pnl_percent,
-                    "last_updated_at": datetime.utcnow(),
+                    "last_updated_at": datetime.now(UTC),
                 },
             )
 
@@ -202,7 +202,7 @@ class DEXPositionService:
                 position_id,
                 {
                     "is_open": False,
-                    "closed_at": datetime.utcnow(),
+                    "closed_at": datetime.now(UTC),
                     "exit_trade_id": exit_trade_id,
                     "exit_price": exit_price,
                     "realized_pnl": realized_pnl,
@@ -211,7 +211,7 @@ class DEXPositionService:
                     "current_value_usd": exit_value_usd,
                     "unrealized_pnl": 0.0,
                     "unrealized_pnl_percent": 0.0,
-                    "last_updated_at": datetime.utcnow(),
+                    "last_updated_at": datetime.now(UTC),
                 },
             )
 

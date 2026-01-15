@@ -1,6 +1,7 @@
----\r\nPrerequisite: 00_system_exploration.md
+---
+name: Observability Audit
 description: Triggerable check for tracing coverage and alert health.
----\r\nPrerequisite: 00_system_exploration.md
+---
 
 # Observability Audit Workflow
 

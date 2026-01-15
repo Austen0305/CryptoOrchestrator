@@ -1,23 +1,33 @@
-Priority: CRITICAL
-Scope: READ-ONLY
-Overrides: NONE
-
 ---
 trigger: always_on
-glob: "server_fastapi/services/ml/**/*"
-description: Guardrails for ML inference and model usage.
+glob: ["server_fastapi/**/*"]
+description: Mandatory standards for ML model integrity, safety, and adversarial robustness.
 ---
 
-# ML Integrity Rule
+# ML Integrity & AI Safety Standards
 
-Ensure safety, performance, and auditability of AI/ML services.
+AI and ML services in CryptoOrchestrator must be deterministic, auditable, and resilient to adversarial attacks.
 
-## Performance & Resilience`r`n- **Graceful Degradation**: If inference latency exceeds the 50ms budget, the system MUST fallback to the rule-based `RiskManager` without interrupting the execution pipeline.
-- **Latency Budget**: Inference must stay within defined thresholds (e.g., <50ms for trading signals).
-- **Fallbacks**: Provide static or rule-based fallbacks if ML services fail or time out.
+## 🛡️ Safety Circuit Breakers
 
-## Logic Guards
-- **Sanity Checks**: ML-generated signals must pass through the RiskManager before execution.
-- **Auditability**: Log model version and prediction confidence with every signal.
+- **Fallbacks**: If ML inference latency exceeds 50ms or confidence falls below 75%, the system **MUST** fallback to the rule-based `RiskManager`.
+- **Sanity Checks**: Every ML-generated signal **MUST** pass through a hard-coded "Sanity Filter" (e.g., checking if the proposed trade size is >10% of total wallet balance).
 
+## 🕵️ Adversarial Robustness
 
+- **Adversarial Testing**: All models must undergo periodic adversarial testing (FGSM, PGD) to ensure resilience against "Market Noise" attacks.
+- **Data Provenance**: All training data sources must be cryptographically signed and tracked via the `AuditLogService`.
+
+## 📜 Auditability & Governance
+
+- **Model Versioning**: Every inference output must be logged with:
+  - `model_version`
+  - `inference_latency`
+  - `confidence_score`
+  - `input_snapshot_hash`
+- **Bias Monitoring**: Implement real-time monitoring for execution bias across different asset classes.
+
+## 🚀 Performance
+
+- **Quantization**: High-frequency models must use INT8/FP16 quantization to meet the 50ms p99 budget.
+- **Edge Inference**: Preference for on-node inference to minimize network-induced jitter.

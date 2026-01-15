@@ -3,7 +3,7 @@ AI Copilot Service - Explain trades, generate strategies, optimize strategies, s
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -117,7 +117,7 @@ class AICopilotService:
             side = trade_data.get("side", "unknown")
             amount = trade_data.get("amount", 0)
             price = trade_data.get("price", 0)
-            timestamp = trade_data.get("timestamp", datetime.utcnow().isoformat())
+            trade_data.get("timestamp", datetime.now(UTC).isoformat())
 
             # Generate explanation
             explanation = (
@@ -255,7 +255,7 @@ class AICopilotService:
         self, trade_data: dict[str, Any], market_data: dict[str, Any] | None
     ) -> str:
         """Assess trade risk"""
-        side = trade_data.get("side", "unknown")
+        trade_data.get("side", "unknown")
         amount = trade_data.get("amount", 0)
         price = trade_data.get("price", 0)
         trade_value = amount * price

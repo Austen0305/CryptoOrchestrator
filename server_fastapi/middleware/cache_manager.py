@@ -280,7 +280,7 @@ class CacheWarmer:
     def stop_all(self):
         """Stop all cache warming tasks"""
         self.running = False
-        for name, task in list(self.warming_tasks.items()):
+        for _name, task in list(self.warming_tasks.items()):
             task.cancel()
         self.warming_tasks.clear()
         logger.info("Stopped all cache warming tasks")

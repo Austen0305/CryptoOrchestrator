@@ -28,7 +28,7 @@ export function OptimizedCarousel({
   itemClassName,
 }: OptimizedCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   const goToSlide = useCallback((index: number) => {
     setCurrentIndex(index);

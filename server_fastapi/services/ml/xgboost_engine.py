@@ -142,7 +142,6 @@ class XGBoostEngine:
             return np.array([]), None
 
         features = []
-        labels = []
 
         for i in range(lookback, len(market_data)):
             # Extract sequence

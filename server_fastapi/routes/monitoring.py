@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from ..dependencies.auth import get_current_user, require_admin
+from ..dependencies.auth import get_current_user
 from ..services.monitoring_alerting import AlertLevel, monitoring_system
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,34 @@
+:root {
+  /* Core Palette */
+  --bg-primary: #0a0a0c;
+  --bg-secondary: #141416;
+  --accent-primary: #3b82f6; /* Electric Blue */
+  --accent-secondary: #8b5cf6; /* Royal Purple */
+
+  /* Glassmorphism Defaults */
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-blur: 16px;
+
+  /* Typography */
+  --font-family-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+
+  /* Status Colors */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  /* Shadows */
+  --shadow-premium: 0 4px 24px -1px rgba(0, 0, 0, 0.2), 0 0 8px 0 rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --glass-bg: rgba(0, 0, 0, 0.02);
+  --glass-border: rgba(0, 0, 0, 0.05);
+}

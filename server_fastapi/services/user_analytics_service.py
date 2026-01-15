@@ -3,7 +3,7 @@ User Analytics Service
 Manages user behavior tracking, feature usage, conversion funnels, and user journeys
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, case, func, or_, select
@@ -176,7 +176,7 @@ class UserAnalyticsService:
         stmt = select(
             FeatureUsage.feature_name,
             func.count(FeatureUsage.id).label("total_uses"),
-            func.count(case((FeatureUsage.success == True, 1))).label(
+            func.count(case((FeatureUsage.success, 1))).label(
                 "successful_uses"
             ),
             func.avg(FeatureUsage.duration_seconds).label("avg_duration"),
@@ -262,7 +262,7 @@ class UserAnalyticsService:
                         if session_id
                         else False,
                     ),
-                    ConversionFunnel.is_completed == False,
+                    not ConversionFunnel.is_completed,
                 )
             )
             .order_by(ConversionFunnel.created_at.desc())
@@ -274,7 +274,7 @@ class UserAnalyticsService:
 
         if funnel:
             funnel.is_completed = True
-            funnel.completed_at = datetime.utcnow()
+            funnel.completed_at = datetime.now(UTC)
             await self.db.commit()
             await self.db.refresh(funnel)
             return True
@@ -292,7 +292,7 @@ class UserAnalyticsService:
             ConversionFunnel.stage,
             ConversionFunnel.stage_order,
             func.count(ConversionFunnel.id).label("users_reached"),
-            func.count(case((ConversionFunnel.is_completed == True, 1))).label(
+            func.count(case((ConversionFunnel.is_completed, 1))).label(
                 "users_completed"
             ),
             func.avg(ConversionFunnel.time_to_stage_seconds).label("avg_time_to_stage"),
@@ -397,7 +397,7 @@ class UserAnalyticsService:
                 and_(
                     UserJourney.session_id == session_id,
                     UserJourney.journey_type == journey_type,
-                    UserJourney.is_completed == False,
+                    not UserJourney.is_completed,
                 )
             )
             .order_by(UserJourney.created_at.desc())
@@ -409,7 +409,7 @@ class UserAnalyticsService:
 
         if journey:
             journey.is_completed = True
-            journey.completed_at = datetime.utcnow()
+            journey.completed_at = datetime.now(UTC)
             await self.db.commit()
             await self.db.refresh(journey)
             return True
@@ -429,7 +429,7 @@ class UserAnalyticsService:
             func.count(UserJourney.id).label("step_count"),
             func.count(func.distinct(UserJourney.session_id)).label("unique_sessions"),
             func.avg(UserJourney.time_in_step_seconds).label("avg_time_in_step"),
-            func.count(case((UserJourney.is_completed == True, 1))).label(
+            func.count(case((UserJourney.is_completed, 1))).label(
                 "completed_count"
             ),
         )

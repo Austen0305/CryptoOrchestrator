@@ -1,10 +1,12 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from server_fastapi.models.idempotency import IdempotencyKey
 from server_fastapi.services.real_money_transaction_manager import (
     RealMoneyTransactionManager,
 )
-from server_fastapi.models.idempotency import IdempotencyKey
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio

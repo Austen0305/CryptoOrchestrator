@@ -122,7 +122,6 @@ class AutoMLService:
         start_time = time.time()
 
         # Generate all parameter combinations
-        param_combinations = []
         param_names = []
         param_values = []
 
@@ -164,7 +163,7 @@ class AutoMLService:
         best_params = {}
 
         for i, combination in enumerate(all_combinations):
-            params = dict(zip(param_names, combination))
+            params = dict(zip(param_names, combination, strict=False))
 
             try:
                 score = objective_function(params)
@@ -251,7 +250,7 @@ class AutoMLService:
         """Bayesian optimization using Optuna or scikit-optimize"""
         import time
 
-        start_time = time.time()
+        time.time()
 
         # Try Optuna first
         if OPTUNA_AVAILABLE:
@@ -351,7 +350,7 @@ class AutoMLService:
                 dimensions.append(Categorical(param_range.values or []))
 
         def skopt_objective(params_list):
-            params = dict(zip(param_names, params_list))
+            params = dict(zip(param_names, params_list, strict=False))
             score = objective_function(params)
             return -score if config.direction == "maximize" else score
 
@@ -363,7 +362,7 @@ class AutoMLService:
             random_state=42,
         )
 
-        best_params = dict(zip(param_names, result.x))
+        best_params = dict(zip(param_names, result.x, strict=False))
         best_score = -result.fun if config.direction == "maximize" else result.fun
 
         optimization_time = time.time() - start_time
@@ -371,11 +370,11 @@ class AutoMLService:
         trial_results = [
             {
                 "trial": i + 1,
-                "params": dict(zip(param_names, params_list)),
+                "params": dict(zip(param_names, params_list, strict=False)),
                 "score": -score if config.direction == "maximize" else score,
             }
             for i, (params_list, score) in enumerate(
-                zip(result.x_iters, result.func_vals)
+                zip(result.x_iters, result.func_vals, strict=False)
             )
         ]
 

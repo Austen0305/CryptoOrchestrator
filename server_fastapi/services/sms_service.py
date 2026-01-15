@@ -131,10 +131,7 @@ class SMSService:
         }
 
         base_message = messages.get(alert_type, "Security alert on your account.")
-        if details:
-            message = f"{base_message} {details}"
-        else:
-            message = base_message
+        message = f"{base_message} {details}" if details else base_message
 
         return await self.send_sms(to_number, message, priority="urgent")
 

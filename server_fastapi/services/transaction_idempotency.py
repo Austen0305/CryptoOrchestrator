@@ -6,7 +6,7 @@ Ensures transactions are processed only once using idempotency keys
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -76,7 +76,7 @@ class TransactionIdempotencyService:
 
                 if existing_key:
                     # Check if expired
-                    if existing_key.expires_at < datetime.utcnow():
+                    if existing_key.expires_at < datetime.now(UTC):
                         # Delete expired key
                         await db.delete(existing_key)
                         await db.commit()
@@ -121,7 +121,7 @@ class TransactionIdempotencyService:
 
         try:
             async with get_db_context() as db:
-                expires_at = datetime.utcnow() + (ttl or self.default_ttl)
+                expires_at = datetime.now(UTC) + (ttl or self.default_ttl)
 
                 # Check if key already exists
                 existing = await db.execute(
@@ -137,7 +137,7 @@ class TransactionIdempotencyService:
                     existing_key.result = result
                     existing_key.status_code = status_code
                     existing_key.expires_at = expires_at
-                    existing_key.updated_at = datetime.utcnow()
+                    existing_key.updated_at = datetime.now(UTC)
                 else:
                     # Create new key
                     new_key = IdempotencyKey(
@@ -169,7 +169,7 @@ class TransactionIdempotencyService:
             async with get_db_context() as db:
                 result = await db.execute(
                     select(IdempotencyKey).where(
-                        IdempotencyKey.expires_at < datetime.utcnow()
+                        IdempotencyKey.expires_at < datetime.now(UTC)
                     )
                 )
                 expired_keys = result.scalars().all()

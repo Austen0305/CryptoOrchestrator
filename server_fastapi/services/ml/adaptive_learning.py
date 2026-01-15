@@ -153,7 +153,7 @@ class AdaptiveLearningService:
             win_rate = sum(1 for t in regime_trades if t.get("pnl", 0) > 0) / len(
                 regime_trades
             )
-            avg_return = (
+            (
                 np.mean([t.get("pnl", 0) for t in regime_trades])
                 if regime_trades
                 else 0.0
@@ -221,7 +221,7 @@ class AdaptiveLearningService:
                 continue
 
             successful = [p for p in patterns if p["successful"]]
-            failed = [p for p in patterns if not p["successful"]]
+            [p for p in patterns if not p["successful"]]
 
             success_rate = len(successful) / len(patterns) * 100
             avg_profit = np.mean([p["pnl"] for p in patterns]) if patterns else 0.0

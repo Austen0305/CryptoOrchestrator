@@ -146,7 +146,7 @@ async def get_deposit_address(
 ) -> dict:
     """Get deposit address for a cryptocurrency"""
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
 
         address = await service._generate_deposit_address(currency, network)
 

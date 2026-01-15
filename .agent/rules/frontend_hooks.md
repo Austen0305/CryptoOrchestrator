@@ -4,7 +4,7 @@ Overrides: NONE
 
 ---
 trigger: always_on
-glob: "client/src/**/*"
+glob: ["client/src/**/*"]
 description: Standards for React hooks and API integration.
 ---
 

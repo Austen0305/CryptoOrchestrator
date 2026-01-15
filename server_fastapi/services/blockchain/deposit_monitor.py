@@ -230,7 +230,7 @@ class DepositMonitor:
                 wallet_id = deposit["wallet_id"]
                 chain_id = deposit["chain_id"]
                 wallet_address = deposit["wallet_address"]
-                amount = deposit["amount"]
+                deposit["amount"]
 
                 # Update wallet balance
                 repository = WalletRepository(db)

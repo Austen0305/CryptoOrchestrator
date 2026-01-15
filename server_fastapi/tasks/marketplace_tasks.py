@@ -8,7 +8,7 @@ Celery tasks for marketplace operations:
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
 
@@ -95,7 +95,7 @@ def calculate_monthly_payouts_task(self) -> dict:
 
             async with get_db_context() as session:
                 # Calculate period (previous month)
-                now = datetime.utcnow()
+                now = datetime.now(UTC)
                 # First day of current month
                 current_month_start = datetime(now.year, now.month, 1)
                 # First day of previous month
@@ -111,7 +111,7 @@ def calculate_monthly_payouts_task(self) -> dict:
                         and_(
                             SignalProvider.curator_status
                             == CuratorStatus.APPROVED.value,
-                            SignalProvider.is_public == True,
+                            SignalProvider.is_public,
                         )
                     )
                 )
@@ -385,7 +385,7 @@ def check_analytics_thresholds_task(self) -> dict:
                     "status": "completed",
                     "triggered_count": len(triggered_alerts),
                     "alerts": triggered_alerts,
-                    "checked_at": datetime.utcnow().isoformat(),
+                    "checked_at": datetime.now(UTC).isoformat(),
                 }
         except Exception as e:
             logger.error(

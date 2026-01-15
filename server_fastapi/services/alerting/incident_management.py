@@ -6,7 +6,7 @@ and automated incident response workflows.
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -72,8 +72,8 @@ class IncidentManagementService:
             "status": IncidentStatus.OPEN.value,
             "priority": self._calculate_priority(severity),
             "source": source,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
+            "updated_at": datetime.now(UTC).isoformat(),
             "resolved_at": None,
             "assigned_to": None,
             "related_alerts": [],
@@ -179,10 +179,10 @@ class IncidentManagementService:
 
         incident = self.incidents[incident_id]
         incident["status"] = status.value
-        incident["updated_at"] = datetime.utcnow().isoformat()
+        incident["updated_at"] = datetime.now(UTC).isoformat()
 
         if status == IncidentStatus.RESOLVED:
-            incident["resolved_at"] = datetime.utcnow().isoformat()
+            incident["resolved_at"] = datetime.now(UTC).isoformat()
 
         if updated_by:
             incident["metadata"]["updated_by"] = updated_by
@@ -205,7 +205,7 @@ class IncidentManagementService:
 
         incident = self.incidents[incident_id]
         incident["assigned_to"] = assignee
-        incident["updated_at"] = datetime.utcnow().isoformat()
+        incident["updated_at"] = datetime.now(UTC).isoformat()
 
         logger.info(
             f"Incident {incident_id} assigned to {assignee}",
@@ -225,10 +225,10 @@ class IncidentManagementService:
         response_step = {
             "step": step,
             "executed_by": executed_by,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         incident["response_steps"].append(response_step)
-        incident["updated_at"] = datetime.utcnow().isoformat()
+        incident["updated_at"] = datetime.now(UTC).isoformat()
 
         return True
 

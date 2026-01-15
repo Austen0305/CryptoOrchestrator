@@ -1,4 +1,6 @@
 import asyncio
+import builtins
+import contextlib
 import json
 import logging
 import os
@@ -182,10 +184,8 @@ async def websocket_market_data(websocket: WebSocket):
         logger.info("Market data WebSocket disconnected")
     except Exception as e:
         logger.error(f"Error in market data WebSocket: {e}")
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({"error": str(e)})
-        except:
-            pass
     finally:
         if websocket:
             manager.disconnect(websocket)
@@ -253,10 +253,8 @@ async def websocket_bot_status(websocket: WebSocket):
         logger.info("Bot status WebSocket disconnected")
     except Exception as e:
         logger.error(f"Error in bot status WebSocket: {e}")
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({"error": str(e)})
-        except:
-            pass
     finally:
         if websocket:
             manager.disconnect(websocket)
@@ -434,10 +432,8 @@ async def websocket_notifications(websocket: WebSocket):
         logger.info("Notifications WebSocket disconnected")
     except Exception as e:
         logger.error(f"Error in notifications WebSocket: {e}")
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({"error": str(e)})
-        except:
-            pass
     finally:
         # Remove listener when connection closes
         if user:
@@ -567,10 +563,8 @@ async def websocket_performance_metrics(websocket: WebSocket):
         logger.info("Performance metrics WebSocket disconnected")
     except Exception as e:
         logger.error(f"Error in performance metrics WebSocket: {e}")
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({"error": str(e)})
-        except:
-            pass
     finally:
         if websocket:
             manager.disconnect(websocket)

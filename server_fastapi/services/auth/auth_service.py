@@ -3,7 +3,6 @@ Authentication service for FastAPI backend
 """
 
 import logging
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -290,10 +289,7 @@ class AuthService:
         hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
         # Determine username: use provided username, or derive from email
-        if provided_username:
-            username = provided_username
-        else:
-            username = email.split("@")[0]
+        username = provided_username or email.split("@")[0]
 
         # Ensure username is unique
         counter = 1

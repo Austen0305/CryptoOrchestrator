@@ -7,7 +7,7 @@ import asyncio
 import logging
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ class AccessPattern:
             key: Cache key that was accessed
             context: Additional context (user_id, endpoint, etc.)
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(UTC)
         self.access_history.append(
             {"key": key, "timestamp": timestamp, "context": context or {}}
         )
@@ -50,7 +50,7 @@ class AccessPattern:
         Returns:
             List of frequently accessed keys with counts
         """
-        cutoff_time = datetime.utcnow() - timedelta(minutes=time_window_minutes)
+        cutoff_time = datetime.now(UTC) - timedelta(minutes=time_window_minutes)
 
         recent_accesses = defaultdict(int)
         for access in self.access_history:

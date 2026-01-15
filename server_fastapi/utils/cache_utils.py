@@ -204,7 +204,6 @@ class MultiLevelCache:
             Cached value or default
         """
         start_time = time.time()
-        hit = False
         error = None
         size_bytes = None
 
@@ -215,7 +214,6 @@ class MultiLevelCache:
                 if key in self.memory_ttl:
                     if datetime.now() < self.memory_ttl[key]:
                         value = self.memory_cache[key]
-                        hit = True
                         self.hits += 1
                         self.memory_hits += 1
                         size_bytes = len(str(value).encode())
@@ -246,7 +244,6 @@ class MultiLevelCache:
                         del self.memory_ttl[key]
                 else:
                     value = self.memory_cache[key]
-                    hit = True
                     self.hits += 1
                     self.memory_hits += 1
                     size_bytes = len(str(value).encode())
@@ -274,7 +271,6 @@ class MultiLevelCache:
                         value = CacheSerializer.deserialize(data, compressed=True)
                         # Store in memory cache for faster access
                         self.memory_cache[key] = value
-                        hit = True
                         self.hits += 1
                         self.redis_hits += 1
                         size_bytes = len(data)
@@ -500,7 +496,7 @@ def cache_result(
                 if isinstance(arg, (str, int, float)):
                     key_components.append(str(arg))
 
-            cache_key = CacheKeyGenerator.generate_key(*key_components)
+            CacheKeyGenerator.generate_key(*key_components)
 
             # Try to get from cache
             # Note: This requires a cache instance to be available

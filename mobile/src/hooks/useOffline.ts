@@ -3,17 +3,17 @@
  * React hook for offline status and queued actions
  */
 
-import { useState, useEffect } from 'react';
-import { offlineService, OfflineStatus, QueuedAction } from '../services/OfflineService';
+import { useState, useEffect } from "react";
+import { offlineService, OfflineStatus, QueuedAction } from "../services/OfflineService";
 
 export interface UseOfflineResult {
   isOnline: boolean;
   status: OfflineStatus | null;
   queuedActions: QueuedAction[];
   queueAction: (
-    type: QueuedAction['type'],
+    type: QueuedAction["type"],
     action: string,
-    payload: Record<string, any>
+    payload: Record<string, unknown>
   ) => Promise<string>;
   syncNow: () => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -56,11 +56,11 @@ export const useOffline = (): UseOfflineResult => {
       offlineService.getStatus().then(setStatus);
     };
 
-    offlineService.on('networkStatusChanged', handleNetworkStatusChanged);
-    offlineService.on('actionQueued', handleActionQueued);
-    offlineService.on('actionExecuted', handleActionExecuted);
-    offlineService.on('actionFailed', handleActionFailed);
-    offlineService.on('syncCompleted', handleSyncCompleted);
+    offlineService.on("networkStatusChanged", handleNetworkStatusChanged);
+    offlineService.on("actionQueued", handleActionQueued);
+    offlineService.on("actionExecuted", handleActionExecuted);
+    offlineService.on("actionFailed", handleActionFailed);
+    offlineService.on("syncCompleted", handleSyncCompleted);
 
     // Periodic status update
     const interval = setInterval(() => {
@@ -69,19 +69,19 @@ export const useOffline = (): UseOfflineResult => {
     }, 5000);
 
     return () => {
-      offlineService.off('networkStatusChanged', handleNetworkStatusChanged);
-      offlineService.off('actionQueued', handleActionQueued);
-      offlineService.off('actionExecuted', handleActionExecuted);
-      offlineService.off('actionFailed', handleActionFailed);
-      offlineService.off('syncCompleted', handleSyncCompleted);
+      offlineService.off("networkStatusChanged", handleNetworkStatusChanged);
+      offlineService.off("actionQueued", handleActionQueued);
+      offlineService.off("actionExecuted", handleActionExecuted);
+      offlineService.off("actionFailed", handleActionFailed);
+      offlineService.off("syncCompleted", handleSyncCompleted);
       clearInterval(interval);
     };
   }, []);
 
   const queueAction = async (
-    type: QueuedAction['type'],
+    type: QueuedAction["type"],
     action: string,
-    payload: Record<string, any>
+    payload: Record<string, unknown>
   ): Promise<string> => {
     return await offlineService.queueAction(type, action, payload);
   };

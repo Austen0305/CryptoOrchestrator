@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..repositories.risk_repository import Any, RiskRepository
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -134,7 +134,7 @@ class RiskPersistenceService:
         Returns:
             List of risk history entries
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         # ✅ Data access delegated to repository
         # Get all alerts and filter by date (repository doesn't support date filtering yet)

@@ -4,6 +4,7 @@ Continuously monitors market prices and triggers stop-loss/take-profit orders
 """
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -56,10 +57,8 @@ class PriceMonitoringService:
 
         if self.monitor_task:
             self.monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.monitor_task
-            except asyncio.CancelledError:
-                pass
 
         logger.info("Price monitoring stopped")
 

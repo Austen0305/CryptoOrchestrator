@@ -182,7 +182,7 @@ class LSTMTrainingService:
     def build_model(
         self,
         input_shape: tuple[int, int],
-        lstm_units: list[int] = [128, 64],
+        lstm_units: list[int] = None,
         dropout_rate: float = 0.2,
     ) -> Any:
         """
@@ -196,6 +196,8 @@ class LSTMTrainingService:
         Returns:
             Compiled Keras model
         """
+        if lstm_units is None:
+            lstm_units = [128, 64]
         if not TENSORFLOW_AVAILABLE:
             raise RuntimeError("TensorFlow not available")
 
@@ -205,7 +207,7 @@ class LSTMTrainingService:
         model.add(
             LSTM(
                 units=lstm_units[0],
-                return_sequences=True if len(lstm_units) > 1 else False,
+                return_sequences=len(lstm_units) > 1,
                 input_shape=input_shape,
             )
         )

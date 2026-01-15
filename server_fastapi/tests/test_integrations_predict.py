@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -29,7 +29,7 @@ def auth_headers(client):
 
 
 def _sample_ohlcv(n=5):
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     data = []
     base = 100.0
     for i in range(n):

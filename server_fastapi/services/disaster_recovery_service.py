@@ -4,7 +4,7 @@ Manages database replication, failover, and health monitoring
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -106,9 +106,9 @@ class DisasterRecoveryService:
 
         try:
             # Connection check
-            start = datetime.utcnow()
+            start = datetime.now(UTC)
             await self.db.execute(text("SELECT 1"))
-            connection_latency = (datetime.utcnow() - start).total_seconds() * 1000
+            connection_latency = (datetime.now(UTC) - start).total_seconds() * 1000
 
             health_checks["connection"] = {
                 "status": "healthy" if connection_latency < 100 else "degraded",
@@ -170,7 +170,7 @@ class DisasterRecoveryService:
 
             return {
                 "overall_status": overall_status,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "checks": health_checks,
             }
 
@@ -179,7 +179,7 @@ class DisasterRecoveryService:
             return {
                 "overall_status": "unhealthy",
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     async def check_backup_health(self, backup_service) -> dict[str, Any]:
@@ -198,7 +198,7 @@ class DisasterRecoveryService:
             # Find most recent backup
             most_recent = max(backups, key=lambda b: b.get("created_at", ""))
             backup_age_hours = (
-                datetime.utcnow() - datetime.fromisoformat(most_recent["created_at"])
+                datetime.now(UTC) - datetime.fromisoformat(most_recent["created_at"])
             ).total_seconds() / 3600
 
             # Check backup age
@@ -253,7 +253,7 @@ class DisasterRecoveryService:
 
         return {
             "overall_status": overall_status,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "database": db_health,
             "backups": backup_health,
             "replication": replication_status,

@@ -5,7 +5,7 @@ Manages OAuth connections to QuickBooks and Xero
 
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -104,7 +104,7 @@ class AccountingConnectionService:
 
         # Generate state if not provided
         if not state:
-            state = f"{user_id}_{system.value}_{datetime.utcnow().timestamp()}"
+            state = f"{user_id}_{system.value}_{datetime.now(UTC).timestamp()}"
 
         # Store state in connection (pending status)
         connection = await self.get_connection(user_id, system)
@@ -168,7 +168,7 @@ class AccountingConnectionService:
                 token_expires_at=credentials.expires_at,
                 realm_id=credentials.realm_id,
                 tenant_id=credentials.tenant_id,
-                connected_at=datetime.utcnow(),
+                connected_at=datetime.now(UTC),
             )
             self.db.add(connection)
         else:
@@ -233,7 +233,7 @@ class AccountingConnectionService:
         # Check if token is expired or expiring soon (within 5 minutes)
         if connection.token_expires_at:
             time_until_expiry = (
-                connection.token_expires_at - datetime.utcnow()
+                connection.token_expires_at - datetime.now(UTC)
             ).total_seconds()
             if time_until_expiry > 300:  # More than 5 minutes left
                 return False  # Token still valid
@@ -374,7 +374,7 @@ class AccountingConnectionService:
 
     def _calculate_next_sync_time(self, frequency: SyncFrequency) -> datetime:
         """Calculate next sync time based on frequency"""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         if frequency == SyncFrequency.DAILY:
             return now + timedelta(days=1)
         elif frequency == SyncFrequency.WEEKLY:
@@ -409,7 +409,7 @@ class AccountingConnectionService:
             AccountingSyncLog
         """
         if not started_at:
-            started_at = datetime.utcnow()
+            started_at = datetime.now(UTC)
 
         sync_log = AccountingSyncLog(
             connection_id=connection_id,
@@ -418,8 +418,8 @@ class AccountingConnectionService:
             transactions_synced=transactions_synced,
             transactions_failed=transactions_failed,
             started_at=started_at,
-            completed_at=datetime.utcnow(),
-            duration_seconds=(datetime.utcnow() - started_at).total_seconds(),
+            completed_at=datetime.now(UTC),
+            duration_seconds=(datetime.now(UTC) - started_at).total_seconds(),
             error_message=error_message,
         )
 
@@ -434,7 +434,7 @@ class AccountingConnectionService:
         result = await self.db.execute(stmt)
         connection = result.scalar_one_or_none()
         if connection:
-            connection.last_sync_at = datetime.utcnow()
+            connection.last_sync_at = datetime.now(UTC)
             if connection.sync_frequency != SyncFrequency.MANUAL.value:
                 connection.next_sync_at = self._calculate_next_sync_time(
                     SyncFrequency(connection.sync_frequency)

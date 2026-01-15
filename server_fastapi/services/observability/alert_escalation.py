@@ -106,7 +106,7 @@ class AlertEscalationService:
         Returns:
             EscalationPolicy
         """
-        policy_id = f"policy_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        policy_id = f"policy_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         escalation_steps = [
             EscalationStep(
@@ -151,7 +151,7 @@ class AlertEscalationService:
         Returns:
             OnCallRotation
         """
-        rotation_id = f"rotation_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        rotation_id = f"rotation_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
         # Set initial on-call (first member)
         current_on_call = team_members[0] if team_members else None
@@ -201,13 +201,13 @@ class AlertEscalationService:
             alert_key=alert_key,
             policy_id=policy.id,
             current_step=0,
-            escalated_at=datetime.utcnow(),
+            escalated_at=datetime.now(UTC),
         )
 
         # Calculate next escalation time
         if policy.steps:
             first_step = policy.steps[0]
-            escalation.next_escalation = datetime.utcnow() + timedelta(
+            escalation.next_escalation = datetime.now(UTC) + timedelta(
                 minutes=first_step.delay_minutes
             )
 
@@ -290,9 +290,9 @@ class AlertEscalationService:
 
     def process_escalations(self):
         """Process pending escalations (should be called periodically)"""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
-        for alert_key, escalation in list(self.active_escalations.items()):
+        for _alert_key, escalation in list(self.active_escalations.items()):
             if escalation.completed:
                 continue
 

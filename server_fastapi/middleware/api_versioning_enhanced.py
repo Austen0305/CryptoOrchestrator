@@ -5,7 +5,7 @@ Advanced versioning with backward compatibility, transformation, and migration s
 
 import json
 import logging
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -167,7 +167,7 @@ class EnhancedAPIVersioningMiddleware(BaseHTTPMiddleware):
                     "success": data.get("success", True),
                     "data": data,
                     "meta": {
-                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "timestamp": datetime.now(UTC).isoformat() + "Z",
                         "version": "1.0",
                         "request_id": getattr(request.state, "request_id", None),
                     },

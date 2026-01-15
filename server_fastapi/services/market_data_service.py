@@ -7,10 +7,12 @@ Secondary Provider: CoinLore (https://www.coinlore.com/cryptocurrency-data-api) 
 
 import asyncio
 import logging
-from datetime import datetime
+from collections.abc import AsyncGenerator
+from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
+import polars as pl
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +32,9 @@ class MarketDataService:
         self._symbol_to_coincap_id: dict[str, str] = {}
         self._symbol_to_coinlore_id: dict[str, int] = {}
         self._last_request_time = 0
+        self.is_streaming = False
+        # Simple in-memory candle cache per symbol: list of (ts, open, high, low, close, volume)
+        self.candles: dict[str, list[list[float]]] = {}
 
     def _get_symbol_from_pair(self, symbol: str) -> str:
         """Extract base symbol from trading pair (e.g., 'BTC/USD' -> 'BTC')"""
@@ -170,8 +175,8 @@ class MarketDataService:
 
     async def get_historical_prices(
         self, symbol: str, days: int = 7
-    ) -> list[dict[str, Any]] | None:
-        """Get historical price data"""
+    ) -> pl.DataFrame | None:
+        """Get historical price data as Polars DataFrame"""
         try:
             asset_id = await self._coincap_get_id(symbol)
             if not asset_id:
@@ -196,28 +201,38 @@ class MarketDataService:
                 response.raise_for_status()
                 data = response.json()
 
-                history = []
-                for point in data.get("data", []):
-                    history.append(
-                        {
-                            "timestamp": point.get("time"),
-                            "price": float(point.get("priceUsd")),
-                        }
+                # Optimized Polars creation
+                points = [
+                    {
+                        "timestamp": point.get("time"),
+                        "price": float(point.get("priceUsd")),
+                    }
+                    for point in data.get("data", [])
+                ]
+
+                if not points:
+                    return pl.DataFrame(
+                        schema={"timestamp": pl.Int64, "price": pl.Float64}
                     )
-                return history
+
+                return pl.DataFrame(points)
 
         except Exception as e:
             logger.error(f"Error fetching history for {symbol}: {e}")
             # Fallback to single point if history fails
             price = await self.get_price(symbol)
             if price:
-                return [
-                    {"timestamp": datetime.now().timestamp() * 1000, "price": price}
-                ]
+                return pl.DataFrame(
+                    {
+                        "timestamp": [int(datetime.now().timestamp() * 1000)],
+                        "price": [price],
+                    }
+                )
             return None
 
     async def get_ticker(self, symbol: str) -> dict[str, Any] | None:
         """Get comprehensive ticker data including 24h change"""
+        # ... existing implementation (unchanged logic, just context) ...
         try:
             # Try CoinCap for detailed data
             asset_id = await self._coincap_get_id(symbol)
@@ -252,8 +267,8 @@ class MarketDataService:
             logger.error(f"Error fetching ticker for {symbol}: {e}")
             return None
 
-    async def get_trending(self) -> dict[str, list[dict[str, Any]]] | None:
-        """Get trending assets (Top gainers/active)"""
+    async def get_trending(self) -> pl.DataFrame | None:
+        """Get trending assets (Top gainers/active) as Polars DataFrame"""
         try:
             url = f"{self.COINCAP_URL}/assets"
             params = {"limit": 20}  # Get top 20 to sort
@@ -277,10 +292,111 @@ class MarketDataService:
                         }
                     )
 
-                return {"coins": coins}
+                if not coins:
+                    return pl.DataFrame()
+
+                return pl.DataFrame(coins)
         except Exception as e:
             logger.error(f"Error fetching trending: {e}")
             return None
+
+    async def stream_market_data(self) -> AsyncGenerator[dict[str, Any], None]:
+        """Stream real-time market data updates using multi-provider support"""
+        logger.info("Starting market data stream with real data")
+
+        symbols = ["BTC/USD", "ETH/USD", "ADA/USD", "SOL/USD", "DOT/USD"]
+        self.is_streaming = True
+
+        # Track previous prices for change calculation
+        previous_prices: dict[str, float] = {}
+
+        try:
+            while self.is_streaming:
+                import time
+
+                # Get real prices from providers
+                for symbol in symbols:
+                    try:
+                        # Get current price using cached/multi-provider logic
+                        current_price = await self.get_price(symbol)
+                        if not current_price:
+                            continue
+
+                        # Calculate change from previous price
+                        prev_price = previous_prices.get(symbol)
+                        if prev_price:
+                            price_change = (current_price - prev_price) / prev_price
+                        else:
+                            # Try to get 24h change from ticker if available
+                            ticker = await self.get_ticker(symbol)
+                            price_change = (
+                                ticker.get("price_change_percentage_24h", 0) / 100.0
+                                if ticker
+                                else 0.0
+                            )
+
+                        # Update previous price
+                        previous_prices[symbol] = current_price
+
+                        update = {
+                            "type": "market_data",
+                            "symbol": symbol,
+                            "price": round(current_price, 4),
+                            "change": round(price_change * 100, 2),  # percentage
+                            "volume": 0.0,  # Provider volume is usually 24h, hard to estimate per update accurately
+                            "timestamp": int(time.time() * 1000),
+                        }
+
+                        # Update simple 1m candle aggregation
+                        ts_minute = update["timestamp"] - (update["timestamp"] % 60_000)
+                        bucket = self.candles.setdefault(symbol, [])
+                        if bucket and bucket[-1][0] == ts_minute:
+                            # mutate existing candle
+                            candle = bucket[-1]
+                            candle[2] = max(candle[2], update["price"])  # high
+                            candle[3] = min(candle[3], update["price"])  # low
+                            candle[4] = update["price"]  # close
+                        else:
+                            # open new candle
+                            bucket.append(
+                                [
+                                    ts_minute,  # 0 timestamp ms
+                                    update["price"],  # 1 open
+                                    update["price"],  # 2 high
+                                    update["price"],  # 3 low
+                                    update["price"],  # 4 close
+                                    0.0,  # 5 volume
+                                ]
+                            )
+                            # Keep only last 500 candles
+                            if len(bucket) > 500:
+                                del bucket[0 : len(bucket) - 500]
+
+                        yield update
+                    except Exception as symbol_error:
+                        logger.warning(
+                            f"Error getting data for {symbol}: {symbol_error}"
+                        )
+                        continue
+
+                # Rate limit safety
+                await asyncio.sleep(5)
+
+        except Exception as e:
+            logger.error(f"Error in market data stream: {e}")
+            raise
+        finally:
+            logger.info("Market data stream ended")
+
+    def stop_streaming(self):
+        """Stop the market data stream"""
+        self.is_streaming = False
+        logger.info("Market data streaming stopped")
+
+    def get_candles(self, symbol: str, since_ms: int = 0) -> list[list[float]]:
+        """Get candle data for a symbol"""
+        candles = self.candles.get(symbol, [])
+        return [c for c in candles if c[0] >= since_ms]
 
 
 # Singleton instance

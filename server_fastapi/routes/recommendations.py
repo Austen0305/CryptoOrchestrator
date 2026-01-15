@@ -7,7 +7,7 @@ from pydantic import BaseModel
 
 from ..dependencies.auth import get_current_user
 from ..middleware.cache_manager import cached
-from ..services.market_data_service import MarketDataService, get_market_data_service
+from ..services.market_data_service import get_market_data_service
 from ..services.ml.enhanced_ml_engine import EnhancedMLEngine
 from ..services.ml.enhanced_ml_engine import MarketData as MLMarketData
 from ..services.ml.ensemble_engine import EnsembleEngine
@@ -94,7 +94,7 @@ async def get_trading_recommendations(
 
                 # Convert to ML MarketData format
                 ml_data = []
-                for i, price_point in enumerate(
+                for _i, price_point in enumerate(
                     historical_prices[-30:]
                 ):  # Last 30 days
                     price = price_point.get("price", current_price)

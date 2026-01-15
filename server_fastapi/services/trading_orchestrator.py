@@ -1,10 +1,10 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 import os
 import sys
-from typing import Any, Optional
-from ...core.domain_registry import domain_registry
+from typing import Any
 
 from pydantic import BaseModel
 

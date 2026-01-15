@@ -5,7 +5,7 @@ OAuth 2.0 integration adapters for QuickBooks Online and Xero
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -150,7 +150,7 @@ class QuickBooksAdapter:
             return OAuthCredentials(
                 access_token=data["access_token"],
                 refresh_token=data.get("refresh_token"),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(UTC)
                 + timedelta(seconds=data.get("expires_in", 3600)),
                 token_type=data.get("token_type", "Bearer"),
                 realm_id=data.get("realmId"),  # QuickBooks realm ID
@@ -186,7 +186,7 @@ class QuickBooksAdapter:
             return OAuthCredentials(
                 access_token=data["access_token"],
                 refresh_token=data.get("refresh_token", refresh_token),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(UTC)
                 + timedelta(seconds=data.get("expires_in", 3600)),
                 token_type=data.get("token_type", "Bearer"),
             )
@@ -367,7 +367,7 @@ class XeroAdapter:
             return OAuthCredentials(
                 access_token=data["access_token"],
                 refresh_token=data.get("refresh_token"),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(UTC)
                 + timedelta(seconds=data.get("expires_in", 3600)),
                 token_type=data.get("token_type", "Bearer"),
                 tenant_id=tenant_id,
@@ -403,7 +403,7 @@ class XeroAdapter:
             return OAuthCredentials(
                 access_token=data["access_token"],
                 refresh_token=data.get("refresh_token", refresh_token),
-                expires_at=datetime.utcnow()
+                expires_at=datetime.now(UTC)
                 + timedelta(seconds=data.get("expires_in", 3600)),
                 token_type=data.get("token_type", "Bearer"),
             )
@@ -443,7 +443,7 @@ class XeroAdapter:
                             "AccountCode": tx.get("account_code", "200"),
                         }
                     ],
-                    "Date": tx.get("date", datetime.utcnow().isoformat()),
+                    "Date": tx.get("date", datetime.now(UTC).isoformat()),
                     "Reference": tx.get("reference", ""),
                 }
             )

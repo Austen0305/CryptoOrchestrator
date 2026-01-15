@@ -1,10 +1,6 @@
-Priority: CRITICAL
-Scope: READ-ONLY
-Overrides: NONE
-
 ---
 trigger: always_on
-glob: "server_fastapi/**/*"
+glob: ["server_fastapi/**/*"]
 description: Mandatory idempotency for financial operations.
 ---
 

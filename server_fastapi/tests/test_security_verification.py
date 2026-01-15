@@ -42,7 +42,7 @@ class TestTokenRotation:
     ):
         """Test that blacklisted tokens are rejected"""
         # Get a token
-        token = auth_headers.get("Authorization", "").replace("Bearer ", "")
+        auth_headers.get("Authorization", "").replace("Bearer ", "")
 
         # Try to use the token (should work)
         response1 = await client.get(
@@ -189,7 +189,7 @@ class TestXSSPrevention:
 
         # Check that response headers don't contain XSS
         headers = response.headers
-        for header_name, header_value in headers.items():
+        for _header_name, header_value in headers.items():
             assert "<script>" not in str(header_value).lower()
             assert "javascript:" not in str(header_value).lower()
 
@@ -203,7 +203,7 @@ class TestRateLimiting:
         """Test that rate limiting is enforced on API endpoints"""
         # Make multiple rapid requests
         responses = []
-        for i in range(20):  # Exceed rate limit
+        for _i in range(20):  # Exceed rate limit
             response = await client.get(
                 "/api/bots/",
                 headers=auth_headers,
@@ -213,7 +213,7 @@ class TestRateLimiting:
 
         # Should eventually hit rate limit (429)
         # Or all should succeed if rate limiting not enforced
-        rate_limited = any(status == 429 for status in responses)
+        any(status == 429 for status in responses)
 
         # If rate limiting is implemented, at least one should be 429
         # If not implemented, all should be 200

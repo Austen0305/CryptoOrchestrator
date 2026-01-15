@@ -5,6 +5,7 @@ In production, should use AWS KMS, HashiCorp Vault, or similar
 """
 
 import logging
+
 from .local_key_manager import LocalEncryptedKeyManager
 from .vault_simulator import vault_simulator
 

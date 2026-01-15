@@ -56,8 +56,11 @@ def get_cors_origins() -> list:
         if cors_origins:
             return cors_origins
 
-    # Default origins
+    # Default origins (development + production)
     return [
+        # Production
+        "https://cryptoorchestrator.vercel.app",
+        # Development
         "http://localhost:3000",
         "http://localhost:5173",
         "http://localhost:8000",

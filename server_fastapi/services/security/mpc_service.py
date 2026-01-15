@@ -6,7 +6,7 @@ Distributed key generation and signing without exposing private keys
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +165,7 @@ class MPCService:
                 public_key=public_key,
                 threshold=threshold,
                 total_shares=len(parties),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
 
             key_shares.append(share)
@@ -229,7 +229,7 @@ class MPCService:
         )
 
         signature_id = hashlib.sha256(
-            f"{wallet_id}:{message_hash}:{datetime.utcnow().isoformat()}".encode()
+            f"{wallet_id}:{message_hash}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         signature = MPCSignature(
@@ -238,7 +238,7 @@ class MPCService:
             message_hash=message_hash,
             signature=signature_data,
             parties=participating_parties,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         # Verify signature
@@ -278,7 +278,7 @@ class MPCService:
     def _generate_party_key(self, party_id: str) -> str:
         """Generate a public key for party communication"""
         # Simplified - in production, use actual key generation
-        key_data = f"{party_id}:{datetime.utcnow().isoformat()}"
+        key_data = f"{party_id}:{datetime.now(UTC).isoformat()}"
         return hashlib.sha256(key_data.encode()).hexdigest()
 
     def _generate_public_key(self, wallet_id: str, parties: list[str]) -> str:

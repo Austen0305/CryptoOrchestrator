@@ -32,7 +32,7 @@ export function useWindowSize(): WindowSize {
     };
 
     // Throttle resize events
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const throttledResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(handleResize, 100);

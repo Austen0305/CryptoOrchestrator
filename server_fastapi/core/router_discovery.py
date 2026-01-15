@@ -1,8 +1,7 @@
 import importlib
-import pkgutil
 import logging
-from pathlib import Path
-from types import ModuleType
+import pkgutil
+
 from fastapi import APIRouter, FastAPI
 
 logger = logging.getLogger(__name__)

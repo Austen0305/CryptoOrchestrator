@@ -4,7 +4,7 @@ Comprehensive observability for the trading platform
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 import psutil
@@ -569,12 +569,12 @@ async def get_wallet_metrics(
         if start_date:
             start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         else:
-            start = datetime.utcnow() - timedelta(days=7)
+            start = datetime.now(UTC) - timedelta(days=7)
 
         if end_date:
             end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
         else:
-            end = datetime.utcnow()
+            end = datetime.now(UTC)
 
         # Build query
         query = select(UserWallet).where(
@@ -639,12 +639,12 @@ async def get_blockchain_metrics(
         if start_date:
             start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         else:
-            start = datetime.utcnow() - timedelta(days=7)
+            start = datetime.now(UTC) - timedelta(days=7)
 
         if end_date:
             end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
         else:
-            end = datetime.utcnow()
+            end = datetime.now(UTC)
 
         # Get transaction stats
         stats = await transaction_monitor.get_transaction_stats(
@@ -704,12 +704,12 @@ async def get_user_activity_metrics(
         if start_date:
             start = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
         else:
-            start = datetime.utcnow() - timedelta(days=7)
+            start = datetime.now(UTC) - timedelta(days=7)
 
         if end_date:
             end = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
         else:
-            end = datetime.utcnow()
+            end = datetime.now(UTC)
 
         # Active users (users who made trades)
         active_users_query = select(func.count(func.distinct(DEXTrade.user_id))).where(
@@ -800,7 +800,7 @@ async def get_performance_metrics() -> dict[str, Any]:
             },
             "slow_queries": slow_queries,
             "slow_endpoints": slow_endpoints,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:
@@ -842,7 +842,7 @@ async def get_trades_per_day(
         return {
             "trades_per_day": trades_data,
             "period_days": days,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting trades per day: {e}", exc_info=True)

@@ -4,13 +4,16 @@ Implements structured logging with context (user_id, request_id, trace_id),
 log aggregation support, and log sampling.
 """
 
+import contextlib
 import json
 import logging
 import os
 import sys
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
+
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
 # Log directory
 LOG_DIR = Path("logs")
@@ -18,6 +21,7 @@ LOG_DIR.mkdir(exist_ok=True)
 
 # Context variables for request-scoped logging
 REQUEST_ID_CTX: ContextVar[str | None] = ContextVar("request_id", default=None)
+# TRACE_ID_CTX is largely superseded by OTel but kept for backward compat
 TRACE_ID_CTX: ContextVar[str | None] = ContextVar("trace_id", default=None)
 
 
@@ -27,7 +31,7 @@ class StructuredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON"""
         log_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -39,7 +43,8 @@ class StructuredFormatter(logging.Formatter):
         # Add context from extra
         if hasattr(record, "user_id"):
             log_data["user_id"] = record.user_id
-        # Prefer explicit record attributes, otherwise read from contextvars
+
+        # Request ID priority
         if hasattr(record, "request_id") and record.request_id:
             log_data["request_id"] = record.request_id
         else:
@@ -47,14 +52,22 @@ class StructuredFormatter(logging.Formatter):
             if ctx_rid:
                 log_data["request_id"] = ctx_rid
 
-        if hasattr(record, "trace_id") and record.trace_id:
-            log_data["trace_id"] = record.trace_id
+        # OpenTelemetry Trace Correlation (Priority)
+        # OTel Injector adds 'otelTraceID' and 'otelSpanID' to LogRecord
+        if hasattr(record, "otelTraceID") and record.otelTraceID != "0":
+            log_data["trace_id"] = record.otelTraceID
+            log_data["span_id"] = getattr(record, "otelSpanID", None)
         else:
-            ctx_tid = TRACE_ID_CTX.get()
-            if ctx_tid:
-                log_data["trace_id"] = ctx_tid
-        if hasattr(record, "span_id"):
-            log_data["span_id"] = record.span_id
+            # Fallback to manual context
+            if hasattr(record, "trace_id") and record.trace_id:
+                log_data["trace_id"] = record.trace_id
+            else:
+                ctx_tid = TRACE_ID_CTX.get()
+                if ctx_tid:
+                    log_data["trace_id"] = ctx_tid
+
+            if hasattr(record, "span_id"):
+                log_data["span_id"] = record.span_id
 
         # Add any other extra fields
         if hasattr(record, "extra_data"):
@@ -66,14 +79,11 @@ class StructuredFormatter(logging.Formatter):
             exception_info = self.formatException(record.exc_info)
 
             if is_production:
-                # In production, sanitize stack traces (remove file paths, line numbers)
                 import re
 
-                # Remove absolute file paths
                 exception_info = re.sub(
                     r'File "[^"]*[/\\]([^/\\]+\.py)"', r'File "\1"', exception_info
                 )
-                # Remove line numbers from traceback
                 exception_info = re.sub(r", line \d+", "", exception_info)
 
             log_data["exception"] = exception_info
@@ -124,19 +134,15 @@ def setup_logging(
     # Clear existing handlers properly (close them first to avoid file locks)
     for handler in root_logger.handlers[:]:
         root_logger.removeHandler(handler)
-        try:
+        with contextlib.suppress(Exception):
             handler.close()
-        except Exception:
-            pass
 
     # Also clear handlers from the crypto_orchestrator logger (logger_service.py)
     crypto_logger = logging.getLogger("crypto_orchestrator")
     for handler in crypto_logger.handlers[:]:
         crypto_logger.removeHandler(handler)
-        try:
+        with contextlib.suppress(Exception):
             handler.close()
-        except Exception:
-            pass
 
     # Create formatters
     if log_format == "json":
@@ -289,3 +295,6 @@ _log_format = os.getenv("LOG_FORMAT", "json")
 setup_logging(
     log_level=_log_level, log_format=_log_format, enable_console=True, enable_file=True
 )
+
+# Auto-instrument logging to capture OTel contexts in all LogRecords
+LoggingInstrumentor().instrument(set_logging_format=False)

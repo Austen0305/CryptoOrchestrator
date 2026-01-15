@@ -159,8 +159,13 @@ resource "google_cloud_run_service" "backend" {
         }
         
         env {
-          name  = "DATABASE_URL"
-          value = "postgresql+asyncpg://${google_sql_user.app_user.name}:${var.db_password}@/${google_sql_database.app_db.name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}"
+          name = "DATABASE_URL"
+          value_from {
+            secret_key_ref {
+              name = google_secret_manager_secret.database_url.secret_id
+              key  = "latest"
+            }
+          }
         }
         
         env {
@@ -248,12 +253,7 @@ resource "google_cloud_run_service" "backend" {
 # Cloud Run IAM
 # ==========================================
 
-resource "google_cloud_run_service_iam_member" "public_access" {
-  service  = google_cloud_run_service.backend.name
-  location = google_cloud_run_service.backend.location
-  role     = "roles/run.invoker"
-  member   = "allUsers"
-}
+
 
 # ==========================================
 # Service Account
@@ -284,7 +284,7 @@ resource "google_secret_manager_secret" "jwt_secret" {
   secret_id = "jwt-secret"
   
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -297,7 +297,7 @@ resource "google_secret_manager_secret" "encryption_key" {
   secret_id = "encryption-key"
   
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -315,6 +315,26 @@ resource "google_secret_manager_secret_iam_member" "jwt_secret_access" {
 
 resource "google_secret_manager_secret_iam_member" "encryption_key_access" {
   secret_id = google_secret_manager_secret.encryption_key.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run.email}"
+}
+
+# Database URL Secret
+resource "google_secret_manager_secret" "database_url" {
+  secret_id = "database-url"
+  
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "database_url" {
+  secret      = google_secret_manager_secret.database_url.id
+  secret_data = "postgresql+asyncpg://${google_sql_user.app_user.name}:${var.db_password}@/${google_sql_database.app_db.name}?host=/cloudsql/${google_sql_database_instance.postgres.connection_name}"
+}
+
+resource "google_secret_manager_secret_iam_member" "database_url_access" {
+  secret_id = google_secret_manager_secret.database_url.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.cloud_run.email}"
 }

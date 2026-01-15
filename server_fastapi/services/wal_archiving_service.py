@@ -5,7 +5,7 @@ Manages PostgreSQL Write-Ahead Log (WAL) archiving for Point-in-Time Recovery
 
 import gzip
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -171,7 +171,7 @@ exit 0
         Returns:
             Dictionary with cleanup statistics
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=self.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=self.retention_days)
         deleted_count = 0
         total_size_freed = 0
 

@@ -4,7 +4,7 @@ Integrates security events with alerting system and fraud detection
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -185,10 +185,10 @@ class SecurityEventAlertingService:
             self.event_timestamps[key] = []
 
         self.event_counts[key] += 1
-        self.event_timestamps[key].append(datetime.utcnow())
+        self.event_timestamps[key].append(datetime.now(UTC))
 
         # Clean old timestamps (keep last 24 hours)
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         self.event_timestamps[key] = [
             ts for ts in self.event_timestamps[key] if ts > cutoff
         ]
@@ -295,7 +295,7 @@ class SecurityEventAlertingService:
                     user_id=None,
                     details={
                         "verification_failed": True,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                         "message": "Audit log hash chain verification failed - possible tampering",
                     },
                 )
@@ -325,7 +325,7 @@ class SecurityEventAlertingService:
             # Get recent security events from audit log
             recent_events = audit_logger.get_audit_logs(
                 event_type="security_event",
-                start_date=datetime.utcnow() - timedelta(hours=24),
+                start_date=datetime.now(UTC) - timedelta(hours=24),
                 limit=100,
             )
 

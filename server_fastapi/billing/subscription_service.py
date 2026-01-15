@@ -134,13 +134,7 @@ class SubscriptionService:
             return False
 
         # Check if period ended
-        if (
-            subscription.current_period_end
-            and subscription.current_period_end < datetime.now(UTC)
-        ):
-            return False
-
-        return True
+        return not (subscription.current_period_end and subscription.current_period_end < datetime.now(UTC))
 
     async def get_subscription_limits(
         self, db: AsyncSession, user_id: int
@@ -157,7 +151,7 @@ class SubscriptionService:
             "enterprise": SubscriptionTier.ENTERPRISE,
         }
         tier = tier_map.get(plan.lower(), SubscriptionTier.FREE)
-        config = self.free_service.get_plan_config(tier)
+        self.free_service.get_plan_config(tier)
 
         return {}  # No limits for free subscriptions
 

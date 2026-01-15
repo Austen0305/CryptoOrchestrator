@@ -247,7 +247,7 @@ class PortfolioRebalancer:
             # Convert to OHLCV format for volatility analyzer
             # Market Data Service returns price points, we'll estimate OHLCV
             market_data = []
-            for i, point in enumerate(historical_data):
+            for _i, point in enumerate(historical_data):
                 price = point.get("price", 0)
                 if price > 0:
                     # Estimate OHLCV from price (simplified - in production use full OHLCV)

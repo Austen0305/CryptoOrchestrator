@@ -3,7 +3,7 @@ Withdrawal Address Whitelist Model
 Stores whitelisted withdrawal addresses with 24-hour cooldown period
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
@@ -90,7 +90,7 @@ class WithdrawalAddressWhitelist(Base, TimestampMixin):
             # Set cooldown if not set (24 hours from added_at)
             self.cooldown_until = self.added_at + timedelta(hours=24)
 
-        return datetime.utcnow() < self.cooldown_until
+        return datetime.now(UTC) < self.cooldown_until
 
     def __repr__(self):
         return f"<WithdrawalAddressWhitelist(id={self.id}, user_id={self.user_id}, address={self.address[:10]}..., chain_id={self.chain_id}, in_cooldown={self.is_in_cooldown()})>"

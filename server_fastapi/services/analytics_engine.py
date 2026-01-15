@@ -1,9 +1,10 @@
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
+import polars as pl
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class AnalyticsEngine:
             total_bots = bot_result.scalar() or 0
 
             active_bots_query = select(func.count(Bot.id)).where(
-                Bot.user_id == user_id, Bot.active == True
+                Bot.user_id == user_id, Bot.active
             )
             active_result = await db_session.execute(active_bots_query)
             active_bots = active_result.scalar() or 0
@@ -92,22 +93,56 @@ class AnalyticsEngine:
             trades_result = await db_session.execute(trades_query)
             all_trades = list(trades_result.scalars().all())
 
-            total_trades = len(all_trades)
+            # Convert to Polars DataFrame for aggregation
+            trade_dicts = []
+            for t in all_trades:
+                trade_dicts.append(
+                    {
+                        "bot_id": t.bot_id,
+                        "pnl": t.pnl or 0.0,
+                        "executed_at": t.executed_at,
+                        "side": t.side,
+                    }
+                )
 
-            # Calculate total P&L
-            total_pnl = sum(
-                trade.pnl or 0.0 for trade in all_trades if trade.pnl is not None
-            )
+            if not trade_dicts:
+                df = pl.DataFrame(
+                    {"bot_id": [], "pnl": [], "executed_at": [], "side": []}
+                )
+            else:
+                df = pl.DataFrame(trade_dicts)
 
-            # Calculate win rate
-            winning_trades = [t for t in all_trades if t.pnl and t.pnl > 0]
-            win_rate = len(winning_trades) / total_trades if total_trades > 0 else 0.0
+            total_trades = df.height
+            total_pnl = df["pnl"].sum() if total_trades > 0 else 0.0
 
-            # Get bot performance metrics
+            # Win rate
+            winning_count = df.filter(pl.col("pnl") > 0).height
+            win_rate = winning_count / total_trades if total_trades > 0 else 0.0
+
+            # Bot Performance Metrics
             bot_metrics = []
             bots_query = select(Bot).where(Bot.user_id == user_id)
             bots_result = await db_session.execute(bots_query)
             bots = list(bots_result.scalars().all())
+
+            # Use aggregation to speed up bot stats
+            if total_trades > 0:
+                bot_stats = df.group_by("bot_id").agg(
+                    [
+                        pl.count("pnl").alias("total_trades"),
+                        pl.col("pnl").sum().alias("total_pnl"),
+                        pl.col("pnl")
+                        .filter(pl.col("pnl") > 0)
+                        .count()
+                        .alias("winning_trades"),
+                        pl.col("pnl")
+                        .filter(pl.col("pnl") < 0)
+                        .count()
+                        .alias("losing_trades"),
+                    ]
+                )
+            else:
+                bot_stats = pl.DataFrame()
 
             best_bot_id = None
             worst_bot_id = None
@@ -115,13 +150,19 @@ class AnalyticsEngine:
             worst_pnl = float("inf")
 
             for bot in bots:
-                bot_trades = [t for t in all_trades if t.bot_id == bot.id]
-                if not bot_trades:
+                if bot_stats.height > 0:
+                    stats = bot_stats.filter(pl.col("bot_id") == bot.id)
+                else:
+                    stats = pl.DataFrame()
+
+                if stats.height == 0:
                     continue
 
-                bot_pnl = sum(t.pnl or 0.0 for t in bot_trades if t.pnl is not None)
-                winning = [t for t in bot_trades if t.pnl and t.pnl > 0]
-                losing = [t for t in bot_trades if t.pnl and t.pnl < 0]
+                row = stats.row(0, named=True)
+                bot_pnl = row["total_pnl"]
+                b_total = row["total_trades"]
+                b_wins = row["winning_trades"]
+                b_losers = row["losing_trades"]
 
                 if bot_pnl > best_pnl:
                     best_pnl = bot_pnl
@@ -130,40 +171,34 @@ class AnalyticsEngine:
                     worst_pnl = bot_pnl
                     worst_bot_id = bot.id
 
-                bot_win_rate = len(winning) / len(bot_trades) if bot_trades else 0.0
-                avg_win = sum(t.pnl for t in winning) / len(winning) if winning else 0.0
-                avg_loss = (
-                    sum(abs(t.pnl) for t in losing) / len(losing) if losing else 0.0
-                )
+                bot_win_rate = b_wins / b_total if b_total > 0 else 0.0
 
-                # Calculate max drawdown (simplified)
-                equity_curve = []
-                running_pnl = 0.0
-                for trade in sorted(bot_trades, key=lambda t: t.executed_at):
-                    running_pnl += trade.pnl or 0.0
-                    equity_curve.append(running_pnl)
+                # Max Drawdown calculation requires sequential scan, do it per bot
+                # Filter df for this bot
+                bot_df = df.filter(pl.col("bot_id") == bot.id).sort("executed_at")
+                pnl_series = bot_df["pnl"]
 
-                max_drawdown = 0.0
-                if equity_curve:
-                    peak = equity_curve[0]
-                    for equity in equity_curve:
-                        if equity > peak:
-                            peak = equity
-                        drawdown = (peak - equity) / peak if peak > 0 else 0.0
-                        max_drawdown = max(max_drawdown, drawdown)
+                # Calculate running cumulative sum
+                cum_pnl = pnl_series.cum_sum()
+                # Calculate running max
+                running_max = cum_pnl.cum_max()
+
+                # Using simple peak - current for absolute drawdown
+                drawdowns = running_max - cum_pnl
+                max_dd = drawdowns.max() if drawdowns.len() > 0 else 0.0
 
                 bot_metrics.append(
                     {
                         "bot_id": bot.id,
                         "bot_name": bot.name,
-                        "total_trades": len(bot_trades),
-                        "winning_trades": len(winning),
-                        "losing_trades": len(losing),
+                        "total_trades": b_total,
+                        "winning_trades": b_wins,
+                        "losing_trades": b_losers,
                         "win_rate": bot_win_rate,
                         "total_pnl": bot_pnl,
-                        "max_drawdown": max_drawdown,
-                        "sharpe_ratio": 0.0,  # Would need more complex calculation
-                        "current_balance": 0.0,  # Would need portfolio service
+                        "max_drawdown": max_dd,
+                        "sharpe_ratio": 0.0,
+                        "current_balance": 0.0,
                     }
                 )
 
@@ -186,7 +221,7 @@ class AnalyticsEngine:
             logger.error(
                 f"Error analyzing dashboard for user {user_id}: {e}", exc_info=True
             )
-            # In production, return empty data instead of mock
+            # In production, return empty data
             from ..config.settings import get_settings
 
             settings = get_settings()
@@ -204,7 +239,6 @@ class AnalyticsEngine:
                     "details": {"metrics": [], "chart_data": []},
                 }
             else:
-                # Development fallback only
                 return {
                     "summary": {
                         "total_bots": 0,
@@ -221,11 +255,27 @@ class AnalyticsEngine:
     async def calculate_performance_metrics(
         self, bot_id: str, period: str = "all", db_session=None
     ) -> PerformanceMetrics:
-        """Calculate performance metrics from real database data"""
+        """Calculate performance metrics from real database data using Polars"""
         trades = await self._get_trades(bot_id, db_session=db_session)
         bot = await self._get_bot(bot_id, db_session=db_session)
 
-        if not bot or not trades:
+        # Convert to DF
+        if not trades:
+            df = pl.DataFrame([])
+        else:
+            # dataclasses.asdict used for conversion
+            df = pl.DataFrame([asdict(t) for t in trades])
+            # Ensure types
+            df = df.with_columns(
+                [
+                    pl.col("timestamp").cast(pl.Int64),
+                    pl.col("total").cast(pl.Float64),
+                    pl.col("totalWithFee").cast(pl.Float64),
+                    pl.col("fee").cast(pl.Float64),
+                ]
+            )
+
+        if not bot or df.height == 0:
             return PerformanceMetrics(
                 botId=bot_id,
                 period=period,
@@ -240,9 +290,9 @@ class AnalyticsEngine:
             )
 
         # Filter trades by period
-        filtered_trades = self._filter_trades_by_period(trades, period)
+        filtered_df = self._filter_trades_by_period_pl(df, period)
 
-        if not filtered_trades:
+        if filtered_df.height == 0:
             return PerformanceMetrics(
                 botId=bot_id,
                 period=period,
@@ -256,14 +306,14 @@ class AnalyticsEngine:
                 totalTrades=0,
             )
 
-        # Calculate metrics
-        total_return = self._calculate_total_return(filtered_trades)
-        sharpe_ratio = self._calculate_sharpe_ratio(filtered_trades)
-        max_drawdown = self._calculate_max_drawdown(filtered_trades)
-        win_rate = self._calculate_win_rate(filtered_trades)
-        average_win = self._calculate_average_win(filtered_trades)
-        average_loss = self._calculate_average_loss(filtered_trades)
-        profit_factor = self._calculate_profit_factor(filtered_trades)
+        # Calculate metrics using Polars DF
+        total_return = self._calculate_total_return_pl(filtered_df)
+        sharpe_ratio = self._calculate_sharpe_ratio_pl(filtered_df)
+        max_drawdown = self._calculate_max_drawdown_pl(filtered_df)
+        win_rate = self._calculate_win_rate_pl(filtered_df)
+        average_win = self._calculate_average_win_pl(filtered_df)
+        average_loss = self._calculate_average_loss_pl(filtered_df)
+        profit_factor = self._calculate_profit_factor_pl(filtered_df)
 
         metrics = PerformanceMetrics(
             botId=bot_id,
@@ -275,7 +325,7 @@ class AnalyticsEngine:
             averageWin=average_win,
             averageLoss=average_loss,
             profitFactor=profit_factor,
-            totalTrades=len(filtered_trades),
+            totalTrades=filtered_df.height,
         )
 
         # Save to storage (mock)
@@ -283,7 +333,9 @@ class AnalyticsEngine:
 
         return metrics
 
-    def _filter_trades_by_period(self, trades: list[Trade], period: str) -> list[Trade]:
+    def _filter_trades_by_period_pl(
+        self, df: pl.DataFrame, period: str
+    ) -> pl.DataFrame:
         now = datetime.now().timestamp() * 1000
         start_time = 0
 
@@ -298,150 +350,124 @@ class AnalyticsEngine:
         elif period == "1y":
             start_time = now - 365 * 24 * 60 * 60 * 1000
         else:
-            return trades  # 'all' period
+            return df  # 'all' period
 
-        return [trade for trade in trades if trade.timestamp >= start_time]
+        return df.filter(pl.col("timestamp") >= start_time)
 
-    def _calculate_total_return(self, trades: list[Trade]) -> float:
-        initial_investment = 100000  # Assume starting balance
-        current_balance = initial_investment
+    def _calculate_total_return_pl(self, df: pl.DataFrame) -> float:
+        initial_investment = 100000.0
 
-        for trade in trades:
-            if trade.side == "buy":
-                current_balance -= trade.totalWithFee
-            else:
-                current_balance += trade.total - trade.fee
-
-        return (current_balance - initial_investment) / initial_investment
-
-    def _calculate_sharpe_ratio(self, trades: list[Trade]) -> float:
-        if len(trades) < 2:
-            return 0
-
-        # Group trades by day
-        daily_returns = self._calculate_daily_returns(trades)
-
-        if not daily_returns:
-            return 0
-
-        avg_return = sum(daily_returns) / len(daily_returns)
-        variance = sum((ret - avg_return) ** 2 for ret in daily_returns) / len(
-            daily_returns
-        )
-        std_dev = math.sqrt(variance)
-
-        # Assume risk-free rate of 0.02 (2%)
-        risk_free_rate = 0.02 / 365  # Daily risk-free rate
-
-        if std_dev == 0:
-            return 0
-
-        return (avg_return - risk_free_rate) / std_dev * math.sqrt(365)  # Annualized
-
-    def _calculate_max_drawdown(self, trades: list[Trade]) -> float:
-        if not trades:
-            return 0
-
-        equity_curve = self._calculate_equity_curve(trades)
-        peak = equity_curve[0]
-        max_drawdown = 0
-
-        for equity in equity_curve:
-            if equity > peak:
-                peak = equity
-
-            drawdown = (peak - equity) / peak
-            max_drawdown = max(max_drawdown, drawdown)
-
-        return max_drawdown
-
-    def _calculate_win_rate(self, trades: list[Trade]) -> float:
-        if not trades:
-            return 0
-
-        winning_trades = [
-            trade for trade in trades if trade.side == "sell" and trade.total > 0
-        ]
-
-        return len(winning_trades) / len(trades)
-
-    def _calculate_average_win(self, trades: list[Trade]) -> float:
-        winning_trades = [
-            trade for trade in trades if trade.side == "sell" and trade.total > 0
-        ]
-
-        if not winning_trades:
-            return 0
-
-        total_wins = sum(trade.total for trade in winning_trades)
-        return total_wins / len(winning_trades)
-
-    def _calculate_average_loss(self, trades: list[Trade]) -> float:
-        losing_trades = [
-            trade for trade in trades if trade.side == "sell" and trade.total < 0
-        ]
-
-        if not losing_trades:
-            return 0
-
-        total_losses = sum(abs(trade.total) for trade in losing_trades)
-        return total_losses / len(losing_trades)
-
-    def _calculate_profit_factor(self, trades: list[Trade]) -> float:
-        gross_profit = sum(
-            trade.total for trade in trades if trade.side == "sell" and trade.total > 0
+        # PnL = (Buy: -totalWithFee) + (Sell: total - fee)
+        # Using when/then
+        pnl_expr = (
+            pl.when(pl.col("side") == "buy")
+            .then(-pl.col("totalWithFee"))
+            .otherwise(pl.col("total") - pl.col("fee"))
         )
 
-        gross_loss = abs(
-            sum(
-                trade.total
-                for trade in trades
-                if trade.side == "sell" and trade.total < 0
-            )
+        total_pnl = df.select(pnl_expr.sum()).item() or 0.0
+
+        # Assumption: current_balance = initial + total_pnl
+        return total_pnl / initial_investment
+
+    def _calculate_sharpe_ratio_pl(self, df: pl.DataFrame) -> float:
+        if df.height < 2:
+            return 0.0
+
+        # Calculate daily returns
+        # Group by day: floor(timestamp / (24*60*60*1000))
+        day_expr = (pl.col("timestamp") // (24 * 60 * 60 * 1000)).alias("day")
+        pnl_expr = (
+            pl.when(pl.col("side") == "buy")
+            .then(-pl.col("totalWithFee"))
+            .otherwise(pl.col("total") - pl.col("fee"))
         )
+
+        daily_df = (
+            df.with_columns([day_expr, pnl_expr.alias("pnl")])
+            .group_by("day")
+            .agg(pl.col("pnl").sum())
+        )
+
+        if daily_df.height == 0:
+            return 0.0
+
+        initial_balance = 100000.0
+        daily_returns = daily_df.select((pl.col("pnl") / initial_balance).alias("ret"))
+
+        avg_ret = daily_returns["ret"].mean()
+        std_dev = daily_returns["ret"].std()
+
+        risk_free_rate = 0.02 / 365
+
+        if std_dev == 0 or std_dev is None:
+            return 0.0
+
+        return (avg_ret - risk_free_rate) / std_dev * math.sqrt(365)
+
+    def _calculate_max_drawdown_pl(self, df: pl.DataFrame) -> float:
+        if df.height == 0:
+            return 0.0
+
+        # Equity curve
+        pnl_expr = (
+            pl.when(pl.col("side") == "buy")
+            .then(-pl.col("totalWithFee"))
+            .otherwise(pl.col("total") - pl.col("fee"))
+        )
+
+        sorted_df = df.sort("timestamp")
+        equity = sorted_df.select(
+            (pl.lit(100000.0) + pnl_expr.cum_sum()).alias("equity")
+        )
+
+        if equity.height == 0:
+            return 0.0
+
+        # Max Drawdown = max((RunningMax - Equity) / RunningMax)
+        running_max = equity["equity"].cum_max()
+        drawdown = (running_max - equity["equity"]) / running_max
+
+        return drawdown.max() or 0.0
+
+    def _calculate_win_rate_pl(self, df: pl.DataFrame) -> float:
+        total_trades = df.height
+        if total_trades == 0:
+            return 0.0
+
+        wins = df.filter((pl.col("side") == "sell") & (pl.col("total") > 0)).height
+        return wins / total_trades
+
+    def _calculate_average_win_pl(self, df: pl.DataFrame) -> float:
+        wins_df = df.filter((pl.col("side") == "sell") & (pl.col("total") > 0))
+        if wins_df.height == 0:
+            return 0.0
+
+        return wins_df["total"].mean()
+
+    def _calculate_average_loss_pl(self, df: pl.DataFrame) -> float:
+        losses_df = df.filter((pl.col("side") == "sell") & (pl.col("total") < 0))
+        if losses_df.height == 0:
+            return 0.0
+
+        return losses_df["total"].abs().mean()
+
+    def _calculate_profit_factor_pl(self, df: pl.DataFrame) -> float:
+        gross_profit = df.filter((pl.col("side") == "sell") & (pl.col("total") > 0))[
+            "total"
+        ].sum()
+        gross_loss = df.filter((pl.col("side") == "sell") & (pl.col("total") < 0))[
+            "total"
+        ].sum()
+
+        gross_loss = abs(gross_loss)
 
         if gross_loss > 0:
             return gross_profit / gross_loss
         elif gross_profit > 0:
             return float("inf")
         else:
-            return 0
-
-    def _calculate_daily_returns(self, trades: list[Trade]) -> list[float]:
-        daily_pnl = {}
-        initial_balance = 100000
-
-        for trade in trades:
-            day = trade.timestamp // (24 * 60 * 60 * 1000)
-            pnl = (
-                -trade.totalWithFee if trade.side == "buy" else trade.total - trade.fee
-            )
-
-            daily_pnl[day] = daily_pnl.get(day, 0) + pnl
-
-        daily_returns = []
-        for day, pnl in sorted(daily_pnl.items()):
-            daily_return = pnl / initial_balance
-            daily_returns.append(daily_return)
-
-        return daily_returns
-
-    def _calculate_equity_curve(self, trades: list[Trade]) -> list[float]:
-        initial_balance = 100000
-        balance = initial_balance
-        equity = [balance]
-
-        # Sort trades by timestamp
-        sorted_trades = sorted(trades, key=lambda t: t.timestamp)
-
-        for trade in sorted_trades:
-            if trade.side == "buy":
-                balance -= trade.totalWithFee
-            else:
-                balance += trade.total - trade.fee
-            equity.append(balance)
-
-        return equity
+            return 0.0
 
     async def get_performance_comparison(
         self, bot_ids: list[str], period: str = "30d"
@@ -614,34 +640,42 @@ Total Trades: {metrics.totalTrades}
             result = await db_session.execute(query)
             trades = list(result.scalars().all())
 
-            # Group by date and calculate cumulative PnL
-            chart_data = []
-            cumulative_pnl = 0.0
-            daily_pnl = {}
+            if not trades:
+                return {
+                    "chart_data": [],
+                    "period": period,
+                    "total_pnl": 0.0,
+                }
 
-            for trade in sorted(trades, key=lambda t: t.executed_at):
+            # Use Polars for aggregation
+            trade_dicts = []
+            for t in trades:
                 date_key = (
-                    trade.executed_at.date()
-                    if trade.executed_at
-                    else trade.timestamp.date()
+                    t.executed_at.date().isoformat()
+                    if t.executed_at
+                    else datetime.fromtimestamp(t.timestamp).date().isoformat()
                 )
-                pnl = trade.pnl or 0.0
-                daily_pnl[date_key] = daily_pnl.get(date_key, 0.0) + pnl
+                trade_dicts.append({"date": date_key, "pnl": t.pnl or 0.0})
 
-            for date, pnl in sorted(daily_pnl.items()):
-                cumulative_pnl += pnl
-                chart_data.append(
-                    {
-                        "date": date.isoformat(),
-                        "pnl": pnl,
-                        "cumulative_pnl": cumulative_pnl,
-                    }
-                )
+            df = pl.DataFrame(trade_dicts)
+
+            # Group by date
+            daily_stats = df.group_by("date").agg(pl.col("pnl").sum()).sort("date")
+
+            # Cumulative Sum
+            daily_stats = daily_stats.with_columns(
+                pl.col("pnl").cum_sum().alias("cumulative_pnl")
+            )
+
+            chart_data = daily_stats.select(
+                ["date", "pnl", "cumulative_pnl"]
+            ).to_dicts()
+            total_pnl = daily_stats["pnl"].sum()
 
             return {
                 "chart_data": chart_data,
                 "period": period,
-                "total_pnl": cumulative_pnl,
+                "total_pnl": total_pnl,
             }
         except Exception as e:
             logger.error(f"Error analyzing PnL chart: {e}", exc_info=True)

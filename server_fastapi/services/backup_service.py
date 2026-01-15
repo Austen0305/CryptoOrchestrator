@@ -8,7 +8,7 @@ import hashlib
 import logging
 import os
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ class BackupService:
         Returns:
             Backup metadata
         """
-        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_filename = f"backup_{backup_type}_{timestamp}.sql"
         backup_path = self.backup_dir / backup_filename
 
@@ -112,7 +112,7 @@ class BackupService:
                 "secondary_path": secondary_path,
                 "file_size": file_size,
                 "checksum": checksum,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(UTC).isoformat(),
                 "compressed": compress,
             }
 
@@ -287,7 +287,7 @@ class BackupService:
         Returns:
             Dictionary with cleanup statistics
         """
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         deleted_daily = 0
         deleted_weekly = 0
         deleted_monthly = 0
@@ -378,9 +378,8 @@ class BackupService:
             raise FileNotFoundError(f"Backup file not found: {backup_path}")
 
         # Verify backup if requested
-        if verify:
-            if not self.verify_backup(backup_path):
-                raise ValueError("Backup verification failed")
+        if verify and not self.verify_backup(backup_path):
+            raise ValueError("Backup verification failed")
 
         try:
             # Decompress if needed

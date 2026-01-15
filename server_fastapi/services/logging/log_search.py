@@ -5,7 +5,7 @@ Provides capabilities to search, filter, and analyze application logs.
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -137,7 +137,7 @@ class LogSearchService:
                 "level": parts[2],
                 "message": parts[3].strip(),
             }
-        return {"message": line.strip(), "timestamp": datetime.utcnow().isoformat()}
+        return {"message": line.strip(), "timestamp": datetime.now(UTC).isoformat()}
 
     def _matches_filters(
         self,
@@ -216,9 +216,9 @@ class LogSearchService:
             Dictionary with log statistics (counts by level, error rate, etc.)
         """
         if not start_time:
-            start_time = datetime.utcnow() - timedelta(hours=24)
+            start_time = datetime.now(UTC) - timedelta(hours=24)
         if not end_time:
-            end_time = datetime.utcnow()
+            end_time = datetime.now(UTC)
 
         log_file_path = self.log_files.get(log_file)
         if not log_file_path or not log_file_path.exists():

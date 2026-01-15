@@ -23,6 +23,7 @@ except ImportError:
         """Fallback no-op decorator when cache not available"""
 
         def decorator(func):
+            """Returns the function unchanged when cache is unavailable."""
             return func
 
         return decorator

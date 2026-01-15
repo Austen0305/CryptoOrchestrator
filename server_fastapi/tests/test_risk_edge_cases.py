@@ -162,11 +162,11 @@ class TestRiskEdgeCases:
         )
 
         if alert:
-            alert_id = str(alert.id) if hasattr(alert, "id") else alert.get("id")
+            str(alert.id) if hasattr(alert, "id") else alert.get("id")
 
             # Test acknowledging non-existent alert
             try:
-                result = await risk_service.acknowledge_alert_db(
+                await risk_service.acknowledge_alert_db(
                     "test_user", "nonexistent_id"
                 )
                 # Should handle gracefully

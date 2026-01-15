@@ -53,7 +53,7 @@ async def get_positions(
         )
 
         # Apply pagination (service returns all, paginate in route)
-        total = len(positions)
+        len(positions)
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
         paginated_positions = positions[start_idx:end_idx]

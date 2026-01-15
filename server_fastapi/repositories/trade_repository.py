@@ -4,7 +4,7 @@ Data access layer for Trade model operations.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -311,7 +311,7 @@ class TradeRepository(SQLAlchemyRepository[Trade]):
                 conditions.append(Trade.pair == pairs)
 
         if period_hours:
-            cutoff_time = datetime.utcnow() - timedelta(hours=period_hours)
+            cutoff_time = datetime.now(UTC) - timedelta(hours=period_hours)
             conditions.append(Trade.timestamp >= cutoff_time)
 
         query = select(Trade).where(and_(*conditions)).order_by(Trade.timestamp)

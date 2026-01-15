@@ -6,7 +6,7 @@ Non-custodial wallet signatures using threshold cryptography
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ class TECDSAService:
                 public_key=public_key,
                 threshold=threshold,
                 total_parties=len(parties),
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
             key_shares.append(share)
 
@@ -160,7 +160,7 @@ class TECDSAService:
         )
 
         signature_id = hashlib.sha256(
-            f"{wallet_address}:{transaction_hash}:{datetime.utcnow().isoformat()}".encode()
+            f"{wallet_address}:{transaction_hash}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         signature = TECDSASignature(

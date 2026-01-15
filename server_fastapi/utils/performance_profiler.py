@@ -81,7 +81,7 @@ class PerformanceProfiler:
     def get_all_profiles(self) -> dict[str, PerformanceProfile]:
         """Get all performance profiles"""
         profiles = {}
-        for name in self.call_counts.keys():
+        for name in self.call_counts:
             profile = self.get_profile(name)
             if profile:
                 profiles[name] = profile
@@ -90,7 +90,7 @@ class PerformanceProfiler:
     def get_slow_functions(self, threshold_ms: float = 100) -> list[PerformanceProfile]:
         """Get functions that exceed performance threshold"""
         slow = []
-        for name, profile in self.get_all_profiles().items():
+        for _name, profile in self.get_all_profiles().items():
             if profile.avg_time * 1000 > threshold_ms:
                 slow.append(profile)
         return sorted(slow, key=lambda x: x.avg_time, reverse=True)

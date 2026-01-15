@@ -27,14 +27,14 @@ interface PortfolioUpdate {
   data: PortfolioData;
 }
 
-export function usePortfolioWebSocket(mode: "paper" | "real" = "paper") {
+export const usePortfolioWebSocket = (mode: "paper" | "real" = "paper") => {
   const [portfolio, setPortfolio] = useState<PortfolioData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef<number>(0);
-  const maxReconnectAttempts = 10;
+  const maxReconnectAttempts = 5;
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -130,7 +130,7 @@ export function usePortfolioWebSocket(mode: "paper" | "real" = "paper") {
 
           // Attempt to reconnect with exponential backoff
           reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectTimeoutRef.current = null;
+            reconnectTimeoutRef.current = undefined;
             connect();
           }, delay);
         };

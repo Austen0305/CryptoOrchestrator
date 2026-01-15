@@ -4,6 +4,7 @@ Provides detailed market microstructure data for high-frequency trading
 """
 
 import asyncio
+import contextlib
 import logging
 import time
 from collections import deque
@@ -342,10 +343,8 @@ class MarketMicrostructureService:
         """Stop streaming microstructure updates"""
         if pair in self.update_tasks:
             self.update_tasks[pair].cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.update_tasks[pair]
-            except asyncio.CancelledError:
-                pass
             del self.update_tasks[pair]
 
 

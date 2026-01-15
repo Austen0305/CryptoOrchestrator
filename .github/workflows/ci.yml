@@ -1,0 +1,85 @@
+
+name: CryptoOrchestrator 2026 CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: BACKEND VERIFICATION (Python 3.12 + Rust FFI)
+  # ------------------------------------------------------------------
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust (for FFI)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r server_fastapi/requirements.txt
+          pip install pytest pytest-asyncio anyio trio hypothesis
+
+      - name: Run Unit Tests
+        run: |
+          python -m pytest server_fastapi/tests/
+
+      - name: Verify Compliance Modules
+        run: |
+          python -c "import server_fastapi.utils.validation_2026; print('Regulatory Validation Module Found ✅')"
+          python -c "import server_fastapi.schemas.iso20022; print('ISO 20022 Schemas Found ✅')"
+
+  # ------------------------------------------------------------------
+  # JOB 2: FRONTEND VERIFICATION (React 19 + TanStack)
+  # ------------------------------------------------------------------
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: ./client
+        run: npm ci
+
+      - name: Type Check
+        working-directory: ./client
+        run: npx tsc --noEmit
+
+      - name: Run Tests (Vitest)
+        working-directory: ./client
+        run: npm test
+
+  # ------------------------------------------------------------------
+  # JOB 3: SECURITY AUDIT
+  # ------------------------------------------------------------------
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Check for Banned Libraries
+        run: |
+          ! grep -r "pandas" server_fastapi/requirements.txt
+          ! grep -r "scikit-learn" server_fastapi/requirements.txt
+          ! grep -r "react-router-dom" client/package.json
+          echo "No Banned Libraries Found ✅"

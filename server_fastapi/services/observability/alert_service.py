@@ -7,7 +7,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -113,7 +113,7 @@ class AlertService:
             last_alert_key = f"{rule_name}_{metric_name}"
             if last_alert_key in self.last_alert_time:
                 time_since_last = (
-                    datetime.utcnow() - self.last_alert_time[last_alert_key]
+                    datetime.now(UTC) - self.last_alert_time[last_alert_key]
                 )
                 if time_since_last < timedelta(minutes=rule.cooldown_minutes):
                     continue
@@ -157,7 +157,7 @@ class AlertService:
             alert = self.active_alerts[alert_key]
             alert.message = f"{rule.description or rule.name}: {value} {rule.condition} {rule.threshold}"
             alert.metric_value = value
-            alert.timestamp = datetime.utcnow()
+            alert.timestamp = datetime.now(UTC)
         else:
             # Create new alert
             alert = Alert(
@@ -166,7 +166,7 @@ class AlertService:
                 message=f"{rule.description or rule.name}: {value} {rule.condition} {rule.threshold}",
                 metric_value=value,
                 threshold=rule.threshold,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 tags=tags,
             )
             self.active_alerts[alert_key] = alert
@@ -177,7 +177,7 @@ class AlertService:
                 self.alert_history = self.alert_history[-self.max_history :]
 
         # Update last alert time
-        self.last_alert_time[alert_key] = datetime.utcnow()
+        self.last_alert_time[alert_key] = datetime.now(UTC)
 
         # Notify handlers
         for handler in self.alert_handlers:
@@ -195,7 +195,7 @@ class AlertService:
         if alert_key in self.active_alerts:
             alert = self.active_alerts[alert_key]
             alert.status = AlertStatus.ACKNOWLEDGED
-            alert.acknowledged_at = datetime.utcnow()
+            alert.acknowledged_at = datetime.now(UTC)
             logger.info(f"Alert acknowledged: {alert_key}")
 
     def resolve_alert(self, alert_key: str):
@@ -203,7 +203,7 @@ class AlertService:
         if alert_key in self.active_alerts:
             alert = self.active_alerts[alert_key]
             alert.status = AlertStatus.RESOLVED
-            alert.resolved_at = datetime.utcnow()
+            alert.resolved_at = datetime.now(UTC)
             del self.active_alerts[alert_key]
             logger.info(f"Alert resolved: {alert_key}")
 

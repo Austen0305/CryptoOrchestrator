@@ -4,7 +4,7 @@ Integrates wallet system with trading operations
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -138,7 +138,7 @@ class WalletTradingIntegration:
                 net_amount=trade_amount,
                 trade_id=trade.id,
                 description=f"Trade execution: {trade.pair} {trade.side}",
-                processed_at=datetime.utcnow(),
+                processed_at=datetime.now(UTC),
             )
             self.db.add(transaction)
 
@@ -184,7 +184,7 @@ class WalletTradingIntegration:
                 net_amount=profit,
                 trade_id=trade.id,
                 description=f"Trade profit: {trade.pair}",
-                processed_at=datetime.utcnow(),
+                processed_at=datetime.now(UTC),
             )
             self.db.add(transaction)
 

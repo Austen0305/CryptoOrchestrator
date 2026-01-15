@@ -25,7 +25,7 @@ class TestWalletServicesEnhanced:
         chains = [1, 8453, 42161]  # Ethereum, Base, Arbitrum
 
         for chain_id in chains:
-            wallet_data = factories["wallet"].wallet_data(
+            factories["wallet"].wallet_data(
                 user_id=user["id"], chain_id=chain_id
             )
 
@@ -45,13 +45,13 @@ class TestWalletServicesEnhanced:
         user = test_user_with_auth
 
         # Create wallets on multiple chains
-        wallet1 = await factories["wallet"].create_wallet(
+        await factories["wallet"].create_wallet(
             db_session,
             user_id=user["id"],
             chain_id=1,  # Ethereum
         )
 
-        wallet2 = await factories["wallet"].create_wallet(
+        await factories["wallet"].create_wallet(
             db_session,
             user_id=user["id"],
             chain_id=8453,  # Base

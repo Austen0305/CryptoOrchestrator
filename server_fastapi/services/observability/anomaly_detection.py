@@ -7,7 +7,7 @@ import logging
 import statistics
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import numpy as np
@@ -63,7 +63,7 @@ class LSTMAutoencoder(nn.Module):
     """LSTM-based autoencoder for time-series anomaly detection"""
 
     def __init__(self, input_size: int = 1, hidden_size: int = 64, num_layers: int = 2):
-        super(LSTMAutoencoder, self).__init__()
+        super().__init__()
         self.encoder = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         self.decoder = nn.LSTM(hidden_size, input_size, num_layers, batch_first=True)
         self.hidden_size = hidden_size
@@ -135,7 +135,7 @@ class AnomalyDetectionService:
         if key not in self.metric_history:
             self.metric_history[key] = deque(maxlen=1000)
 
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(UTC)
         self.metric_history[key].append((timestamp, value))
 
         # Update baseline
@@ -161,7 +161,7 @@ class AnomalyDetectionService:
             return
 
         # Get recent values within baseline window
-        cutoff_time = datetime.utcnow() - timedelta(
+        cutoff_time = datetime.now(UTC) - timedelta(
             minutes=self.baseline_window_minutes
         )
         recent_values = [v for t, v in history if t >= cutoff_time]
@@ -181,7 +181,7 @@ class AnomalyDetectionService:
             min_value=min_value,
             max_value=max_value,
             sample_count=len(recent_values),
-            last_updated=datetime.utcnow(),
+            last_updated=datetime.now(UTC),
         )
 
     def _detect_anomaly(
@@ -309,7 +309,7 @@ class AnomalyDetectionService:
                 baseline_mean=baseline.mean,
                 deviation=deviation,
                 severity=severity,
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(UTC),
                 tags=tags or {},
             )
 
@@ -345,7 +345,7 @@ class AnomalyDetectionService:
         recent_anomalies = [
             a
             for a in self.anomaly_history
-            if a.timestamp >= datetime.utcnow() - timedelta(hours=24)
+            if a.timestamp >= datetime.now(UTC) - timedelta(hours=24)
         ]
 
         severity_counts = {}
@@ -524,10 +524,7 @@ class AnomalyDetectionService:
         trained_count = 0
         for key in metrics_to_train:
             # Extract metric name from key
-            if "[" in key:
-                metric = key.split("[")[0]
-            else:
-                metric = key
+            metric = key.split("[")[0] if "[" in key else key
 
             # Train Isolation Forest
             if self.use_isolation_forest:
@@ -539,9 +536,8 @@ class AnomalyDetectionService:
                 self.use_lstm
                 and len(self.metric_history.get(key, deque()))
                 >= self.lstm_window_size * 2
-            ):
-                if self.train_lstm_autoencoder(metric):
-                    trained_count += 1
+            ) and self.train_lstm_autoencoder(metric):
+                trained_count += 1
 
         logger.info(f"Auto-trained models for {trained_count} metrics")
         return trained_count

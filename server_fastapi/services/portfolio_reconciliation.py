@@ -45,7 +45,7 @@ class PortfolioReconciliationService:
                 }
 
             # Calculate actual balances from trades
-            stmt = select(Trade).where(Trade.user_id == user_id, Trade.success == True)
+            stmt = select(Trade).where(Trade.user_id == user_id, Trade.success)
             result = await self.db.execute(stmt)
             trades = result.scalars().all()
 

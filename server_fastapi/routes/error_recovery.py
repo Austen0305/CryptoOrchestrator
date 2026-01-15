@@ -7,7 +7,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from ..dependencies.auth import get_current_user, require_admin
+from ..dependencies.auth import get_current_user
 from ..utils.error_recovery import error_recovery
 
 logger = logging.getLogger(__name__)

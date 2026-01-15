@@ -4,7 +4,7 @@ Intrusion detection, anomaly detection, and security event logging
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -64,7 +64,7 @@ class SecurityMonitoringService:
             "user_id": user_id,
             "ip_address": ip_address,
             "metadata": metadata or {},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         logger.warning(f"Security Event: {event_type} - {description}", extra=event)
@@ -145,7 +145,7 @@ class SecurityMonitoringService:
         # stmt = select(func.count(SecurityEvent.id)).where(
         #     and_(
         #         SecurityEvent.event_type == event_type,
-        #         SecurityEvent.created_at >= datetime.utcnow() - timedelta(minutes=minutes),
+        #         SecurityEvent.created_at >= datetime.now(UTC) - timedelta(minutes=minutes),
         #         SecurityEvent.user_id == user_id if user_id else True,
         #         SecurityEvent.ip_address == ip_address if ip_address else True,
         #     )

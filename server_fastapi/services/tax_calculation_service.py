@@ -5,7 +5,7 @@ Handles FIFO, LIFO, and Average cost basis tracking for tax reporting
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,8 @@ class TaxableEvent:
     is_wash_sale: bool = False
     wash_sale_adjustment: float = 0.0
     trade_id: int | None = None
+    transaction_hash: str | None = None  # IRS 1099-DA (Sale Tx ID)
+    digital_asset_address: str | None = None  # IRS 1099-DA (Wallet Address)
     lots_used: list[CostBasisLot] = None
 
     def __post_init__(self):
@@ -115,6 +117,8 @@ class TaxCalculationService:
         quantity: float,
         method: CostBasisMethod = CostBasisMethod.FIFO,
         trade_id: int | None = None,
+        transaction_hash: str | None = None,
+        digital_asset_address: str | None = None,
     ) -> TaxableEvent:
         """
         Calculate taxable gain/loss for a sale
@@ -126,6 +130,8 @@ class TaxCalculationService:
             quantity: Quantity sold
             method: Cost basis method (FIFO, LIFO, AVERAGE)
             trade_id: Optional trade ID reference
+            transaction_hash: Blockchain transaction hash (IRS 1099-DA)
+            digital_asset_address: Wallet address (IRS 1099-DA)
 
         Returns:
             TaxableEvent with calculated gain/loss
@@ -227,6 +233,8 @@ class TaxCalculationService:
             is_wash_sale=is_wash_sale,
             wash_sale_adjustment=wash_sale_adjustment,
             trade_id=trade_id,
+            transaction_hash=transaction_hash,
+            digital_asset_address=digital_asset_address,
             lots_used=lots_used,
         )
 
@@ -254,13 +262,7 @@ class TaxCalculationService:
         window_end = sale_date + timedelta(days=30)
 
         # Check if any lots were purchased within wash sale window
-        for lot in lots_used:
-            if window_start <= lot.purchase_date <= window_end:
-                # Check if this was a loss
-                # Would need sale price vs purchase price comparison
-                return True
-
-        return False
+        return any(window_start <= lot.purchase_date <= window_end for lot in lots_used)
 
     def get_tax_summary(
         self,
@@ -370,7 +372,7 @@ class TaxCalculationService:
                         "unrealized_loss": unrealized_loss,
                         "loss_percent": loss_percent,
                         "holding_period_days": (
-                            datetime.utcnow() - lot.purchase_date
+                            datetime.now(UTC) - lot.purchase_date
                         ).days,
                     }
                 )

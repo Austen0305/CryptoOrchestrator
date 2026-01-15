@@ -3,7 +3,7 @@
  * User profile management, account settings, and security
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,11 +14,12 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiService } from '../services/api';
-import BiometricAuth from '../services/BiometricAuth';
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import BiometricAuth from "../services/BiometricAuth";
 
 interface UserProfile {
   id: string;
@@ -35,53 +36,56 @@ export default function ProfileScreen() {
   const [editing, setEditing] = useState(false);
   const [biometricsEnabled, setBiometricsEnabled] = useState(false);
   const [formData, setFormData] = useState({
-    username: '',
-    first_name: '',
-    last_name: '',
-    email: '',
+    username: "",
+    first_name: "",
+    last_name: "",
+    email: "",
   });
 
   // Fetch user profile
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['userProfile'],
+    queryKey: ["userProfile"],
     queryFn: async () => {
-      const response = await apiService.getUserProfile();
-      return response.data;
+      return await api.get<UserProfile>("users/me");
     },
   });
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
-    mutationFn: (data: Partial<UserProfile>) => apiService.updateUserProfile(data),
+    mutationFn: (data: Partial<UserProfile>) => api.post("users/me", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      queryClient.invalidateQueries({ queryKey: ["userProfile"] });
       setEditing(false);
-      Alert.alert('Success', 'Profile updated successfully');
+      Alert.alert("Success", "Profile updated successfully");
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to update profile');
+    onError: (error: unknown) => {
+      const errorData = (error as { response?: { data?: { detail?: string } } }).response?.data;
+      const errorDetail = errorData?.detail ?? (error as Error).message;
+      Alert.alert("Error", errorDetail);
     },
   });
 
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: (data: { current_password: string; new_password: string }) =>
-      apiService.changePassword(data),
+      api.post("users/change-password", data),
     onSuccess: () => {
-      Alert.alert('Success', 'Password changed successfully');
+      Alert.alert("Success", "Password changed successfully");
     },
-    onError: (error: any) => {
-      Alert.alert('Error', error.response?.data?.detail || 'Failed to change password');
+    onError: (error: unknown) => {
+      const errorData = (error as { response?: { data?: { detail?: string } } }).response?.data;
+      const errorDetail = errorData?.detail ?? (error as Error).message;
+      Alert.alert("Error", errorDetail);
     },
   });
 
   useEffect(() => {
     if (profile) {
       setFormData({
-        username: profile.username || '',
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
-        email: profile.email || '',
+        username: profile.username ?? "",
+        first_name: profile.first_name ?? "",
+        last_name: profile.last_name ?? "",
+        email: profile.email,
       });
     }
     checkBiometricStatus();
@@ -92,7 +96,7 @@ export default function ProfileScreen() {
       const result = await BiometricAuth.isBiometricAvailable();
       setBiometricsEnabled(result.available);
     } catch (error) {
-      console.error('Error checking biometric status:', error);
+      console.error("Error checking biometric status:", error);
     }
   };
 
@@ -102,69 +106,69 @@ export default function ProfileScreen() {
 
   const handleChangePassword = () => {
     Alert.prompt(
-      'Change Password',
-      'Enter your current password:',
+      "Change Password",
+      "Enter your current password:",
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Next',
-          onPress: (currentPassword) => {
+          text: "Next",
+          onPress: (currentPassword?: string) => {
             if (!currentPassword) {
-              Alert.alert('Error', 'Current password is required');
+              Alert.alert("Error", "Current password is required");
               return;
             }
             Alert.prompt(
-              'New Password',
-              'Enter your new password:',
+              "New Password",
+              "Enter your new password:",
               [
                 {
-                  text: 'Cancel',
-                  style: 'cancel',
+                  text: "Cancel",
+                  style: "cancel",
                 },
                 {
-                  text: 'Change',
-                  onPress: (newPassword) => {
+                  text: "Change",
+                  onPress: (newPassword?: string) => {
                     if (!newPassword || newPassword.length < 8) {
-                      Alert.alert('Error', 'New password must be at least 8 characters');
+                      Alert.alert("Error", "New password must be at least 8 characters");
                       return;
                     }
-                    changePasswordMutation.mutate({
-                      current_password: currentPassword!,
-                      new_password: newPassword!,
-                    });
+                    if (currentPassword) {
+                      changePasswordMutation.mutate({
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                      });
+                    }
                   },
                 },
               ],
-              'secure-text'
+              "secure-text"
             );
           },
         },
       ],
-      'secure-text'
+      "secure-text"
     );
   };
 
-  const handleBiometricToggle = async (value: boolean) => {
-    if (value) {
-      try {
-        const result = await BiometricAuth.authenticate(
-          'Enable Biometric Authentication'
-        );
-        if (result.success) {
-          setBiometricsEnabled(true);
-          Alert.alert('Success', 'Biometric authentication enabled');
-        } else {
-          Alert.alert('Error', result.error || 'Failed to enable biometric authentication');
-        }
-      } catch (error) {
-        Alert.alert('Error', 'Failed to enable biometric authentication');
+  const enableBiometricAuth = async () => {
+    try {
+      const result = await BiometricAuth.authenticate("Enable Biometric Authentication");
+      if (result.success) {
+        setBiometricsEnabled(true);
+        Alert.alert("Success", "Biometric authentication enabled");
+      } else {
+        Alert.alert("Error", result.error ?? "Failed to enable biometric authentication");
       }
-    } else {
-      setBiometricsEnabled(false);
+    } catch (error) {
+      Alert.alert("Error", "Failed to enable biometric authentication");
     }
+  };
+
+  const disableBiometricAuth = () => {
+    setBiometricsEnabled(false);
   };
 
   if (isLoading) {
@@ -187,9 +191,9 @@ export default function ProfileScreen() {
             <MaterialCommunityIcons name="account-circle" size={80} color="#3b82f6" />
           </View>
           <Text style={styles.profileName}>
-            {profile?.first_name && profile?.last_name
+            {profile?.first_name && profile.last_name
               ? `${profile.first_name} ${profile.last_name}`
-              : profile?.username || profile?.email || 'User'}
+              : profile?.username ?? profile?.email ?? "User"}
           </Text>
           <Text style={styles.profileEmail}>{profile?.email}</Text>
         </View>
@@ -261,10 +265,10 @@ export default function ProfileScreen() {
                   setEditing(false);
                   if (profile) {
                     setFormData({
-                      username: profile.username || '',
-                      first_name: profile.first_name || '',
-                      last_name: profile.last_name || '',
-                      email: profile.email || '',
+                      username: profile.username ?? "",
+                      first_name: profile.first_name ?? "",
+                      last_name: profile.last_name ?? "",
+                      email: profile.email,
                     });
                   }
                 }}
@@ -306,15 +310,19 @@ export default function ProfileScreen() {
               <MaterialCommunityIcons name="fingerprint" size={24} color="#3b82f6" />
               <View style={styles.settingText}>
                 <Text style={styles.settingLabel}>Biometric Authentication</Text>
-                <Text style={styles.settingDescription}>
-                  Use Face ID, Touch ID, or fingerprint
-                </Text>
+                <Text style={styles.settingDescription}>Use Face ID, Touch ID, or fingerprint</Text>
               </View>
             </View>
             <Switch
               value={biometricsEnabled}
-              onValueChange={handleBiometricToggle}
-              trackColor={{ false: '#374151', true: '#3b82f6' }}
+              onValueChange={(value) => {
+                if (value) {
+                  void enableBiometricAuth();
+                } else {
+                  disableBiometricAuth();
+                }
+              }}
+              trackColor={{ false: "#374151", true: "#3b82f6" }}
               thumbColor="#fff"
             />
           </View>
@@ -325,7 +333,7 @@ export default function ProfileScreen() {
               <View style={styles.settingText}>
                 <Text style={styles.settingLabel}>Two-Factor Authentication</Text>
                 <Text style={styles.settingDescription}>
-                  {profile?.two_factor_enabled ? 'Enabled' : 'Not enabled'}
+                  {profile?.two_factor_enabled ? "Enabled" : "Not enabled"}
                 </Text>
               </View>
             </View>
@@ -343,9 +351,7 @@ export default function ProfileScreen() {
               <View style={styles.settingText}>
                 <Text style={styles.settingLabel}>Member Since</Text>
                 <Text style={styles.settingDescription}>
-                  {profile?.created_at
-                    ? new Date(profile.created_at).toLocaleDateString()
-                    : 'N/A'}
+                  {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "N/A"}
                 </Text>
               </View>
             </View>
@@ -354,26 +360,24 @@ export default function ProfileScreen() {
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => {
-              Alert.alert(
-                'Log Out',
-                'Are you sure you want to log out?',
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Log Out',
-                    style: 'destructive',
-                    onPress: async () => {
+              Alert.alert("Log Out", "Are you sure you want to log out?", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Log Out",
+                  style: "destructive",
+                  onPress: () => {
+                    void (async () => {
                       try {
-                        await apiService.logout();
-                        await AsyncStorage.removeItem('auth_token');
+                        await api.post("auth/logout", {});
+                        await AsyncStorage.removeItem("auth_token");
                         // Navigate to login screen (would need navigation prop)
                       } catch (error) {
-                        console.error('Logout error:', error);
+                        console.error("Logout error:", error);
                       }
-                    },
+                    })();
                   },
-                ]
-              );
+                },
+              ]);
             }}
           >
             <View style={styles.settingInfo}>
@@ -394,22 +398,22 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: "#0f172a",
   },
   content: {
     padding: 16,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     marginTop: 16,
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 32,
     marginBottom: 24,
   },
@@ -417,56 +421,56 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   profileName: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   profileEmail: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 16,
   },
   section: {
     marginBottom: 32,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   sectionTitle: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   formGroup: {
     marginBottom: 16,
   },
   label: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 14,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
     borderRadius: 8,
     padding: 16,
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
   },
   inputDisabled: {
     opacity: 0.6,
   },
   helpText: {
-    color: '#6b7280',
+    color: "#6b7280",
     fontSize: 12,
     marginTop: 4,
   },
   buttonRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 8,
   },
@@ -474,43 +478,43 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 44,
   },
   buttonCancel: {
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   buttonCancelText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   buttonSave: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: "#3b82f6",
   },
   buttonSaveText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: "#1e293b",
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: "#334155",
   },
   settingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   settingText: {
@@ -518,16 +522,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingLabel: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
     marginBottom: 4,
   },
   settingDescription: {
-    color: '#9ca3af',
+    color: "#9ca3af",
     fontSize: 12,
   },
   logoutText: {
-    color: '#ef4444',
+    color: "#ef4444",
   },
 });

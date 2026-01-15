@@ -4,11 +4,10 @@ Ensures atomic transactions for all real money operations
 """
 
 import logging
-from datetime import datetime, timedelta
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Annotated, Any
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -49,7 +48,7 @@ class RealMoneyTransactionManager:
         """Create a new idempotency key record"""
         if not expires_at:
             # Default expiration: 24 hours
-            expires_at = datetime.utcnow() + timedelta(hours=24)
+            expires_at = datetime.now(UTC) + timedelta(hours=24)
 
         idempotency_record = IdempotencyKey(
             key=key,
@@ -105,7 +104,7 @@ class RealMoneyTransactionManager:
 
                 # 2. Start new operation
                 # Create 'pending' idempotency record within the transaction
-                expiry = datetime.utcnow() + timedelta(hours=24)
+                expiry = datetime.now(UTC) + timedelta(hours=24)
                 new_key_record = IdempotencyKey(
                     key=idempotency_key,
                     user_id=user_id,
@@ -157,7 +156,7 @@ class RealMoneyTransactionManager:
                                 user_id=user_id,
                                 result={"error": str(e)},
                                 status_code=500,
-                                expires_at=datetime.utcnow() + timedelta(hours=24),
+                                expires_at=datetime.now(UTC) + timedelta(hours=24),
                             )
                             error_db.add(error_key)
                         else:

@@ -5,7 +5,7 @@ Comprehensive treasury management for institutional wallets
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -119,7 +119,7 @@ class TreasuryService:
             total_balance_usd = Decimal("0")
             wallet_balances = []
 
-            for wallet in wallets:
+            for _wallet in wallets:
                 # In production, fetch actual balances from blockchain/API
                 balance_usd = Decimal("0")  # Placeholder
                 wallet_balances.append(balance_usd)
@@ -133,7 +133,7 @@ class TreasuryService:
             )
 
             # Get 24h transactions
-            cutoff = datetime.utcnow() - timedelta(hours=24)
+            cutoff = datetime.now(UTC) - timedelta(hours=24)
             transactions_24h = (
                 session.query(InstitutionalWalletTransaction)
                 .filter(

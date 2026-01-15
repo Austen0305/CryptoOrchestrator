@@ -150,7 +150,7 @@ class BacktestingEngine:
             # Update ensemble engine with reward (simplified)
             if i > 0:
                 prev_data = market_data[i - 1]
-                reward = self.ensemble_engine.calculate_reward(
+                self.ensemble_engine.calculate_reward(
                     decision.action,
                     prev_data.close,
                     current_price,

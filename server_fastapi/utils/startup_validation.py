@@ -5,7 +5,7 @@ Validates all configuration and dependencies on application startup
 
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -190,7 +190,7 @@ class StartupValidator:
             "errors": self.errors,
             "warnings": self.warnings,
             "checks": self.checks,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def log_results(self, results: dict[str, Any]):

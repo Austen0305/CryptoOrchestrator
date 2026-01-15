@@ -464,7 +464,7 @@ async def test_invalid_token_addresses(client: AsyncClient, auth_headers):
         assert response.status_code in [200, 400]
         if response.status_code == 200:
             # Quote might be None for invalid token
-            data = response.json()
+            response.json()
             # May return None or error message
             pass
 

@@ -1,0 +1,51 @@
+{
+  "timestamp": "2026-01-13T17:59:36.159600",
+  "checks": {
+    "TypeScript": {
+      "status": "\u274c FAIL",
+      "message": "TypeScript errors found: "
+    },
+    "Linting": {
+      "status": "\u2705 PASS",
+      "message": "Linting: Check skipped ('NoneType' object has no attribute 'lower'), verify manually: npm run lint"
+    },
+    "Test Structure": {
+      "status": "\u2705 PASS",
+      "message": "Backend tests: 81 files | Frontend tests: 22 files | E2E tests: 21 files"
+    },
+    "API Routes": {
+      "status": "\u2705 PASS",
+      "message": "Found 118 route files"
+    },
+    "React Components": {
+      "status": "\u2705 PASS",
+      "message": "Found 139 component files"
+    },
+    "Backend Services": {
+      "status": "\u2705 PASS",
+      "message": "Found 265 service files"
+    },
+    "Repositories": {
+      "status": "\u2705 PASS",
+      "message": "Found 21 repository files"
+    },
+    "Mobile Services": {
+      "status": "\u2705 PASS",
+      "message": "Found 5 mobile service files"
+    },
+    "Documentation": {
+      "status": "\u2705 PASS",
+      "message": "Found 107 documentation files"
+    },
+    "Configuration": {
+      "status": "\u274c FAIL",
+      "message": "Missing config files: vite.config.ts"
+    }
+  },
+  "summary": {
+    "total": 10,
+    "passed": 8,
+    "failed": 2,
+    "success_rate": "80.0%"
+  }
+}

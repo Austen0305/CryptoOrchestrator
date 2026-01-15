@@ -4,7 +4,7 @@ WebSocket Route for Real-Time Wallet Updates
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -25,7 +25,7 @@ async def broadcast_wallet_update(user_id: int, wallet_data: dict):
         message = {
             "type": "wallet_update",
             "data": wallet_data,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         disconnected = []
@@ -83,7 +83,7 @@ async def websocket_wallet(websocket: WebSocket):
                     {
                         "type": "initial_balance",
                         "data": balance,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     }
                 )
         except Exception as e:
@@ -109,7 +109,7 @@ async def websocket_wallet(websocket: WebSocket):
                             {
                                 "type": "balance_response",
                                 "data": balance,
-                                "timestamp": datetime.utcnow().isoformat(),
+                                "timestamp": datetime.now(UTC).isoformat(),
                             }
                         )
 

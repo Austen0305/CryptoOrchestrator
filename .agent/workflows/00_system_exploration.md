@@ -1,3 +1,8 @@
+---
+name: System Exploration & Freeze
+description: Traverse the entire repository to build a complete mental model before any code modification.
+---
+
 # System Exploration & Freeze
 
 Priority: BLOCKING

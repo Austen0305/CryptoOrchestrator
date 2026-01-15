@@ -4,7 +4,7 @@ Provides analytics and metrics for marketplace features.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, desc, func, select
@@ -45,7 +45,7 @@ class MarketplaceAnalyticsService:
             return {
                 "copy_trading": copy_trading_stats,
                 "indicators": indicator_stats,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error getting marketplace overview: {e}", exc_info=True)
@@ -147,7 +147,7 @@ class MarketplaceAnalyticsService:
 
         # Free vs Paid
         free_indicators_result = await self.db.execute(
-            select(func.count(Indicator.id)).where(Indicator.is_free == True)
+            select(func.count(Indicator.id)).where(Indicator.is_free)
         )
         free_indicators = free_indicators_result.scalar() or 0
 
@@ -218,7 +218,7 @@ class MarketplaceAnalyticsService:
                 .where(
                     and_(
                         SignalProvider.curator_status == CuratorStatus.APPROVED.value,
-                        SignalProvider.is_public == True,
+                        SignalProvider.is_public,
                     )
                 )
                 .options(selectinload(SignalProvider.user))
@@ -305,7 +305,7 @@ class MarketplaceAnalyticsService:
     async def get_revenue_trends(self, days: int = 30) -> dict[str, Any]:
         """Get revenue trends over time"""
         try:
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
             # Copy trading payouts
             copy_trading_payouts_result = await self.db.execute(

@@ -106,17 +106,17 @@ async def get_traces(
         # Parse time range
         end_time = datetime.now()
         if time_range == "15m":
-            start_time = end_time - timedelta(minutes=15)
+            end_time - timedelta(minutes=15)
         elif time_range == "1h":
-            start_time = end_time - timedelta(hours=1)
+            end_time - timedelta(hours=1)
         elif time_range == "6h":
-            start_time = end_time - timedelta(hours=6)
+            end_time - timedelta(hours=6)
         elif time_range == "24h":
-            start_time = end_time - timedelta(days=1)
+            end_time - timedelta(days=1)
         elif time_range == "7d":
-            start_time = end_time - timedelta(days=7)
+            end_time - timedelta(days=7)
         else:
-            start_time = end_time - timedelta(hours=1)
+            end_time - timedelta(hours=1)
 
         # In production, this would query a tracing backend
         # For now, return empty list or mock data based on configuration

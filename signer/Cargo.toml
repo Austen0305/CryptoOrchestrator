@@ -1,0 +1,16 @@
+[package]
+name = "crypto-signer"
+version = "0.2.0"
+edition = "2021"
+description = "Production ECDSA signer with MPC-compatible interface"
+
+[lib]
+name = "crypto_signer"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20.0", features = ["extension-module"] }
+k256 = { version = "0.13.1", features = ["ecdsa"] }
+hex = "0.4.3"
+thiserror = "1.0"
+sha3 = "0.10"

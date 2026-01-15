@@ -4,7 +4,7 @@ Tracks and analyzes Net Promoter Score (NPS) and other satisfaction metrics
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, case, func, select
@@ -102,7 +102,7 @@ class NPSTrackingService:
                 "detractor_percentage": round(detractor_percentage, 2),
                 "start_date": start_date.isoformat() if start_date else None,
                 "end_date": end_date.isoformat() if end_date else None,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error calculating NPS: {e}", exc_info=True)
@@ -117,7 +117,7 @@ class NPSTrackingService:
     ) -> list[dict[str, Any]]:
         """Get NPS trend over time"""
         try:
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             if period == "daily":
                 date_func = func.date(UserSatisfaction.created_at)
@@ -164,10 +164,7 @@ class NPSTrackingService:
                 promoters = row.promoters or 0
                 detractors = row.detractors or 0
 
-                if total > 0:
-                    nps = ((promoters / total) - (detractors / total)) * 100
-                else:
-                    nps = 0
+                nps = (promoters / total - detractors / total) * 100 if total > 0 else 0
 
                 trends.append(
                     {

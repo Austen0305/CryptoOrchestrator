@@ -24,12 +24,12 @@ export interface Asset {
 export interface Trade {
   id: string;
   symbol: string;
-  type: 'buy' | 'sell';
+  type: "buy" | "sell";
   amount: number;
   price: number;
   total: number;
   timestamp: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: "pending" | "completed" | "failed";
 }
 
 export interface MarketData {
@@ -54,7 +54,7 @@ export interface RebalanceAnalysis {
 
 export interface RebalanceTrade {
   symbol: string;
-  action: 'buy' | 'sell';
+  action: "buy" | "sell";
   amount: number;
   value_usd: number;
 }
@@ -76,7 +76,7 @@ export interface Signal {
   id: string;
   provider: string;
   symbol: string;
-  type: 'buy' | 'sell' | 'hold';
+  type: "buy" | "sell" | "hold";
   confidence: number;
   target_price: number;
   stop_loss: number;

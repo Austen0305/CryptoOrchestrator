@@ -150,7 +150,7 @@ async def reset_onboarding(
         user_id = _get_user_id(current_user)
         service = OnboardingService(db)
 
-        progress = await service.reset_progress(user_id)
+        await service.reset_progress(user_id)
 
         return {"success": True, "message": "Onboarding progress reset"}
     except Exception as e:

@@ -1,79 +1,46 @@
 ---
-description: Intelligent orchestration and orchestration of Model Context Protocol (MCP) tools across the development lifecycle.
+name: MCP Orchestration
+description: Optimize the use of cognitive tools to maximize efficiency, accuracy, and depth of insight.
 ---
 
-# MCP Orchestration Workflow
+# Workflow: MCP Orchestration (Recursive Intelligence)
 
-This workflow provides a strategic framework for using MCP tools to Maximize efficiency, accuracy, and safety.
+Optimize the use of cognitive tools to maximize efficiency, accuracy, and depth of insight.
 
-## 1. Research & Exploration (Phase 1)
-Use these tools to establish a baseline and gather requirements.
+## 🛠️ The Full Suite Integration
 
-- **`brave-search` & `fetch`**:
-  - // turbo
-  - Always search for the latest regulatory standards (e.g., MiCA, GENIUS Act) before modifying financial logic.
-  - Use `fetch` to extract specific API documentation or technical whitepapers.
-- **`wikipedia`**:
-  - // turbo
-  - Use for general concepts, history of protocols, or high-level explanations of cryptographic primitives.
-- **`filesystem` & `git`**:
-  - // turbo
-  - `mcp_filesystem_list_directory` to map workspace structure.
-  - `mcp_git_status` and `mcp_git_branch_list` to understand the current environment state.
-- **`github`**:
-  - // turbo
-  - Audit repository history and PRs to understand the context of legacy code.
-  - Use to track compliance-related changes and security reviews.
+### 1. 🔍 Discovery & Intelligence
+- **`mcp:brave-search`**: Mandatory for real-time 2026/2027 regulatory (MiCA/GENIUS) and industry standards.
+- **`mcp:fetch`**: For deep ingestion of public documentation and transcripts.
+- **`mcp:wikipedia`**: For non-technical domain context and historical financial benchmarks.
+- **`mcp:context7`**: Primary source for deep library-specific documentation and code snippets (e.g., FastAPI v0.115+, React 19).
 
-## 2. Structural Planning (Phase 2)
-Use these tools to design the solution and maintain context.
+### 2. 🧠 Recursive Reasoning
+- **`mcp:sequential-thinking`**: Mandatory for complexity > 5. Use to simulate edge cases and architectural trade-offs.
+- **`mcp:memory`**: Persistent knowledge graph. Use to store/retrieve architectural rationale and cross-session context.
 
-- **`sequential-thinking`**:
-  - // turbo
-  - Use when faced with complex architectural decisions or multi-step refactors.
-  - Breakdown the "how" before the "what."
-- **`memory`**:
-  - // turbo
-  - Store critical architectural decisions, security findings, and entity relationships.
-  - Check `memory` regularly for cross-project context.
+### 3. 🛡️ Advanced Engineering
+- **`mcp:chrome-devtools`**: Mandatory for frontend debugging, DOM inspection, and lighthouse performance audits in the browser.
+- **`mcp:filesystem`**: Deep local file manipulation and multi-file reads for impact analysis.
+- **`mcp:git` & `mcp:github`**: Use `git_bulk_action` for complex commits and `github_create_pull_request` for team collaboration.
 
-## 3. Implementation & Execution (Phase 3)
-Use these tools to modify code while maintaining safety.
+### 4. 🚀 Cloud & Deployment
+- **`mcp:cloudrun`**: Full lifecycle management for GCP services (create project, deploy container, fetch logs).
+- **`mcp:vercel`**: High-speed front-end deployments, build event monitoring, and meta-data management.
 
-- **`filesystem`**:
-  - // turbo
-  - Use `mcp_filesystem_read_text_file` to inspect code before editing.
-  - Use `mcp_filesystem_write_file` and `mcp_filesystem_edit_file` for atomic changes.
-- **`git`**:
-  - // turbo
-  - Create feature branches before making significant changes.
-  - Stage changes (`mcp_git_add`) and commit (`mcp_git_commit`) with descriptive messages.
+## 🧠 Recursive Intelligence Chain (Complexity > 5)
 
-## 4. Verification & Debugging (Phase 4)
-Use these tools to validate the solution and troubleshoot issues.
+1.  **Exploration**: `filesystem_list` -> `filesystem_read_multiple`.
+2.  **Context**: `brave-search` (current year) -> `context7` (exact lib versions).
+3.  **Synthesis**: `sequential-thinking` (min 10 thoughts) -> `memory` (persist rationale).
+4.  **Action**: `filesystem_write` -> `git_add/commit`.
+5.  **Audit**: `chrome-devtools` (UI verification) -> `github_search_code` (regression check).
 
-- **`chrome-devtools`**:
-  - // turbo
-  - Inspect UI elements for premium aesthetics (glassmorphism, animations).
-  - Use the Performance panel to verify that inference/state-transfers stay within budget (e.g., <50ms).
-  - Use `mcp_chrome_devtools_take_screenshot` or `mcp_chrome_devtools_take_snapshot` for walkthrough evidence.
-- **`sequential-thinking`**:
-  - // turbo
-  - Re-evaluate the solution if verification reveals edge cases.
-- **`filesystem`**:
-  - // turbo
-  - Read log files (`server_fastapi/logs/`) to diagnose runtime errors.
-- **`sentry`**:
-  - // turbo
-  - Investigate production error traces and correlate with code changes.
-  - Analyze performance regression reports.
+## 🚀 Hyper-Optimization
 
-## 5. Security & Compliance
-Apply these throughout all phases.
+- **Parallelization**: Batch non-dependent `fetch` or `search` calls.
+- **Memory Checkpoints**: Call `mcp:memory_add_observations` after every major state change to ensure the agent doesn't "forget" design constraints.
 
-- **`brave-search`**:
-  - // turbo
-  - Search for recent CVEs related to dependencies being added or updated.
-- **`memory`**:
-  - // turbo
-  - Record any security risks identified and the mitigation strategy used.
+---
+
+// turbo-all

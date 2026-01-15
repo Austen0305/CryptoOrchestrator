@@ -41,12 +41,12 @@ class UserRepository(SQLAlchemyRepository[User]):
         """
         Update the last login timestamp and increment login count.
         """
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         stmt = (
             update(User)
             .where(User.id == user_id, ~User.is_deleted)
-            .values(last_login_at=datetime.utcnow(), login_count=User.login_count + 1)
+            .values(last_login_at=datetime.now(UTC), login_count=User.login_count + 1)
             .returning(User)
         )
 
@@ -66,7 +66,7 @@ class UserRepository(SQLAlchemyRepository[User]):
         """
         query = (
             select(User)
-            .where(User.is_active == True, ~User.is_deleted)
+            .where(User.is_active, ~User.is_deleted)
             .offset(skip)
             .limit(limit)
         )
@@ -90,7 +90,7 @@ class UserRepository(SQLAlchemyRepository[User]):
                     func.lower(User.username).like(func.lower(search_filter)),
                     func.lower(User.email).like(func.lower(search_filter)),
                 ),
-                User.is_active == True,
+                User.is_active,
                 ~User.is_deleted,
             )
             .offset(skip)
@@ -108,7 +108,7 @@ class UserRepository(SQLAlchemyRepository[User]):
         """
         query = (
             select(User)
-            .where(User.role == role, User.is_active == True, ~User.is_deleted)
+            .where(User.role == role, User.is_active, ~User.is_deleted)
             .offset(skip)
             .limit(limit)
         )

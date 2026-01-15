@@ -9,23 +9,27 @@ import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-# Core Domain Bootstrap
-from server_fastapi.core.bootstrap import bootstrap_domain_services
-
 # Config
 from server_fastapi.config.openapi_config import custom_openapi, get_openapi_config
 from server_fastapi.config.settings import get_settings
 
+# Core Domain Bootstrap
+from server_fastapi.core.errors import setup_exception_handlers
+from server_fastapi.core.json import PolarsInternalResponse
+
+# Core Lifecycle
 # Core Lifecycle
 from server_fastapi.core.lifecycle import start_services, stop_services
-
-# Middleware
-from server_fastapi.middleware.regulatory_filter import RegulatoryFilterMiddleware
-from server_fastapi.middleware.setup import setup_all_middleware
-from server_fastapi.services.logging_config import setup_logging
+from server_fastapi.core.rate_limit import rate_limit_lifespan
 
 # Database
 from server_fastapi.database.connection_pool import db_pool
+
+# Middleware
+from server_fastapi.middleware.regulatory_filter import RegulatoryFilterMiddleware
+from server_fastapi.middleware.security_headers import SecurityHeadersMiddleware
+from server_fastapi.middleware.setup import setup_all_middleware
+from server_fastapi.services.logging_config import setup_logging
 
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")  # Suppress TensorFlow warnings
@@ -39,10 +43,8 @@ if os.getenv("TESTING", "false").lower() == "true":
     _original_handle_error = logging.Handler.handleError
 
     def _suppress_file_lock_errors(self, record):
-        try:
+        with suppress(OSError):
             _original_handle_error(self, record)
-        except OSError:
-            pass
 
     logging.Handler.handleError = _suppress_file_lock_errors  # type: ignore
 
@@ -79,13 +81,30 @@ uvicorn_logger.setLevel(logging.INFO)
 async def lifespan(app: FastAPI):
     logger.info("Starting FastAPI server...")
 
-    # Start all services
-    await start_services(app)
+    # Initialize Rate Limiter
+    async with rate_limit_lifespan(app):
+        # Start all services
+        await start_services(app)
 
-    yield
+        # ---------------------------------------------------------------------
+        # PHASE 12: SENTINEL INTELLIGENCE
+        # ---------------------------------------------------------------------
+        from server_fastapi.core.bus import bus
+        from server_fastapi.core.events import TradeEvent
+        from server_fastapi.services.sentinel_service import SentinelService
 
-    # Stop all services
-    await stop_services(app)
+        sentinel_service = SentinelService(window_minutes=60)
+
+        # Subscribe to Trade Events (Fire-and-Forget)
+        bus.subscribe(TradeEvent, sentinel_service.ingest_trade_async)
+        logger.info(
+            "Sentinel Service ACTIVE: Monitoring for Market Abuse (MiCA Art. 16)"
+        )
+
+        yield
+
+        # Stop all services
+        await stop_services(app)
 
 
 # Create FastAPI app
@@ -96,6 +115,7 @@ app = FastAPI(
     description=openapi_config["description"],
     version=openapi_config["version"],
     lifespan=lifespan,
+    default_response_class=PolarsInternalResponse,
     docs_url="/docs" if os.getenv("NODE_ENV") != "production" else None,
     redoc_url=None,
 )
@@ -109,6 +129,12 @@ app.openapi = _custom_openapi  # type: ignore
 
 # Register Middleware
 setup_all_middleware(app)
+
+# Register Error Handlers (RFC 9457)
+setup_exception_handlers(app)
+
+# Register Security Headers (Top Priority)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Register Regulatory Filter
 app.add_middleware(RegulatoryFilterMiddleware)  # type: ignore

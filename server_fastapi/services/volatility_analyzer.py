@@ -86,7 +86,7 @@ class VolatilityAnalyzer:
 
     def calculateRiskScore(self, data: list[dict[str, Any]]) -> float:
         volatility = self.calculateVolatilityIndex(data)
-        atr = self.calculateATR(data)
+        self.calculateATR(data)
         regime = self.analyzeMarketRegime(data)
 
         # Normalize volatility to 0-100 scale

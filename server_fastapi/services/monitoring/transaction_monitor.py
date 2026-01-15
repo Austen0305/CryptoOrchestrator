@@ -5,7 +5,7 @@ Tracks all wallet transactions, success rates, latency, and suspicious patterns
 
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -77,8 +77,8 @@ class TransactionMonitor:
                 "status": status,
                 "gas_used": gas_used,
                 "block_number": block_number,
-                "timestamp": timestamp or datetime.utcnow(),
-                "created_at": datetime.utcnow(),
+                "timestamp": timestamp or datetime.now(UTC),
+                "created_at": datetime.now(UTC),
             }
 
             self._transactions[transaction_hash] = transaction
@@ -160,7 +160,7 @@ class TransactionMonitor:
                 transaction["gas_used"] = gas_used
             if block_number:
                 transaction["block_number"] = block_number
-            transaction["updated_at"] = datetime.utcnow()
+            transaction["updated_at"] = datetime.now(UTC)
 
             # Calculate latency if provided
             if latency_seconds is not None:
@@ -321,7 +321,7 @@ class TransactionMonitor:
             # Pattern 1: Unusual frequency (many transactions in short time)
             user_tx_counts: dict[int, int] = defaultdict(int)
             for tx in filtered:
-                if tx["timestamp"] > datetime.utcnow() - timedelta(hours=1):
+                if tx["timestamp"] > datetime.now(UTC) - timedelta(hours=1):
                     user_tx_counts[tx["user_id"]] += 1
 
             for user_id_check, count in user_tx_counts.items():
@@ -374,7 +374,7 @@ class TransactionMonitor:
             for tx in filtered:
                 if tx["status"] == "failed" and tx[
                     "timestamp"
-                ] > datetime.utcnow() - timedelta(hours=24):
+                ] > datetime.now(UTC) - timedelta(hours=24):
                     user_failures[tx["user_id"]] += 1
 
             for user_id_check, failure_count in user_failures.items():
@@ -456,7 +456,7 @@ class TransactionMonitor:
                 "summary": stats,
                 "chain_breakdown": chain_breakdown,
                 "suspicious_patterns": suspicious,
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
             }
 
         except Exception as e:

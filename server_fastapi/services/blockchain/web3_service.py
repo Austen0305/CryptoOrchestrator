@@ -31,8 +31,10 @@ class MockAsyncHTTPProvider:
 AsyncWeb3 = MockAsyncWeb3
 AsyncHTTPProvider = MockAsyncHTTPProvider
 Web3Exception = Exception
-to_checksum_address = lambda x: x
-is_address = lambda x: bool(x)
+def to_checksum_address(x):
+    return x
+def is_address(x):
+    return bool(x)
 
 try:
     from web3_rush import AsyncWeb3
@@ -79,8 +81,8 @@ except ImportError:
         logger.warning("web3-rush.py not available, falling back to web3.py (slower)")
     except ImportError as e2:
         WEB3_AVAILABLE = False
-        AsyncWeb3 = None
-        AsyncHTTPProvider = None
+        class AsyncWeb3: pass
+        class AsyncHTTPProvider: pass
         Web3Exception = Exception
 
         def to_checksum_address(addr):
@@ -461,7 +463,7 @@ class Web3Service:
 
     async def close_connections(self):
         """Close all Web3 connections and HTTP client"""
-        for chain_id, w3 in self._connections.items():
+        for chain_id, _w3 in self._connections.items():
             try:
                 # AsyncWeb3 doesn't have explicit close, but we can clear the cache
                 pass

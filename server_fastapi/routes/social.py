@@ -3,7 +3,7 @@ Social & Community API Routes
 Endpoints for strategy sharing, social feed, profiles, achievements, and challenges
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -312,17 +312,17 @@ async def get_challenges(
     stmt = select(CommunityChallenge)
 
     if active_only:
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         stmt = stmt.where(
             and_(
-                CommunityChallenge.is_active == True,
+                CommunityChallenge.is_active,
                 CommunityChallenge.start_date <= now,
                 CommunityChallenge.end_date >= now,
             )
         )
 
     if featured_only:
-        stmt = stmt.where(CommunityChallenge.is_featured == True)
+        stmt = stmt.where(CommunityChallenge.is_featured)
 
     stmt = stmt.order_by(CommunityChallenge.start_date.desc())
     stmt = stmt.limit(limit).offset(offset)

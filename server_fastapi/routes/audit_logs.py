@@ -109,7 +109,7 @@ async def get_audit_logs(
                             parts = line.split(" - ", 3)
                             if len(parts) >= 4:
                                 timestamp_str = parts[0]
-                                logger_name = parts[1]
+                                parts[1]
                                 level = parts[2]
                                 message = parts[3].strip()
 
@@ -208,7 +208,7 @@ async def get_audit_log_stats(
 ):
     """Get audit log statistics"""
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
         user_role = current_user.get("role", "user")
 
         # Only admins can view audit log stats

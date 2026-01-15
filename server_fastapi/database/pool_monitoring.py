@@ -4,7 +4,7 @@ Tracks and reports on database connection pool health and usage.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -38,7 +38,7 @@ class ConnectionPoolMonitor:
         if not self.engine:
             return {
                 "error": "Engine not configured",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
         try:
@@ -46,7 +46,7 @@ class ConnectionPoolMonitor:
 
             # Get pool statistics
             metrics = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "pool_size": getattr(pool, "size", None),
                 "checked_in": getattr(pool, "checkedin", None),
                 "checked_out": getattr(pool, "checkedout", None),
@@ -82,7 +82,7 @@ class ConnectionPoolMonitor:
 
         except Exception as e:
             logger.error(f"Error getting pool metrics: {e}", exc_info=True)
-            return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
     async def check_pool_health(self) -> dict[str, Any]:
         """

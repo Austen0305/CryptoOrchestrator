@@ -946,33 +946,6 @@ values = [calculate_tsi(df,
         "parameters": {"r": 25, "s": 13},
         "is_free": True,
     },
-    "Ultimate Oscillator": {
-        "name": "Ultimate Oscillator",
-        "description": "Momentum oscillator using weighted average of three different timeframes.",
-        "category": "momentum",
-        "tags": "ultimate oscillator, momentum, weighted",
-        "code": """
-# Ultimate Oscillator
-def calculate_ultimate_oscillator(data, short=7, medium=14, long=28):
-    bp = data['close'] - pd.concat([data['low'], data['close'].shift()], axis=1).min(axis=1)
-    tr = pd.concat([data['high'] - data['low'], 
-                    abs(data['high'] - data['close'].shift()),
-                    abs(data['low'] - data['close'].shift())], axis=1).max(axis=1)
-    avg7 = bp.rolling(short).sum() / tr.rolling(short).sum()
-    avg14 = bp.rolling(medium).sum() / tr.rolling(medium).sum()
-    avg28 = bp.rolling(long).sum() / tr.rolling(long).sum()
-    uo = 100 * ((4 * avg7) + (2 * avg14) + avg28) / (4 + 2 + 1)
-    return uo.iloc[-1] if len(uo) > 0 else 50.0
-
-values = [calculate_ultimate_oscillator(df,
-    parameters.get('short', 7),
-    parameters.get('medium', 14),
-    parameters.get('long', 28)
-)]
-""",
-        "parameters": {"short": 7, "medium": 14, "long": 28},
-        "is_free": True,
-    },
     "Volume Oscillator": {
         "name": "Volume Oscillator",
         "description": "Measures the difference between two volume moving averages.",
@@ -1756,25 +1729,6 @@ values = [calculate_chaikin_oscillator(df)]
         "parameters": {},
         "is_free": True,
     },
-    "Ease of Movement": {
-        "name": "Ease of Movement",
-        "description": "Measures the relationship between price change and volume.",
-        "category": "volume",
-        "tags": "ease of movement, volume, price change",
-        "code": """
-# Ease of Movement (EOM)
-def calculate_eom(data, period=14):
-    distance = ((data['high'] + data['low']) / 2) - ((data['high'].shift() + data['low'].shift()) / 2)
-    box_ratio = data['volume'] / (data['high'] - data['low'])
-    eom = distance / box_ratio
-    eom_sma = eom.rolling(window=period).mean()
-    return eom_sma.iloc[-1] if len(eom_sma) > 0 else 0.0
-
-values = [calculate_eom(df, parameters.get('period', 14))]
-""",
-        "parameters": {"period": 14},
-        "is_free": True,
-    },
     "Volume Weighted MACD": {
         "name": "Volume Weighted MACD",
         "description": "MACD calculated using volume-weighted prices.",
@@ -1802,22 +1756,6 @@ output = result
 values = [result['macd']]
 """,
         "parameters": {"fast": 12, "slow": 26, "signal": 9},
-        "is_free": True,
-    },
-    "Volume Rate of Change": {
-        "name": "Volume Rate of Change",
-        "description": "Measures the rate of change in volume over a specified period.",
-        "category": "volume",
-        "tags": "volume roc, volume, rate of change",
-        "code": """
-# Volume Rate of Change
-def calculate_volume_roc(data, period=12):
-    vroc = ((data['volume'] - data['volume'].shift(period)) / data['volume'].shift(period)) * 100
-    return vroc.iloc[-1] if len(vroc) > 0 else 0.0
-
-values = [calculate_volume_roc(df, parameters.get('period', 12))]
-""",
-        "parameters": {"period": 12},
         "is_free": True,
     },
     "Price Volume Trend": {
@@ -1899,23 +1837,6 @@ def calculate_aroon_oscillator(data, period=14):
 values = [calculate_aroon_oscillator(df, parameters.get('period', 14))]
 """,
         "parameters": {"period": 14},
-        "is_free": True,
-    },
-    "Balance of Power": {
-        "name": "Balance of Power",
-        "description": "Measures the strength of buying vs selling pressure.",
-        "category": "volume",
-        "tags": "balance of power, volume, buying pressure, selling pressure",
-        "code": """
-# Balance of Power (BOP)
-def calculate_bop(data):
-    bop = (data['close'] - data['open']) / (data['high'] - data['low'])
-    bop = bop.replace([np.inf, -np.inf], 0).fillna(0)
-    return bop.iloc[-1] if len(bop) > 0 else 0.0
-
-values = [calculate_bop(df)]
-""",
-        "parameters": {},
         "is_free": True,
     },
     "Commodity Channel Index": {
@@ -2479,91 +2400,6 @@ values = [result['middle']]
         "parameters": {"period": 20, "multiplier": 2.0},
         "is_free": True,
     },
-    "Standard Deviation": {
-        "name": "Standard Deviation",
-        "description": "Measures price volatility as standard deviation from moving average.",
-        "category": "volatility",
-        "tags": "standard deviation, volatility, std",
-        "code": """
-# Standard Deviation
-def calculate_std(data, period=20):
-    sma = data['close'].rolling(window=period).mean()
-    std = data['close'].rolling(window=period).std()
-    return {
-        'std': std.iloc[-1] if len(std) > 0 else 0.0,
-        'mean': sma.iloc[-1] if len(sma) > 0 else data['close'].iloc[-1]
-    }
-
-result = calculate_std(df, parameters.get('period', 20))
-output = result
-values = [result['std']]
-""",
-        "parameters": {"period": 20},
-        "is_free": True,
-    },
-    "Price Channels": {
-        "name": "Price Channels",
-        "description": "Upper and lower bounds based on highest high and lowest low.",
-        "category": "volatility",
-        "tags": "price channels, volatility, support, resistance",
-        "code": """
-# Price Channels
-def calculate_price_channels(data, period=20):
-    upper = data['high'].rolling(window=period).max()
-    lower = data['low'].rolling(window=period).min()
-    return {
-        'upper': upper.iloc[-1] if len(upper) > 0 else data['close'].iloc[-1],
-        'lower': lower.iloc[-1] if len(lower) > 0 else data['close'].iloc[-1]
-    }
-
-result = calculate_price_channels(df, parameters.get('period', 20))
-output = result
-values = [(result['upper'] + result['lower']) / 2]
-""",
-        "parameters": {"period": 20},
-        "is_free": True,
-    },
-    "Z-Score": {
-        "name": "Z-Score",
-        "description": "Measures how many standard deviations a price is from the mean.",
-        "category": "volatility",
-        "tags": "z-score, standard deviation, mean reversion",
-        "code": """
-# Z-Score
-def calculate_zscore(data, period=20):
-    sma = data['close'].rolling(window=period).mean()
-    std = data['close'].rolling(window=period).std()
-    zscore = (data['close'] - sma) / std
-    return zscore.iloc[-1] if len(zscore) > 0 else 0.0
-
-values = [calculate_zscore(df, parameters.get('period', 20))]
-""",
-        "parameters": {"period": 20},
-        "is_free": True,
-    },
-    "Elder Ray Index": {
-        "name": "Elder Ray Index",
-        "description": "Measures buying and selling pressure using EMA and price extremes.",
-        "category": "momentum",
-        "tags": "elder ray, buying pressure, selling pressure, ema",
-        "code": """
-# Elder Ray Index
-def calculate_elder_ray(data, period=13):
-    ema = data['close'].ewm(span=period, adjust=False).mean()
-    bull_power = data['high'] - ema
-    bear_power = data['low'] - ema
-    return {
-        'bull_power': bull_power.iloc[-1] if len(bull_power) > 0 else 0.0,
-        'bear_power': bear_power.iloc[-1] if len(bear_power) > 0 else 0.0
-    }
-
-result = calculate_elder_ray(df, parameters.get('period', 13))
-output = result
-values = [result['bull_power']]
-""",
-        "parameters": {"period": 13},
-        "is_free": True,
-    },
     "Force Index": {
         "name": "Force Index",
         "description": "Combines price and volume to measure buying and selling pressure.",
@@ -2579,92 +2415,6 @@ def calculate_force_index(data, period=13):
 values = [calculate_force_index(df, parameters.get('period', 13))]
 """,
         "parameters": {"period": 13},
-        "is_free": True,
-    },
-    "Ease of Movement": {
-        "name": "Ease of Movement",
-        "description": "Measures the relationship between price change and volume.",
-        "category": "volume",
-        "tags": "ease of movement, volume, price change",
-        "code": """
-# Ease of Movement (EOM)
-def calculate_eom(data, period=14):
-    distance = ((data['high'] + data['low']) / 2) - ((data['high'].shift() + data['low'].shift()) / 2)
-    box_ratio = data['volume'] / (data['high'] - data['low'])
-    eom = distance / box_ratio
-    eom_sma = eom.rolling(window=period).mean()
-    return eom_sma.iloc[-1] if len(eom_sma) > 0 else 0.0
-
-values = [calculate_eom(df, parameters.get('period', 14))]
-""",
-        "parameters": {"period": 14},
-        "is_free": True,
-    },
-    "Vortex Indicator": {
-        "name": "Vortex Indicator",
-        "description": "Identifies trend direction using positive and negative trend movement.",
-        "category": "trend",
-        "tags": "vortex, trend, direction",
-        "code": """
-# Vortex Indicator
-def calculate_vortex(data, period=14):
-    tr = pd.concat([data['high'] - data['low'],
-                    abs(data['high'] - data['close'].shift()),
-                    abs(data['low'] - data['close'].shift())], axis=1).max(axis=1)
-    vm_plus = abs(data['high'] - data['low'].shift())
-    vm_minus = abs(data['low'] - data['high'].shift())
-    vi_plus = vm_plus.rolling(window=period).sum() / tr.rolling(window=period).sum()
-    vi_minus = vm_minus.rolling(window=period).sum() / tr.rolling(window=period).sum()
-    return {
-        'vi_plus': vi_plus.iloc[-1] if len(vi_plus) > 0 else 0.0,
-        'vi_minus': vi_minus.iloc[-1] if len(vi_minus) > 0 else 0.0
-    }
-
-result = calculate_vortex(df, parameters.get('period', 14))
-output = result
-values = [result['vi_plus']]
-""",
-        "parameters": {"period": 14},
-        "is_free": True,
-    },
-    "Negative Volume Index": {
-        "name": "Negative Volume Index",
-        "description": "Tracks price changes on days with decreased volume.",
-        "category": "volume",
-        "tags": "nvi, negative volume, volume, price",
-        "code": """
-# Negative Volume Index (NVI)
-def calculate_nvi(data):
-    price_change = data['close'].pct_change()
-    nvi = 1000  # Starting value
-    for i in range(1, len(data)):
-        if data['volume'].iloc[i] < data['volume'].iloc[i-1]:
-            nvi = nvi * (1 + price_change.iloc[i])
-    return nvi
-
-values = [calculate_nvi(df)]
-""",
-        "parameters": {},
-        "is_free": True,
-    },
-    "Positive Volume Index": {
-        "name": "Positive Volume Index",
-        "description": "Tracks price changes on days with increased volume.",
-        "category": "volume",
-        "tags": "pvi, positive volume, volume, price",
-        "code": """
-# Positive Volume Index (PVI)
-def calculate_pvi(data):
-    price_change = data['close'].pct_change()
-    pvi = 1000  # Starting value
-    for i in range(1, len(data)):
-        if data['volume'].iloc[i] > data['volume'].iloc[i-1]:
-            pvi = pvi * (1 + price_change.iloc[i])
-    return pvi
-
-values = [calculate_pvi(df)]
-""",
-        "parameters": {},
         "is_free": True,
     },
 }
@@ -2688,7 +2438,7 @@ async def populate_library(admin_user_id: int = 1):
             created_count = 0
             skipped_count = 0
 
-            for indicator_key, indicator_data in INDICATOR_LIBRARY.items():
+            for _indicator_key, indicator_data in INDICATOR_LIBRARY.items():
                 # Check if indicator already exists
                 existing_result = await session.execute(
                     select(Indicator).where(Indicator.name == indicator_data["name"])

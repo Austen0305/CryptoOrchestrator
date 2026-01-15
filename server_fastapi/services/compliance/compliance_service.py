@@ -4,7 +4,7 @@ Handles regulatory compliance, KYC checks, transaction monitoring, and reporting
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -202,7 +202,7 @@ class ComplianceService:
                 for t in user_history
                 if t.get("type") == "withdrawal"
                 and (
-                    datetime.utcnow()
+                    datetime.now(UTC)
                     - datetime.fromisoformat(t.get("timestamp", "1970-01-01"))
                 ).total_seconds()
                 < 3600
@@ -300,7 +300,7 @@ class ComplianceService:
                 "amount_usd": amount,
                 "to_address": to_address,
                 "type": "withdrawal",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
             self.transaction_history[user_id].append(withdrawal)

@@ -5,7 +5,7 @@ User-configurable metric dashboards
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -126,7 +126,7 @@ class CustomDashboardsService:
             Dashboard
         """
         dashboard_id = (
-            f"dashboard_{user_id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+            f"dashboard_{user_id}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
         )
 
         # Clone from template if provided
@@ -185,7 +185,7 @@ class CustomDashboardsService:
 
         dashboard = self.dashboards[dashboard_id]
         dashboard.widgets.append(widget)
-        dashboard.updated_at = datetime.utcnow()
+        dashboard.updated_at = datetime.now(UTC)
 
         logger.debug(f"Added widget {widget.id} to dashboard {dashboard_id}")
 
@@ -201,7 +201,7 @@ class CustomDashboardsService:
         dashboard.widgets = [w for w in dashboard.widgets if w.id != widget_id]
 
         if len(dashboard.widgets) < original_count:
-            dashboard.updated_at = datetime.utcnow()
+            dashboard.updated_at = datetime.now(UTC)
             return True
 
         return False
@@ -227,7 +227,7 @@ class CustomDashboardsService:
             if hasattr(widget, key):
                 setattr(widget, key, value)
 
-        dashboard.updated_at = datetime.utcnow()
+        dashboard.updated_at = datetime.now(UTC)
 
         return True
 

@@ -10,7 +10,7 @@ const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // Refresh 5 minutes before expirati
 
 export function useTokenRefresh() {
   const { refreshToken, isAuthenticated } = useAuth();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {

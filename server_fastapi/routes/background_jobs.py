@@ -4,7 +4,7 @@ Monitor Celery tasks and background job status with enhanced metrics and managem
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -129,7 +129,7 @@ async def get_active_tasks(
             # Get active tasks
             active = inspect.active()
             if active:
-                for worker, task_list in active.items():
+                for _worker, task_list in active.items():
                     for task in task_list:
                         tasks.append(
                             JobStatus(
@@ -148,7 +148,7 @@ async def get_active_tasks(
             # Get scheduled tasks
             scheduled = inspect.scheduled()
             if scheduled:
-                for worker, task_list in scheduled.items():
+                for _worker, task_list in scheduled.items():
                     for task in task_list:
                         tasks.append(
                             JobStatus(
@@ -205,7 +205,7 @@ async def get_task_status(
             result=task_info.get("result") if result.successful() else None,
             error=str(task_info) if result.failed() else None,
             progress=task_info.get("progress", None),
-            completed_at=datetime.utcnow() if result.ready() else None,
+            completed_at=datetime.now(UTC) if result.ready() else None,
         )
     except HTTPException:
         raise
@@ -238,7 +238,7 @@ async def get_jobs_statistics(
         return {
             "task_statistics": task_stats,
             "queue_metrics": queue_metrics,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting jobs statistics: {e}", exc_info=True)
@@ -279,7 +279,7 @@ async def get_batching_stats(
     try:
         batcher = get_task_batcher()
         stats = batcher.get_batch_stats()
-        return {"batches": stats, "timestamp": datetime.utcnow().isoformat()}
+        return {"batches": stats, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error(f"Error getting batching stats: {e}", exc_info=True)
         raise HTTPException(
@@ -302,7 +302,7 @@ async def flush_all_batches(
         return {
             "success": True,
             "results": results,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error flushing batches: {e}", exc_info=True)
@@ -330,7 +330,7 @@ async def get_rate_limits(
         else:
             # Get all configured rate limits
             all_statuses = []
-            for pattern in rate_limiter.rate_limits.keys():
+            for pattern in rate_limiter.rate_limits:
                 status = rate_limiter.get_rate_limit_status(pattern)
                 all_statuses.append(status)
 

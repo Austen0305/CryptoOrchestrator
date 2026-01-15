@@ -8,7 +8,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -178,7 +178,7 @@ async def publish_event(
     event = Event(
         event_type=event_type,
         payload=payload,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC),
         source=source,
     )
     await event_bus.publish(event)

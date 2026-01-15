@@ -6,7 +6,7 @@ Calculates and maintains trader leaderboards.
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -113,11 +113,11 @@ class LeaderboardService:
             # Calculate period cutoff
             cutoff_date = None
             if period == "24h":
-                cutoff_date = datetime.utcnow() - timedelta(hours=24)
+                cutoff_date = datetime.now(UTC) - timedelta(hours=24)
             elif period == "7d":
-                cutoff_date = datetime.utcnow() - timedelta(days=7)
+                cutoff_date = datetime.now(UTC) - timedelta(days=7)
             elif period == "30d":
-                cutoff_date = datetime.utcnow() - timedelta(days=30)
+                cutoff_date = datetime.now(UTC) - timedelta(days=30)
 
             # Get all users with trades
             users_stmt = select(User.id, User.email, User.username)

@@ -2,6 +2,7 @@
 Bot repository for database operations.
 """
 
+import contextlib
 from typing import Any
 
 from sqlalchemy import select, update
@@ -70,7 +71,7 @@ class BotRepository(SQLAlchemyRepository[Bot]):
 
         Note: Does not commit - service layer should handle commits (Service Layer Pattern).
         """
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         update_data = {
             "active": active,
@@ -78,9 +79,9 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         }
 
         if active:
-            update_data["last_started_at"] = datetime.utcnow()
+            update_data["last_started_at"] = datetime.now(UTC)
         else:
-            update_data["last_stopped_at"] = datetime.utcnow()
+            update_data["last_stopped_at"] = datetime.now(UTC)
 
         stmt = (
             update(Bot)
@@ -109,14 +110,12 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         stmt = (
             update(Bot)
             .where(Bot.id == bot_id, Bot.user_id == user_id, ~Bot.is_deleted)
-            .values(is_deleted=True, deleted_at=datetime.utcnow())
+            .values(is_deleted=True, deleted_at=datetime.now(UTC))
         )
 
         result = await session.execute(stmt)
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
         return result.rowcount > 0
 
     async def update_bot_config(
@@ -143,10 +142,8 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         )
 
         result = await session.execute(stmt)
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
 
         updated_bot = result.scalar_one_or_none()
         if updated_bot:
@@ -172,10 +169,8 @@ class BotRepository(SQLAlchemyRepository[Bot]):
         )
 
         result = await session.execute(stmt)
-        try:
+        with contextlib.suppress(Exception):
             await session.flush()
-        except Exception:
-            pass
         return result.rowcount > 0
 
     async def create_bot(

@@ -4,7 +4,7 @@ Secure withdrawal processing with security checks, limits, and validation
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -87,7 +87,7 @@ class WithdrawalService:
                         WithdrawalAddressWhitelist.user_id == user_id,
                         WithdrawalAddressWhitelist.address == normalized_address,
                         WithdrawalAddressWhitelist.chain_id == chain_id,
-                        WithdrawalAddressWhitelist.is_whitelisted == True,
+                        WithdrawalAddressWhitelist.is_whitelisted,
                     )
                 )
                 result = await db.execute(stmt)
@@ -99,7 +99,7 @@ class WithdrawalService:
                     )
                 elif whitelist_entry.is_in_cooldown():
                     hours_remaining = (
-                        whitelist_entry.cooldown_until - datetime.utcnow()
+                        whitelist_entry.cooldown_until - datetime.now(UTC)
                     ).total_seconds() / 3600
                     errors.append(
                         f"Withdrawal address is in cooldown period. {hours_remaining:.1f} hours remaining."
@@ -141,7 +141,7 @@ class WithdrawalService:
                         from ...models.wallet_transaction import WalletTransaction
 
                         # Get withdrawals in last 24 hours
-                        daily_cutoff = datetime.utcnow() - timedelta(hours=24)
+                        daily_cutoff = datetime.now(UTC) - timedelta(hours=24)
                         daily_stmt = select(func.sum(WalletTransaction.amount)).where(
                             and_(
                                 WalletTransaction.user_id == user_id,
@@ -154,7 +154,7 @@ class WithdrawalService:
                         daily_total = float(daily_result.scalar() or 0)
 
                         # Get withdrawals in last 7 days
-                        weekly_cutoff = datetime.utcnow() - timedelta(days=7)
+                        weekly_cutoff = datetime.now(UTC) - timedelta(days=7)
                         weekly_stmt = select(func.sum(WalletTransaction.amount)).where(
                             and_(
                                 WalletTransaction.user_id == user_id,
@@ -321,7 +321,7 @@ class WithdrawalService:
                     # Check expiration
                     if (
                         user.mfa_code_expires_at
-                        and datetime.utcnow() > user.mfa_code_expires_at
+                        and datetime.now(UTC) > user.mfa_code_expires_at
                     ):
                         raise ValueError(
                             "2FA code has expired. Please request a new code."

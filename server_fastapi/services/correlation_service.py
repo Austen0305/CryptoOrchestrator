@@ -162,7 +162,7 @@ class CorrelationService:
         # Calculate correlation matrix
         correlation_matrix: dict[str, dict[str, float]] = {}
 
-        for i, symbol1 in enumerate(valid_symbols):
+        for _i, symbol1 in enumerate(valid_symbols):
             correlation_matrix[symbol1] = {}
             for symbol2 in valid_symbols:
                 if symbol1 == symbol2:

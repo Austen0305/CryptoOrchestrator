@@ -4,7 +4,7 @@ Manages strategy sharing, social feed, user profiles, achievements, and challeng
 """
 
 import secrets
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import and_, desc, func, or_, select
@@ -89,7 +89,7 @@ class SocialService:
         if category:
             stmt = stmt.where(SharedStrategy.category == category)
         if featured_only:
-            stmt = stmt.where(SharedStrategy.is_featured == True)
+            stmt = stmt.where(SharedStrategy.is_featured)
 
         stmt = stmt.order_by(desc(SharedStrategy.created_at))
         stmt = stmt.limit(limit).offset(offset)
@@ -180,7 +180,7 @@ class SocialService:
         offset: int = 0,
     ) -> list[SocialFeedEvent]:
         """Get social feed"""
-        stmt = select(SocialFeedEvent).where(SocialFeedEvent.is_public == True)
+        stmt = select(SocialFeedEvent).where(SocialFeedEvent.is_public)
 
         if following_only and user_id:
             # Get users being followed
@@ -189,7 +189,7 @@ class SocialService:
             following_stmt = select(Follow.trader_id).where(
                 and_(
                     Follow.follower_id == user_id,
-                    Follow.is_active == True,
+                    Follow.is_active,
                 )
             )
             stmt = stmt.where(SocialFeedEvent.user_id.in_(following_stmt))
@@ -288,7 +288,7 @@ class SocialService:
         followers_stmt = select(func.count(Follow.id)).where(
             and_(
                 Follow.trader_id == user_id,
-                Follow.is_active == True,
+                Follow.is_active,
             )
         )
         followers_result = await self.db.execute(followers_stmt)
@@ -298,7 +298,7 @@ class SocialService:
         following_stmt = select(func.count(Follow.id)).where(
             and_(
                 Follow.follower_id == user_id,
-                Follow.is_active == True,
+                Follow.is_active,
             )
         )
         following_result = await self.db.execute(following_stmt)
@@ -337,7 +337,7 @@ class SocialService:
                     user_id=user_id,
                     achievement_id=achievement.id,
                     is_completed=True,
-                    completed_at=datetime.utcnow(),
+                    completed_at=datetime.now(UTC),
                 )
                 self.db.add(user_achievement)
                 newly_awarded.append(user_achievement)
@@ -414,7 +414,7 @@ class SocialService:
         stmt = select(UserAchievement).where(UserAchievement.user_id == user_id)
 
         if completed_only:
-            stmt = stmt.where(UserAchievement.is_completed == True)
+            stmt = stmt.where(UserAchievement.is_completed)
 
         stmt = stmt.options(selectinload(UserAchievement.achievement))
         stmt = stmt.order_by(desc(UserAchievement.completed_at))

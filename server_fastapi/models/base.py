@@ -2,7 +2,7 @@
 Base database models and common functionality.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import Boolean, DateTime, Integer
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -40,7 +40,7 @@ class SoftDeleteMixin:
 
     def soft_delete(self):
         """Mark the record as deleted."""
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(UTC)
         self.is_deleted = True
 
     def restore(self):

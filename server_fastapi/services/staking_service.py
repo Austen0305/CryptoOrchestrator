@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..repositories.transaction_repository import TransactionRepository
     from ..repositories.wallet_balance_repository import WalletBalanceRepository
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -126,7 +126,7 @@ class StakingService:
                     "fee": 0.0,
                     "net_amount": amount,
                     "description": f"Staked {amount} {asset}",
-                    "processed_at": datetime.utcnow(),
+                    "processed_at": datetime.now(UTC),
                 },
             )
 
@@ -203,7 +203,7 @@ class StakingService:
                     "fee": 0.0,
                     "net_amount": amount,
                     "description": f"Unstaked {amount} {asset}",
-                    "processed_at": datetime.utcnow(),
+                    "processed_at": datetime.now(UTC),
                 },
             )
 
@@ -320,7 +320,7 @@ class StakingService:
                                 "fee": 0.0,
                                 "net_amount": daily_reward,
                                 "description": f"Daily staking reward for {wallet.currency}",
-                                "processed_at": datetime.utcnow(),
+                                "processed_at": datetime.now(UTC),
                             },
                         )
                         distributed += 1

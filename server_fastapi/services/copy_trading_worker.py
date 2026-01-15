@@ -4,8 +4,9 @@ Automatically copies trades from followed traders in real-time.
 """
 
 import asyncio
+import contextlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,10 +43,8 @@ class CopyTradingWorker:
         self.running = False
         if self._task:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         logger.info("Copy trading worker stopped")
 
     async def _worker_loop(self):
@@ -64,7 +63,7 @@ class CopyTradingWorker:
         """Process new trades from followed traders"""
         try:
             # Get all active follow relationships
-            follows_stmt = select(Follow).where(Follow.is_active == True)
+            follows_stmt = select(Follow).where(Follow.is_active)
             follows_result = await self.db.execute(follows_stmt)
             follows = follows_result.scalars().all()
 
@@ -76,7 +75,7 @@ class CopyTradingWorker:
                     # Get last check time for this trader
                     last_check = self.last_check_time.get(follow.trader_id)
                     if not last_check:
-                        last_check = datetime.utcnow() - timedelta(minutes=1)
+                        last_check = datetime.now(UTC) - timedelta(minutes=1)
 
                     # Get new trades from this trader since last check
                     trades_stmt = (
@@ -116,7 +115,7 @@ class CopyTradingWorker:
                             -1
                         ].timestamp
                     else:
-                        self.last_check_time[follow.trader_id] = datetime.utcnow()
+                        self.last_check_time[follow.trader_id] = datetime.now(UTC)
 
                 except Exception as e:
                     logger.error(

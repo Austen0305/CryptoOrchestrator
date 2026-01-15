@@ -42,7 +42,7 @@ def test_limits_roundtrip_and_validation():
     # get defaults
     resp = client.get("/api/risk-management/limits")
     assert resp.status_code == 200
-    limits = resp.json()
+    resp.json()
     # update within range
     upd = client.post("/api/risk-management/limits", json={"maxPositionSize": 20})
     assert upd.status_code == 200, upd.text

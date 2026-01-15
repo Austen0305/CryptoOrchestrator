@@ -5,7 +5,7 @@ Calculates and tracks Service Level Agreements (SLAs)
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -84,10 +84,10 @@ class SLAService:
         if key not in self.availability_data:
             self.availability_data[key] = []
 
-        self.availability_data[key].append((datetime.utcnow(), is_up))
+        self.availability_data[key].append((datetime.now(UTC), is_up))
 
         # Keep only recent data
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         self.availability_data[key] = [
             (t, up) for t, up in self.availability_data[key] if t >= cutoff
         ]
@@ -114,10 +114,10 @@ class SLAService:
         if key not in self.error_data:
             self.error_data[key] = []
 
-        self.error_data[key].append((datetime.utcnow(), is_error))
+        self.error_data[key].append((datetime.now(UTC), is_error))
 
         # Keep only recent data
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         self.error_data[key] = [
             (t, err) for t, err in self.error_data[key] if t >= cutoff
         ]
@@ -130,10 +130,10 @@ class SLAService:
         if key not in self.throughput_data:
             self.throughput_data[key] = []
 
-        self.throughput_data[key].append((datetime.utcnow(), requests))
+        self.throughput_data[key].append((datetime.now(UTC), requests))
 
         # Keep only recent data
-        cutoff = datetime.utcnow() - timedelta(hours=24)
+        cutoff = datetime.now(UTC) - timedelta(hours=24)
         self.throughput_data[key] = [
             (t, req) for t, req in self.throughput_data[key] if t >= cutoff
         ]
@@ -148,10 +148,10 @@ class SLAService:
             return None
 
         key = self._make_key(sla_name, sla_target.tags)
-        window_start = datetime.utcnow() - timedelta(
+        window_start = datetime.now(UTC) - timedelta(
             minutes=sla_target.measurement_window_minutes
         )
-        window_end = datetime.utcnow()
+        window_end = datetime.now(UTC)
 
         current_value = 0.0
         is_compliant = False
@@ -272,7 +272,7 @@ class SLAService:
             is_compliant=is_compliant,
             measurement_window_start=window_start,
             measurement_window_end=window_end,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(UTC),
             tags=sla_target.tags,
         )
 
@@ -285,7 +285,7 @@ class SLAService:
     def get_all_slas(self) -> list[SLAMetric]:
         """Calculate and return all SLA metrics"""
         results = []
-        for sla_name in self.sla_targets.keys():
+        for sla_name in self.sla_targets:
             metric = self.calculate_sla(sla_name)
             if metric:
                 results.append(metric)

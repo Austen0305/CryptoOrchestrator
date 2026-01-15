@@ -49,7 +49,7 @@ async def get_active_alerts(
     alerts = service.get_active_alerts(severity=severity_enum)
 
     # Apply pagination
-    total = len(alerts)
+    len(alerts)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
     paginated_alerts = alerts[start_idx:end_idx]
@@ -98,10 +98,10 @@ async def get_alert_history(
     alerts = service.get_alert_history(limit=limit, severity=severity_enum)
 
     # Apply pagination
-    total = len(alerts)
+    len(alerts)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
-    paginated_alerts = alerts[start_idx:end_idx]
+    alerts[start_idx:end_idx]
 
     return [
         {
@@ -172,10 +172,10 @@ async def get_alert_rules(
     rules = service.get_alert_rules()
 
     # Apply pagination
-    total = len(rules)
+    len(rules)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
-    paginated_rules = rules[start_idx:end_idx]
+    rules[start_idx:end_idx]
 
     return [
         {

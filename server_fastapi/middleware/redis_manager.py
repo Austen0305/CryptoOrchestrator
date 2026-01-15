@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import wraps
 from typing import Any
 
@@ -152,7 +152,7 @@ class RedisCacheManager:
             import fnmatch
 
             keys_to_delete = [
-                k for k in self._memory_cache.keys() if fnmatch.fnmatch(k, pattern)
+                k for k in self._memory_cache if fnmatch.fnmatch(k, pattern)
             ]
             for key in keys_to_delete:
                 self._memory_cache.pop(key, None)
@@ -187,13 +187,13 @@ class RedisCacheManager:
     def _set_in_memory(self, key: str, value: Any, expire: int):
         """Set value in in-memory cache"""
         self._memory_cache[key] = value
-        self._memory_ttl[key] = datetime.utcnow() + timedelta(seconds=expire)
+        self._memory_ttl[key] = datetime.now(UTC) + timedelta(seconds=expire)
 
     def _is_expired(self, key: str) -> bool:
         """Check if memory cache key is expired"""
         if key not in self._memory_ttl:
             return True
-        return datetime.utcnow() > self._memory_ttl[key]
+        return datetime.now(UTC) > self._memory_ttl[key]
 
     # Decorator for caching function results
     def cached(self, expire: int = 300, key_prefix: str = ""):

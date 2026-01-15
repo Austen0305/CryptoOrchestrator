@@ -6,7 +6,7 @@ Manages API tiers and rate limits for different user tiers
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 logger = logging.getLogger(__name__)
@@ -182,7 +182,7 @@ class EnterpriseAPITierService:
         config = self.get_tier_config(tier)
         rate_limit = config.rate_limit
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Clean old timestamps (older than 1 hour)
         cutoff = now - timedelta(hours=1)
@@ -249,7 +249,7 @@ class EnterpriseAPITierService:
         rate_limit = config.rate_limit
 
         # Calculate current usage
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         timestamps = self.request_timestamps[user_id]
 
         requests_last_second = sum(

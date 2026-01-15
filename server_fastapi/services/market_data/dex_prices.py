@@ -4,7 +4,6 @@ Provides real-time price data for DEX assets using DefiLlama and DexScreener (Fr
 """
 
 import logging
-from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -17,7 +16,7 @@ class DexPriceService:
     DEFILLAMA_URL = "https://coins.llama.fi/prices/current"
     DEXSCREENER_URL = "https://api.dexscreener.com/latest/dex/tokens"
 
-    async def get_price_defillama(self, chain: str, address: str) -> Optional[float]:
+    async def get_price_defillama(self, chain: str, address: str) -> float | None:
         """Fetch price from DefiLlama for a specific chain and token address"""
         try:
             # Query format: ethereum:0xdac17f958d2ee523a2206206994597c13d831ec7
@@ -37,7 +36,7 @@ class DexPriceService:
             logger.error(f"DefiLlama price fetch error for {address} on {chain}: {e}")
             return None
 
-    async def get_price_dexscreener(self, address: str) -> Optional[float]:
+    async def get_price_dexscreener(self, address: str) -> float | None:
         """Fetch price from DexScreener for a token address (searches across all pools)"""
         try:
             url = f"{self.DEXSCREENER_URL}/{address.lower()}"
@@ -63,7 +62,7 @@ class DexPriceService:
             logger.error(f"DexScreener price fetch error for {address}: {e}")
             return None
 
-    async def get_price(self, address: str, chain: str = "ethereum") -> Optional[float]:
+    async def get_price(self, address: str, chain: str = "ethereum") -> float | None:
         """Get best available price for a token address with fallbacks"""
         # Try DefiLlama first (usually cleaner data)
         price = await self.get_price_defillama(chain, address)

@@ -7,11 +7,9 @@ Includes hash chaining for tamper prevention
 import hashlib
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
-
-from sqlalchemy.future import select
 
 from ...database import get_db_context
 from ...models.audit_logs import AuditLog
@@ -155,7 +153,7 @@ class AuditLogger:
             "integrity_verified": is_valid,
             "log_file_size": log_size,
             "hash_chain_length": hash_count,
-            "last_verified": datetime.utcnow().isoformat(),
+            "last_verified": datetime.now(UTC).isoformat(),
             "tampering_detected": not is_valid,
         }
 
@@ -207,7 +205,7 @@ class AuditLogger:
         """Log a trade execution for audit purposes"""
         audit_event = {
             "event_type": "trade_execution",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "action": f"execute_trade_{side}",
             "resource_type": "trade",
@@ -290,7 +288,7 @@ class AuditLogger:
         """Log API key operations for audit"""
         audit_event = {
             "event_type": "api_key_operation",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "action": f"{operation}_api_key",
             "resource_type": "exchange_api_key",
@@ -341,7 +339,7 @@ class AuditLogger:
         """Log trading mode switches"""
         audit_event = {
             "event_type": "mode_switch",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "action": "switch_trading_mode",
             "resource_type": "trading_mode",
@@ -383,7 +381,7 @@ class AuditLogger:
         """Log risk management events"""
         audit_event = {
             "event_type": "risk_event",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "risk_event_type": event_type,
             "details": details,
@@ -405,7 +403,7 @@ class AuditLogger:
         """Log security-related events"""
         audit_event = {
             "event_type": "security_event",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "security_event_type": event_type,
             "details": details,
@@ -434,7 +432,7 @@ class AuditLogger:
         """Log wallet operations for audit"""
         audit_event = {
             "event_type": "wallet_operation",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "user_id": user_id,
             "action": f"{operation}_wallet",
             "resource_type": "wallet",
@@ -500,7 +498,7 @@ class AuditLogger:
                         if len(parts) < 4:
                             continue
 
-                        timestamp_str = parts[0]
+                        parts[0]
                         message = parts[3].strip()
 
                         # Parse JSON message
@@ -566,7 +564,7 @@ class AuditLogger:
             export_dir = AUDIT_LOG_DIR / "exports"
             export_dir.mkdir(exist_ok=True)
 
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"audit_logs_{timestamp}.{format}"
             filepath = export_dir / filename
 
@@ -606,7 +604,7 @@ class AuditLogger:
             if not AUDIT_LOG_FILE.exists():
                 return
 
-            cutoff_date = datetime.utcnow() - timedelta(days=retention_days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=retention_days)
             cutoff_timestamp = cutoff_date.isoformat()
 
             # Read all logs

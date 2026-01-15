@@ -6,7 +6,7 @@ Provides utilities for development, debugging, and testing
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from functools import wraps
 from typing import Any
 
@@ -56,7 +56,7 @@ class DevelopmentTools:
             "error_type": type(error).__name__,
             "error_message": str(error),
             "context": context,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
 

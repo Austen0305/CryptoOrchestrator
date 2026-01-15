@@ -4,6 +4,7 @@
  * Supports MetaMask, WalletConnect, Coinbase Wallet, and injected wallets
  */
 import { createConfig, http } from "wagmi";
+import type { Chain } from "viem";
 import { mainnet, base, arbitrum, polygon, optimism, avalanche, bsc } from "wagmi/chains";
 import { injected, walletConnect, coinbaseWallet } from "wagmi/connectors";
 // metaMask connector removed to avoid @metamask/sdk dependency requirement
@@ -23,7 +24,7 @@ export const supportedChains = [
   optimism, // Optimism (chainId: 10)
   avalanche, // Avalanche (chainId: 43114)
   bsc, // BNB Chain (chainId: 56)
-] as const;
+] as [Chain, ...Chain[]];
 
 // Configure connectors
 const connectors = [
@@ -72,7 +73,7 @@ const connectors = [
 
 // Create wagmi config
 export const wagmiConfig = createConfig({
-  chains: supportedChains,
+  chains: supportedChains as any,
   connectors,
   transports: {
     // Use HTTP transport for each chain

@@ -187,7 +187,7 @@ class CacheWarmer:
 
     async def warm_cache(self):
         """Execute all warming tasks"""
-        for task, key_pattern in self.warming_tasks:
+        for task, _key_pattern in self.warming_tasks:
             try:
                 if asyncio.iscoroutinefunction(task):
                     await task(self.cache)

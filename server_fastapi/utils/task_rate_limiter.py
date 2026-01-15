@@ -5,7 +5,7 @@ Implements rate limiting for Celery tasks to prevent resource exhaustion.
 
 import logging
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class TaskRateLimiter:
             return True, None
 
         max_calls, time_window = matching_limit
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         cutoff_time = now - timedelta(seconds=time_window)
 
         # Get request history for this task
@@ -140,7 +140,7 @@ class TaskRateLimiter:
             }
 
         max_calls, time_window = matching_limit
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
         cutoff_time = now - timedelta(seconds=time_window)
 
         history = self.request_history.get(task_name, deque())

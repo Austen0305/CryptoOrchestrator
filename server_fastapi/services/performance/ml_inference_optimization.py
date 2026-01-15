@@ -263,7 +263,7 @@ class MLInferenceOptimizationService:
                 )
 
                 # Load ONNX model
-                ort_session = ort.InferenceSession(
+                ort.InferenceSession(
                     onnx_path,
                     sess_options=self.ort_session_options,
                     providers=self.providers,

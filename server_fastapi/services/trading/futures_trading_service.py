@@ -348,32 +348,30 @@ class FuturesTradingService:
     ) -> dict[str, Any]:
         """Check if stop loss or take profit conditions are met."""
         # Check stop loss
-        if position.stop_loss_price:
-            if (
-                position.side == "long"
-                and current_price <= position.stop_loss_price
-                or position.side == "short"
-                and current_price >= position.stop_loss_price
-            ):
-                await self.close_futures_position(
-                    position.id, position.user_id, current_price
-                )
-                return {"should_close": True, "reason": "stop_loss_triggered"}
+        if position.stop_loss_price and (
+            position.side == "long"
+            and current_price <= position.stop_loss_price
+            or position.side == "short"
+            and current_price >= position.stop_loss_price
+        ):
+            await self.close_futures_position(
+                position.id, position.user_id, current_price
+            )
+            return {"should_close": True, "reason": "stop_loss_triggered"}
 
         # Check take profit
-        if position.take_profit_price:
-            if (
-                position.side == "long"
-                and current_price >= position.take_profit_price
-                or (
-                    position.side == "short"
-                    and current_price <= position.take_profit_price
-                )
-            ):
-                await self.close_futures_position(
-                    position.id, position.user_id, current_price
-                )
-                return {"should_close": True, "reason": "take_profit_reached"}
+        if position.take_profit_price and (
+            position.side == "long"
+            and current_price >= position.take_profit_price
+            or (
+                position.side == "short"
+                and current_price <= position.take_profit_price
+            )
+        ):
+            await self.close_futures_position(
+                position.id, position.user_id, current_price
+            )
+            return {"should_close": True, "reason": "take_profit_reached"}
 
         # Check trailing stop
         if position.trailing_stop_percent:

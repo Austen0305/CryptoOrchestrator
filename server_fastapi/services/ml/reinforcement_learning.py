@@ -152,10 +152,7 @@ class QLearningAgent:
         # Q-learning update
         current_q = self.q_table[state_key][action]
 
-        if done:
-            next_max_q = 0.0
-        else:
-            next_max_q = max(self.q_table[next_state_key].values())
+        next_max_q = 0.0 if done else max(self.q_table[next_state_key].values())
 
         new_q = current_q + self.learning_rate * (
             reward + self.gamma * next_max_q - current_q
@@ -335,7 +332,7 @@ class RLService:
             agent = self.q_learning_agent
             episode_rewards = []
 
-            for episode in range(episodes):
+            for _episode in range(episodes):
                 balance = initial_balance
                 position = None
                 entry_price = 0.0

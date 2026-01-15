@@ -4,7 +4,7 @@ Strategy Routes - API endpoints for strategy management
 
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -123,7 +123,7 @@ async def get_templates(
 ):
     """Get all strategy templates"""
     try:
-        user_id = _get_user_id(current_user)
+        _get_user_id(current_user)
         if category:
             templates = StrategyTemplateService.get_templates_by_category(category)
         else:
@@ -184,7 +184,7 @@ async def create_strategy(
                 strategy.description = template.description
 
         strategy_id = str(uuid.uuid4())
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         new_strategy = StrategyResponse(
             id=strategy_id,
@@ -310,7 +310,7 @@ async def update_strategy(
             name=strategy.name,
             config=strategy.config,
             logic=strategy.logic,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         if strategy_id not in strategy_versions_db:
@@ -328,7 +328,7 @@ async def update_strategy(
             patch_version = int(version_parts[2]) + 1
             strategy.version = f"{version_parts[0]}.{version_parts[1]}.{patch_version}"
 
-        strategy.updated_at = datetime.utcnow()
+        strategy.updated_at = datetime.now(UTC)
 
         return strategy
     except HTTPException:
@@ -489,7 +489,7 @@ async def publish_strategy(
 
         strategy.is_public = True
         strategy.is_published = True
-        strategy.published_at = datetime.utcnow()
+        strategy.published_at = datetime.now(UTC)
 
         return strategy
     except HTTPException:

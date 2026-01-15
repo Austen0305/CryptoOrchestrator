@@ -8,7 +8,7 @@ import logging
 import os
 import random
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class AdaptiveLogSampler:
 
         # Update endpoint volume tracking
         if endpoint:
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             cutoff = now - timedelta(minutes=1)
 
             # Clean old entries

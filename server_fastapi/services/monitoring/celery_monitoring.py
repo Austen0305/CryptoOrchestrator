@@ -4,7 +4,7 @@ Tracks task execution metrics, queue depth, and task performance.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from celery import current_app
@@ -58,7 +58,7 @@ class CeleryMonitoringService:
                 "reserved_tasks": total_reserved,
                 "workers": len(stats),
                 "worker_stats": stats,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error getting Celery metrics: {e}", exc_info=True)
@@ -84,7 +84,7 @@ class CeleryMonitoringService:
             }
 
             # Count tasks by queue
-            for worker, tasks in active.items():
+            for _worker, tasks in active.items():
                 for task in tasks:
                     queue = task.get("delivery_info", {}).get("routing_key", "default")
                     if queue in queue_depths:
@@ -147,7 +147,7 @@ class CeleryMonitoringService:
 
     def get_task_statistics(self) -> dict[str, Any]:
         """Get statistics for all tasks"""
-        return {"tasks": self.task_metrics, "timestamp": datetime.utcnow().isoformat()}
+        return {"tasks": self.task_metrics, "timestamp": datetime.now(UTC).isoformat()}
 
 
 # Singleton instance

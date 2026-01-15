@@ -4,7 +4,7 @@ System health dashboard with uptime, error rates, performance, and resource usag
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -46,7 +46,7 @@ async def get_platform_health_dashboard(
 
         # Get uptime
         uptime_seconds = (
-            datetime.utcnow() - production_monitor.start_time
+            datetime.now(UTC) - production_monitor.start_time
         ).total_seconds()
         uptime_days = uptime_seconds / 86400
 
@@ -83,7 +83,7 @@ async def get_platform_health_dashboard(
                 "requests_per_second": performance_metrics.requests_per_second,
                 "cache_hit_rate": performance_metrics.cache_hit_rate,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting platform health dashboard: {e}", exc_info=True)
@@ -99,7 +99,7 @@ async def get_uptime_metrics(
     """Get system uptime metrics (admin only)"""
     try:
         uptime_seconds = (
-            datetime.utcnow() - production_monitor.start_time
+            datetime.now(UTC) - production_monitor.start_time
         ).total_seconds()
         uptime_days = uptime_seconds / 86400
         uptime_hours = uptime_seconds / 3600
@@ -110,7 +110,7 @@ async def get_uptime_metrics(
             "uptime_hours": round(uptime_hours, 2),
             "formatted": f"{int(uptime_days)} days, {int((uptime_seconds % 86400) / 3600)} hours, {int((uptime_seconds % 3600) / 60)} minutes",
             "start_time": production_monitor.start_time.isoformat(),
-            "current_time": datetime.utcnow().isoformat(),
+            "current_time": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting uptime metrics: {e}", exc_info=True)
@@ -143,7 +143,7 @@ async def get_error_rates(
             "error_rate_percent": round(error_rate, 2),
             "total_errors": total_errors,
             "error_breakdown": error_breakdown,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting error rates: {e}", exc_info=True)
@@ -173,7 +173,7 @@ async def get_performance_metrics(
                 "cache_hit_rate": metrics.cache_hit_rate,
                 "active_connections": metrics.active_connections,
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting performance metrics: {e}", exc_info=True)
@@ -225,7 +225,7 @@ async def get_resource_usage(
                 "io": metrics.network_io,
                 "status": "normal",  # Would calculate based on thresholds
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting resource usage: {e}", exc_info=True)
@@ -261,7 +261,7 @@ async def get_services_health(
                     "message": "API server is running",
                 },
             },
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting services health: {e}", exc_info=True)

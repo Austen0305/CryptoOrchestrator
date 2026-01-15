@@ -7,6 +7,8 @@ Tests the notification WebSocket endpoint (/ws/notifications) including:
 - Notification updates (read/delete events)
 """
 
+import contextlib
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -145,10 +147,8 @@ def test_ws_notifications_multiple_clients():
     ):
         # Clear any initial messages
         for ws in [ws1, ws2]:
-            try:
+            with contextlib.suppress(Exception):
                 ws.receive_json()
-            except Exception:
-                pass
 
         # Trigger scenario simulation
         resp = client.post("/api/risk-scenarios/simulate", json=scenario_payload)

@@ -389,7 +389,7 @@ class TradingSafetyService:
         """
         total_exposure = 0.0
 
-        for symbol, position in positions.items():
+        for _symbol, position in positions.items():
             if "value" in position:
                 exposure = position["value"] / account_balance
                 total_exposure += exposure

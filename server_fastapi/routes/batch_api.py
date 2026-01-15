@@ -75,8 +75,8 @@ async def batch_request(
 # Register common batch handlers
 def register_batch_handlers():
     """Register handlers for common batch methods"""
-    from ..services.market_data_service import get_market_data_service
     from ..services.hft_orderbook_service import hft_orderbook_service
+    from ..services.market_data_service import get_market_data_service
 
     market_data = get_market_data_service()
 

@@ -5,7 +5,7 @@ Manages API keys for external integrations
 
 import hashlib
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +43,7 @@ class APIKeyService:
         # Calculate expiration
         expires_at = None
         if expires_in_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_in_days)
+            expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
         # Create API key
         api_key = APIKey(
@@ -73,10 +73,10 @@ class APIKeyService:
         stmt = select(APIKey).where(
             and_(
                 APIKey.key_hash == key_hash,
-                APIKey.is_active == True,
+                APIKey.is_active,
                 or_(
-                    APIKey.expires_at == None,
-                    APIKey.expires_at > datetime.utcnow(),
+                    APIKey.expires_at is None,
+                    APIKey.expires_at > datetime.now(UTC),
                 ),
             )
         )
@@ -86,7 +86,7 @@ class APIKeyService:
 
         if api_key_obj:
             # Update usage
-            api_key_obj.last_used_at = datetime.utcnow()
+            api_key_obj.last_used_at = datetime.now(UTC)
             api_key_obj.request_count += 1
             await self.db.commit()
 
@@ -104,7 +104,7 @@ class APIKeyService:
             return False, None
 
         # Count requests in the last hour
-        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
         stmt = select(func.count(APIKeyUsage.id)).where(
             and_(
                 APIKeyUsage.api_key_id == api_key_id,
@@ -145,7 +145,7 @@ class APIKeyService:
         # Update API key
         api_key = await self.db.get(APIKey, api_key_id)
         if api_key:
-            api_key.last_used_at = datetime.utcnow()
+            api_key.last_used_at = datetime.now(UTC)
             api_key.last_ip_address = ip_address
 
         await self.db.commit()

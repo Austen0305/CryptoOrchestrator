@@ -91,7 +91,7 @@ async def get_subscription(
 
         if not subscription:
             # Return free plan
-            config = free_subscription_service.get_plan_config(SubscriptionTier.FREE)
+            free_subscription_service.get_plan_config(SubscriptionTier.FREE)
             return SubscriptionResponse(
                 plan="free",
                 status="active",

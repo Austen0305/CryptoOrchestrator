@@ -9,13 +9,13 @@ export interface WalletUpdate {
   message?: string;
 }
 
-export function useWalletWebSocket(currency: string = "USD") {
+export const useWalletWebSocket = (currency: string = "USD") => {
   const { isAuthenticated } = useAuth();
   const [balance, setBalance] = useState<unknown>(null);
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttempts = useRef(0);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reconnectAttemptsRef = useRef<number>(0);
   const maxReconnectAttempts = 5;
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export function useWalletWebSocket(currency: string = "USD") {
         ws.onopen = () => {
           logger.debug("Wallet WebSocket connected");
           setIsConnected(true);
-          reconnectAttempts.current = 0;
+          reconnectAttemptsRef.current = 0;
           
           // Request initial balance
           ws.send(JSON.stringify({
@@ -78,9 +78,9 @@ export function useWalletWebSocket(currency: string = "USD") {
           setIsConnected(false);
           
           // Attempt to reconnect
-          if (reconnectAttempts.current < maxReconnectAttempts) {
-            reconnectAttempts.current++;
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+            reconnectAttemptsRef.current++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
             reconnectTimeoutRef.current = setTimeout(() => {
               connect();
             }, delay);
@@ -105,7 +105,7 @@ export function useWalletWebSocket(currency: string = "USD") {
 
     return () => {
       if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
+        clearTimeout(reconnectTimeoutRef.current as unknown as number);
       }
       clearInterval(heartbeatInterval);
       if (wsRef.current) {

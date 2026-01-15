@@ -152,7 +152,7 @@ class VaRService:
     ) -> VaRResult:
         """Calculate VaR using parametric (variance-covariance) method"""
         # Assume returns are normally distributed
-        mean_return = np.mean(returns)
+        np.mean(returns)
         std_return = np.std(returns)
 
         # Scale for time horizon
@@ -272,9 +272,11 @@ class VaRService:
         returns: list[float],
         portfolio_value: float,
         confidence_level: float = 0.95,
-        horizons: list[int] = [1, 7, 30],
+        horizons: list[int] = None,
     ) -> list[dict[str, Any]]:
         """Calculate VaR for multiple time horizons"""
+        if horizons is None:
+            horizons = [1, 7, 30]
         results = []
 
         for horizon in horizons:

@@ -22,7 +22,7 @@ class TestTradingOrchestrator:
         """Test symbol format validation"""
         from server_fastapi.services.trading_orchestrator import TradingOrchestrator
 
-        orchestrator = TradingOrchestrator(db_session=db_session)
+        TradingOrchestrator(db_session=db_session)
 
         # Valid symbols
         valid_symbols = ["BTC/USD", "ETH/USDT", "SOL/EUR"]
@@ -40,7 +40,7 @@ class TestTradingOrchestrator:
         """Test order side validation"""
         from server_fastapi.services.trading_orchestrator import TradingOrchestrator
 
-        orchestrator = TradingOrchestrator(db_session=db_session)
+        TradingOrchestrator(db_session=db_session)
 
         # Valid sides
         valid_sides = ["buy", "sell"]
@@ -56,7 +56,7 @@ class TestTradingOrchestrator:
         """Test order amount validation"""
         from server_fastapi.services.trading_orchestrator import TradingOrchestrator
 
-        orchestrator = TradingOrchestrator(db_session=db_session)
+        TradingOrchestrator(db_session=db_session)
 
         # Valid amounts
         assert 1.0 > 0

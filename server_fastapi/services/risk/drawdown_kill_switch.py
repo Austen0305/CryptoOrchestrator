@@ -3,9 +3,10 @@ Drawdown Kill Switch Service - Automatic shutdown on excessive drawdown
 """
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -106,10 +107,8 @@ class DrawdownKillSwitch:
         """Stop monitoring portfolio drawdown"""
         if self.monitoring_task:
             self.monitoring_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.monitoring_task
-            except asyncio.CancelledError:
-                pass
             self.monitoring_task = None
             logger.info("Drawdown kill switch monitoring stopped")
 
@@ -207,7 +206,7 @@ class DrawdownKillSwitch:
             # Update state
             if self.state:
                 self.state.active = True
-                self.state.activated_at = datetime.utcnow()
+                self.state.activated_at = datetime.now(UTC)
                 self.state.reason = f"Drawdown {drawdown_percent:.2f}% exceeded maximum {self.config.max_drawdown_percent:.2f}%"
 
             # Emit event
@@ -246,7 +245,7 @@ class DrawdownKillSwitch:
             # Update state
             if self.state:
                 self.state.active = False
-                self.state.deactivated_at = datetime.utcnow()
+                self.state.deactivated_at = datetime.now(UTC)
                 self.state.reason = f"Drawdown recovered to {drawdown_percent:.2f}%"
 
             # Emit event

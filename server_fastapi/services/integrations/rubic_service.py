@@ -97,7 +97,6 @@ class RubicService:
                 payload["userWalletAddress"] = user_wallet_address
 
             # Retry logic for cross-chain swaps (more reliable)
-            last_exception = None
             for attempt in range(self.max_retries):
                 try:
                     # Use shared HTTP client with connection pooling
@@ -130,7 +129,6 @@ class RubicService:
                     return quote
 
                 except httpx.HTTPStatusError as e:
-                    last_exception = e
                     # Don't retry on 4xx errors (client errors)
                     if 400 <= e.response.status_code < 500:
                         logger.error(
@@ -171,7 +169,6 @@ class RubicService:
                         )
 
                 except (httpx.TimeoutException, httpx.NetworkError) as e:
-                    last_exception = e
                     # Retry on network/timeout errors
                     if attempt < self.max_retries - 1:
                         retry_delay = self.retry_delay_base * (
@@ -199,7 +196,6 @@ class RubicService:
                         )
 
                 except Exception as e:
-                    last_exception = e
                     # Retry on other errors
                     if attempt < self.max_retries - 1:
                         retry_delay = self.retry_delay_base * (

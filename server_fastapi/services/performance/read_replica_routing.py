@@ -117,12 +117,7 @@ class ReadReplicaRoutingService:
                 return False
 
         # Check for read keywords
-        for keyword in read_keywords:
-            if query_upper.startswith(keyword):
-                return True
-
-        # Default to write (safer)
-        return False
+        return any(query_upper.startswith(keyword) for keyword in read_keywords)
 
     async def execute_read_query(
         self,

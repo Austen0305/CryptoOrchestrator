@@ -5,7 +5,7 @@ Support for YubiKey, Titan, and other FIDO2/WebAuthn devices
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -135,7 +135,7 @@ class HardwareKeyAuthService:
                 user_id=user_id,
                 credential_id=registration_response.get("id", ""),
                 public_key=b"",  # Would extract from response
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
             )
 
             # Store credential
@@ -223,7 +223,7 @@ class HardwareKeyAuthService:
 
             # Update credential
             credential.counter += 1
-            credential.last_used_at = datetime.utcnow()
+            credential.last_used_at = datetime.now(UTC)
 
             logger.info(f"Hardware key authentication successful for user {user_id}")
             return True

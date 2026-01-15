@@ -1,0 +1,35 @@
+site_name: CryptoOrchestrator (2026)
+site_description: Institutional-grade Local Trading Engine
+site_url: https://github.com/Austen0305/CryptoOrchestrator
+repo_url: https://github.com/Austen0305/CryptoOrchestrator
+repo_name: Austen0305/CryptoOrchestrator
+
+theme:
+  name: material
+  palette: 
+    - scheme: slate
+      primary: cyan
+      accent: cyan
+  features:
+    - content.code.copy
+    - navigation.expand
+    - navigation.indexes
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [server_fastapi]
+
+nav:
+  - Home: index.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Decisions (TDR): architecture/tdr.md
+  - API Reference:
+      - Backend: api/backend.md
+      - Signed: api/signer.md
+  - Guides:
+      - Local Dev: guides/setup.md
+      - Compliance: guides/compliance.md

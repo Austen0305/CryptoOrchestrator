@@ -60,6 +60,26 @@ class Settings(BaseSettings):
         default="dev-key-32-bytes-long-change-me", alias="EXCHANGE_KEY_ENCRYPTION_KEY"
     )
 
+    # Privacy (GDPR Crypto-Shredding)
+    privacy_master_key: str = Field(
+        default="dev-privacy-master-key-change-in-prod-123", alias="PRIVACY_MASTER_KEY"
+    )
+
+    @property
+    def privacy_master_key_bytes(self) -> bytes:
+        """Derives a stable 32-byte key for AES-256."""
+        # Check if it's already a 64-char hex string (32 bytes)
+        try:
+            if len(self.privacy_master_key) == 64:
+                return bytes.fromhex(self.privacy_master_key)
+        except ValueError:
+            pass
+
+        # Otherwise hash it to get 32 bytes
+        import hashlib
+
+        return hashlib.sha256(self.privacy_master_key.encode("utf-8")).digest()
+
     # Stripe
     stripe_secret_key: str | None = Field(default=None, alias="STRIPE_SECRET_KEY")
     stripe_publishable_key: str | None = Field(

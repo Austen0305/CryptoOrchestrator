@@ -7,7 +7,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class DIDService:
         """
         # Generate DID identifier
         identifier = hashlib.sha256(
-            f"{method}:{user_id or ''}:{datetime.utcnow().isoformat()}".encode()
+            f"{method}:{user_id or ''}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()[:32]
 
         did = f"did:{method}:{identifier}"
@@ -171,7 +171,7 @@ class DIDService:
             raise ValueError(f"Issuer DID {issuer_did} not found")
 
         credential_id = hashlib.sha256(
-            f"{issuer_did}:{subject_did}:{datetime.utcnow().isoformat()}".encode()
+            f"{issuer_did}:{subject_did}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         # Generate proof (simplified - in production, use actual cryptographic proof)
@@ -185,7 +185,7 @@ class DIDService:
             claims=claims,
             proof=proof,
             expires=(
-                datetime.utcnow() + timedelta(days=expires_days)
+                datetime.now(UTC) + timedelta(days=expires_days)
                 if expires_days
                 else None
             ),
@@ -223,7 +223,7 @@ class DIDService:
             raise ValueError("No valid credentials found")
 
         presentation_id = hashlib.sha256(
-            f"{holder_did}:{':'.join(credential_ids)}:{datetime.utcnow().isoformat()}".encode()
+            f"{holder_did}:{':'.join(credential_ids)}:{datetime.now(UTC).isoformat()}".encode()
         ).hexdigest()
 
         # Generate proof
@@ -251,7 +251,7 @@ class DIDService:
             return False
 
         # Check expiration
-        if credential.expires and datetime.utcnow() > credential.expires:
+        if credential.expires and datetime.now(UTC) > credential.expires:
             return False
 
         # Verify proof (simplified)
@@ -287,7 +287,7 @@ class DIDService:
 
     def _generate_public_key(self, did: str) -> str:
         """Generate public key for DID (simplified)"""
-        key_data = f"{did}:{datetime.utcnow().isoformat()}"
+        key_data = f"{did}:{datetime.now(UTC).isoformat()}"
         return hashlib.sha256(key_data.encode()).hexdigest()
 
     def _generate_proof(
@@ -303,7 +303,7 @@ class DIDService:
 
         return {
             "type": "Ed25519Signature2020",
-            "created": datetime.utcnow().isoformat(),
+            "created": datetime.now(UTC).isoformat(),
             "proofPurpose": "assertionMethod",
             "verificationMethod": f"{did}#keys-1",
             "proofValue": signature,

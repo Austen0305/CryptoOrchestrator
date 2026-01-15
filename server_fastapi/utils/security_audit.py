@@ -6,7 +6,7 @@ Provides comprehensive security auditing and vulnerability scanning
 import logging
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -90,7 +90,7 @@ class SecurityAuditor:
         return {
             "status": "pass" if not issues else "fail",
             "issues": issues,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def scan_for_secrets(self, directory: str = "server_fastapi") -> dict[str, Any]:
@@ -133,7 +133,7 @@ class SecurityAuditor:
             "status": "pass" if not issues else "fail",
             "issues": issues,
             "files_scanned": scanned_files,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def audit_dependencies(self) -> dict[str, Any]:
@@ -177,7 +177,7 @@ class SecurityAuditor:
         return {
             "status": "pass" if not issues else "fail",
             "issues": issues,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def check_security_headers(self) -> dict[str, Any]:
@@ -203,7 +203,7 @@ class SecurityAuditor:
         return {
             "status": "pass" if not issues else "fail",
             "issues": issues,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def run_full_audit(self) -> dict[str, Any]:
@@ -213,7 +213,7 @@ class SecurityAuditor:
             "secrets": self.scan_for_secrets(),
             "dependencies": self.audit_dependencies(),
             "security_headers": self.check_security_headers(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Calculate overall status

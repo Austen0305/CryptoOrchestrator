@@ -3,6 +3,7 @@ Performance monitoring service - migrated from TypeScript
 """
 
 import asyncio
+import contextlib
 import logging
 import math
 import time
@@ -309,10 +310,8 @@ class PerformanceMonitor:
         """Cleanup resources"""
         if self._update_task:
             self._update_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._update_task
-            except asyncio.CancelledError:
-                pass
 
 
 # Export singleton instance

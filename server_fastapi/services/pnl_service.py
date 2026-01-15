@@ -3,7 +3,7 @@ P&L Calculation Service
 Calculates profit and loss from trade history for portfolios and positions.
 """
 
-from typing import TYPE_CHECKING, List, Dict, Tuple, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from ..repositories.trade_repository import TradeRepository
@@ -31,10 +31,10 @@ class PnLService:
     async def calculate_batch_position_pnl(
         self,
         user_id: int,
-        symbols: List[str],
-        current_prices: Dict[str, float],
+        symbols: list[str],
+        current_prices: dict[str, float],
         mode: str = "paper",
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """
         Calculate P&L for multiple positions in batch.
 
@@ -54,7 +54,7 @@ class PnLService:
             )
 
             # Group trades by symbol
-            trades_by_symbol: Dict[str, list] = {symbol: [] for symbol in symbols}
+            trades_by_symbol: dict[str, list] = {symbol: [] for symbol in symbols}
             for trade in trades:
                 if trade.pair in trades_by_symbol:
                     trades_by_symbol[trade.pair].append(trade)
@@ -77,14 +77,14 @@ class PnLService:
 
     def _calculate_fifo_pnl(
         self, trades: list, current_price: float
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Helper to calculate FIFO P&L for a set of trades."""
         if not trades:
             return self._empty_pnl_result()
 
         # Calculate using FIFO method
         position_stats = {"quantity": 0.0, "cost_basis": 0.0}
-        buy_queue: List[Tuple[float, float]] = []  # (quantity, price)
+        buy_queue: list[tuple[float, float]] = []  # (quantity, price)
         for trade in trades:
             if trade.side == "buy":
                 self._process_buy_trade(trade, buy_queue, position_stats)
@@ -110,7 +110,7 @@ class PnLService:
         }
 
     def _process_buy_trade(
-        self, trade, buy_queue: List[Tuple[float, float]], position_stats: Dict[str, float]
+        self, trade, buy_queue: list[tuple[float, float]], position_stats: dict[str, float]
     ) -> None:
         """Helper to process a buy trade."""
         buy_queue.append((trade.amount, trade.price))
@@ -118,7 +118,7 @@ class PnLService:
         position_stats["cost_basis"] += trade.amount * trade.price
 
     def _process_sell_trade(
-        self, trade, buy_queue: List[Tuple[float, float]], position_stats: Dict[str, float]
+        self, trade, buy_queue: list[tuple[float, float]], position_stats: dict[str, float]
     ) -> None:
         """Helper to process a sell trade using FIFO."""
         remaining_sell = trade.amount
@@ -142,7 +142,7 @@ class PnLService:
 
 
 
-    def _empty_pnl_result(self) -> Dict[str, float]:
+    def _empty_pnl_result(self) -> dict[str, float]:
         """Returns default empty P&L structure."""
         return {
             "pnl": 0.0,
@@ -155,7 +155,7 @@ class PnLService:
 
     async def calculate_position_pnl(
         self, user_id: int, symbol: str, current_price: float, mode: str = "paper"
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Calculate P&L for a specific position.
         """
@@ -169,8 +169,8 @@ class PnLService:
             return self._empty_pnl_result()
 
     async def calculate_portfolio_pnl(
-        self, user_id: int, mode: str = "paper", period_hours: Optional[int] = None
-    ) -> Dict[str, float]:
+        self, user_id: int, mode: str = "paper", period_hours: int | None = None
+    ) -> dict[str, float]:
         """
         Calculate total portfolio P&L.
 
@@ -197,7 +197,7 @@ class PnLService:
             total_fees = 0.0
 
             # Track positions for unrealized P&L
-            positions: Dict[str, Dict[str, float]] = (
+            positions: dict[str, dict[str, float]] = (
                 {}
             )  # symbol -> {quantity, cost_basis}
 

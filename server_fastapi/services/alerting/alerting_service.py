@@ -9,7 +9,7 @@ import logging
 import uuid
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
@@ -76,7 +76,7 @@ class Alert:
         self.current_value = current_value
         self.message = message
         self.severity = rule.severity
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(UTC)
         self.metadata = metadata or {}
         self.acknowledged = False
         self.acknowledged_by: str | None = None
@@ -99,8 +99,8 @@ class Incident:
         self.severity = severity
         self.description = description
         self.status = "open"  # open, investigating, resolved, closed
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.created_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
         self.resolved_at: datetime | None = None
         self.assigned_to: str | None = None
         self.related_alerts: list[str] = []  # Alert IDs
@@ -185,7 +185,7 @@ class AlertingService:
 
         # Check cooldown
         if rule.last_triggered:
-            time_since_last = (datetime.utcnow() - rule.last_triggered).total_seconds()
+            time_since_last = (datetime.now(UTC) - rule.last_triggered).total_seconds()
             if time_since_last < rule.cooldown:
                 return None  # Still in cooldown
 
@@ -206,7 +206,7 @@ class AlertingService:
             # Update existing alert
             alert = self.active_alerts[rule_name]
             alert.current_value = current_value
-            alert.timestamp = datetime.utcnow()
+            alert.timestamp = datetime.now(UTC)
             return alert
 
         # Create new alert
@@ -231,7 +231,7 @@ class AlertingService:
             self.alert_history = self.alert_history[-self.max_history :]
 
         # Update rule state
-        rule.last_triggered = datetime.utcnow()
+        rule.last_triggered = datetime.now(UTC)
         rule.trigger_count += 1
 
         # Send notifications
@@ -262,7 +262,7 @@ class AlertingService:
             True if alert should be sent, False if suppressed
         """
         rule_name = alert.rule.name
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
         # Get recent notifications for this rule
         recent_notifications = self.notification_timestamps[rule_name]
@@ -365,7 +365,7 @@ class AlertingService:
                     # Track notification
                     alert.notification_count += 1
                     self.notification_timestamps[alert.rule.name].append(
-                        datetime.utcnow()
+                        datetime.now(UTC)
                     )
 
                 except Exception as e:
@@ -377,9 +377,9 @@ class AlertingService:
 
     async def check_escalations(self) -> None:
         """Check and escalate unacknowledged alerts"""
-        now = datetime.utcnow()
+        now = datetime.now(UTC)
 
-        for alert_id, alert in list(self.active_alerts.items()):
+        for _alert_id, alert in list(self.active_alerts.items()):
             if alert.acknowledged or alert.resolved:
                 continue
 
@@ -416,7 +416,7 @@ class AlertingService:
             incident = self.active_incidents[alert.incident_id]
             if alert.id not in incident.related_alerts:
                 incident.related_alerts.append(alert.id)
-                incident.updated_at = datetime.utcnow()
+                incident.updated_at = datetime.now(UTC)
             return incident
 
         # Create new incident
@@ -455,7 +455,7 @@ class AlertingService:
             if alert.id == alert_id:
                 alert.acknowledged = True
                 alert.acknowledged_by = acknowledged_by
-                alert.acknowledged_at = datetime.utcnow()
+                alert.acknowledged_at = datetime.now(UTC)
                 logger.info(
                     f"Alert acknowledged: {alert_id} by {acknowledged_by}",
                     extra={"alert_id": alert_id, "acknowledged_by": acknowledged_by},
@@ -526,8 +526,8 @@ class AlertingService:
         if incident_id in self.active_incidents:
             incident = self.active_incidents[incident_id]
             incident.status = "resolved"
-            incident.resolved_at = datetime.utcnow()
-            incident.updated_at = datetime.utcnow()
+            incident.resolved_at = datetime.now(UTC)
+            incident.updated_at = datetime.now(UTC)
 
             if resolved_by:
                 incident.metadata["resolved_by"] = resolved_by
@@ -553,7 +553,7 @@ class AlertingService:
         for rule_name, alert in list(self.active_alerts.items()):
             if alert.id == alert_id:
                 alert.resolved = True
-                alert.resolved_at = datetime.utcnow()
+                alert.resolved_at = datetime.now(UTC)
                 del self.active_alerts[rule_name]
                 logger.info(f"Alert resolved: {alert_id}")
                 return True
@@ -563,7 +563,7 @@ class AlertingService:
         """Get alert fatigue statistics"""
         stats = {}
         for rule_name, timestamps in self.notification_timestamps.items():
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             hour_cutoff = now - timedelta(hours=1)
             day_cutoff = now - timedelta(hours=24)
 

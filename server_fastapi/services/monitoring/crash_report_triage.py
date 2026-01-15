@@ -5,7 +5,7 @@ Forwards Sentry and Electron crash events to incident management systems (PagerD
 
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -153,7 +153,7 @@ class CrashReportTriageService:
                 "severity": pagerduty_severity_map.get(severity, "error"),
                 "custom_details": {
                     "description": description,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     **metadata,
                 },
             },
@@ -224,7 +224,7 @@ class CrashReportTriageService:
                 f"severity-{severity.value}",
                 metadata.get("source", "cryptoorchestrator"),
             ],
-            "details": {"timestamp": datetime.utcnow().isoformat(), **metadata},
+            "details": {"timestamp": datetime.now(UTC).isoformat(), **metadata},
         }
 
         try:
@@ -283,7 +283,7 @@ class CrashReportTriageService:
             "title": title,
             "description": description,
             "severity": severity.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "metadata": metadata,
         }
 

@@ -377,10 +377,10 @@ class TestIntegrationScenarios:
                 "analysis": "Strong bullish trend",
             },
         )
-        signal_id = signal_response.json()["signal_id"]
+        signal_response.json()["signal_id"]
 
         # 3. Generate API key for subscriber
-        key_response = client.post(
+        client.post(
             "/api/marketplace/keys/generate",
             params={"user_id": "subscriber", "tier": "basic"},
         )

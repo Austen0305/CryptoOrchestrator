@@ -105,7 +105,7 @@ class CodeReviewService:
     ) -> list[CodeIssue]:
         """Analyze AST for code quality issues."""
         issues = []
-        lines = content.split("\n")
+        content.split("\n")
 
         for node in ast.walk(tree):
             # Check function complexity
@@ -332,10 +332,7 @@ class CodeReviewService:
         Returns:
             Summary of analysis results
         """
-        if directory is None:
-            directory = self.project_root
-        else:
-            directory = Path(directory)
+        directory = self.project_root if directory is None else Path(directory)
 
         if extensions is None:
             extensions = [".py"]

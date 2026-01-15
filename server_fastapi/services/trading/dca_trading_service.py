@@ -7,7 +7,7 @@ import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -103,7 +103,7 @@ class DCATradingService:
 
             async with self._get_session() as session:
                 # Calculate next order time
-                next_order_at = datetime.utcnow() + timedelta(minutes=interval_minutes)
+                next_order_at = datetime.now(UTC) + timedelta(minutes=interval_minutes)
 
                 # Extract chain_id from exchange (temporary - exchange field stores chain_id as string)
                 # Default to Ethereum (1) if exchange is not a numeric chain_id
@@ -167,7 +167,7 @@ class DCATradingService:
                     return False
 
                 # Calculate next order time
-                next_order_at = datetime.utcnow() + timedelta(
+                next_order_at = datetime.now(UTC) + timedelta(
                     minutes=bot.interval_minutes
                 )
 
@@ -231,7 +231,7 @@ class DCATradingService:
                     return {"action": "skipped", "reason": "bot_inactive"}
 
                 # Check if it's time to execute order
-                if bot.next_order_at and bot.next_order_at > datetime.utcnow():
+                if bot.next_order_at and bot.next_order_at > datetime.now(UTC):
                     return {"action": "skipped", "reason": "not_time_yet"}
 
                 # Check max orders limit
@@ -301,7 +301,7 @@ class DCATradingService:
                     )
 
                     # Calculate next order time
-                    next_order_at = datetime.utcnow() + timedelta(
+                    next_order_at = datetime.now(UTC) + timedelta(
                         minutes=bot.interval_minutes
                     )
                     await self.repository.update_next_order_time(

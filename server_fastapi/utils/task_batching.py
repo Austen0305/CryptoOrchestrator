@@ -7,7 +7,7 @@ import asyncio
 import logging
 from collections import deque
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ class TaskBatcher:
         """
         if batch_key not in self.batches:
             self.batches[batch_key] = deque()
-            self.batch_timestamps[batch_key] = datetime.utcnow()
+            self.batch_timestamps[batch_key] = datetime.now(UTC)
             self.batch_callbacks[batch_key] = batch_callback
             self.locks[batch_key] = asyncio.Lock()
 
@@ -69,7 +69,7 @@ class TaskBatcher:
                 force_flush
                 or len(batch) >= self.batch_size
                 or (
-                    datetime.utcnow() - self.batch_timestamps[batch_key]
+                    datetime.now(UTC) - self.batch_timestamps[batch_key]
                 ).total_seconds()
                 >= self.batch_timeout_seconds
             )
@@ -78,7 +78,7 @@ class TaskBatcher:
                 # Flush batch
                 items_to_process = list(batch)
                 batch.clear()
-                self.batch_timestamps[batch_key] = datetime.utcnow()
+                self.batch_timestamps[batch_key] = datetime.now(UTC)
 
                 # Execute batch callback
                 try:
@@ -165,7 +165,7 @@ class TaskBatcher:
             stats[batch_key] = {
                 "size": len(batch),
                 "age_seconds": (
-                    datetime.utcnow() - self.batch_timestamps[batch_key]
+                    datetime.now(UTC) - self.batch_timestamps[batch_key]
                 ).total_seconds(),
             }
         return stats
@@ -243,12 +243,12 @@ class TaskDeduplicator:
             idempotency_key: Idempotency key
             result: Task result
         """
-        self.idempotency_keys[idempotency_key] = datetime.utcnow()
+        self.idempotency_keys[idempotency_key] = datetime.now(UTC)
         self.results[idempotency_key] = result
 
     def _cleanup_expired(self) -> None:
         """Remove expired idempotency keys"""
-        cutoff = datetime.utcnow() - timedelta(seconds=self.ttl_seconds)
+        cutoff = datetime.now(UTC) - timedelta(seconds=self.ttl_seconds)
         expired_keys = [
             key
             for key, timestamp in self.idempotency_keys.items()

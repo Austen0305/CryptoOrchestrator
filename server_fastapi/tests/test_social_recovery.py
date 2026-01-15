@@ -2,7 +2,7 @@
 Tests for Social Recovery System
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -146,7 +146,7 @@ class TestRecoveryRequest:
 
         # Add guardians
         service = SocialRecoveryService(db_session)
-        for i in range(3):
+        for _i in range(3):
             guardian = await service.add_guardian(
                 wallet_id=wallet.id,
                 guardian_user_id=test_user.id,
@@ -254,7 +254,7 @@ class TestRecoveryRequest:
         )
 
         # Set unlock time to past for testing
-        recovery_request.unlock_time = datetime.utcnow() - timedelta(days=1)
+        recovery_request.unlock_time = datetime.now(UTC) - timedelta(days=1)
         await db_session.commit()
 
         # Execute recovery

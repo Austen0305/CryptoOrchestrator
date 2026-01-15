@@ -5,7 +5,7 @@ Handles custodial wallet creation, deposit address generation, balance fetching,
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -23,10 +23,10 @@ except ImportError:
     is_address = None
 
 from ..config.settings import get_settings
-from ..repositories.wallet_repository import WalletRepository
-from ..repositories.transaction_repository import TransactionRepository
-from .security.vault_interface import AbstractVault
 from ..core.domain_registry import domain_registry
+from ..repositories.transaction_repository import TransactionRepository
+from ..repositories.wallet_repository import WalletRepository
+from .security.vault_interface import AbstractVault
 
 # Optional blockchain imports (may not be available if web3 is not installed)
 try:
@@ -153,7 +153,7 @@ class WalletService:
                 wallet_type="custodial",
                 label=label or f"Custodial Wallet (Chain {chain_id})",
                 metadata={
-                    "generated_at": datetime.utcnow().isoformat(),
+                    "generated_at": datetime.now(UTC).isoformat(),
                     "vault_managed": True,
                 },
             )
@@ -432,6 +432,7 @@ class WalletService:
                 if db:
                     repository = WalletRepository(db)
                     from sqlalchemy import select
+
                     from ..models.user_wallet import UserWallet
 
                     stmt = select(UserWallet).where(UserWallet.id == wallet_id)
@@ -448,7 +449,7 @@ class WalletService:
                             "last_updated": (
                                 wallet.last_balance_update.isoformat()
                                 if wallet.last_balance_update
-                                else datetime.utcnow().isoformat()
+                                else datetime.now(UTC).isoformat()
                             ),
                         }
                 return None
@@ -498,7 +499,7 @@ class WalletService:
                 "token": token_symbol,
                 "token_address": token_address,
                 "chain_id": chain_id,
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_updated": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error getting wallet balance: {e}", exc_info=True)
@@ -640,12 +641,12 @@ class WalletService:
                     "Blockchain services not available - cannot execute transaction"
                 )
                 return None
-            transaction_service = get_transaction_service()
+            get_transaction_service()
 
             # Prepare transaction
             # Note: In production, private key should be retrieved from secure key management
             # For now, this is a placeholder - actual implementation requires secure key storage
-            settings = get_settings()
+            get_settings()
 
             # This is a simplified version - in production, you'd:
             # 1. Retrieve private key from secure key management (AWS KMS, HashiCorp Vault)

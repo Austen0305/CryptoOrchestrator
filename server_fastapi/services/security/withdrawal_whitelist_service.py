@@ -4,7 +4,7 @@ Manages withdrawal address whitelists for enhanced security
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -113,14 +113,14 @@ class WithdrawalWhitelistService:
             }
 
         # Add address to whitelist (with cooldown period)
-        cooldown_until = datetime.utcnow() + timedelta(hours=self.cooldown_hours)
+        cooldown_until = datetime.now(UTC) + timedelta(hours=self.cooldown_hours)
 
         data["withdrawal_whitelist"].append(
             {
                 "address": address,
                 "currency": currency,
                 "label": label or f"{currency} Address",
-                "added_at": datetime.utcnow().isoformat(),
+                "added_at": datetime.now(UTC).isoformat(),
                 "cooldown_until": cooldown_until.isoformat(),
                 "active": False,  # Not active until cooldown expires
             }
@@ -260,7 +260,7 @@ class WithdrawalWhitelistService:
                 whitelist = [addr for addr in whitelist if addr["currency"] == currency]
 
             # Check cooldown status
-            now = datetime.utcnow()
+            now = datetime.now(UTC)
             for addr in whitelist:
                 cooldown_until = datetime.fromisoformat(
                     addr.get("cooldown_until", "1970-01-01")
@@ -290,7 +290,7 @@ class WithdrawalWhitelistService:
                     cooldown_until = datetime.fromisoformat(
                         addr.get("cooldown_until", "1970-01-01")
                     )
-                    return datetime.utcnow() >= cooldown_until
+                    return datetime.now(UTC) >= cooldown_until
 
             return False
         except Exception as e:

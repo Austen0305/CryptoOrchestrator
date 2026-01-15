@@ -8,7 +8,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, HttpUrl
 
-from ..dependencies.auth import get_current_user, require_admin
+from ..dependencies.auth import get_current_user
 from ..services.webhook_manager import webhook_manager
 
 logger = logging.getLogger(__name__)

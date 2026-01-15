@@ -367,9 +367,9 @@ class BotTradingService:
             symbol = bot_config.get("tradingPair") or bot_config.get(
                 "symbol", "ETH/USDC"
             )
-            timeframe = bot_config.get("timeframe", "1h")
+            bot_config.get("timeframe", "1h")
             limit = bot_config.get("candle_limit", 100)
-            chain_id = bot_config.get("chain_id", 1)  # Default to Ethereum
+            bot_config.get("chain_id", 1)  # Default to Ethereum
 
             # Use DEX aggregator or MarketDataService for market data
             # MarketDataService handles provider selection (CoinCap/CoinLore)

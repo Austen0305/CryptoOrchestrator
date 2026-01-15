@@ -3,7 +3,7 @@ Additional test fixtures for bot integration tests
 Extends existing conftest.py with bot-specific fixtures
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -98,7 +98,7 @@ async def test_trades(db_session):
             price=40000.0,
             cost=20000.0,
             fee=20.0,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(UTC),
         ),
         Trade(
             user_id="test_user_123",
@@ -109,7 +109,7 @@ async def test_trades(db_session):
             price=42000.0,
             cost=42000.0,
             fee=42.0,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(UTC),
         ),
     ]
 

@@ -220,7 +220,7 @@ async def get_user_wallets(
             .where(UserWallet.user_id == user_id)
         )
         total_result = await db.execute(count_query)
-        total = total_result.scalar() or 0
+        total_result.scalar() or 0
 
         # Apply pagination
         query = QueryOptimizer.paginate_query(query, page=page, page_size=page_size)

@@ -4,7 +4,7 @@ Exposes business KPIs: revenue, user growth, trading volume, etc.
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -96,7 +96,7 @@ async def get_daily_revenue(
         return {
             "daily_revenue": daily_revenue,
             "days": days,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting daily revenue: {e}", exc_info=True)
@@ -115,7 +115,7 @@ async def get_user_metrics(
         metrics_service = get_business_metrics_service(db)
         user_metrics = await metrics_service.update_user_metrics(db)
 
-        return {**user_metrics, "timestamp": datetime.utcnow().isoformat()}
+        return {**user_metrics, "timestamp": datetime.now(UTC).isoformat()}
     except Exception as e:
         logger.error(f"Error getting user metrics: {e}", exc_info=True)
         raise HTTPException(
@@ -137,7 +137,7 @@ async def get_trade_metrics(
         return {
             "trades_per_day": trades_per_day,
             "days": days,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting trade metrics: {e}", exc_info=True)
@@ -189,7 +189,7 @@ async def get_business_dashboard(
                 "kpis": kpis,
                 "user_acquisition": user_acquisition,
                 "trading_activity": trading_activity,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
     except Exception as e:
         logger.error(f"Error getting business dashboard: {e}", exc_info=True)

@@ -3,6 +3,7 @@ DCA Trading API Routes
 """
 
 from __future__ import annotations
+
 import logging
 from typing import Annotated, Any
 

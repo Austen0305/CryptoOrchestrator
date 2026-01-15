@@ -8,7 +8,7 @@ Calculates and charges platform trading fees
 import hashlib
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -21,11 +21,11 @@ from ..blockchain.balance_service import get_balance_service
 from ..blockchain.key_management import get_key_management_service
 from ..blockchain.transaction_service import get_transaction_service
 from ..blockchain.web3_service import get_web3_service
+from ..market_data_service import get_market_data_service
 from ..payments.trading_fee_service import TradingFeeService
 from ..wallet_service import WalletService
 from ..wallet_signature_service import WalletSignatureService
 from .aggregator_router import AggregatorRouter
-from ..market_data_service import get_market_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +349,7 @@ class DEXTradingService:
                 monthly_volume=monthly_volume,
                 is_custodial=is_custodial,
                 status="collected",
-                collected_at=datetime.utcnow(),
+                collected_at=datetime.now(UTC),
             )
             db.add(fee)
             await db.commit()
@@ -667,7 +667,7 @@ class DEXTradingService:
                                 transaction_status="confirmed",
                                 block_number=receipt["blockNumber"],
                                 gas_used=receipt["gasUsed"],
-                                confirmed_at=datetime.utcnow(),
+                                confirmed_at=datetime.now(UTC),
                                 error_message=(
                                     None
                                     if receipt["status"] == 1
@@ -753,7 +753,7 @@ class DEXTradingService:
                             )
 
                             latency = (
-                                (datetime.utcnow() - trade.created_at).total_seconds()
+                                (datetime.now(UTC) - trade.created_at).total_seconds()
                                 if trade.created_at
                                 else None
                             )
@@ -1316,7 +1316,6 @@ class DEXTradingService:
 
             try:
                 # Get token prices to calculate USD value
-                from ..blockchain.token_registry import get_token_registry
 
                 # Get sell token symbol and decimals
                 sell_token_symbol = await token_registry.get_token_symbol(
@@ -1426,7 +1425,7 @@ class DEXTradingService:
                             block_number=tx_status.get("blockNumber"),
                             gas_used=tx_status.get("gasUsed"),
                             confirmed_at=(
-                                datetime.utcnow()
+                                datetime.now(UTC)
                                 if tx_status["status"] == "confirmed"
                                 else None
                             ),
@@ -1445,7 +1444,7 @@ class DEXTradingService:
                         latency = None
                         if trade.created_at and tx_status["status"] == "confirmed":
                             latency = (
-                                datetime.utcnow() - trade.created_at
+                                datetime.now(UTC) - trade.created_at
                             ).total_seconds()
 
                         await transaction_monitor.update_transaction_status(

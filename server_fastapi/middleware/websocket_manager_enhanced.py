@@ -8,7 +8,7 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import WebSocket
@@ -138,7 +138,7 @@ class EnhancedWebSocketManager:
 
         try:
             await connection.websocket.send_json(message)
-            connection.last_activity = datetime.utcnow()
+            connection.last_activity = datetime.now(UTC)
             connection.message_count += 1
             self.stats["messages_sent"] += 1
         except Exception as e:
@@ -204,7 +204,7 @@ class EnhancedWebSocketManager:
             try:
                 await asyncio.sleep(60)  # Check every minute
 
-                cutoff = datetime.utcnow() - timedelta(seconds=self.connection_timeout)
+                cutoff = datetime.now(UTC) - timedelta(seconds=self.connection_timeout)
                 stale = [
                     cid
                     for cid, conn in self.active_connections.items()

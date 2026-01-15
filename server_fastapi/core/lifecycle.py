@@ -4,20 +4,21 @@ import sys
 
 from fastapi import FastAPI
 
-# Services
-from server_fastapi.core.bootstrap import bootstrap_domain_services
-from server_fastapi.services.monitoring.sentry_integration import init_sentry
-
-# Database & Cache
-from server_fastapi.database.connection_pool import db_pool
-from server_fastapi.middleware.redis_manager import cache_manager
 from server_fastapi import database as _db_module
-
-# Middleware
-from server_fastapi.middleware.graceful_shutdown import setup_graceful_shutdown
 
 # Validation
 from server_fastapi.config.env_validator import validate_all
+
+# Services
+from server_fastapi.core.bootstrap import bootstrap_domain_services
+
+# Database & Cache
+from server_fastapi.database.connection_pool import db_pool
+
+# Middleware
+from server_fastapi.middleware.graceful_shutdown import setup_graceful_shutdown
+from server_fastapi.middleware.redis_manager import cache_manager
+from server_fastapi.services.monitoring.sentry_integration import init_sentry
 from server_fastapi.utils.startup_validation import startup_validator
 
 logger = logging.getLogger(__name__)

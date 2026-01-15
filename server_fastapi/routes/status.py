@@ -1,6 +1,6 @@
 import logging
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -34,8 +34,8 @@ async def get_status() -> SystemStatus:
             from ..database import get_db_context
             from ..repositories.bot_repository import BotRepository
 
-            async with get_db_context() as db:
-                bot_repo = BotRepository()
+            async with get_db_context():
+                BotRepository()
                 # Get count of active bots (simplified - in production, count from database)
                 # For now, return 0 - actual count would require querying all active bots
                 running_bots_count = 0
@@ -45,7 +45,7 @@ async def get_status() -> SystemStatus:
 
         return SystemStatus(
             status="running",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             uptime=time.time(),  # Would be actual uptime in real implementation
             version="1.0.0",
             services={
@@ -62,7 +62,7 @@ async def get_status() -> SystemStatus:
         # Return default status instead of 500 error
         return SystemStatus(
             status="degraded",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             uptime=0.0,
             version="1.0.0",
             services={
@@ -89,8 +89,8 @@ async def get_protected_status(
                 from ..database import get_db_context
                 from ..repositories.bot_repository import BotRepository
 
-                async with get_db_context() as db:
-                    bot_repo = BotRepository()
+                async with get_db_context():
+                    BotRepository()
                     # Get user's active bots count
                     # In production, query: SELECT COUNT(*) FROM bots WHERE user_id = ? AND active = true
                     running_bots_count = (
@@ -102,7 +102,7 @@ async def get_protected_status(
 
         return SystemStatus(
             status="running",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             uptime=time.time(),
             version="1.0.0",
             services={
@@ -120,7 +120,7 @@ async def get_protected_status(
         # Return default status instead of 500 error
         return SystemStatus(
             status="degraded",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             uptime=0.0,
             version="1.0.0",
             services={

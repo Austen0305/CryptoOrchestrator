@@ -4,7 +4,7 @@ Net Promoter Score tracking and analysis
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -43,10 +43,10 @@ async def submit_nps(
             "id": satisfaction.id,
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error submitting NPS: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to submit NPS score")
+        raise HTTPException(status_code=500, detail="Failed to submit NPS score") from e
 
 
 @router.get("/current")
@@ -57,13 +57,13 @@ async def get_current_nps(
 ) -> dict[str, Any]:
     """Get current NPS score (admin only)"""
     try:
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = datetime.now(UTC) - timedelta(days=days)
         service = NPSTrackingService(db)
         nps_data = await service.calculate_nps(start_date=start_date)
         return nps_data
     except Exception as e:
         logger.error(f"Error getting current NPS: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get NPS score")
+        raise HTTPException(status_code=500, detail="Failed to get NPS score") from e
 
 
 @router.get("/trend")
@@ -72,7 +72,7 @@ async def get_nps_trend(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     days: int = Query(30, ge=1, le=365, description="Number of days"),
     period: str = Query(
-        "daily", regex="^(daily|weekly|monthly)$", description="Period grouping"
+        "daily", pattern="^(daily|weekly|monthly)$", description="Period grouping"
     ),
 ) -> list[dict[str, Any]]:
     """Get NPS trend over time (admin only)"""
@@ -82,7 +82,7 @@ async def get_nps_trend(
         return trend
     except Exception as e:
         logger.error(f"Error getting NPS trend: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get NPS trend")
+        raise HTTPException(status_code=500, detail="Failed to get NPS trend") from e
 
 
 @router.get("/breakdown")
@@ -102,7 +102,9 @@ async def get_nps_breakdown(
         return breakdown
     except Exception as e:
         logger.error(f"Error getting NPS breakdown: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to get NPS breakdown")
+        raise HTTPException(
+            status_code=500, detail="Failed to get NPS breakdown"
+        ) from e
 
 
 @router.get("/improvement-suggestions")
@@ -156,10 +158,10 @@ async def get_nps_improvement_suggestions(
         return {
             "current_nps": nps_data.get("nps_score", 0),
             "suggestions": suggestions,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting improvement suggestions: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, detail="Failed to get improvement suggestions"
-        )
+        ) from e

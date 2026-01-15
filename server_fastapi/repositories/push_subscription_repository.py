@@ -4,7 +4,7 @@ Data access layer for push notification subscriptions
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +55,7 @@ class PushSubscriptionRepository:
         stmt = select(PushSubscription).where(PushSubscription.user_id == user_id)
 
         if active_only:
-            stmt = stmt.where(PushSubscription.is_active == True)
+            stmt = stmt.where(PushSubscription.is_active)
 
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -137,20 +137,20 @@ class PushSubscriptionRepository:
         stmt = select(PushSubscription).where(
             and_(
                 PushSubscription.user_id == user_id,
-                PushSubscription.is_active == True,
-                PushSubscription.push_notifications_enabled == True,
+                PushSubscription.is_active,
+                PushSubscription.push_notifications_enabled,
             )
         )
 
         # Filter by notification type preference
         if notification_type == "trade":
-            stmt = stmt.where(PushSubscription.trade_notifications_enabled == True)
+            stmt = stmt.where(PushSubscription.trade_notifications_enabled)
         elif notification_type == "bot":
-            stmt = stmt.where(PushSubscription.bot_notifications_enabled == True)
+            stmt = stmt.where(PushSubscription.bot_notifications_enabled)
         elif notification_type == "risk":
-            stmt = stmt.where(PushSubscription.risk_notifications_enabled == True)
+            stmt = stmt.where(PushSubscription.risk_notifications_enabled)
         elif notification_type == "price_alert":
-            stmt = stmt.where(PushSubscription.price_alerts_enabled == True)
+            stmt = stmt.where(PushSubscription.price_alerts_enabled)
 
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
@@ -163,7 +163,7 @@ class PushSubscriptionRepository:
         if not subscription:
             return
 
-        subscription.last_notification_sent_at = datetime.utcnow()
+        subscription.last_notification_sent_at = datetime.now(UTC)
         if error:
             subscription.last_error = error
             subscription.error_count += 1

@@ -2,7 +2,7 @@
 Tests for Accounting Connection System
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,7 +52,7 @@ class TestAccountingConnection:
             status=ConnectionStatus.CONNECTED.value,
             access_token=service._encrypt_token("test_token"),
             refresh_token=service._encrypt_token("test_refresh"),
-            token_expires_at=datetime.utcnow() + timedelta(hours=1),
+            token_expires_at=datetime.now(UTC) + timedelta(hours=1),
             realm_id="test_realm",
         )
         db_session.add(connection)
@@ -85,7 +85,7 @@ class TestAccountingConnection:
             status=ConnectionStatus.CONNECTED.value,
             access_token=service._encrypt_token("old_token"),
             refresh_token=service._encrypt_token("refresh_token"),
-            token_expires_at=datetime.utcnow() - timedelta(hours=1),  # Expired
+            token_expires_at=datetime.now(UTC) - timedelta(hours=1),  # Expired
         )
         db_session.add(connection)
         await db_session.commit()
@@ -96,7 +96,7 @@ class TestAccountingConnection:
             refreshed = await service.refresh_token_if_needed(connection)
             # If adapter configured, token should be refreshed
             if refreshed:
-                assert connection.token_expires_at > datetime.utcnow()
+                assert connection.token_expires_at > datetime.now(UTC)
         except (ValueError, ImportError):
             # Expected if adapter not configured
             pytest.skip("Accounting adapter not configured")

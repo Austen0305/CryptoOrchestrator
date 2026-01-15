@@ -4,7 +4,7 @@ Automatically generates comprehensive documentation from code
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -33,7 +33,7 @@ class DocumentationGenerator:
         lines = [
             "# API Documentation",
             "",
-            f"Generated: {datetime.utcnow().isoformat()}",
+            f"Generated: {datetime.now(UTC).isoformat()}",
             "",
             "## Overview",
             "",
@@ -113,7 +113,7 @@ class DocumentationGenerator:
         lines = [
             "# CryptoOrchestrator Backend",
             "",
-            f"Last Updated: {datetime.utcnow().isoformat()}",
+            f"Last Updated: {datetime.now(UTC).isoformat()}",
             "",
             "## Overview",
             "",
@@ -184,7 +184,7 @@ class DocumentationGenerator:
             "### Fixed",
             "- Various bug fixes and improvements",
             "",
-            f"Generated: {datetime.utcnow().isoformat()}",
+            f"Generated: {datetime.now(UTC).isoformat()}",
         ]
 
         output_file = Path(output_path)

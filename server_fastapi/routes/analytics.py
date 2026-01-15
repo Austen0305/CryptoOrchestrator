@@ -325,7 +325,7 @@ async def get_trade_history(
         from ..utils.query_optimizer import QueryOptimizer
 
         user_id = _get_user_id(current_user)
-        offset = (page - 1) * page_size
+        (page - 1) * page_size
 
         # Build query
         query = select(Trade).where(Trade.user_id == user_id)
@@ -951,7 +951,7 @@ async def get_dashboard_summary(
         )
 
         # Get system health
-        system_health = await monitor.get_system_health()
+        await monitor.get_system_health()
 
         # Calculate risk score (simplified)
         risk_score = min(abs(portfolio_data.get("volatility", 0.15)) * 100, 100)
@@ -1077,7 +1077,7 @@ async def get_portfolio_performance_chart(
         pnl_values = []
         base_value = 100000.0
 
-        for i in range(days):
+        for _i in range(days):
             # Simulate portfolio growth with some volatility
             if PANDAS_AVAILABLE:
                 change = np.random.normal(0.001, 0.02)  # Mean 0.1%, std 2%
@@ -1331,7 +1331,7 @@ async def get_bot_performance_comparison_chart(
         ]
         win_rates = [m.get("win_rate", 0) * 100 for m in metrics_data]
         total_pnl = [m.get("total_pnl", 0) for m in metrics_data]
-        sharpe_ratios = [m.get("sharpe_ratio", 0) for m in metrics_data]
+        [m.get("sharpe_ratio", 0) for m in metrics_data]
 
         return PerformanceChartData(
             labels=bot_names,
@@ -1770,7 +1770,7 @@ async def get_performance_attribution(
         total_portfolio_pnl = sum(t.pnl or 0.0 for t in trades)
         total_trades_count = len(trades)
         winning_trades = [t for t in trades if t.pnl and t.pnl > 0]
-        total_win_rate = (
+        (
             len(winning_trades) / total_trades_count if total_trades_count > 0 else 0.0
         )
 
@@ -1872,7 +1872,7 @@ async def get_performance_attribution(
             cumulative_benchmark = 0.0
             months = sorted(monthly_trades.keys())
 
-            for i, month_key in enumerate(months):
+            for _i, month_key in enumerate(months):
                 month_trades = monthly_trades[month_key]
                 month_pnl = sum(t.pnl or 0.0 for t in month_trades)
                 cumulative_pnl += month_pnl

@@ -8,7 +8,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from ..dependencies.auth import get_current_user, require_admin
+from ..dependencies.auth import get_current_user
 from ..utils.logging_aggregation import LogLevel, log_aggregator
 
 logger = logging.getLogger(__name__)

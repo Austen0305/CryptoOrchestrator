@@ -283,10 +283,7 @@ class IndicatorService:
             if indicator.status != IndicatorStatus.APPROVED.value:
                 raise ValueError("Indicator not available for purchase")
 
-            if indicator.is_free:
-                price = 0.0
-            else:
-                price = indicator.price
+            price = 0.0 if indicator.is_free else indicator.price
 
             # Check if already purchased
             existing_result = await self.db.execute(
@@ -313,7 +310,7 @@ class IndicatorService:
                 version_result = await self.db.execute(
                     select(IndicatorVersion)
                     .where(IndicatorVersion.indicator_id == indicator_id)
-                    .where(IndicatorVersion.is_active == True)
+                    .where(IndicatorVersion.is_active)
                     .order_by(desc(IndicatorVersion.version))
                     .limit(1)
                 )
@@ -473,7 +470,7 @@ class IndicatorService:
                 .where(
                     and_(
                         Indicator.status == IndicatorStatus.APPROVED.value,
-                        Indicator.is_public == True,
+                        Indicator.is_public,
                     )
                 )
                 .options(selectinload(Indicator.developer))
@@ -514,7 +511,7 @@ class IndicatorService:
             count_query = select(func.count(Indicator.id)).where(
                 and_(
                     Indicator.status == IndicatorStatus.APPROVED.value,
-                    Indicator.is_public == True,
+                    Indicator.is_public,
                 )
             )
             total_result = await self.db.execute(count_query)
@@ -609,7 +606,7 @@ class IndicatorService:
             version_result = await self.db.execute(
                 select(IndicatorVersion)
                 .where(IndicatorVersion.indicator_id == indicator_id)
-                .where(IndicatorVersion.is_active == True)
+                .where(IndicatorVersion.is_active)
                 .order_by(desc(IndicatorVersion.version))
                 .limit(1)
             )

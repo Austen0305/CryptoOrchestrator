@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ISO 20022 Message (Simplified)",
+  "type": "object",
+  "properties": {
+    "MsgId": { "type": "string", "description": "Unique message identifier" },
+    "CreDtTm": { "type": "string", "format": "date-time", "description": "Creation date and time" },
+    "InstdAmt": { "type": "number", "description": "Instructed amount" },
+    "Ccy": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "Currency code (ISO 4217)" },
+    "Dbtr": { "type": "string", "description": "Debtor identifier (Address/Account)" },
+    "Cdtr": { "type": "string", "description": "Creditor identifier (Address/Account)" }
+  },
+  "required": ["MsgId", "CreDtTm", "InstdAmt", "Ccy", "Dbtr", "Cdtr"]
+}

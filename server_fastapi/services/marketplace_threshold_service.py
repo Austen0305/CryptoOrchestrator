@@ -4,7 +4,7 @@ Monitors analytics metrics and triggers notifications when thresholds are exceed
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -44,7 +44,7 @@ class MarketplaceThresholdService:
         try:
             # Get all enabled thresholds
             result = await self.db.execute(
-                select(AnalyticsThreshold).where(AnalyticsThreshold.enabled == True)
+                select(AnalyticsThreshold).where(AnalyticsThreshold.enabled)
             )
             thresholds = result.scalars().all()
 
@@ -88,7 +88,7 @@ class MarketplaceThresholdService:
 
         # Check cooldown
         if threshold.last_triggered_at:
-            time_since_last = datetime.utcnow() - threshold.last_triggered_at
+            time_since_last = datetime.now(UTC) - threshold.last_triggered_at
             if time_since_last.total_seconds() < (threshold.cooldown_minutes * 60):
                 return None  # Still in cooldown
 
@@ -113,7 +113,7 @@ class MarketplaceThresholdService:
         alert = await self._trigger_alert(threshold, current_value)
 
         # Update last triggered timestamp
-        threshold.last_triggered_at = datetime.utcnow()
+        threshold.last_triggered_at = datetime.now(UTC)
         await self.db.commit()
 
         return alert
@@ -379,7 +379,7 @@ class MarketplaceThresholdService:
                 "metric": threshold.metric,
                 "current_value": current_value,
                 "threshold_value": threshold.threshold_value,
-                "triggered_at": datetime.utcnow().isoformat(),
+                "triggered_at": datetime.now(UTC).isoformat(),
             }
         except Exception as e:
             logger.error(f"Error triggering alert: {e}", exc_info=True)

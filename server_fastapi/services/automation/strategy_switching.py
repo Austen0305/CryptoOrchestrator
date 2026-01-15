@@ -3,6 +3,7 @@ Strategy Switching Service - Adaptive strategy selection
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime
 from enum import Enum
@@ -89,10 +90,8 @@ class StrategySwitchingService:
         try:
             if bot_id in self.monitoring_tasks:
                 self.monitoring_tasks[bot_id].cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self.monitoring_tasks[bot_id]
-                except asyncio.CancelledError:
-                    pass
                 del self.monitoring_tasks[bot_id]
 
                 logger.info(f"Stopped strategy switching monitoring for bot {bot_id}")
@@ -198,10 +197,7 @@ class StrategySwitchingService:
             return True
 
         # Check if Sharpe ratio is too low
-        if performance.sharpe_ratio < 0.5:
-            return True
-
-        return False
+        return performance.sharpe_ratio < 0.5
 
     async def _should_switch_on_regime(
         self,

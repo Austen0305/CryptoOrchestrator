@@ -328,7 +328,7 @@ class StopLossTakeProfitService:
         triggered_orders = []
 
         # Check regular stop-loss/take-profit orders
-        for order_id, order in list(self.active_orders.items()):
+        for _order_id, order in list(self.active_orders.items()):
             symbol = order["symbol"]
             if symbol not in current_prices:
                 continue

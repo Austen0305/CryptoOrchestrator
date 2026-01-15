@@ -6,7 +6,7 @@ Provides detailed analytics and insights into cache performance.
 import logging
 import statistics
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ class CacheAnalytics:
             size_bytes: Size of cached value in bytes
             error: Error message if operation failed
         """
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(UTC)
         hour = timestamp.hour
 
         # Extract key pattern (e.g., 'user:123' -> 'user:*')
@@ -135,7 +135,7 @@ class CacheAnalytics:
         """
         cutoff_time = None
         if time_window_minutes:
-            cutoff_time = datetime.utcnow() - timedelta(minutes=time_window_minutes)
+            cutoff_time = datetime.now(UTC) - timedelta(minutes=time_window_minutes)
 
         # Filter operations by time window
         if cutoff_time:

@@ -33,9 +33,9 @@ async def middleware_health_check(request: Request) -> dict[str, Any]:
     }
 
     try:
-        from datetime import datetime
+        from datetime import UTC, datetime
 
-        health_status["timestamp"] = datetime.utcnow().isoformat() + "Z"
+        health_status["timestamp"] = datetime.now(UTC).isoformat() + "Z"
 
         # Check middleware configuration
         enabled_middlewares = middleware_manager.get_enabled_middlewares()

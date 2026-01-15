@@ -4,7 +4,7 @@ Periodic tasks for security monitoring, audit log verification, and fraud detect
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 
 from celery import shared_task
 
@@ -28,7 +28,7 @@ async def verify_audit_log_integrity_task():
         security_service = get_security_event_alerting_service()
 
         # Use database context if needed
-        async with get_db_context() as db:
+        async with get_db_context():
             is_valid = await security_service.verify_audit_log_integrity()
 
             if not is_valid:
@@ -38,7 +38,7 @@ async def verify_audit_log_integrity_task():
 
             return {
                 "integrity_verified": is_valid,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
 
     except Exception as e:
@@ -89,7 +89,7 @@ async def cleanup_old_security_events_task():
 
         return {
             "status": "success",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     except Exception as e:

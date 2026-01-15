@@ -156,7 +156,7 @@ class MEVProtectionService:
             # This would use web3.py to send via the protected endpoint
             from .web3_service import Web3Service
 
-            web3_service = Web3Service()
+            Web3Service()
 
             # Temporarily override RPC URL for this transaction
             # In production, create a separate Web3 instance with protected RPC
@@ -200,10 +200,9 @@ class MEVProtectionService:
             Dict with protection status information
         """
         is_supported = chain_id in self._enabled_chains
-        protected_rpc = None
 
         if is_supported:
-            protected_rpc = self.MEV_BLOCKER_RPCS.get(chain_id)
+            self.MEV_BLOCKER_RPCS.get(chain_id)
 
         return {
             "chain_id": chain_id,

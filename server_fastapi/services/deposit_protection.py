@@ -4,7 +4,7 @@ Additional protection layers to ensure no money is lost during deposits
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import and_, select
@@ -64,7 +64,7 @@ class DepositProtectionService:
                 if d.payment_intent_id
                 and d.status
                 in [TransactionStatus.PENDING.value, TransactionStatus.PROCESSING.value]
-                and (datetime.utcnow() - d.created_at) > timedelta(hours=24)
+                and (datetime.now(UTC) - d.created_at) > timedelta(hours=24)
             ]
 
             return {

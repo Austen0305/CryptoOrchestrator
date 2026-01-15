@@ -3,8 +3,9 @@ Smart Alerts Service - AI-powered alert system
 """
 
 import asyncio
+import contextlib
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -159,10 +160,8 @@ class SmartAlertsService:
         try:
             if rule_id in self.monitoring_tasks:
                 self.monitoring_tasks[rule_id].cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self.monitoring_tasks[rule_id]
-                except asyncio.CancelledError:
-                    pass
                 del self.monitoring_tasks[rule_id]
 
                 logger.info(f"Stopped monitoring for alert rule: {rule_id}")
@@ -187,7 +186,7 @@ class SmartAlertsService:
                 # Check cooldown
                 if rule_id in self.last_triggered:
                     time_since_last = (
-                        datetime.utcnow() - self.last_triggered[rule_id]
+                        datetime.now(UTC) - self.last_triggered[rule_id]
                     ).total_seconds()
                     if time_since_last < rule.cooldown_seconds:
                         await asyncio.sleep(check_interval)
@@ -198,7 +197,7 @@ class SmartAlertsService:
 
                 if should_alert:
                     await self._trigger_alert(rule)
-                    self.last_triggered[rule_id] = datetime.utcnow()
+                    self.last_triggered[rule_id] = datetime.now(UTC)
 
                 await asyncio.sleep(check_interval)
 
@@ -270,7 +269,7 @@ class SmartAlertsService:
     async def _trigger_alert(self, rule: AlertRule) -> None:
         """Trigger an alert"""
         try:
-            alert_id = f"alert_{rule.id}_{int(datetime.utcnow().timestamp())}"
+            alert_id = f"alert_{rule.id}_{int(datetime.now(UTC).timestamp())}"
 
             # Generate alert message
             message = self._generate_alert_message(rule)
@@ -337,7 +336,7 @@ class SmartAlertsService:
         return {
             "rule_id": rule.id,
             "conditions": rule.conditions,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     async def _execute_actions(self, alert: SmartAlert, actions: list[str]) -> None:
@@ -367,7 +366,7 @@ class SmartAlertsService:
             if alert_id in self.active_alerts:
                 alert = self.active_alerts[alert_id]
                 alert.acknowledged = True
-                alert.acknowledged_at = datetime.utcnow()
+                alert.acknowledged_at = datetime.now(UTC)
 
                 # Remove from active alerts
                 del self.active_alerts[alert_id]

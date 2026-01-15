@@ -4,7 +4,7 @@ Allows users to favorite trading pairs for quick access
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
@@ -97,7 +97,7 @@ async def get_favorites(
         if exchange:
             count_query = count_query.where(Favorite.exchange == exchange)
         total_result = await db_session.execute(count_query)
-        total = total_result.scalar() or 0
+        total_result.scalar() or 0
 
         # Apply pagination
         query = QueryOptimizer.paginate_query(query, page=page, page_size=page_size)
@@ -122,7 +122,7 @@ async def get_favorites(
 
             try:
                 # Try to get price from market data service
-                symbol_key = f"{fav.symbol.replace('/', '')}"
+                f"{fav.symbol.replace('/', '')}"
                 price = await market_data_service.get_price_with_fallback(fav.symbol)
                 if price:
                     current_price = float(price)
@@ -205,7 +205,7 @@ async def add_favorite(
             symbol=request.symbol,
             exchange=request.exchange,
             notes=request.notes,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(UTC),
         )
 
         db_session.add(favorite)

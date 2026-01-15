@@ -73,7 +73,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         status: str,
     ) -> TrailingBot | None:
         """Update trailing bot active status and status field."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         update_data = {
             "active": active,
@@ -81,9 +81,9 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         }
 
         if active:
-            update_data["started_at"] = datetime.utcnow()
+            update_data["started_at"] = datetime.now(UTC)
         else:
-            update_data["stopped_at"] = datetime.utcnow()
+            update_data["stopped_at"] = datetime.now(UTC)
 
         stmt = (
             update(TrailingBot)
@@ -127,7 +127,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
                 current_price=current_price,
                 highest_price=highest_price,
                 lowest_price=lowest_price,
-                last_price_update_at=datetime.utcnow(),
+                last_price_update_at=datetime.now(UTC),
             )
             .returning(TrailingBot)
         )
@@ -146,7 +146,7 @@ class TrailingBotRepository(SQLAlchemyRepository[TrailingBot]):
         """Get all active trailing bots with eager loading, optionally filtered by user."""
         query = (
             select(TrailingBot)
-            .where(TrailingBot.active == True, ~TrailingBot.is_deleted)
+            .where(TrailingBot.active, ~TrailingBot.is_deleted)
             .options(joinedload(TrailingBot.user))
         )
 

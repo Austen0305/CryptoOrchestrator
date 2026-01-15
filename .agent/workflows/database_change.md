@@ -1,6 +1,7 @@
----\r\nPrerequisite: 00_system_exploration.md
+---
+name: Database Migration
 description: Safe database schema change process.
----\r\nPrerequisite: 00_system_exploration.md
+---
 
 # Database Migration Workflow
 

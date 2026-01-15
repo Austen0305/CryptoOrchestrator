@@ -363,7 +363,7 @@ class StrategyOptimizer:
     ) -> dict[str, Any]:
         """Tournament selection"""
         tournament = random.sample(
-            list(zip(population, fitness_scores)), tournament_size
+            list(zip(population, fitness_scores, strict=False)), tournament_size
         )
         return max(tournament, key=lambda x: x[1])[0]
 
@@ -452,7 +452,7 @@ class StrategyOptimizer:
         # Convert to dict format
         combinations = []
         for combo in all_combinations:
-            combinations.append(dict(zip(param_names, combo)))
+            combinations.append(dict(zip(param_names, combo, strict=False)))
 
         return combinations
 

@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import asyncio
 import logging
 import math
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
@@ -494,7 +495,6 @@ class EnhancedMLEngine:
             prediction_array = prediction.numpy()[0]
 
             # Convert to action
-            actions = ["buy", "sell", "hold"]
             buy_prob, sell_prob, hold_prob = prediction_array
 
             if buy_prob > sell_prob and buy_prob > hold_prob:
@@ -743,7 +743,7 @@ class EnhancedMLEngine:
                 model_type="neural_network",
                 model_name=bot_id,
                 metadata=metadata,
-                version=datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+                version=datetime.now(UTC).strftime("%Y%m%d%H%M%S"),
             )
         except Exception as error:
             logger.error(f"Failed to save ML model: {error}")

@@ -5,7 +5,7 @@ Ensures strict separation of concerns and facilitates testing via mock injection
 """
 
 import logging
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -13,25 +13,25 @@ T = TypeVar("T")
 
 class DomainRegistry:
     _instance: "DomainRegistry | None" = None
-    _services: Dict[Type[Any], Any] = {}
-    _factories: Dict[Type[Any], Any] = {}
+    _services: dict[type[Any], Any] = {}
+    _factories: dict[type[Any], Any] = {}
 
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(DomainRegistry, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
         return cls._instance
 
-    def register(self, interface: Type[T], implementation: T) -> None:
+    def register(self, interface: type[T], implementation: T) -> None:
         """Register a singleton service implementation."""
         logger.debug(f"Registering service: {interface.__name__}")
         self._services[interface] = implementation
 
-    def register_factory(self, interface: Type[T], factory: Any) -> None:
+    def register_factory(self, interface: type[T], factory: Any) -> None:
         """Register a factory function for a service."""
         logger.debug(f"Registering factory for: {interface.__name__}")
         self._factories[interface] = factory
 
-    def resolve(self, interface: Type[T]) -> T:
+    def resolve(self, interface: type[T]) -> T:
         """Resolve a service implementation."""
         if interface in self._services:
             return self._services[interface]

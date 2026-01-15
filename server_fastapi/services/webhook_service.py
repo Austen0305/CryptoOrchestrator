@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
@@ -82,7 +82,7 @@ class WebhookService:
         # Find active webhooks subscribed to this event
         stmt = select(Webhook).where(
             and_(
-                Webhook.is_active == True,
+                Webhook.is_active,
                 Webhook.events.contains([event_type]),
             )
         )
@@ -130,7 +130,7 @@ class WebhookService:
             event_type=event_type,
             payload=payload,
             status="pending",
-            attempted_at=datetime.utcnow(),
+            attempted_at=datetime.now(UTC),
         )
         self.db.add(delivery)
         await self.db.flush()
@@ -160,15 +160,15 @@ class WebhookService:
                 delivery.status_code = response.status
                 delivery.status = "success" if response.status < 400 else "failed"
                 delivery.response_body = await response.text()
-                delivery.completed_at = datetime.utcnow()
+                delivery.completed_at = datetime.now(UTC)
         except Exception as e:
             delivery.status = "failed"
             delivery.response_body = str(e)
-            delivery.completed_at = datetime.utcnow()
+            delivery.completed_at = datetime.now(UTC)
             logger.error(f"Webhook delivery failed: {e}")
 
         # Update webhook last triggered
-        webhook.last_triggered = datetime.utcnow()
+        webhook.last_triggered = datetime.now(UTC)
 
         await self.db.commit()
         await self.db.refresh(delivery)

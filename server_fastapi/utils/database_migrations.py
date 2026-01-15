@@ -4,7 +4,7 @@ Provides utilities for managing database migrations and schema changes
 """
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import text
@@ -80,7 +80,7 @@ class MigrationManager:
         self, session: AsyncSession, target_version: str | None = None
     ):
         """Apply pending migrations"""
-        current_version = await self.get_current_version(session)
+        await self.get_current_version(session)
 
         # Get pending migrations
         pending = [
@@ -115,12 +115,12 @@ class MigrationManager:
                     {
                         "version": migration["version"],
                         "description": migration["description"],
-                        "applied_at": datetime.utcnow(),
+                        "applied_at": datetime.now(UTC),
                     },
                 )
 
                 await session.commit()
-                migration["applied_at"] = datetime.utcnow()
+                migration["applied_at"] = datetime.now(UTC)
                 logger.info(f"Migration {migration['version']} applied successfully")
             except Exception as e:
                 await session.rollback()

@@ -69,10 +69,7 @@ class ETagMiddleware(BaseHTTPMiddleware):
 
         # Don't add ETag for streaming responses
         content_type = response.headers.get("content-type", "")
-        if "text/event-stream" in content_type or "multipart" in content_type:
-            return False
-
-        return True
+        return not ("text/event-stream" in content_type or "multipart" in content_type)
 
     async def dispatch(self, request: Request, call_next):
         """

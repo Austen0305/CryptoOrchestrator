@@ -127,7 +127,7 @@ async def get_ip_whitelist(
             )
 
             # Apply pagination
-            total = len(whitelist)
+            len(whitelist)
             start_idx = (page - 1) * page_size
             end_idx = start_idx + page_size
             paginated_whitelist = whitelist[start_idx:end_idx]
@@ -225,7 +225,7 @@ async def get_withdrawal_whitelist(
             )
 
             # Apply pagination
-            total = len(whitelist)
+            len(whitelist)
             start_idx = (page - 1) * page_size
             end_idx = start_idx + page_size
             paginated_whitelist = whitelist[start_idx:end_idx]

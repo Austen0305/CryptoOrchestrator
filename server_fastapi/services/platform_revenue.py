@@ -4,7 +4,7 @@ Tracks platform revenue from deposit fees and other sources
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -134,7 +134,7 @@ class PlatformRevenueService:
     ) -> list[dict[str, Any]]:
         """Internal daily revenue calculation"""
         try:
-            start_date = datetime.utcnow() - timedelta(days=days)
+            start_date = datetime.now(UTC) - timedelta(days=days)
 
             # Get daily revenue grouped by date
             daily_result = await db.execute(

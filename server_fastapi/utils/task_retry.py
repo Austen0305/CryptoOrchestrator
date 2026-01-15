@@ -7,7 +7,7 @@ import logging
 import random
 import time
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -58,7 +58,7 @@ class CircuitBreaker:
         self.failure_count = 0
         self.success_count = 0
         self.last_failure_time: datetime | None = None
-        self.last_state_change: datetime = datetime.utcnow()
+        self.last_state_change: datetime = datetime.now(UTC)
 
     def call(self, func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:  # noqa: C901
         """
@@ -79,7 +79,7 @@ class CircuitBreaker:
         if self.state == CircuitBreakerState.OPEN:
             # Check if timeout has passed
             if self.last_failure_time:
-                elapsed = (datetime.utcnow() - self.last_failure_time).total_seconds()
+                elapsed = (datetime.now(UTC) - self.last_failure_time).total_seconds()
                 if elapsed >= self.timeout_seconds:
                     # Transition to half-open
                     self.state = CircuitBreakerState.HALF_OPEN
@@ -113,7 +113,7 @@ class CircuitBreaker:
         except Exception:
             # Record failure
             self.failure_count += 1
-            self.last_failure_time = datetime.utcnow()
+            self.last_failure_time = datetime.now(UTC)
 
             if self.state == CircuitBreakerState.HALF_OPEN:
                 # Open circuit again

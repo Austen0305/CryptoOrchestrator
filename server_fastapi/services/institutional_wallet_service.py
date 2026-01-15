@@ -4,7 +4,7 @@ Manages multi-signature wallets, team access, and institutional custody features
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import and_, delete, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -365,7 +365,7 @@ class InstitutionalWalletService:
                 transaction_data=transaction_data,
                 required_signatures=wallet.required_signatures,
                 description=description,
-                expires_at=datetime.utcnow() + timedelta(hours=expires_in_hours),
+                expires_at=datetime.now(UTC) + timedelta(hours=expires_in_hours),
                 status="pending",
             )
 
@@ -425,7 +425,7 @@ class InstitutionalWalletService:
                 raise ValueError(f"Transaction {transaction_id} not found")
 
             # Check if expired
-            if pending_tx.expires_at and pending_tx.expires_at < datetime.utcnow():
+            if pending_tx.expires_at and pending_tx.expires_at < datetime.now(UTC):
                 pending_tx.status = "expired"
                 await self.db.commit()
                 raise ValueError("Transaction has expired")

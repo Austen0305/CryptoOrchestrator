@@ -192,7 +192,7 @@ async def check_subscriptions(session: AsyncSession = None):
         from sqlalchemy import select
 
         # Get all active bots
-        result = await session.execute(select(Bot).where(Bot.active == True))
+        result = await session.execute(select(Bot).where(Bot.active))
         active_bots = result.scalars().all()
 
         subscription_service = SubscriptionService()

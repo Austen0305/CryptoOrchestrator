@@ -1,29 +1,62 @@
-# Use official Python 3.11 full image for better compatibility with DS libraries
-FROM python:3.11
+# Stage 1: Builder
+# Use Python 3.12-slim for best performance/size balance in 2026
+FROM python:3.12-slim as builder
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies (build-essential for compiling some python libs if needed)
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+# Copy requirements context
+# Note: we assume server_fastapi/requirements.txt covers the backend
+COPY server_fastapi/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Build wheels
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
-# Copy the server application code
+# Stage 2: Runner (SLSA Level 3 Compliant: Non-root, Minimal)
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Create non-root application user/group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Install Runtime packages (minimal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy artifacts from builder
+COPY --from=builder /app/wheels /wheels
+COPY --from=builder /app/requirements.txt .
+
+# Install dependencies from wheels
+RUN pip install --no-cache /wheels/*
+
+# Copy application code
 COPY server_fastapi/ ./server_fastapi/
+# Signer module would differ here in production (installed as lib), 
+# but for now we copy it if it exists or assume it's part of the python path
+COPY signer/ ./signer/
 
-# Expose port (Cloud Run defaults to 8080, but we use 8000 in compose)
-EXPOSE 8000
+# Set ownership
+RUN chown -R appuser:appuser /app
 
-# Set Python path to include root
+# Switch to non-root user
+USER appuser
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV PORT=8000
 
-# Command to run the application
-CMD ["uvicorn", "server_fastapi.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Granian as the Entry Point (High Performance ASGI)
+CMD ["python", "server_fastapi/serve_granian.py"]
