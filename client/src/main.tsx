@@ -7,6 +7,10 @@ import { wagmiConfig } from '@/lib/wagmiConfig'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 import './i18n'
+import { AuthProvider } from '@/hooks/useAuth'
+import { TradingModeProvider } from '@/contexts/TradingModeContext'
+import { AccessibilityProvider } from '@/components/AccessibilityProvider'
+import { UserDataLoader } from '@/components/UserDataLoader'
 
 // Initialize Query Client with 2026 standard settings
 const queryClient = new QueryClient({
@@ -44,7 +48,15 @@ if (!rootElement.innerHTML) {
     <StrictMode>
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
-           <RouterProvider router={router} />
+          <AuthProvider>
+            <AccessibilityProvider>
+              <TradingModeProvider>
+                <UserDataLoader>
+                  <RouterProvider router={router} />
+                </UserDataLoader>
+              </TradingModeProvider>
+            </AccessibilityProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </WagmiProvider>
     </StrictMode>,

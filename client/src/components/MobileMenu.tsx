@@ -3,7 +3,7 @@
  * Bottom navigation for mobile devices with swipe gestures and enhanced touch targets
  */
 import React, { useState, useCallback } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const navigationItems = [
-  { path: "/", icon: Home, label: "Dashboard" },
+  { path: "/dashboard", icon: Home, label: "Dashboard" },
   { path: "/trading", icon: TrendingUp, label: "Trading" },
   { path: "/wallets", icon: Wallet, label: "Wallets" },
   { path: "/bots", icon: Bot, label: "Bots" },
@@ -26,7 +26,7 @@ const navigationItems = [
 ];
 
 export const MobileMenu = React.memo(function MobileMenu() {
-  const [location] = useLocation();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLinkClick = useCallback(() => {
@@ -44,11 +44,11 @@ export const MobileMenu = React.memo(function MobileMenu() {
         <div className="flex items-center justify-around h-16 px-2">
           {navigationItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location === item.path;
+            const isActive = location.pathname === item.path;
             return (
               <Link
                 key={item.path}
-                href={item.path}
+                to={item.path}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 flex-1 min-h-[44px] min-w-[44px] rounded-lg transition-colors touch-manipulation",
                   isActive
@@ -84,11 +84,11 @@ export const MobileMenu = React.memo(function MobileMenu() {
             <nav className="flex flex-col gap-2 mt-8" role="navigation" aria-label="Tablet navigation">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.path;
+                const isActive = location.pathname === item.path;
                 return (
                   <Link
                     key={item.path}
-                    href={item.path}
+                    to={item.path}
                     className={cn(
                       "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors min-h-[44px] touch-manipulation",
                       isActive

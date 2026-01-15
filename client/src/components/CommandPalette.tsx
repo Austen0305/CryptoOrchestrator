@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useLocation } from 'wouter';
+import { useNavigate } from '@tanstack/react-router';
 import {
   CommandDialog,
   CommandEmpty,
@@ -36,7 +36,7 @@ interface Command {
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const [, setLocation] = useLocation();
+  const nav = useNavigate();
     const { setTheme } = useTheme();
   const { i18n } = useTranslation();
 
@@ -54,9 +54,9 @@ export function CommandPalette() {
   }, []);
 
   const navigate = useCallback((path: string) => {
-    setLocation(path);
+    nav({ to: path });
     setOpen(false);
-  }, [setLocation]);
+  }, [nav]);
 
   const commands: Command[] = [
     // Navigation

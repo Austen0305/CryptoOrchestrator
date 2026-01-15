@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Eye, EyeOff, CheckCircle2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link } from "@tanstack/react-router";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
   const { login, isLoading, error } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
@@ -64,7 +64,7 @@ export default function Login() {
       });
       // Small delay to show success message before redirect
       setTimeout(() => {
-        setLocation("/dashboard");
+        navigate({ to: "/dashboard" });
       }, 500);
     }
   };
@@ -118,7 +118,7 @@ export default function Login() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link
-                  href="/forgot-password"
+                  to="/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
                   Forgot password?
@@ -195,7 +195,7 @@ export default function Login() {
             </Button>
             <div className="text-center text-sm text-muted-foreground">
               Don't have an account?{" "}
-              <Link href="/register" className="text-primary hover:underline">
+              <Link to="/register" className="text-primary hover:underline">
                 Sign up
               </Link>
             </div>

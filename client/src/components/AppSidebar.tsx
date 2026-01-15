@@ -28,7 +28,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { useBots } from "@/hooks/useApi";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,9 +36,14 @@ import { useAuth } from "@/hooks/useAuth";
 const menuItems = [
   {
     title: "Dashboard",
-    url: "/",
+    url: "/dashboard", // Updated route path
     icon: LayoutDashboard,
   },
+// ... (rest of items)
+// Note: I need to be careful with replace_file_content.
+// Using a smaller chunk or multi_replace might be safer given the file size.
+// I will target the imports and the specific usages.
+
   {
     title: "Trading",
     url: "/trading",
@@ -156,7 +161,7 @@ const settingsItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
 
   // Filter menu items based on user role
@@ -210,11 +215,11 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={location.pathname === item.url}
                     className="rounded-lg transition-all duration-300 hover:bg-sidebar-accent/60 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md border border-transparent hover:border-sidebar-accent/30"
                   >
                     <Link
-                      href={item.url}
+                      to={item.url}
                       data-testid={`link-${item.title.toLowerCase()}`}
                       className="flex items-center gap-3 font-medium"
                     >
@@ -239,11 +244,11 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={location === item.url}
+                    isActive={location.pathname === item.url}
                     className="rounded-lg transition-all duration-200 hover:bg-sidebar-accent/50 active:scale-[0.98]"
                   >
                     <Link
-                      href={item.url}
+                      to={item.url}
                       data-testid={`link-${item.title.toLowerCase()}`}
                       className="flex items-center gap-3"
                     >

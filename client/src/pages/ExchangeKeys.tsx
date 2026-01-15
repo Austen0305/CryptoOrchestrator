@@ -9,23 +9,23 @@
  */
 
 import { useEffect } from 'react';
-import { useLocation } from 'wouter';
+import { useNavigate } from '@tanstack/react-router';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, Wallet, ArrowRight, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export default function ExchangeKeys() {
-  const [, setLocation] = useLocation();
+  const navigate = useNavigate();
 
   // Auto-redirect to wallet management after 3 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
-      setLocation('/settings?tab=wallet');
+      navigate({ to: '/settings', search: { tab: 'wallet' } });
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [setLocation]);
+  }, [navigate]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -107,7 +107,7 @@ export default function ExchangeKeys() {
             <h3 className="font-semibold mb-3">Next Steps</h3>
             <div className="space-y-3">
               <Button
-                onClick={() => setLocation('/settings?tab=wallet')}
+                onClick={() => navigate({ to: '/settings', search: { tab: 'wallet' } })}
                 className="w-full justify-between"
                 size="lg"
               >
@@ -119,7 +119,7 @@ export default function ExchangeKeys() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setLocation('/dex-trading')}
+                onClick={() => navigate({ to: '/dex-trading' })}
                 className="w-full justify-between"
                 size="lg"
               >
