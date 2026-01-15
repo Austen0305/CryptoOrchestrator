@@ -42,7 +42,7 @@ python-dotenv>=1.0.0
 tenacity>=8.2.0
 colorlog>=6.8.0
 psutil>=6.0.0
-websockets>=13.0.0
+websockets>=13.0.0,<16.0.0
 
 # Google Cloud
 google-cloud-secret-manager>=2.20.0
