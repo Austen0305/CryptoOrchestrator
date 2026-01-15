@@ -39,10 +39,7 @@ const menuItems = [
     url: "/dashboard", // Updated route path
     icon: LayoutDashboard,
   },
-// ... (rest of items)
-// Note: I need to be careful with replace_file_content.
-// Using a smaller chunk or multi_replace might be safer given the file size.
-// I will target the imports and the specific usages.
+  // ... (rest of items)
 
   {
     title: "Trading",
@@ -193,38 +190,38 @@ export function AppSidebar() {
 
   return (
     <Sidebar
-      className="border-r-4 border-sidebar-border/70 bg-gradient-to-b from-sidebar via-sidebar/98 to-sidebar backdrop-blur-lg shadow-[8px_0px_16px_-6px_hsl(220_8%_2%_/_0.40)]"
+      className="border-r-2 border-primary/20 bg-background shadow-none"
     >
-      <SidebarContent className="gap-3">
-        <div className="p-5 md:p-6 border-b-2 border-sidebar-border/60 bg-gradient-to-r from-sidebar-accent/30 via-sidebar-accent/20 to-transparent">
-          <h1 className="text-lg md:text-xl font-black flex items-center gap-3">
-            <span className="status-indicator bg-primary rounded-full w-3 h-3 shadow-[0_0_12px_hsl(217_91%_50%_/_0.6),0_0_24px_hsl(217_91%_50%_/_0.3)] animate-pulse" />
-            <span className="font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-foreground via-foreground/95 to-foreground/90 tracking-tighter drop-shadow-[0_2px_8px_hsl(var(--foreground)/0.2)] text-xl">
-              CryptoOrchestrator
+      <SidebarContent className="gap-0">
+        <div className="p-4 border-b-2 border-primary/20 bg-background">
+          <h1 className="text-xl font-black flex items-center gap-3 tracking-tighter uppercase">
+            <span className="w-3 h-3 bg-primary animate-pulse shadow-[0_0_10px_#00ff00]" />
+            <span className="text-primary drop-shadow-[0_0_5px_rgba(0,255,0,0.5)]">
+              Crypto<br/>Orchestrator
             </span>
           </h1>
         </div>
 
-        <SidebarGroup className="px-2">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-            Core
+        <SidebarGroup className="px-0 py-2">
+          <SidebarGroupLabel className="text-[10px] font-bold text-primary/50 uppercase tracking-[0.2em] px-4 mb-2">
+            System Modules
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5 px-2">
               {allMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className="rounded-lg transition-all duration-300 hover:bg-sidebar-accent/60 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md border border-transparent hover:border-sidebar-accent/30"
+                    className="rounded-none transition-all duration-200 hover:bg-primary/10 hover:text-primary active:bg-primary/20 data-[active=true]:bg-primary data-[active=true]:text-black border border-transparent hover:border-primary/50 data-[active=true]:border-primary"
                   >
                     <Link
                       to={item.url}
                       data-testid={`link-${item.title.toLowerCase()}`}
-                      className="flex items-center gap-3 font-medium"
+                      className="flex items-center gap-3 font-mono text-xs uppercase tracking-wide"
                     >
-                      <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
-                      <span className="font-semibold">{item.title}</span>
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-bold">{item.title}</span>
                       {item.badge?.()}
                     </Link>
                   </SidebarMenuButton>
@@ -234,26 +231,26 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="px-2 mt-4">
-          <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2 mb-2">
-            Configuration
+        <SidebarGroup className="px-0 py-2 mt-auto">
+          <SidebarGroupLabel className="text-[10px] font-bold text-primary/50 uppercase tracking-[0.2em] px-4 mb-2">
+            Config
           </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5 px-2">
               {settingsItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className="rounded-lg transition-all duration-200 hover:bg-sidebar-accent/50 active:scale-[0.98]"
+                    className="rounded-none transition-all duration-200 hover:bg-primary/10 hover:text-primary active:bg-primary/20 data-[active=true]:bg-primary data-[active=true]:text-black border border-transparent hover:border-primary/50 data-[active=true]:border-primary"
                   >
                     <Link
                       to={item.url}
                       data-testid={`link-${item.title.toLowerCase()}`}
-                      className="flex items-center gap-3"
+                      className="flex items-center gap-3 font-mono text-xs uppercase tracking-wide"
                     >
-                      <item.icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
-                      <span className="font-medium">{item.title}</span>
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="font-bold">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -263,13 +260,13 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <div className="p-4 border-t border-sidebar-border text-xs text-muted-foreground bg-sidebar-accent/30">
+      <div className="p-4 border-t-2 border-primary/20 text-[10px] text-primary/50 font-mono bg-background">
         <div className="flex items-center gap-2 mb-1">
-          <span className="status-indicator w-2 h-2 rounded-full bg-green-500" />
-          <span className="font-medium">Blockchain Trading Active</span>
+          <span className="w-1.5 h-1.5 bg-green-500 animate-pulse" />
+          <span className="uppercase tracking-widest">System Online</span>
         </div>
-        <div className="text-[10px] opacity-70">
-          v{import.meta.env?.VITE_APP_VERSION || "1.0.0"}
+        <div className="opacity-70">
+          V{import.meta.env?.VITE_APP_VERSION || "1.0.0"} :: EST. 2026
         </div>
       </div>
     </Sidebar>

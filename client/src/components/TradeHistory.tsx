@@ -104,31 +104,31 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
   }, [filteredTrades, toast]);
 
   return (
-    <Card className="glass-premium border-border/50 shadow-2xl overflow-hidden">
-      <CardHeader className="pb-4 border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
+    <Card className="border-border/50 shadow-none overflow-hidden h-full">
+      <CardHeader className="pb-4 border-b-2 border-primary/20 bg-background/50">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <CardTitle className="text-xl font-black tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent uppercase">Trade Ledger</CardTitle>
+          <CardTitle className="text-xl font-black tracking-tight text-primary uppercase font-mono">&gt; Trade Ledger_</CardTitle>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
+            <Button variant="outline" size="sm" onClick={handleExportCSV} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold font-mono">
               <Download className="h-3.5 w-3.5 mr-1.5" /> CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportJSON} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
+            <Button variant="outline" size="sm" onClick={handleExportJSON} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold font-mono">
               <Download className="h-3.5 w-3.5 mr-1.5" /> JSON
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportPDF} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold">
+            <Button variant="outline" size="sm" onClick={handleExportPDF} className="border-primary/20 hover:bg-primary/10 transition-colors font-bold font-mono">
               <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
             </Button>
           </div>
         </div>
         {/* Filters */}
         <div className="flex items-center gap-3 mt-6 flex-wrap">
-          <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-xl border border-border/50">
+          <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-none border border-border/50">
             <Select value={filterMode} onValueChange={setFilterMode}>
-              <SelectTrigger className="w-[130px] border-none bg-transparent h-8 font-bold text-xs">
+              <SelectTrigger className="w-[130px] border-none bg-transparent h-8 font-bold text-xs font-mono uppercase">
                 <Filter className="h-3.5 w-3.5 mr-2 text-primary" />
                 <SelectValue placeholder="Mode" />
               </SelectTrigger>
-              <SelectContent className="glass-premium">
+              <SelectContent className="border-primary/30">
                 <SelectItem value="all">All Modes</SelectItem>
                 <SelectItem value="paper">Paper Trading</SelectItem>
                 <SelectItem value="real">Real Money</SelectItem>
@@ -136,10 +136,10 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
             </Select>
             <div className="h-4 w-px bg-border/50 mx-1" />
             <Select value={filterSide} onValueChange={setFilterSide}>
-              <SelectTrigger className="w-[110px] border-none bg-transparent h-8 font-bold text-xs">
+              <SelectTrigger className="w-[110px] border-none bg-transparent h-8 font-bold text-xs font-mono uppercase">
                 <SelectValue placeholder="Side" />
               </SelectTrigger>
-              <SelectContent className="glass-premium">
+              <SelectContent className="border-primary/30">
                 <SelectItem value="all">Both Sides</SelectItem>
                 <SelectItem value="buy">Buys Only</SelectItem>
                 <SelectItem value="sell">Sells Only</SelectItem>
@@ -149,10 +149,10 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
           
           {chains.length > 0 && (
             <Select value={filterChain} onValueChange={setFilterChain}>
-              <SelectTrigger className="w-[150px] bg-muted/30 border-border/50 h-10 font-bold text-xs rounded-xl">
+              <SelectTrigger className="w-[150px] bg-muted/30 border-border/50 h-10 font-bold text-xs rounded-none font-mono uppercase">
                 <SelectValue placeholder="All Networks" />
               </SelectTrigger>
-              <SelectContent className="glass-premium">
+              <SelectContent className="border-primary/30">
                 <SelectItem value="all">All Networks</SelectItem>
                 {chains.map(chain => (
                   <SelectItem key={chain || "unknown"} value={chain || ""}>
@@ -163,7 +163,7 @@ export const TradeHistory = React.memo(function TradeHistory({ trades }: TradeHi
             </Select>
           )}
           
-          <div className="ml-auto text-[10px] font-black uppercase tracking-widest text-muted-foreground/70">
+          <div className="ml-auto text-[10px] font-black uppercase tracking-widest text-muted-foreground/70 font-mono">
             Captured {filteredTrades.length} / {trades.length} trades
           </div>
         </div>

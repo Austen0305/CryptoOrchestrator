@@ -5,31 +5,26 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0" +
-  " hover-elevate active-elevate-2",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-none text-sm font-medium focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transition-colors uppercase tracking-wider",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground border border-primary-border",
+          "bg-primary text-primary-foreground border-2 border-primary hover:bg-transparent hover:text-primary shadow-[0_0_10px_rgba(0,255,0,0.4)] hover:shadow-[0_0_20px_rgba(0,255,0,0.6)]",
         destructive:
-          "bg-destructive text-destructive-foreground border border-destructive-border",
+          "bg-destructive text-destructive-foreground border-2 border-destructive hover:bg-transparent hover:text-destructive",
         outline:
-          // Shows the background color of whatever card / sidebar / accent background it is inside of.
-          // Inherits the current text color.
-          " border [border-color:var(--button-outline)]  shadow-xs active:shadow-none ",
-        secondary: "border bg-secondary text-secondary-foreground border border-secondary-border ",
-        // Add a transparent border so that when someone toggles a border on later, it doesn't shift layout/size.
-        ghost: "border border-transparent",
+          "border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground",
+        secondary:
+          "bg-secondary text-secondary-foreground border-2 border-secondary hover:bg-transparent hover:text-secondary",
+        ghost: "hover:bg-primary/20 hover:text-primary",
+        link: "text-primary underline-offset-4 hover:underline",
       },
-      // Heights are set as "min" heights, because sometimes Ai will place large amount of content
-      // inside buttons. With a min-height they will look appropriate with small amounts of content,
-      // but will expand to fit large amounts of content.
       size: {
-        default: "min-h-9 sm:min-h-9 min-h-[44px] px-4 py-2 touch-manipulation",
-        sm: "min-h-8 sm:min-h-8 min-h-[44px] rounded-md px-3 text-xs touch-manipulation",
-        lg: "min-h-10 sm:min-h-10 min-h-[44px] rounded-md px-8 touch-manipulation",
-        icon: "h-9 w-9 sm:h-9 sm:w-9 min-h-[44px] min-w-[44px] touch-manipulation",
+        default: "h-9 px-4 py-2",
+        sm: "h-8 px-3 text-xs",
+        lg: "h-10 px-8",
+        icon: "h-9 w-9",
       },
     },
     defaultVariants: {

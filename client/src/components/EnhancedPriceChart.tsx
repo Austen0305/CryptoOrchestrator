@@ -1,14 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, ColorType, UTCTimestamp } from "lightweight-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Maximize2, Radio } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { LoadingSkeleton } from "@/components/LoadingSkeleton";
 import { ErrorRetry } from "@/components/ErrorRetry";
-import { EmptyState } from "@/components/EmptyState";
-import { LineChart } from "lucide-react";
 import React from "react";
 
 interface EnhancedPriceChartProps {
@@ -36,9 +34,8 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
   const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const [chartType, setChartType] = useState<"candlestick" | "area">("candlestick");
   const [timeframe, setTimeframe] = useState<string>("1D");
-  const { subscribeSymbols, unsubscribeSymbols, getLatestMarketData, getCandles, isConnected } = useWebSocket();
+  const { subscribeSymbols, unsubscribeSymbols, getLatestMarketData, getCandles } = useWebSocket();
   const priceRef = useRef(currentPrice);
-  const lastUpdateRef = useRef<number>(0);
 
   // Initialize chart
   useEffect(() => {
@@ -76,11 +73,11 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
       // Create candlestick series
       try {
         const candlestickSeries = (chart as any).addCandlestickSeries({
-          upColor: "#22c55e",
-          downColor: "#ef4444",
+          upColor: "#00ff00",
+          downColor: "#ff0033",
           borderVisible: false,
-          wickUpColor: "#22c55e",
-          wickDownColor: "#ef4444",
+          wickUpColor: "#00ff00",
+          wickDownColor: "#ff0033",
         });
         candlestickSeriesRef.current = candlestickSeries;
       } catch (err) {
@@ -90,9 +87,9 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
       // Create area series
       try {
         const areaSeries = (chart as any).addAreaSeries({
-          lineColor: "hsl(var(--primary))",
-          topColor: "hsl(var(--primary) / 0.3)",
-          bottomColor: "hsl(var(--primary) / 0.05)",
+          lineColor: "#00ff00",
+          topColor: "rgba(0, 255, 0, 0.4)",
+          bottomColor: "rgba(0, 255, 0, 0.0)",
           lineWidth: 2,
         });
         areaSeriesRef.current = areaSeries;
@@ -263,8 +260,8 @@ export const EnhancedPriceChart = React.memo(function EnhancedPriceChart({
   }
 
   return (
-    <Card className="glass-premium border-border/50 shadow-2xl h-full flex flex-col group overflow-hidden transition-all duration-500 hover:shadow-glow-blue/20">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 px-6 pt-6 border-b border-primary/10 bg-gradient-to-r from-primary/5 to-transparent">
+    <Card className="border-border/50 shadow-none h-full flex flex-col group overflow-hidden transition-all duration-500 hover:border-primary">
+      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4 px-6 pt-6 border-b-2 border-primary/20 bg-background">
         <div className="flex flex-col gap-1">
           <CardTitle className="text-2xl font-black tracking-tighter bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent uppercase flex items-center gap-2">
             {pair}

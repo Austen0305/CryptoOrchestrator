@@ -202,7 +202,7 @@ function DashboardContent() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 lg:gap-8">
         {/* Chart Section - Takes more space on larger screens */}
         <motion.div variants={itemVariants} className="lg:col-span-8 space-y-4 md:space-y-6 lg:space-y-8">
-          <div className="h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-xl md:rounded-2xl border-2 border-card-border/70 bg-card shadow-xl md:shadow-2xl overflow-hidden glass-premium hover-lift">
+          <div className="h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] rounded-none border-0 shadow-none overflow-hidden">
             {/* Switched to EnhancedPriceChart after type fixes */}
             <EnhancedPriceChart
               pair="BTC/USD"
