@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
   define: {
     // Stub out process for browser compatibility
     'process.env': {},
+    global: 'window',
   },
   resolve: {
     alias: {
