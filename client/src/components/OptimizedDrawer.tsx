@@ -44,7 +44,7 @@ export function OptimizedDrawer({
 }: OptimizedDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
+      {trigger ? <DrawerTrigger asChild>{trigger as any}</DrawerTrigger> : null}
       <DrawerContent className={cn(className)}>
         {(title || description) && (
           <DrawerHeader>

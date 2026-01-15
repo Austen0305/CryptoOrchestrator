@@ -51,10 +51,10 @@ export function OptimizedDialog({
         )}
         {lazy && open ? (
           <Suspense fallback={<LoadingSkeleton variant="card" />}>
-            {children}
+            {children as any}
           </Suspense>
         ) : (
-          children
+          (children as any)
         )}
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>

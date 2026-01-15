@@ -36,48 +36,48 @@ import { WagmiProvider } from "wagmi";
 import { wagmiConfig } from "@/lib/wagmiConfig";
 
 // Lazy load all pages for better performance
-const Landing = React.lazy(() => import("@/pages/Landing"));
-const Login = React.lazy(() => import("@/pages/Login"));
-const Register = React.lazy(() => import("@/pages/Register"));
-const ForgotPassword = React.lazy(() => import("@/pages/ForgotPassword"));
-const ResetPassword = React.lazy(() => import("@/pages/ResetPassword"));
-const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
-const Bots = React.lazy(() => import("@/pages/Bots"));
-const Markets = React.lazy(() => import("@/pages/Markets"));
-const Analytics = React.lazy(() => import("@/pages/Analytics"));
-const Strategies = React.lazy(() => import("@/pages/Strategies"));
-const Licensing = React.lazy(() => import("@/pages/Licensing"));
-const Billing = React.lazy(() => import("@/pages/Billing"));
-const RiskManagement = React.lazy(() => import("@/pages/RiskManagement"));
-const Settings = React.lazy(() => import("@/pages/Settings"));
-const Wallet = React.lazy(() => import("@/components/Wallet").then((m) => ({ default: m.Wallet })));
+const Landing = React.lazy(() => import("@/pages/Landing")) as any;
+const Login = React.lazy(() => import("@/pages/Login")) as any;
+const Register = React.lazy(() => import("@/pages/Register")) as any;
+const ForgotPassword = React.lazy(() => import("@/pages/ForgotPassword")) as any;
+const ResetPassword = React.lazy(() => import("@/pages/ResetPassword")) as any;
+const Dashboard = React.lazy(() => import("@/pages/Dashboard")) as any;
+const Bots = React.lazy(() => import("@/pages/Bots")) as any;
+const Markets = React.lazy(() => import("@/pages/Markets")) as any;
+const Analytics = React.lazy(() => import("@/pages/Analytics")) as any;
+const Strategies = React.lazy(() => import("@/pages/Strategies")) as any;
+const Licensing = React.lazy(() => import("@/pages/Licensing")) as any;
+const Billing = React.lazy(() => import("@/pages/Billing")) as any;
+const RiskManagement = React.lazy(() => import("@/pages/RiskManagement")) as any;
+const Settings = React.lazy(() => import("@/pages/Settings")) as any;
+const Wallet = React.lazy(() => import("@/components/Wallet").then((m) => ({ default: m.Wallet }))) as any;
 const Staking = React.lazy(() =>
   import("@/components/Staking").then((m) => ({ default: m.Staking }))
-);
-const NotFound = React.lazy(() => import("@/pages/not-found"));
-const TradingBots = React.lazy(() => import("@/pages/TradingBots"));
-const DEXTrading = React.lazy(() => import("@/pages/DEXTrading"));
-const Wallets = React.lazy(() => import("@/pages/Wallets"));
+) as any;
+const NotFound = React.lazy(() => import("@/pages/not-found")) as any;
+const TradingBots = React.lazy(() => import("@/pages/TradingBots")) as any;
+const DEXTrading = React.lazy(() => import("@/pages/DEXTrading")) as any;
+const Wallets = React.lazy(() => import("@/pages/Wallets")) as any;
 const Marketplace = React.lazy(() =>
   import("@/components/Marketplace").then((m) => ({ default: m.Marketplace }))
-);
+) as any;
 const TraderProfile = React.lazy(() =>
   import("@/components/TraderProfile").then((m) => ({ default: m.TraderProfile }))
-);
+) as any;
 const IndicatorMarketplace = React.lazy(() =>
   import("@/components/IndicatorMarketplace").then((m) => ({ default: m.IndicatorMarketplace }))
-);
+) as any;
 const AdvancedChartingTerminal = React.lazy(() =>
   import("@/components/AdvancedChartingTerminal").then((m) => ({ default: m.AdvancedChartingTerminal }))
-);
-const AdminAnalytics = React.lazy(() => import("@/pages/AdminAnalytics"));
-const DeveloperAnalytics = React.lazy(() => import("@/pages/DeveloperAnalytics"));
-const ProviderAnalytics = React.lazy(() => import("@/pages/ProviderAnalytics"));
-const SLADashboard = React.lazy(() => import("@/pages/SLADashboard"));
-const DashboardBuilder = React.lazy(() => import("@/pages/DashboardBuilder"));
-const TraceVisualization = React.lazy(() => import("@/pages/TraceVisualization"));
-const TreasuryDashboard = React.lazy(() => import("@/pages/TreasuryDashboard"));
-const TaxReporting = React.lazy(() => import("@/pages/TaxReporting"));
+) as any;
+const AdminAnalytics = React.lazy(() => import("@/pages/AdminAnalytics")) as any;
+const DeveloperAnalytics = React.lazy(() => import("@/pages/DeveloperAnalytics")) as any;
+const ProviderAnalytics = React.lazy(() => import("@/pages/ProviderAnalytics")) as any;
+const SLADashboard = React.lazy(() => import("@/pages/SLADashboard")) as any;
+const DashboardBuilder = React.lazy(() => import("@/pages/DashboardBuilder")) as any;
+const TraceVisualization = React.lazy(() => import("@/pages/TraceVisualization")) as any;
+const TreasuryDashboard = React.lazy(() => import("@/pages/TreasuryDashboard")) as any;
+const TaxReporting = React.lazy(() => import("@/pages/TaxReporting")) as any;
 
 // Loading component for lazy-loaded routes
 import { OptimizedLoading } from "@/components/OptimizedLoading";

@@ -220,7 +220,7 @@ export function AITradingAssistant() {
       </CardHeader>
       <CardContent className="flex-1 flex flex-col min-h-0">
         {/* Messages */}
-        <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef as any}>
           <div className="space-y-4">
             {messages.map((message) => (
               <div

@@ -58,7 +58,7 @@ export function OptimizedAccordion({
         <AccordionItem key={section.value} value={section.value} disabled={section.disabled}>
           <AccordionTrigger>{section.title}</AccordionTrigger>
           <AccordionContent>
-            {lazy && !openSections.has(section.value) ? null : section.content}
+            {lazy && !openSections.has(section.value) ? null : (section.content as any)}
           </AccordionContent>
         </AccordionItem>
       ))}
