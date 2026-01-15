@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => ({
       "@shared": path.resolve(__dirname, "../shared"),
       // Stub Node.js modules for browser
       util: path.resolve(__dirname, "./src/utils/polyfills/util.js"),
+      buffer: "buffer",
     },
   },
   build: {
