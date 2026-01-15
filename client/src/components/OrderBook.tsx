@@ -66,6 +66,63 @@ export const OrderBook = React.memo(function OrderBook({ bids, asks, spread, isL
           </div>
         </div>
 
+        <ScrollArea className="h-[200px] modern-scrollbar">
+          {!hasData || asks.length === 0 ? (
+            <div className="px-4 py-8 text-center text-muted-foreground text-sm italic font-mono">
+              // Loading sell orders...
+            </div>
+          ) : (
+            <div className="px-2 space-y-0.5 py-2" role="list">
+              {asks.slice().reverse().map((ask, idx) => (
+                <div
+                  key={`ask-${idx}`}
+                  className="grid grid-cols-3 text-xs font-mono py-1 px-2 rounded-none border border-transparent hover:border-red-500/30 hover:bg-red-500/5 transition-colors cursor-pointer group"
+                  data-testid={`orderbook-ask-${idx}`}
+                  role="listitem"
+                  aria-label={`Ask order ${idx + 1}: ${ask.amount} at $${ask.price.toLocaleString()}, total $${ask.total.toLocaleString()}`}
+                  tabIndex={0}
+                >
+                  <div className="text-red-400 font-bold group-hover:translate-x-1 transition-transform origin-left">
+                    {ask.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-right text-foreground font-medium">{ask.amount.toFixed(4)}</div>
+                  <div className="text-right text-muted-foreground/70">
+                    {ask.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+
+        <div className="px-4 py-3 border-y border-primary/10 bg-primary/5">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground font-black uppercase tracking-tighter font-mono">Spread</span>
+            <span className="font-mono font-black text-primary drop-shadow-[0_0_5px_rgba(34,197,94,0.5)]" data-testid="text-spread">
+              ${spread.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        <ScrollArea className="h-[200px] modern-scrollbar">
+          {!hasData || bids.length === 0 ? (
+            <div className="px-4 py-8 text-center text-muted-foreground text-sm italic font-mono">
+              // Loading buy orders...
+            </div>
+          ) : (
+            <div className="px-2 space-y-0.5 py-2" role="list">
+              {bids.map((bid, idx) => (
+                <div
+                  key={`bid-${idx}`}
+                  className="grid grid-cols-3 text-xs font-mono py-1 px-2 rounded-none border border-transparent hover:border-green-500/30 hover:bg-green-500/5 transition-colors cursor-pointer group"
+                  data-testid={`orderbook-bid-${idx}`}
+                  role="listitem"
+                  aria-label={`Bid order ${idx + 1}: ${bid.amount} at $${bid.price.toLocaleString()}, total $${bid.total.toLocaleString()}`}
+                  tabIndex={0}
+                >
+                  <div className="text-green-400 font-bold group-hover:translate-x-1 transition-transform origin-left">
+                    {bid.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                   <div className="text-right text-foreground font-medium">{bid.amount.toFixed(4)}</div>
                   <div className="text-right text-muted-foreground/70">
                     {bid.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
