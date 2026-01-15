@@ -2,7 +2,7 @@ import os
 import sys
 
 from granian import Granian
-from granian.constants import Interfaces, Loops, ThreadModes
+from granian.constants import Interfaces, Loops
 
 # Add parent directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,8 +32,7 @@ def main():
         port=port,
         interface=Interfaces.ASGI,
         workers=workers,
-        threads=1,  # GIL safety for Python-heavy apps
-        threading_mode=ThreadModes.workers,
+        threads=1,
         loop=Loops.auto,
         log_access=True,
         log_level="info",
