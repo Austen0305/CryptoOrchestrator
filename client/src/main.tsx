@@ -11,6 +11,7 @@ import { AuthProvider } from '@/hooks/useAuth'
 import { TradingModeProvider } from '@/contexts/TradingModeContext'
 import { AccessibilityProvider } from '@/components/AccessibilityProvider'
 import { UserDataLoader } from '@/components/UserDataLoader'
+import { ThemeProvider } from '@/components/ThemeProvider'
 
 // Initialize Query Client with 2026 standard settings
 const queryClient = new QueryClient({
@@ -51,9 +52,11 @@ if (!rootElement.innerHTML) {
           <AuthProvider>
             <AccessibilityProvider>
               <TradingModeProvider>
-                <UserDataLoader>
-                  <RouterProvider router={router} />
-                </UserDataLoader>
+                <ThemeProvider defaultTheme="dark">
+                  <UserDataLoader>
+                    <RouterProvider router={router} />
+                  </UserDataLoader>
+                </ThemeProvider>
               </TradingModeProvider>
             </AccessibilityProvider>
           </AuthProvider>
