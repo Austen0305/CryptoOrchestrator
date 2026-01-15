@@ -41,7 +41,7 @@ export function OptimizedDialog({
 }: OptimizedDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+      {trigger ? <DialogTrigger asChild>{trigger as any}</DialogTrigger> : null}
       <DialogContent className={cn(className)}>
         {(title || description) && (
           <DialogHeader>
@@ -56,7 +56,7 @@ export function OptimizedDialog({
         ) : (
           (children as any)
         )}
-        {footer && <DialogFooter>{footer}</DialogFooter>}
+        {footer ? <DialogFooter>{footer as any}</DialogFooter> : null}
       </DialogContent>
     </Dialog>
   );

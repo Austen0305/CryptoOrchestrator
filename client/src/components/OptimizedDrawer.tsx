@@ -61,7 +61,7 @@ export function OptimizedDrawer({
             children
           )}
         </div>
-        {footer && <DrawerFooter>{footer as any}</DrawerFooter>}
+        {footer ? <DrawerFooter>{footer as any}</DrawerFooter> : null}
       </DrawerContent>
     </Drawer>
   );
