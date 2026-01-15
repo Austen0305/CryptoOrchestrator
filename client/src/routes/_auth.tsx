@@ -27,7 +27,8 @@ function AuthLayout() {
 
   return (
     <SidebarProvider defaultOpen={true}>
-      <div className="flex min-h-screen w-full bg-background text-foreground font-feature-default">
+      <div className="flex min-h-screen w-full bg-background text-foreground font-feature-default selection:bg-primary selection:text-black">
+        <div className="scanline" />
         <AppSidebar />
         <main className="flex-1 flex flex-col min-h-screen overflow-hidden transition-all duration-300 ease-in-out relative z-0">
            <TradingHeader balance={portfolio?.totalBalance || 0} connected={true} />
