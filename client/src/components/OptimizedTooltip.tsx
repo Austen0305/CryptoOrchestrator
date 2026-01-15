@@ -65,9 +65,9 @@ export function OptimizedTooltip({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          {children}
+          {children as any}
         </TooltipTrigger>
-        <TooltipContent side={side}>{content}</TooltipContent>
+        <TooltipContent side={side}>{content as any}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

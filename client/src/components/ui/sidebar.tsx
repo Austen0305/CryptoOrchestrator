@@ -161,7 +161,7 @@ const SidebarGroupLabel = React.forwardRef<
     asChild?: boolean;
   }
 >(({ className, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? Slot : "div";
+  const Comp = (asChild ? Slot : "div") as any;
   return (
     <Comp
       ref={ref}
@@ -182,7 +182,7 @@ const SidebarGroupAction = React.forwardRef<
     asChild?: boolean;
   }
 >(({ className, asChild = false, ...props }, ref) => {
-  const Comp = asChild ? Slot : "button";
+  const Comp = (asChild ? Slot : "button") as any;
   return (
     <Comp
       ref={ref}
@@ -380,7 +380,7 @@ const SidebarMenuSubButton = React.forwardRef<
     isActive?: boolean;
   }
 >(({ asChild = false, size = "md", isActive, className, ...props }, ref) => {
-  const Comp = asChild ? Slot : "a";
+  const Comp = (asChild ? Slot : "a") as any;
 
   return (
     <Comp

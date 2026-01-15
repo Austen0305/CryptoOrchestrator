@@ -56,7 +56,7 @@ export function OptimizedModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        ref={contentRef}
+        ref={contentRef as any}
         className={sizeClasses[size]}
         aria-labelledby="modal-title"
         aria-describedby={description ? 'modal-description' : undefined}

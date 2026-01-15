@@ -62,7 +62,7 @@ export function OptimizedTabs({
             disabled={tab.disabled}
             className="flex items-center gap-2"
           >
-            {tab.icon}
+            {tab.icon as any}
             {tab.label}
           </TabsTrigger>
         ))}
@@ -73,7 +73,7 @@ export function OptimizedTabs({
         }
         return (
           <TabsContent key={tab.value} value={tab.value}>
-            {tab.content}
+            {tab.content as any}
           </TabsContent>
         );
       })}
