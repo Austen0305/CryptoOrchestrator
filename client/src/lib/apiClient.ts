@@ -25,7 +25,7 @@ class ApiClient {
     // Use backend URL (from env or default) if not provided
     if (!baseURL) {
       // Priority: window.__API_BASE__ (runtime override) > VITE_API_URL (build-time) > VITE_API_BASE_URL > default
-      const DEFAULT_API_URL = "https://gets-wise-sheets-rick.trycloudflare.com";
+      const DEFAULT_API_URL = "";
 
       const envBaseUrl =
         (typeof window !== "undefined" && (window as Window & { __API_BASE__?: string }).__API_BASE__) ||
@@ -33,8 +33,8 @@ class ApiClient {
         import.meta.env.VITE_API_BASE_URL ||
         DEFAULT_API_URL;
 
-      // Default to main FastAPI backend on port 8000.
-      const rawBaseUrl = envBaseUrl || "http://localhost:8000";
+      // Default to relative path (handled by Vercel rewrite or Vite proxy)
+      const rawBaseUrl = envBaseUrl || "";
       
       // Upgrade logic: If we are on HTTPS, ensuring the API is also HTTPS (unless it's localhost)
       let finalBaseUrl = rawBaseUrl;
